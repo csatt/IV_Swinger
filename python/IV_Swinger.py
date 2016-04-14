@@ -1,10 +1,11 @@
 #!/usr/bin/env python
+"""IV Swinger control module"""
 #
-################################################################################
+###############################################################################
 #
-# IV_Swinger.py: IV Swinger control program
+# IV_Swinger.py: IV Swinger control module
 #
-# Copyright (C) 2015  Chris Satterlee
+# Copyright (C) 2016  Chris Satterlee
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,23 +20,23 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-################################################################################
+###############################################################################
 #
 # The IV Swinger is an open source hardware and software project
 #
 # Permission to use the hardware design is granted under the terms of
 # the TAPR Open Hardware License Version 1.0 (May 25, 2007) -
 # http://www.tapr.org/OHL
-# 
+#
 # Permission to use the software is granted under the terms of the GNU
 # GPL v3 as noted above.
-# 
+#
 # Current versions of the licensing files, documentation, Fritzing file
 # (hardware description), and software can be found at:
-# 
-#    https://github.com/csatt/IV_Swinger 
 #
-################################################################################
+#    https://github.com/csatt/IV_Swinger
+#
+###############################################################################
 #
 # This file contains the Python code that controls the IV Swinger
 # hardware, captures measurements, and displays the results graphically.
@@ -89,7 +90,7 @@
 # measures the voltage and records the last value before it detects that
 # the switch was flipped - this is the Voc value.  Then it starts into a
 # loop of incrementally adding to the load value and at each increment
-# measuring and recording the current (I) and the voltage (V). 
+# measuring and recording the current (I) and the voltage (V).
 #
 # The ADS1115 analog-to-digital converter (ADC) is used for both the
 # voltage and current measurements.  The ADS1115 is also controlled and
@@ -97,9 +98,9 @@
 # PV panel can be much higher than the 5V maximum ADC input voltage, the
 # actual voltage that is fed to the ADC input is divided down from the
 # PV inputs using series resistors (classic voltage divider).  The
-# software then scales that back up to the original voltage.  The
-# current measurement is actually a voltage measurement too - across a
-# low resistance (7.5 milliohm) "shunt resistor".  The current is
+# software then scales that back up to calculate the original voltage.
+# The current measurement is actually a voltage measurement too - across
+# a low resistance (7.5 milliohm) "shunt resistor".  The current is
 # calculated from Ohm's Law using the measured voltage and the known
 # precision resistance of the shunt resistor.  This voltage is very
 # small however (75mV for 10A) so it is amplified using a simple (and
@@ -136,8 +137,8 @@
 # are only two added points relative to coarse mode.  For this reason,
 # the default is fine mode.  Coarse mode should probably be removed, but
 # it has been left in.  The user can toggle the mode by pressing the
-# pushbutton briefly.
-##
+# pushbutton briefly (if the fine_mode_toggle property is set to True).
+#
 # The recorded values are written to a CSV file on both the Raspberry
 # Pi's SD card file system and also on one or more USB thumb drives.
 # The USB thumb drive(s) can then be removed and inserted in an external
@@ -161,64 +162,44 @@
 # program initiates a shutdown of the Raspberry Pi.  There is also a
 # shutdown pushbutton switch that is monitored at all times; when it is
 # pressed and held for more than 3 seconds the program does an immediate
-# shutdown of the Raspberry Pi.
+# shutdown of the Raspberry Pi. Also if an unexpected exception is
+# taken, the Raspberry Pi is shut down after a short delay.
 #
-import sys, os, traceback, math, glob, shutil, threading
-from time import sleep, time
-from subprocess import call
-from datetime import datetime
+import Queue
+import datetime as dt
+import glob
+import math
+import numpy
+import os
+import shutil
+import subprocess
+import sys
+import threading
+import time
+import traceback
+
+import Adafruit_ADS1x15
+import Adafruit_CharLCD
+import Adafruit_MCP230xx
 import RPi.GPIO as GPIO
-from Adafruit_MCP230xx import *
-from Adafruit_ADS1x15 import ADS1x15
-from Adafruit_CharLCD import Adafruit_CharLCD
-from PyPDF2 import PdfFileMerger
+
 
 #################
-### Constants ###
+#   Constants   #
 #################
-
-# Diagnostic mode control
-DIAG_MODE = False
-
-# Headless mode control
-HEADLESS_MODE = True
-IDLE_TIMEOUT_SECONDS = 600
-IDLE_TIMEOUT_WARNING_SECONDS = 30
-
-# FINE MODE control
-#
-# FINE mode produces better results but wears out the HALF relay faster.
-# However, with the adaptive algorithm that only adds the half steps
-# where the curve is bending, most runs only add two extra points in
-# FINE mode, so we'll go with this as the default now. If
-# FINE_MODE_TOGGLE is True, pushbutton can be used to toggle mode.
-FINE_MODE = True
-FINE_MODE_TOGGLE = False
 
 # GPIO defines
-DPST_GPIO = 4       # DPST switch is connected to GPIO 04 (BCM)
 DPST_ON = True
 DPST_OFF = False
-BUTTON_GPIO = 5     # Pushbutton is connected to GPIO 05 (BCM)
 BUTTON_ON = True
 BUTTON_OFF = False
-BUTTON_TIME_FOR_SHUTDOWN = 3
-BUZZER_GPIO = 18    # Piezo buzzer is connected to GPIO 18 (BCM)
-
-# LCD display defines
-LCD_LINES = 2
-LCD_DISPLAY_CHARS_PER_LINE = 16
-LCD_MEM_CHARS_PER_LINE = 40
-LCD_CHARS_PER_SCROLL = 4  # Must be integer divisor of 24 (1,2,3,4,6,8,12)
-LCD_SCROLL_DELAY = 1.2
 
 # I/O extender (MCP23017 on Slice of PI/O) defines
-MCP23017_I2C_ADDR  = 0x20  # Slice of PI/O jumpered to default
-MCP23017_PIN_COUNT = 16    # MCP23017 is 16 GPIO extension
+MCP23017_PIN_COUNT = 16   # MCP23017 is 16 GPIO extension
 
 # Relay defines
-RELAY_OFF      = 1  # Relays are active low
-RELAY_ON       = 0
+RELAY_OFF = 1  # Relays are active low
+RELAY_ON = 0
 ALL_RELAYS_OFF = 0xFFFF
 
 # Load pattern defines
@@ -232,67 +213,67 @@ ALL_RELAYS_OFF = 0xFFFF
 # parallel (3 ohms).  Number 13 is one 6 ohm resistor.  Number 14 is two
 # in series (12 ohms).
 #
-NONE                = 0x0000  # No loads selected.  Resistance is only relays/wires
-HALF_ONLY           = 0x8000
-OPEN_ONLY           = 0x4000
-ONE_ONLY            = 0x2000
-TWO_ONLY            = 0x1000
-THREE_ONLY          = 0x0800
-FOUR_ONLY           = 0x0400
-FIVE_ONLY           = 0x0200
-SIX_ONLY            = 0x0100
-SEVEN_ONLY          = 0x0080
-EIGHT_ONLY          = 0x0040
-NINE_ONLY           = 0x0020
-TEN_ONLY            = 0x0010
-ELEVEN_ONLY         = 0x0008
-TWELVE_ONLY         = 0x0004
-THIRTEEN_ONLY       = 0x0002
-FOURTEEN_ONLY       = 0x0001
+NONE = 0x0000  # No loads selected. Resistance is only relays/wires
+HALF_ONLY = 0x8000
+OPEN_ONLY = 0x4000
+ONE_ONLY = 0x2000
+TWO_ONLY = 0x1000
+THREE_ONLY = 0x0800
+FOUR_ONLY = 0x0400
+FIVE_ONLY = 0x0200
+SIX_ONLY = 0x0100
+SEVEN_ONLY = 0x0080
+EIGHT_ONLY = 0x0040
+NINE_ONLY = 0x0020
+TEN_ONLY = 0x0010
+ELEVEN_ONLY = 0x0008
+TWELVE_ONLY = 0x0004
+THIRTEEN_ONLY = 0x0002
+FOURTEEN_ONLY = 0x0001
 
-HALF                = NONE     + HALF_ONLY      # 1/2 unit load selected
-ONE                 = NONE     + ONE_ONLY       # 1 unit load selected
-TWO                 = ONE      + TWO_ONLY       # 2 unit loads selected
-THREE               = TWO      + THREE_ONLY     # 3 unit loads selected
-FOUR                = THREE    + FOUR_ONLY      # 4 unit loads selected
-FIVE                = FOUR     + FIVE_ONLY      # 5 unit loads selected
-SIX                 = FIVE     + SIX_ONLY       # 6 unit loads selected
-SEVEN               = SIX      + SEVEN_ONLY     # 7 unit loads selected
-EIGHT               = SEVEN    + EIGHT_ONLY     # 8 unit loads selected
-NINE                = EIGHT    + NINE_ONLY      # 9 unit loads selected
-TEN                 = NINE     + TEN_ONLY       # 10 unit loads selected
-ELEVEN              = TEN      + ELEVEN_ONLY    # 11 unit loads selected
-TWELVE              = ELEVEN   + TWELVE_ONLY    # 11 unit loads + 3 ohm load selected
-THIRTEEN            = TWELVE   + THIRTEEN_ONLY  # 11 unit loads + 3 ohm + 6 ohm loads selected
-FOURTEEN            = THIRTEEN + FOURTEEN_ONLY  # 11 unit loads + 3 ohm + 6 ohm + 12 ohm loads selected
+HALF = NONE + HALF_ONLY               # 1/2 unit load selected
+ONE = NONE + ONE_ONLY                 # 1 unit load selected
+TWO = ONE + TWO_ONLY                  # 2 unit loads selected
+THREE = TWO + THREE_ONLY              # 3 unit loads selected
+FOUR = THREE + FOUR_ONLY              # 4 unit loads selected
+FIVE = FOUR + FIVE_ONLY               # 5 unit loads selected
+SIX = FIVE + SIX_ONLY                 # 6 unit loads selected
+SEVEN = SIX + SEVEN_ONLY              # 7 unit loads selected
+EIGHT = SEVEN + EIGHT_ONLY            # 8 unit loads selected
+NINE = EIGHT + NINE_ONLY              # 9 unit loads selected
+TEN = NINE + TEN_ONLY                 # 10 unit loads selected
+ELEVEN = TEN + ELEVEN_ONLY            # 11 unit loads selected
+TWELVE = ELEVEN + TWELVE_ONLY         # 11 unit + 3 ohm loads
+THIRTEEN = TWELVE + THIRTEEN_ONLY     # 11 unit + 3 + 6 ohm loads
+FOURTEEN = THIRTEEN + FOURTEEN_ONLY   # 11 unit + 3 + 6+ 12 ohm loads
 
-ONE_AND_A_HALF      = ONE      + HALF           # 1.5 unit load selected
-TWO_AND_A_HALF      = TWO      + HALF           # 2.5 unit loads selected
-THREE_AND_A_HALF    = THREE    + HALF           # 3.5 unit loads selected
-FOUR_AND_A_HALF     = FOUR     + HALF           # 4.5 unit loads selected
-FIVE_AND_A_HALF     = FIVE     + HALF           # 5.5 unit loads selected
-SIX_AND_A_HALF      = SIX      + HALF           # 6.5 unit loads selected
-SEVEN_AND_A_HALF    = SEVEN    + HALF           # 7.5 unit loads selected
-EIGHT_AND_A_HALF    = EIGHT    + HALF           # 8.5 unit loads selected
-NINE_AND_A_HALF     = NINE     + HALF           # 9.5 unit loads selected
-TEN_AND_A_HALF      = TEN      + HALF           # 10.5 unit loads selected
-ELEVEN_AND_A_HALF   = ELEVEN   + HALF           # 11.5 unit loads selected
-TWELVE_AND_A_HALF   = TWELVE   + HALF           # 11.5 unit loads + 3 ohm load selected
-THIRTEEN_AND_A_HALF = THIRTEEN + HALF           # 11.5 unit loads + 3 ohm + 6 ohm loads selected
-FOURTEEN_AND_A_HALF = FOURTEEN + HALF           # 11.5 unit loads + 3 ohm + 6 ohm + 12 ohm loads selected
+ONE_AND_A_HALF = ONE + HALF            # 1.5 unit load selected
+TWO_AND_A_HALF = TWO + HALF            # 2.5 unit loads selected
+THREE_AND_A_HALF = THREE + HALF        # 3.5 unit loads selected
+FOUR_AND_A_HALF = FOUR + HALF          # 4.5 unit loads selected
+FIVE_AND_A_HALF = FIVE + HALF          # 5.5 unit loads selected
+SIX_AND_A_HALF = SIX + HALF            # 6.5 unit loads selected
+SEVEN_AND_A_HALF = SEVEN + HALF        # 7.5 unit loads selected
+EIGHT_AND_A_HALF = EIGHT + HALF        # 8.5 unit loads selected
+NINE_AND_A_HALF = NINE + HALF          # 9.5 unit loads selected
+TEN_AND_A_HALF = TEN + HALF            # 10.5 unit loads selected
+ELEVEN_AND_A_HALF = ELEVEN + HALF      # 11.5 unit loads selected
+TWELVE_AND_A_HALF = TWELVE + HALF      # 11.5 unit + 3 ohm load
+THIRTEEN_AND_A_HALF = THIRTEEN + HALF  # 11.5 unit + 3 + 6 ohm loads
+FOURTEEN_AND_A_HALF = FOURTEEN + HALF  # 11.5 unit + 3 + 6 + 12 ohm loads
 
 # In some cases where the ratio of Voc to Isc is high (e.g. low
 # insolation), it's better to start off with a "base" load using one or
 # more of the power resistors.  This pushes the fine grained sampling to
 # the right, where the knee of the curve is.
-BASE_0_OHM          = [NONE]
-BASE_3_OHM          = [TWELVE_ONLY]
-BASE_6_OHM          = [THIRTEEN_ONLY]
-BASE_9_OHM          = [THIRTEEN_ONLY, TWELVE_ONLY]
-BASE_12_OHM         = [FOURTEEN_ONLY]
-BASE_15_OHM         = [FOURTEEN_ONLY, TWELVE_ONLY]
-BASE_18_OHM         = [FOURTEEN_ONLY, THIRTEEN_ONLY]
-BASE_21_OHM         = [FOURTEEN_ONLY, THIRTEEN_ONLY, TWELVE_ONLY]
+BASE_0_OHM = [NONE]
+BASE_3_OHM = [TWELVE_ONLY]
+BASE_6_OHM = [THIRTEEN_ONLY]
+BASE_9_OHM = [THIRTEEN_ONLY, TWELVE_ONLY]
+BASE_12_OHM = [FOURTEEN_ONLY]
+BASE_15_OHM = [FOURTEEN_ONLY, TWELVE_ONLY]
+BASE_18_OHM = [FOURTEEN_ONLY, THIRTEEN_ONLY]
+BASE_21_OHM = [FOURTEEN_ONLY, THIRTEEN_ONLY, TWELVE_ONLY]
 
 # The 6 ohm resistors are rated at 50W.  We assume that they can handle
 # at least 100W for a couple seconds.  The 3 ohm load is two in
@@ -304,11 +285,11 @@ BASE_21_OHM         = [FOURTEEN_ONLY, THIRTEEN_ONLY, TWELVE_ONLY]
 #  THIRTEEN (6 ohm):  sqrt(100W/6ohm)  = 4 amps
 #  FOURTEEN (12 ohm): sqrt(200W/12ohm) = 4 amps
 #
-TWELVE_MAX_AMPS     = 8
-THIRTEEN_MAX_AMPS   = 4
-FOURTEEN_MAX_AMPS   = 4
+TWELVE_MAX_AMPS = 8
+THIRTEEN_MAX_AMPS = 4
+FOURTEEN_MAX_AMPS = 4
 
-coarse_load_list = [NONE,
+COARSE_LOAD_LIST = [NONE,
                     HALF,
                     ONE_AND_A_HALF,
                     TWO_AND_A_HALF,
@@ -325,7 +306,7 @@ coarse_load_list = [NONE,
                     THIRTEEN_AND_A_HALF,
                     FOURTEEN_AND_A_HALF]
 
-fine_load_list = [NONE,
+FINE_LOAD_LIST = [NONE,
                   HALF,
                   ONE_AND_A_HALF,
                   ONE,                # skip if prev is in line
@@ -353,7 +334,7 @@ fine_load_list = [NONE,
                   THIRTEEN_AND_A_HALF,
                   FOURTEEN_AND_A_HALF]
 
-diag_load_list = [NONE,
+DIAG_LOAD_LIST = [NONE,
                   HALF_ONLY,
                   OPEN_ONLY,
                   ONE_ONLY,
@@ -371,2011 +352,2948 @@ diag_load_list = [NONE,
                   THIRTEEN_ONLY,
                   FOURTEEN_ONLY]
 
-#TIME_BETWEEN_MEASUREMENTS = 0.2
-TIME_BETWEEN_MEASUREMENTS = 0.05
-SAMPLES_PER_MEASUREMENT = 2
-MAX_RETRIES = 0
-
-### Misc ###
+# Misc
 INFINITE_VAL = 99999999
-VOC_SETTLE_COUNT = 5
 
-### ADC ###
-ADS1115 = 0x01	# 16-bit ADC
+# ADC
+ADS1115 = 0x01  # 16-bit ADC
 
 # List of PGA gains (max +- mV)
-pga_list = [6144, 4096, 2048, 1024, 512, 256]
+PGA_LIST = [6144, 4096, 2048, 1024, 512, 256]
 
-# Select the sample rate
-sps_list = [8, 16, 64, 128, 250, 475, 860] # legal values
-sps = 250  # 250 samples per second
+# Data point list
+AMPS_INDEX = 0
+VOLTS_INDEX = 1
+OHMS_INDEX = 2
+WATTS_INDEX = 3
 
-### Voltage divider ###
-#
-# The voltage divider consists of 3 resistors rather than the typical 2:
-#
-#  PV+  ---O
-#          |
-#          |
-#          >           o +5V
-#          <  R1       |
-#          >          --- Schottky diode #1
-#          |           A
-#          |           |
-#          o-----------o----> ADC A0 input
-#          |           |
-#          |          --- Schottky diode #2
-#          |           A
-#          |           |
-#          >           o GND
-#          <  R2
-#          >
-#          |           o +5V
-#          |           |
-#          |          --- Schottky diode #3
-#          |           A
-#          |           |
-#          o-----------o----> ADC A1 input
-#          |           |
-#          |          --- Schottky diode #4
-#          >           A
-#          <  R3       |
-#          >           o GND
-#          |
-#          |
-#  PV-  ---O
-#
-# The ADC differential inputs A0 and A1 measure the voltage across
-# resistor R2.  The Schottky diode clamps assure that the voltage seen
-# at the ADC inputs cannot be greater than +5V (plus Vfwd of diode) or
-# less than 0V (minus Vfwd of diode). This protects the ADC inputs. The
-# reason for resistor R3 is to limit the current in the event that the
-# PV is connected backwards.  Without R3, if PV- is > +5V, current would
-# flow through Schottky diode #3 into the +5V rail and there might not
-# be enough load to sink that much current, which could damage the
-# battery pack.
-#
-# The equation for a three-resistor voltage divider where the output is
-# measured across the middle (R2) resistor is:
-#
-#              R2                           R1+R2+R3
-#   Vout = ---------- * Vin    OR    Vin = ---------- * Vout
-#           R1+R2+R3                           R2
-#
-# The ADC measures Vout and we want to know Vin, which is the PV
-# voltage. So we use the second equation.
-#
-VDIV_R1 = 178900.0 # 180k - tweaked based on DMM measurement
-VDIV_R2 = 8200.0   # 8.2k - tweaked based on DMM measurement
-VDIV_R3 = 5595.0   # 5.6k - tweaked based on DMM measurement
-VDIV_MULT = (VDIV_R1 + VDIV_R2 + VDIV_R3)/ VDIV_R2
-VDIV_CHP = 0
-VDIV_CHN = 1
-
-### Ammeter ###
-AMM_OP_AMP_RF = 82100.0  # Rf = 82k - tweaked based on DMM measurement
-AMM_OP_AMP_RG = 1499.0   # Rg = 1.5k - tweaked based on DMM measurement
-AMM_OP_AMP_GAIN = 1 + (AMM_OP_AMP_RF/AMM_OP_AMP_RG)
-AMM_SHUNT_MAX_VOLTS = 0.075
-AMM_SHUNT_MAX_AMPS = 10
-AMM_SHUNT_RESISTANCE = AMM_SHUNT_MAX_VOLTS / AMM_SHUNT_MAX_AMPS
-AMM_CHP = 2
-AMM_CHN = 3
-
-### Data point list ###
-AMPS_DATA_POINT = 0
-VOLTS_DATA_POINT = 1
-OHMS_DATA_POINT = 2
-WATTS_DATA_POINT = 3
-
-### gnuplot ###
-PLOT_IDEAL_CURVE = 0
-PLOT_INTERPOLATED_CURVE = 1
-PLOT_SMOOTHED_CURVE = 0
 
 #################
-### Classes   ###
+#   Classes     #
 #################
+
+# The PrintAndLog class
+class PrintAndLog(object):
+    """Provides printing and logging methods"""
+
+    # Class variables (must be set externally before instantiation)
+    log_file_name = None
+
+    def __init__(self):
+        if PrintAndLog.log_file_name is None:
+            print "log_file_name class variable is not initialized!!"
+            exit(-1)
+
+    def log(self, print_str):
+        """Print to the log file only"""
+
+        # Print to log file with timestamp
+        date_time_str = dt.datetime.now().strftime('%y%m%d_%H_%M_%S')
+        with open(PrintAndLog.log_file_name, "a") as f:
+            f.write("\n" + date_time_str + ": " + print_str)
+
+    def print_and_log(self, print_str):
+        """Print to the screen (if there is one) and also to a log file
+        """
+
+        # Print to screen
+        print print_str
+
+        # Print to log file with timestamp
+        self.log(print_str)
+
+
+# The BeepGenerator class
+class BeepGenerator(object):
+    """Generates beeps from the piezo buzzer"""
+
+    # Class variables (must be set externally before instantiation)
+    buzzer_gpio = None
+
+    def __init__(self):
+        if BeepGenerator.buzzer_gpio is None:
+            print "buzzer_gpio class variable is not initialized!!"
+            exit(-1)
+
+    def generate_beep(self, on_time=0.2, off_time=0.1, stop_event=None):
+        """Method to activate the piezo buzzer to generate a loud
+        beep. When called in a loop, the beep pulses in a warning
+        pattern. The on_time arg is the amount of time in seconds that
+        the buzzer is on (0.1 second resolution) and the off_time arg is
+        the amount of time in seconds to wait after turning it off.  If
+        the stop_event arg is not None, it must be a threading.Event()
+        object in which case it is checked every 0.1 second during the
+        on time and off time and if set, the method returns immediately.
+        """
+        # Calculate number of 0.1 second loops for both on and off
+        on_loops = 1
+        if on_time > 0.1:
+            on_loops = int(on_time / 0.1)
+
+        off_loops = 1
+        if off_time > 0.1:
+            off_loops = int(off_time / 0.1)
+
+        # Turn on buzzer
+        GPIO.output(BeepGenerator.buzzer_gpio, True)
+
+        # Wait for on_time
+        for _ in xrange(on_loops):
+            # bail out now if stop event is set
+            if stop_event is not None and stop_event.is_set():
+                continue
+            time.sleep(0.1)
+
+        # Turn off buzzer
+        GPIO.output(BeepGenerator.buzzer_gpio, False)
+
+        # Wait for off_time
+        for _ in xrange(off_loops):
+            # bail out now if stop event is set
+            if stop_event is not None and stop_event.is_set():
+                continue
+            time.sleep(0.1)
+
 
 # The StoppableThread class is from pibrella.py
 # (https://github.com/pimoroni/pibrella).
-
-## Basic stoppable thread wrapper (from pibrella.py on
-## https://github.com/pimoroni/pibrella).
 #
-#  Adds Event for stopping the execution loop and exiting cleanly.
 class StoppableThread(threading.Thread):
+    """Adds Event for stopping the execution loop and exiting cleanly.
+    """
     def __init__(self):
         threading.Thread.__init__(self)
         self.stop_event = threading.Event()
         self.daemon = True
 
     def start(self):
-        if self.isAlive() == False:
+        """Start the thread"""
+        if not self.isAlive():
             self.stop_event.clear()
             threading.Thread.start(self)
 
     def stop(self):
-        if self.isAlive() == True:
+        """Stop the thread"""
+        if self.isAlive():
             # set event to signal thread to terminate
             self.stop_event.set()
             # block calling thread until thread really has terminated
             self.join()
 
-## Class to continuously scroll a message until signalled to stop
+
+#  Class to continuously scroll a message until signalled to stop
 #
-#  Subclass of StoppableThread that calls the scrolling_message function
+#  Subclass of StoppableThread that calls the scrolling_message method
 #  until signalled to stop. The text parameter accepts either a single
 #  string or a list of strings.  In the latter case, each string in the
 #  list is displayed in sequence with scrolling.
+#
+#  The exc_queue parameter is a Queue object. If the thread takes an
+#  exception, the exception info is placed into the queue so the main
+#  thread knows that something went wrong.
+#
 class ScrollingMessage(StoppableThread):
-    def __init__(self, text, lcd, beep, lock):
+    """Class to continuously scroll a message until signalled to stop"""
+
+    # Class variables (must be set externally before instantiation)
+    lcd_lines = None
+    lcd_disp_chars_per_line = None
+    lcd_mem_chars_per_line = None
+    lcd_chars_per_scroll = None
+    lcd_scroll_delay = None
+
+    def __init__(self, text, lcd, beep, lock, exc_queue):
         StoppableThread.__init__(self)
         self.text = text
         self.lcd = lcd
         self.beep = beep
         self.lock = lock
+        self.exc_queue = exc_queue
+        self.logger = PrintAndLog()
+        self.beeper = BeepGenerator()
+
+        err_var = None
+        if ScrollingMessage.lcd_lines is None:
+            err_var = "lcd_lines"
+        elif ScrollingMessage.lcd_disp_chars_per_line is None:
+            err_var = "lcd_disp_chars_per_line"
+        elif ScrollingMessage.lcd_mem_chars_per_line is None:
+            err_var = "lcd_mem_chars_per_line"
+        elif ScrollingMessage.lcd_chars_per_scroll is None:
+            err_var = "lcd_chars_per_scroll"
+        elif ScrollingMessage.lcd_scroll_delay is None:
+            err_var = "lcd_scroll_delay"
+        if err_var is not None:
+            err_msg = ("ERROR: " + err_var + "class variable "
+                       "is not initialized!! ")
+            self.logger.print_and_log(err_msg)
+            self.exc_queue.put(err_msg)
+            exit(-1)
+
+    def scrolling_message(self, text, repeat_count=0):
+        """Method to display a longer message on the 16x2 LCD display.
+        The message must be 80 or fewer characters, and if it contains a
+        \n, there must be 40 or fewer characters before and after the
+        \n.  The 16x2 LCD display has memory for 40 characters per line,
+        but only shows 16.  This method scrolls the message left once
+        (unless repeat_count is non-zero) so that the whole message can
+        be read. If the caller doesn't include a \n, the first line will
+        contain the first 40 characters and the second will contain the
+        remainder, with the split not necesssarily coming between words.
+        If the beep arg is set, sound the beep once per repetition.  If
+        the stop_event arg is not None, it must be a threading.Event()
+        object in which case it is checked during the scrolling and if
+        set, the display is returned to the home position and the method
+        returns immediately.  If the lock arg is not None, it must be a
+        threading.Lock() object in which case it is acquired and
+        released around each LCD object method call.  The first of these
+        is blocking, but the others are non-blocking.  For those that
+        are non-blocking, the method returns if the lock is not
+        acquired.
+        """
+
+        # Init variables
+        char_count = [0, 0]  # List containing character counts for each line
+        line = 0
+        newline_count = 0
+
+        # Count characters per line and check that there is no more than one
+        # newline
+        for char in text:
+            if char == '\n':
+                line = 1
+                newline_count += 1
+                if newline_count > 1:
+                    err_msg = ("ERROR (scrolling_message): "
+                               "More than two lines in text:\n" + text)
+                    self.logger.print_and_log(err_msg)
+                    self.exc_queue.put(err_msg)
+                    exit(-1)
+            else:
+                char_count[line] += 1
+
+        # Check character limits (40 per line or 80 total)
+        if char_count[1] > 0:
+            if char_count[0] > ScrollingMessage.lcd_mem_chars_per_line:
+                err_msg = ("ERROR (scrolling_message): >40 characters "
+                           "before newline in text:\n" + text)
+                self.logger.print_and_log(err_msg)
+                self.exc_queue.put(err_msg)
+                exit(-1)
+            elif char_count[1] > ScrollingMessage.lcd_mem_chars_per_line:
+                err_msg = ("ERROR (scrolling_message): "
+                           ">40 characters after newline in text:\n" + text)
+                self.logger.print_and_log(err_msg)
+                self.exc_queue.put(err_msg)
+                exit(-1)
+        elif char_count[0] > (ScrollingMessage.lcd_lines *
+                              ScrollingMessage.lcd_mem_chars_per_line):
+            err_msg = ("ERROR (scrolling_message): "
+                       ">80 characters in text:\n" + text)
+            self.logger.print_and_log(err_msg)
+            self.exc_queue.put(err_msg)
+            exit(-1)
+
+        # Determine maximum number of characters in longer line and number
+        # of hidden characters in that line
+        if char_count[0] > ScrollingMessage.lcd_mem_chars_per_line:
+            max_chars = ScrollingMessage.lcd_mem_chars_per_line
+        elif char_count[0] > char_count[1]:
+            max_chars = char_count[0]
+        else:
+            max_chars = char_count[1]
+        hidden_chars = max_chars - ScrollingMessage.lcd_disp_chars_per_line
+
+        # Calculate the number of scrolls needed to show hidden characters
+        float_chars_per_scroll = float(ScrollingMessage.lcd_chars_per_scroll)
+        num_scrolls = int(math.ceil(hidden_chars / float_chars_per_scroll))
+
+        # Display the message unscrolled for a short time
+        if self.lock is None:
+            self.lcd.clear()
+            self.lcd.message(text)
+        else:
+            with self.lock:
+                self.lcd.clear()
+                self.lcd.message(text)
+        if self.beep:
+            self.beeper.generate_beep()
+        time.sleep(ScrollingMessage.lcd_scroll_delay)
+
+        # Scroll the message the calculated number of times and repeat the
+        # whole thing the requested number of times
+        for _ in xrange(repeat_count + 1):
+            for _ in xrange(num_scrolls):
+                for _ in xrange(ScrollingMessage.lcd_chars_per_scroll):
+                    got_lock = True
+                    if self.lock is not None:
+                        got_lock = self.lock.acquire(0)  # non-blocking
+                    if got_lock:
+                        # shift left once
+                        self.lcd.DisplayLeft()
+                        if self.lock is not None:
+                            self.lock.release()
+                    else:
+                        return
+                # bail out now if stop event is set
+                if self.stop_event and self.stop_event.is_set():
+                    self.lcd.home()
+                    return
+                # pause so it's visible
+                time.sleep(ScrollingMessage.lcd_scroll_delay)
+            got_lock = True
+            if self.lock is not None:
+                got_lock = self.lock.acquire(0)  # non-blocking
+            if got_lock:
+                # back to beginning of message
+                self.lcd.home()
+                if self.lock is not None:
+                    self.lock.release()
+            else:
+                return
+
+            if repeat_count:
+                # bail out now if stop event is set
+                if self.stop_event and self.stop_event.is_set():
+                    return
+                if self.beep:
+                    self.beeper.generate_beep()
+                # pause before next repetition
+                time.sleep(ScrollingMessage.lcd_scroll_delay)
 
     def run(self):
         text_list = [self.text]
         if type(self.text) is list:
             text_list = self.text
-        while self.stop_event.is_set() == False:
+        while not self.stop_event.is_set():
             for text in text_list:
-                scrolling_message(text, self.lcd, self.stop_event,
-                                  repeat_count=0, beep=self.beep,
-                                  lock=self.lock)
+                try:
+                    self.scrolling_message(text, repeat_count=0)
+                except:
+                    self.logger.print_and_log("Unexpected error: " +
+                                              str(sys.exc_info()[0]))
+                    self.logger.print_and_log(traceback.format_exc())
+                    self.exc_queue.put("Exception in scrolling_message")
+                    exit(-1)
 
-## Class to continuously sound a warning until signalled to stop
+
+#  Class to continuously sound a warning until signalled to stop
 #
-#  Subclass of StoppableThread that calls the generate_beep function
-#  until signalled to stop
+#  Subclass of StoppableThread that calls the generate_beep method until
+#  signalled to stop
 class SoundWarning(StoppableThread):
+    """Class to continuously sound a warning until signalled to stop"""
     def __init__(self, on_time, off_time):
         StoppableThread.__init__(self)
         self.on_time = on_time
         self.off_time = off_time
+        self.off_time = off_time
+        self.beeper = BeepGenerator()
 
     def run(self):
-        while self.stop_event.is_set() == False:
-            generate_beep(self.on_time, self.off_time, self.stop_event)
-
-
-#################
-### Functions ###
-#################
-
-# ------------------------------------------------------------------------------
-def print_and_log(print_str):
-    """Function to print to the screen (if there is one) and also to a
-log file
-"""
-    global log_file_name
-
-    # Print to screen
-    print print_str
-
-    # Print to log file with timestamp
-    date_time_str = datetime.now().strftime('%y%m%d_%H_%M_%S')
-    with open(log_file_name, "a") as f:
-        f.write("\n" + date_time_str + ": " + print_str);
-
-
-# -----------------------------------------------------------------------------
-def log(print_str):
-    """Function to print to the log file only
-"""
-    global log_file_name
-
-    # Print to log file with timestamp
-    date_time_str = datetime.now().strftime('%y%m%d_%H_%M_%S')
-    with open(log_file_name, "a") as f:
-        f.write("\n" + date_time_str + ": " + print_str);
-
-
-# ------------------------------------------------------------------------------
-def set_up_gpio():
-    """Function to set up the GPIO pins"""
-
-    # Set GPIO pin numbering to BCM mode
-    GPIO.setmode(GPIO.BCM)
-
-    # Set GPIO pin connected to DPST switch to be an input
-    GPIO.setup(DPST_GPIO, GPIO.IN)
-
-    # Set GPIO pin connected to pushbutton switch to be an input and
-    # register its callback function
-    GPIO.setup(BUTTON_GPIO, GPIO.IN)
-    GPIO.add_event_detect(BUTTON_GPIO, GPIO.RISING,
-                          callback=pushbutton_callback,
-                          bouncetime=300)
-
-    # Set GPIO pin connected to piezo buzzer to be an output
-    GPIO.setup(BUZZER_GPIO, GPIO.OUT)
-    GPIO.output(BUZZER_GPIO, False)
-
-# ------------------------------------------------------------------------------
-def pushbutton_callback (channel):
-    """Callback function invoked when the pushbutton switch is pressed"""
-    global global_lock, FINE_MODE, FINE_MODE_TOGGLE
-
-    # Filter out phantom presses
-    if GPIO.input(BUTTON_GPIO) == DPST_OFF:
-        return
-
-    # Acquire the global lock
-    global_lock.acquire()
-
-    # Reset the LCD just in case it is messed up
-    reset_lcd(lcd)
-
-    # Create the ScrollingMessage object with lock=None so we don't
-    # deadlock
-    msg_text = "Hold button %d s\nto shut down" % BUTTON_TIME_FOR_SHUTDOWN
-    lcd_msg = ScrollingMessage(msg_text, lcd, beep=False, lock=None)
-    lcd_msg.start()
-
-    # If the button is still pressed, time how long it is pressed - up
-    # to BUTTON_TIME_FOR_SHUTDOWN seconds.
-    start_time = time.time()
-    pressed_time = 0
-    while (GPIO.input(BUTTON_GPIO) == DPST_ON and
-           pressed_time < BUTTON_TIME_FOR_SHUTDOWN):
-        pressed_time = time.time() - start_time
-
-    # Stop the message
-    lcd_msg.stop()
-
-    # If the button was pressed for at least BUTTON_TIME_FOR_SHUTDOWN
-    # seconds, print a dying message and shut down the RPi.  Otherwise,
-    # print a message that the button was released before the shutdown
-    # was initiated and toggle FINE_MODE.
-    if pressed_time >= BUTTON_TIME_FOR_SHUTDOWN:
-        msg_text = "Shutting down\nnow!!"
-        lcd_msg = ScrollingMessage(msg_text, lcd, beep=True, lock=None)
-        lcd_msg.start()
-        sleep(2)
-        os.system("shutdown -h now")
-        # The following are only needed if the previous line is
-        # commented out
-        lcd_msg.stop()
-        reset_lcd(lcd)
-        sleep(5)
-    else:
-        msg_text = ["Button released\nbefore %d seconds" % BUTTON_TIME_FOR_SHUTDOWN]
-        if FINE_MODE_TOGGLE:
-            if FINE_MODE:
-                FINE_MODE = False
-                msg_text.append("**COARSE MODE**")
-            else:
-                FINE_MODE = True
-                msg_text.append("**FINE MODE**")
-        lcd_msg = ScrollingMessage(msg_text, lcd, beep=True, lock=None)
-        lcd_msg.start()
-        sleep(1)
-        lcd_msg.stop()
-
-    # Release the global lock.
-    global_lock.release()
-
-    return
-
-# ------------------------------------------------------------------------------
-def reset_lcd(lcd):
-    """Function to reset the LCD"""
-    # Code taken from Adafruit_CharLCD constructor
-
-    lcd.write4bits(0x33)  # initialization
-    lcd.write4bits(0x32)  # initialization
-    lcd.write4bits(0x28)  # 2 line 5x7 matrix
-    lcd.write4bits(0x0C)  # turn cursor off 0x0E to enable cursor
-    lcd.write4bits(0x06)  # shift cursor right
-
-    lcd.displaycontrol = lcd.LCD_DISPLAYON | lcd.LCD_CURSOROFF | lcd.LCD_BLINKOFF
-
-    lcd.displayfunction = lcd.LCD_4BITMODE | lcd.LCD_1LINE | lcd.LCD_5x8DOTS
-    lcd.displayfunction |= lcd.LCD_2LINE
-
-    # Initialize to default text direction (for romance languages)
-    lcd.displaymode = lcd.LCD_ENTRYLEFT | lcd.LCD_ENTRYSHIFTDECREMENT
-    lcd.write4bits(lcd.LCD_ENTRYMODESET | lcd.displaymode)  # set the entry mode
-
-    lcd.clear()
-
-# ------------------------------------------------------------------------------
-def turn_off_all_relays(io_extender):
-    """Function to turn off all the relays"""
-    io_extender.write16(ALL_RELAYS_OFF)
-
-# ------------------------------------------------------------------------------
-def swizzle_byte(byte):
-    """Function to reverse the order of the bits in a byte"""
-
-    swizzled_byte = 0
-
-    for bit in range (0, 8):
-        swizzled_byte |= ((byte & (1 << bit)) >> bit) << (7 - bit)
-
-    return swizzled_byte
-
-# ------------------------------------------------------------------------------
-def swizzle_msb(value):
-    """Function to reverse the order of the bits in the
-upper byte of a 16-bit value
-"""
-
-    msb = (value & 0xFF00) >> 8
-    lsb = value & 0xFF
-
-    swizzled_msb = swizzle_byte(msb)
-
-    return (swizzled_msb << 8) | lsb
-
-# ------------------------------------------------------------------------------
-def set_relays_to_pattern(load_pattern, io_extender):
-    """Function to set the relays to the supplied load pattern,
-performing the appropriate inversion (for active-low inputs) and
-swizzling (for cabling quirk).
-"""
-    # Due to the fact that the "B" outputs are in the reverse order from
-    # the "A" outputs on the Slice of PI/O board, the upper byte is
-    # bit-swizzled.
-    io_extender.write16(swizzle_msb(~load_pattern))
-
-# ------------------------------------------------------------------------------
-def prime_relays(io_extender):
-    """Function to turn on each relay briefly (workaround for 'weak'
-relay issue.
-"""
-    prime_pattern = 0x8000
-    while prime_pattern:
-        set_relays_to_pattern(prime_pattern, io_extender)
-        sleep(0.02)
-        prime_pattern >>= 1
-    turn_off_all_relays(io_extender)
-
-# ------------------------------------------------------------------------------
-def generate_beep(on_time=0.2, off_time=0.1, stop_event=None):
-    """Function to activate the piezo buzzer to generate a loud
-beep. When called in a loop, the beep pulses in a warning pattern. The
-on_time arg is the amount of time in seconds that the buzzer is on (0.1
-second resolution) and the off_time arg is the amount of time in seconds
-to wait after turning it off.  If the stop_event arg is not None, it
-must be a threading.Event() object in which case it is checked every 0.1
-second during the on time and off time and if set, the function returns
-immediately.
-"""
-    # Calculate number of 0.1 second loops for both on and off
-    on_loops = 1
-    if on_time > 0.1:
-        on_loops = int(on_time/0.1)
-
-    off_loops = 1
-    if off_time > 0.1:
-        off_loops = int(off_time/0.1)
-
-    # Turn on buzzer
-    GPIO.output(BUZZER_GPIO, True)
-
-    # Wait for on_time
-    for loop in range(on_loops):
-        # bail out now if stop event is set
-        if stop_event and stop_event.is_set():
-            continue
-        sleep(0.1)
-
-    # Turn off buzzer
-    GPIO.output(BUZZER_GPIO, False)
-
-    # Wait for off_time
-    for loop in range(off_loops):
-        # bail out now if stop event is set
-        if stop_event and stop_event.is_set():
-            continue
-        sleep(0.1)
-
-# ------------------------------------------------------------------------------
-def prompt_and_wait_for_dpst_off(lcd):
-    """Function to prompt the user to turn off the DPST switch and poll
-until this occurs.  While polling, the warning pattern is sounded.
-"""
-    global global_lock
-
-    # Create warning thread object
-    warning_thread = SoundWarning(on_time=0.1, off_time=0.2)
-
-    # Create scrolling message thread object
-    msg_text = "Turn switch\nOFF now!!"
-    lcd_msg = ScrollingMessage(msg_text, lcd, beep=False, lock=global_lock)
-
-    if GPIO.input(DPST_GPIO) == DPST_ON:
-        print_and_log("**********************************************************")
-        print_and_log("Please turn the toggle switch OFF")
-        print_and_log("**********************************************************")
-
-        # start the warning and message threads
-        warning_thread.start() # start the warning thread
-        lcd_msg.start() # start the message thread
-
-        # wait for the switch to be turned on
-        while GPIO.input(DPST_GPIO) == DPST_ON:
-            sleep(0.2)
-
-        # stop the warning and message threads
-        warning_thread.stop()
-        lcd_msg.stop()
-
-# ------------------------------------------------------------------------------
-def read_adc(adc, chP=0, chN=1, starting_pga=6144):
-    """Wrapper function around the readADCDifferential function.  It
-first uses different PGA gain values until it finds the optimal range.
-The optimal range is the largest one where the reading is greater than
-1/3 of the range (or the smallest range if none of the larger ranges
-meets this criterion). Plus we need to avoid using a range that is too
-small to accomodate the reading. The assumption is that the ADC is most
-accurate when the reading is near the middle of the range. If a reading
-is slightly less than 1/3 of the range, it will be less than 2/3 of the
-next smaller range and therefore not at risk for exceeding that
-range. Once the optimal range has been determined, it takes several
-readings and returns the average value, in volts.  This obviously
-exploits the assumption for this application that the voltage at the ADC
-is fairly stable.
-"""
-
-    # Determine optimal PGA range and then sample voltage at that PGA
-    # gain value.  The pga_list has the largest range first and the
-    # smallest range last.
-    for pga in pga_list:
-        if pga > starting_pga:
-            continue
-        millivolts = adc.readADCDifferential(chP, chN, pga, sps)
-        #print_and_log("ChP: " + str(chP) + " ChN: " + str(chN) + "  PGA: " + str(pga) + "  mV: " + str(millivolts))
-        millivolt_sum = millivolt_max = millivolt_min = millivolt_avg = millivolts
-        if abs(millivolts) > pga / 3 or pga == pga_list[-1]:
-            for sample_num in range (0, SAMPLES_PER_MEASUREMENT - 1):
-                millivolts = adc.readADCDifferential(chP, chN, pga, sps)
-                #print_and_log("ChP: " + str(chP) + " ChN: " + str(chN) + "  PGA: " + str(pga) + "  mV: " + str(millivolts))
-                millivolt_sum += millivolts
-                if millivolts > millivolt_max:
-                    millivolt_max = millivolts
-                if millivolts < millivolt_min:
-                    millivolt_min = millivolts
-            millivolt_avg = millivolt_sum / SAMPLES_PER_MEASUREMENT
-            percent_in_range = abs((millivolt_avg / pga) * 100)
-            #print_and_log(" ====> ChP: " + str(chP) + "  ChN: " + str(chN) + "  PGA: " + str(pga) + "  mV: " + str(millivolt_avg) + "    " + str(percent_in_range) + "% of range")
-            break
-
-    percent_error = abs(((millivolt_max - millivolt_min) / millivolt_avg) * 100)
-    #print_and_log(" ====> ChP: " + str(chP) + "  ChN: " + str(chN) + "  PGA: " + str(pga) + "  mV: " + str(millivolt_avg) + "  +-" + str(percent_error) + "%")
-
-    # If the error is > 5%, force the return value to the min or max -
-    # whichever is closer to the average
-    if percent_error > 5:
-        if abs(millivolt_max - millivolt_avg) < abs(millivolt_min - millivolt_avg):
-            millivolt_avg = millivolt_max
-        else:
-            millivolt_avg = millivolt_min
-
-    # A measurement of smaller than +-1mV is assumed to be noise, and
-    # the actual voltage is 0
-    if abs(millivolt_avg) < 1:
-        millivolt_avg = 0
-
-    return millivolt_avg / 1000
-
-# ------------------------------------------------------------------------------
-def read_voc(adc):
-    """Function to read the current Voc voltage, but return 0 for
-voltages less than 300mV
-"""
-    voc_volts = VDIV_MULT * read_adc(adc, VDIV_CHP, VDIV_CHN, 6144)
-    if abs(voc_volts) < 0.300:
-        voc_volts = 0
-
-    return voc_volts
-
-# ------------------------------------------------------------------------------
-def measure_voc(adc, lcd, msg_text):
-    """Function to continually measure Voc (10 measurements/second).
-Once a stable measurement is achieved, the user is prompted to turn the
-DPST switch on.  Voc measurements continue to be taken until this
-happens (or until the idle timeout time has passed in which case the
-system is shut down).  The msg_text parameter should be a string or a
-list of strings to prompt the user to turn on the toggle switch once the
-Voc value is stable.  The reason it isn't hardcoded is so the message
-that is displayed for the first iteration can be different from the
-message displayed for subsequent iterations.  The passed value of
-msg_text gets overridden when the idle timeout is close to expiring.  In
-that case, the number of seconds remaining is counted down on the LCD
-display and when the timer expires the system is shut down.  The only
-way for the user to avoid the autoshutdown is to turn on the DPST
-switch.
-"""
-    global global_lock
-
-    # Initialize variables
-    voc_volts = 0
-    voc_amps = INFINITE_VAL
-    voc_watts = 0
-    voc_ohms = INFINITE_VAL
-    prompt_printed = 0
-    voc_volts_history = []
-    voc_settled = 0
-
-    # Create LCD message object with passed value of msg_text
-    lcd_msg = ScrollingMessage(msg_text, lcd, beep=False, lock=global_lock)
-
-    print_and_log("Measuring Voc until stable ....")
-    lcd.clear()
-    lcd.message('Measuring Voc\nuntil stable ...')
-
-    # Capture time the while loop is entered
-    start_time = time.time()
-
-    # Loop until switch is turned on
-    loop_count = 0
-    while GPIO.input(DPST_GPIO) == DPST_OFF:
-
-        loop_count += 1
-
-        # Calculate how many seconds we've been in the loop
-        loop_entry_time = time.time()
-        seconds_in_loop = int(loop_entry_time) - int(start_time)
-
-        # If the timeout has been reached, shut down
-        if seconds_in_loop >= IDLE_TIMEOUT_SECONDS:
-            lcd_msg.stop()
-            global_lock.acquire()
-            msg_text = "Shutting down\nnow!!"
-            lcd_msg = ScrollingMessage(msg_text, lcd, beep=False, lock=None)
-            lcd_msg.start()
-            sleep(2)
-            os.system("shutdown -h now")
-            # The following are only needed if the previous line is
-            # commented out
-            lcd_msg.stop()
-            reset_lcd(lcd)
-            sleep(5)
-            global_lock.release()
-
-        # If the timeout is getting close, override the prompt message
-        # with a beeping message containing the number of seconds
-        # remaining
-        elif seconds_in_loop >= (IDLE_TIMEOUT_SECONDS -
-                                 IDLE_TIMEOUT_WARNING_SECONDS):
-            lcd_msg.stop()
-            msg_text = 'Auto shutdown\nin %d seconds!!' % (IDLE_TIMEOUT_SECONDS - seconds_in_loop)
-            lcd_msg = ScrollingMessage(msg_text, lcd, beep=True, lock=global_lock)
-            lcd_msg.start()
-
-        # Take Voc measurements
-        amm_volts = read_adc(adc, AMM_CHP, AMM_CHN, 6144)
-        curr_voc_amps = (amm_volts / AMM_OP_AMP_GAIN) / AMM_SHUNT_RESISTANCE
-        curr_voc_volts = read_voc(adc)
-        log("Voc Amps: %.6f  Voc Volts: %.6f" % (curr_voc_amps, curr_voc_volts))
-
-        # Return to caller now if voltage is negative
-        if curr_voc_volts < 0.0:
-            lcd_msg.stop()
-            return (curr_voc_amps, curr_voc_volts, voc_ohms, voc_watts)
-
-        # Need to check that switch is still off
-        if GPIO.input(DPST_GPIO) == DPST_OFF:
-            voc_amps = curr_voc_amps
-            voc_volts = curr_voc_volts
-            voc_watts = voc_volts * voc_amps
-
-            # Keep a list of the voc_volts values from each iteration.
-            # Only the most recent VOC_SETTLE_COUNT values are kept.  If
-            # the list has VOC_SETTLE_COUNT entries and their standard
-            # deviation is less than 0.01, the Voc value is considered
-            # "settled", and the user is requested to turn the switch
-            # on.  It is possible for the Voc value to become
-            # "unsettled" while waiting for the user to flip the switch,
-            # however, and in that case a warning is printed.
-            voc_volts_history.append(voc_volts)
-            del voc_volts_history[:-VOC_SETTLE_COUNT]  # trim to newest VOC_SETTLE_COUNT entries
-            voc_volts_history_std = np.std(voc_volts_history) # standard deviation
-
-            if voc_amps == 0 and len(voc_volts_history) == VOC_SETTLE_COUNT:
-                if voc_volts_history_std < 0.01:
-                    voc_settled = 1
+        while not self.stop_event.is_set():
+            self.beeper.generate_beep(self.on_time, self.off_time,
+                                      self.stop_event)
+
+
+#  Interpolator class
+#
+class Interpolator(object):
+    """Class to create an interpolated curve from an given set of data
+       points, i.e. (I,V,R,P) tuples. Linear interpolation and
+       centripetal Catmull-Rom spline interpolation are supported. It
+       also identifies the interpolated point with the highest power.
+
+       The initial set of points is provided by the caller as a list of
+       tuples, where each of the tuples contains the (I,V,R,P)
+       values. The interpolation is based on the I and V values only.
+
+       The results are available via the following properties:
+
+          - The linear_interpolated_curve property returns a list of
+            tuples containing the initial set of points and all of the
+            linearly-interpolated points
+
+          - The spline_interpolated_curve property returns a list of
+            tuples containing the initial set of points and all of the
+            spline-interpolated points
+
+          - The linear_interpolated_mpp property returns the (I,V,R,P)
+            tuple of the maximum power point on the
+            linearly-interpolated curve
+
+          - The spline_interpolated_mpp property returns the (I,V,R,P)
+            tuple of the maximum power point on the spline-interpolated
+            curve
+
+       The num_interp_points property can be used to set/get the number
+       of points that will be interpolated between each of the given
+       points. Its default is 100.
+
+       """
+
+    # Initializer
+    def __init__(self, given_points):
+        self.given_points = given_points  # List of (I, V, R, P)
+        # Property variables
+        self._num_interp_points = 100
+        self._linear_interpolated_curve = None
+        self._spline_interpolated_curve = None
+        self._linear_interpolated_mpp = None
+        self._spline_interpolated_mpp = None
+
+    # Properties
+    @property
+    def num_interp_points(self):
+        """Returns the number of points that are interpolated between
+        each of the given points
+        """
+        return self._num_interp_points
+
+    @num_interp_points.setter
+    def num_interp_points(self, value):
+        self._num_interp_points = value
+
+    @property
+    def linear_interpolated_curve(self):
+        """Returns a list of tuples that contain all of the given points
+        plus all of the points that are interpolated between each of the
+        given points using linear interpolation
+        """
+        if self._linear_interpolated_curve is None:
+            self._linear_interpolated_curve = []
+
+            # Loop through all but the last point
+            for point_num, given_point in enumerate(self.given_points[:-1]):
+                next_point = self.given_points[point_num + 1]
+                # Get a list of all the interpolated I values
+                new_i_vals = numpy.linspace(given_point[AMPS_INDEX],
+                                            next_point[AMPS_INDEX],
+                                            self.num_interp_points + 1,
+                                            endpoint=False).tolist()
+                # Get a list of all the interpolated V values
+                new_v_vals = numpy.linspace(given_point[VOLTS_INDEX],
+                                            next_point[VOLTS_INDEX],
+                                            self.num_interp_points + 1,
+                                            endpoint=False).tolist()
+                # Create new tuples from these I and V values
+                new_points = []
+                for new_point_num, new_i_val in enumerate(new_i_vals):
+                    new_v_val = new_v_vals[new_point_num]
+                    if new_v_val:
+                        new_r_val = new_i_val / new_v_val
+                    else:
+                        new_r_val = INFINITE_VAL
+                    new_p_val = new_i_val * new_v_val
+                    new_point = (new_i_val, new_v_val, new_r_val, new_p_val)
+                    new_points.append(new_point)
+
+                # Add these new (and one old) points to the interpolated
+                # curve list
+                self._linear_interpolated_curve.extend(new_points)
+
+            # Tack on the last point
+            self._linear_interpolated_curve.append(self.given_points[-1])
+
+        return self._linear_interpolated_curve
+
+    @property
+    def spline_interpolated_curve(self):
+        """Returns a list of tuples that contain all of the given points
+        plus all of the points that are interpolated between each of the
+        given points using centripetal Catmull-Rom spline interpolation
+        """
+        if self._spline_interpolated_curve is None:
+            self._spline_interpolated_curve = []
+            # Start by adding dummy points just after the first point
+            # and just before the last point. This is because the
+            # interpolation doesn't include the intervals between the
+            # first two points and the last two points. By adding a
+            # point very close to the first and last points, these
+            # intervals will be covered too. Note that these points are
+            # only [V, I] pairs since that is what the spline
+            # interpolation uses.
+            point_a = self.given_points[0]   # first given point
+            point_b = self.given_points[1]   # second given point
+            # dummy point is 1/1000 of the way between point a and point b
+            v_vals = numpy.linspace(point_a[VOLTS_INDEX],
+                                    point_b[VOLTS_INDEX], 1000).tolist()
+            i_vals = numpy.linspace(point_a[AMPS_INDEX],
+                                    point_b[AMPS_INDEX], 1000).tolist()
+            first_dummy_point = [v_vals[1], i_vals[1]]
+
+            point_a = self.given_points[-2]  # penultimate given point
+            point_b = self.given_points[-1]  # ultimate given point
+            v_vals = numpy.linspace(point_a[VOLTS_INDEX],
+                                    point_b[VOLTS_INDEX], 1000).tolist()
+            i_vals = numpy.linspace(point_a[AMPS_INDEX],
+                                    point_b[AMPS_INDEX], 1000).tolist()
+            second_dummy_point = [v_vals[-2], i_vals[-2]]
+
+            # First given point
+            list_with_dummies = [[self.given_points[0][VOLTS_INDEX],
+                                  self.given_points[0][AMPS_INDEX]]]
+            # First dummy point
+            list_with_dummies.append(first_dummy_point)
+            # All the middle given points
+            for point in self.given_points[1:-1]:
+                list_with_dummies.append([point[VOLTS_INDEX],
+                                          point[AMPS_INDEX]])
+            # Second dummy point
+            list_with_dummies.append(second_dummy_point)
+            # Last given point
+            list_with_dummies.append([self.given_points[-1][VOLTS_INDEX],
+                                      self.given_points[-1][AMPS_INDEX]])
+
+            # Call the interpolation method and put the results in a
+            # temporary list
+            temp_points = self.catmull_rom_chain(list_with_dummies)
+
+            # At this point the curve is only [V, I] pairs and is
+            # missing the first and last points. So we add the missing
+            # points and compute the R and P values to each of the final
+            # points in the interpolated curve.
+            self._spline_interpolated_curve.append(self.given_points[0])
+            prev_amps = self.given_points[0][AMPS_INDEX]
+            for temp_point in temp_points:
+                volts = temp_point[0]
+                amps = temp_point[1]
+                if amps:
+                    ohms = volts / amps
                 else:
-                    voc_settled = 0
+                    ohms = INFINITE_VAL
+                watts = volts * amps
+                new_point = (amps, volts, ohms, watts)
+                self._spline_interpolated_curve.append(new_point)
+                prev_amps = amps
+            self._spline_interpolated_curve.append(self.given_points[-1])
 
-            if voc_settled and not prompt_printed:
-                if voc_volts <= 0.0:
-                    lcd_msg.stop()
-                    return (voc_amps, voc_volts, voc_ohms, voc_watts)
-                lcd.clear()
-                lcd.message('Voc: %.2f V' % (voc_volts))
-                sleep(1)
-                print_and_log("**********************************************************")
-                print_and_log("Please turn the toggle switch ON to begin IV curve tracing")
-                print_and_log("**********************************************************")
-                lcd_msg.start()
-                prompt_printed = 1
+        return self._spline_interpolated_curve
 
-        # Rate limit to 10 Voc measurements/second	
-        elapsed_time = time.time() - loop_entry_time
-        if elapsed_time < 0.1:
-            sleep(0.1 - elapsed_time)
+    @property
+    def linear_interpolated_mpp(self):
+        """Returns the (I, V, R, P) tuple of the maximum power point on
+        the linearly-interpolated curve
+        """
+        if self._linear_interpolated_mpp is None:
+            mpp_power = 0
+            points = self.linear_interpolated_curve
+            for point in points:
+                if point[WATTS_INDEX] > mpp_power:
+                    mpp_power = point[WATTS_INDEX]
+                    mpp = point
 
-    print_and_log("Voc Volts: %.6f (standard deviation = %.6f over %d measurements)" %
-                  (voc_volts, voc_volts_history_std, VOC_SETTLE_COUNT))
+            self._linear_interpolated_mpp = mpp
 
-    if not voc_settled:
-        print_and_log("   ===> WARNING: High Voc standard deviation; results may be unreliable")
-        lcd_msg.stop()
-        msg_text = ['==> WARNING:\nHigh Voc standard deviation',
-                    'results may be\nunreliable']
-        lcd_msg = ScrollingMessage(msg_text, lcd, beep=True, lock=global_lock)
-        lcd_msg.start()
-        sleep(7)
+        return self._linear_interpolated_mpp
 
-    lcd_msg.stop()
-    return (voc_amps, voc_volts, voc_ohms, voc_watts)
+    @property
+    def spline_interpolated_mpp(self):
+        """Returns the (I, V, R, P) tuple of the maximum power point on
+        the spline-interpolated curve
+        """
+        if self._spline_interpolated_mpp is None:
+            mpp_power = 0
+            points = self.spline_interpolated_curve
+            for point in points:
+                if point[WATTS_INDEX] > mpp_power:
+                    mpp_power = point[WATTS_INDEX]
+                    mpp = point
 
-# ------------------------------------------------------------------------------
-def get_data_values_for_load_pattern(load_pattern, io_extender, adc, lcd):
-    """Function to set the MCP23017 outputs (controlling the relays) to
-the values based on the specified load pattern and to read the current
-and voltage at that point.  Ohms and watts are calculated and the four
-values are returned in a tuple.
-"""
-    # Set the relays to the provided pattern
-    set_relays_to_pattern(load_pattern, io_extender)
+            self._spline_interpolated_mpp = mpp
 
-    # Pause for TIME_BETWEEN_MEASUREMENTS before taking the voltage and
-    # current readings.
-    sleep(TIME_BETWEEN_MEASUREMENTS)
+        return self._spline_interpolated_mpp
 
-    # Take the current reading.  Retry a few times if the current is
-    # zero, to attempt to work around failing relays. The retry toggles
-    # the load pattern once in the hopes that contact will be made after
-    # the toggle (but probably hastening the demise of the relays in the
-    # process).
-    amm_volts = read_adc(adc, AMM_CHP, AMM_CHN, 6144)
-    log("AMM Volts: %.6f" % (amm_volts))
-    amps = (amm_volts / AMM_OP_AMP_GAIN) / AMM_SHUNT_RESISTANCE
-    retry_count = 0
-    while(retry_count < MAX_RETRIES):
-        if amps == 0:
-            retry_count += 1
-            print_str = "RETRY #%d for load_pattern 0x%x" % (retry_count, load_pattern)
-            print_and_log(print_str)
-            sleep(TIME_BETWEEN_MEASUREMENTS)
-            set_relays_to_pattern(load_pattern, io_extender)
-            sleep(TIME_BETWEEN_MEASUREMENTS)
-            set_relays_to_pattern(load_pattern, io_extender)
-            sleep(TIME_BETWEEN_MEASUREMENTS)
-            amm_volts = read_adc(adc, AMM_CHP, AMM_CHN, 6144)
-            log("AMM Volts: %.6f" % (amm_volts))
-            amps = (amm_volts / AMM_OP_AMP_GAIN) / AMM_SHUNT_RESISTANCE
+    def catmull_rom_spline(self, four_points, num_interp_points,
+                           rerun_with_low_alpha=False):
+        """
+        Method mostly borrowed from the Wikipedia article on centripetal
+        Catmull-Rom splines.
+
+        The first parameter is a list of four (x,y) point pairs that
+        will be used for this interpolation. The interpolation is only
+        done between the middle two points and num_interp_points is the
+        number of points that will be interpolated between those two
+        points.
+
+        The method returns a list of interpolated points starting with
+        the second given point and ending with the third given point
+        (both are included).
+        """
+        # Convert the points to numpy so that we can do array multiplication
+        p_0, p_1, p_2, p_3 = map(numpy.array, [four_points[0],
+                                               four_points[1],
+                                               four_points[2],
+                                               four_points[3]])
+
+        # Set alpha value
+        if rerun_with_low_alpha:
+            # A low alpha value reduces the swings of an "S" in the
+            # curve. We call the method recursively (once) with this
+            # parameter set to improve the interpolation where there is
+            # a non-monotonicity of the interpolation results in either
+            # the I or V direction.
+            alpha = 0.1
         else:
-            break
+            # Otherwise, set the alpha exponent to 0.5. This is what
+            # makes this a "centripetal" Catmull-Rom interpolation, and
+            # it looks the best.
+            alpha = 0.5
 
-    # Take the voltage reading
-    volts = VDIV_MULT * read_adc(adc, VDIV_CHP, VDIV_CHN, 6144)
+        # Local function to calculate t sub i+i (aka t_j)
+        def t_j(t_i, p_i, p_j):
+            x_i, y_i = p_i
+            x_j, y_j = p_j
+            return ((((x_j - x_i) ** 2 + (y_j - y_i) ** 2) ** 0.5) ** alpha +
+                    t_i)
 
-    # Calculate ohms and watts
-    if amps == 0.0:
-        ohms = INFINITE_VAL
-    else:
-        ohms = volts / amps
+        # Calculate t_0 to t_3
+        t_0 = 0
+        t_1 = t_j(t_0, p_0, p_1)
+        t_2 = t_j(t_1, p_1, p_2)
+        t_3 = t_j(t_2, p_2, p_3)
 
-    watts = volts * amps
+        # Only calculate points between p_1 and p_2
+        t = numpy.linspace(t_1, t_2, num_interp_points)
 
-    # The relay switching sometimes causes the LCD to get messed up. We
-    # should probably have a snubber circuit across every relay coil (in
-    # addition to the snubbers across the contacts), but this software
-    # workaround will do.  We just reset the LCD display before using it
-    # after we've switched one or more relays (and after some time has
-    # passed).
-    reset_lcd(lcd)
+        # Reshape so that we can multiply by the points p_0 to p_3
+        # and get a point for each value of t.
+        t = t.reshape(len(t), 1)
 
-    # Print current values formatted nicely
-    print_amps = ("%.2f" % amps).rjust(5)
-    print_volts = ("%.2f" % volts).rjust(5)
-    print_ohms = ("%.2f" % ohms).rjust(5)
-    print_watts = ("%.2f" % watts).rjust(6)
-    print_str  =  "Amps: " + print_amps + "  Volts: " + print_volts
-    print_str +=  "  Ohms: " + print_ohms + "  Watts: " + print_watts
-    print_str +=  "  Load pattern: " + format(load_pattern, '#018b')
-    print_and_log(print_str)
-    lcd_str  = print_amps  + " A  " + print_volts + " V\n"
-    lcd_str += print_ohms  + " R "  + print_watts + " W"
-    lcd.message(lcd_str)
+        # A equations
+        a_1 = (t_1 - t) / (t_1 - t_0) * p_0 + (t - t_0) / (t_1 - t_0) * p_1
+        a_2 = (t_2 - t) / (t_2 - t_1) * p_1 + (t - t_1) / (t_2 - t_1) * p_2
+        a_3 = (t_3 - t) / (t_3 - t_2) * p_2 + (t - t_2) / (t_3 - t_2) * p_3
 
-    return (amps, volts, ohms, watts)
+        # B equations
+        b_1 = (t_2 - t) / (t_2 - t_0) * a_1 + (t - t_0) / (t_2 - t_0) * a_2
+        b_2 = (t_3 - t) / (t_3 - t_1) * a_2 + (t - t_1) / (t_3 - t_1) * a_3
 
-# ------------------------------------------------------------------------------
-def open_circuit(load_pattern, io_extender):
-    """Function to activate the OPEN relay to open the circuit, while
-keeping the other relays as they were. Once the OPEN relay is activated
-(and after a short delay), the other relays are inactivated. The purpose
-of this is to avoid inactivating the relays while current is
-flowing. This completely eliminates any arcing on that side of the relay
-(the Normally Open, "NO" side), which is the side without a snubber.
-"""
-    # Wait a short time
-    sleep(TIME_BETWEEN_MEASUREMENTS)
+        # C equation
+        c = (t_2 - t) / (t_2 - t_1) * b_1 + (t - t_1) / (t_2 - t_1) * b_2
 
-    # Set the OPEN bit in the load_pattern passed in and apply that to
-    # the relays
-    load_pattern |= OPEN_ONLY
-    set_relays_to_pattern(load_pattern, io_extender)
-
-    # Wait a short time
-    sleep(TIME_BETWEEN_MEASUREMENTS)
-
-    # Turn off all other relays, leaving only the OPEN relay activated
-    set_relays_to_pattern(OPEN_ONLY, io_extender)
-
-    # Wait a short time
-    sleep(TIME_BETWEEN_MEASUREMENTS)
-
-# ------------------------------------------------------------------------------
-def get_base_loads(none_data_point, voc_volts):
-    """Function to determine the 'base load'.  This is some combo of the
-50W power resistors to start with before adding the finer grained
-heating coil loads.  The purpose is to center the fine-grained points
-over the knee of the curve, where they do the most good.  The function
-returns a list of the loads that need to be activated before the finer
-grained loads are activated.
-"""
-    base_loads = BASE_0_OHM
-    
-    # The current at the NONE load is basically Isc.  The ratio
-    # of Voc to Isc is roughly the resistance at the knee.
-    approx_isc = none_data_point[AMPS_DATA_POINT]
-    approx_knee_ohms = voc_volts / approx_isc
-
-    # The base load adds to the resistance with no loads selected
-    none_ohms = none_data_point[OHMS_DATA_POINT]
-
-    # The ideal base load is the estimated knee load minus the
-    # resistance of half of the unit load chain.  Half of the unit load
-    # chain is SIX+HALF, which (from empirical data) is 5.6 ohms
-    # (average 0.86 ohms per load).
-    ideal_base_load = approx_knee_ohms - 5.6
-    if ideal_base_load < (3 + none_ohms) or approx_isc > TWELVE_MAX_AMPS:
-        base_loads = BASE_0_OHM
-    elif ideal_base_load < (6 + none_ohms) or approx_isc > THIRTEEN_MAX_AMPS:
-        print_and_log("Using 3 ohm base load")
-        base_loads = BASE_3_OHM
-    elif ideal_base_load < (9 + none_ohms):
-        print_and_log("Using 6 ohm base load")
-        base_loads = BASE_6_OHM
-    elif ideal_base_load < (12 + none_ohms):
-        print_and_log("Using 9 ohm base load")
-        base_loads = BASE_9_OHM
-    elif ideal_base_load < (15 + none_ohms):
-        print_and_log("Using 12 ohm base load")
-        base_loads = BASE_12_OHM
-    elif ideal_base_load < (18 + none_ohms):
-        print_and_log("Using 15 ohm base load")
-        base_loads = BASE_15_OHM
-    elif ideal_base_load < (21 + none_ohms):
-        print_and_log("Using 18 ohm base load")
-        base_loads = BASE_18_OHM
-    else:
-        print_and_log("Using 21 ohm base load")
-        base_loads = BASE_21_OHM
-
-    return base_loads
-
-# ------------------------------------------------------------------------------
-def swing_iv_curve(io_extender, adc, lcd, voc_volts):
-    """Function to cycle through the load values using the relays,
-taking a current and voltage measurement at each point.  The results are
-returned in a list of 4-entry tuples (amps,volts,ohms,watts). If the
-DIAG_MODE flag is set, the relays are activated individually.  If the
-FINE_MODE flag is set, the load list containing all of the half and full
-steps is used.  This wears out the HALF relay faster than the others,
-but this is mitigated by skipping the half steps on parts of the curve
-that are relatively straight lines.  If the FINE_MODE flag is not set,
-the load list with full steps (starting with HALF) is used. An adaptive
-algorithm is used to determine a 'base load', i.e. one or more of the
-power resistors.  See the documentation for the get_base_loads function
-for more information.
-"""
-    # Diag mode - activate each relay alone
-    if DIAG_MODE:
-        data_points = [(0,0,0,0)]  # placeholder for Isc
-        for load_pattern in diag_load_list:
-            data_point = get_data_values_for_load_pattern(load_pattern,
-                                                          io_extender, adc, lcd)
-            data_points.append(data_point)
-        return data_points
-
-    # Fine vs coarse mode
-    if FINE_MODE:
-        # FINE mode - better results, but wears out the HALF relay faster
-        load_list = fine_load_list
-    else:
-        load_list = coarse_load_list
-
-    data_points_unsorted = [(0,0,0,0)]  # placeholder for Isc
-    base_load_pattern = NONE
-    prev_load_pattern = 0xa5a5
-    for load_pattern in load_list:
-        skip_this_one = False
-        load_pattern_with_base = load_pattern | base_load_pattern
-
-        # Skip this measurement if the current load pattern is the same
-        # as the previous one (which happens when using a
-        # base_load_pattern).
-        if load_pattern_with_base == prev_load_pattern:
-            skip_this_one = True
-
-        # Skip this measurement if we're in FINE mode, and the current
-        # load pattern does not include the HALF load, AND the
-        # previously measured point is very close to being in line with
-        # its two predecessors.  The idea is to avoid the HALF steps
-        # (which wear out the relay) if they add no value.  Note that
-        # the FINE mode load list is out of order, i.e. the X_AND_A_HALF
-        # loads precede the X loads.  So we optionally go backwards by
-        # half a step when we determine that the curve is bending, which
-        # adds resolution where we need it.  But where the line is
-        # straight, we skip the half steps.
-        #
-        # We'll call the previous three measurements points 1, 2 and 3
-        # (from oldest to newest). To determine if the curve is
-        # "bending", we first need to calculate the slopes of the lines
-        # through points 1 and 2 and points 2 and 3.  But we're
-        # interested in the slopes as they appear visually on a graph
-        # that is scaled at approximately the ratio of Voc to Isc.
-        #
-        #  Factor to scale current (I) values by:
-        #    i_scale = Voc/Isc
-        #
-        #  Scaled (visual) slope of line through points 1 and 2:
-        #    m12 = i_scale(i2 - i1)/(v2 - v1)
-        #
-        #  Scaled (visual) slope of line through points 2 and 3:
-        #    m23 = i_scale(i3 - i2)/(v3 - v2)
-        #
-        # The angular difference between the lines is the difference in
-        # the arctangents of their slopes.
-        #
-        #  rot_degrees = arctan(m12) - arctan(m23)
-        #
-        # One last factor to account for is the distance between the
-        # points on the graph.  If the points are very close together,
-        # it's not worth adding a point between them for the same
-        # inflection angle as points that are farther apart.  The
-        # scaling factor is needed for this calculation too.
-        #
-        # Distance between points 2 and 3:
-        #    d23 = sqrt((v3 - v2)^2 + (i_scale(i3 - i2))^2)
-        #
-        # The final criterion for skipping the half-step point is:
-        #
-        # Skip if:
-        #    rot_degrees * d23 < 50
-        #
-        # The threshold of 50 was determined empirically.
-        #
-        if FINE_MODE and load_pattern != NONE and (load_pattern & HALF_ONLY == 0):
-            data_points_sorted = sorted(data_points_unsorted,
-                                        key=lambda dp: dp[OHMS_DATA_POINT])
-            i1 = data_points_sorted[-3][AMPS_DATA_POINT]
-            v1 = data_points_sorted[-3][VOLTS_DATA_POINT]
-            i2 = data_points_sorted[-2][AMPS_DATA_POINT]
-            v2 = data_points_sorted[-2][VOLTS_DATA_POINT]
-            i3 = data_points_sorted[-1][AMPS_DATA_POINT]
-            v3 = data_points_sorted[-1][VOLTS_DATA_POINT]
-            # The NONE data point is the closest we have to Isc now
-            i_scale = voc_volts / data_points_sorted[1][AMPS_DATA_POINT]
-            m12 = i_scale * (i2 - i1)/(v2 - v1)
-            m23 = i_scale * (i3 - i2)/(v3 - v2)
-            d23 = math.sqrt((v3 - v2)**2 + (i_scale * (i3 - i2))**2)
-            rot_degrees = math.degrees(math.atan(m12)) - math.degrees(math.atan(m23))
-            weight = abs(rot_degrees) * d23
-            print_str  =   "m12: " + str(m12)
-            print_str +=  " m23: " + str(m23)
-            print_str +=  " d23: " + str(d23)
-            print_str +=  " Rot degrees: " + str(rot_degrees)
-            print_str +=  " Weight: " + str(weight)
-            print_str +=  " Load pattern: " + format(load_pattern, '#018b')
-            log(print_str)
-            if weight < 50:
-                skip_this_one = True
-            else:
-                log("ADDING HALF STEP POINT")
-
-        # Unless we're skipping this point for one of the reasons above,
-        # get its data values and add them to the list
-        if not skip_this_one:
-            data_point = get_data_values_for_load_pattern(load_pattern_with_base,
-                                                          io_extender, adc, lcd)
-            prev_load_pattern = load_pattern_with_base
-            data_points_unsorted.append(data_point)
-
-        # When the NONE measurement has been taken, determine if one or
-        # more base loads are needed, and if so then get the data values
-        # for the base load(s).  Set base_load_pattern to the OR of the
-        # base loads so the sum of the loads will be included in the
-        # pattern used above in the following iterations.
-        if load_pattern == NONE:
-            base_loads = get_base_loads(data_point, voc_volts)
-            if base_loads != BASE_0_OHM:
-                for base_load in base_loads:
-                    base_load_pattern |= base_load
-                    data_point = get_data_values_for_load_pattern(base_load_pattern,
-                                                                  io_extender, adc, lcd)
-                    prev_load_pattern = base_load_pattern
-                    data_points_unsorted.append(data_point)
-
-    # Activate the OPEN relay without changing others, and then
-    # deactivate the others
-    open_circuit(load_pattern, io_extender)
-
-    # Sort the list in order of increasing resistance (needed because
-    # the fine mode load list is out of order)
-    data_points = sorted(data_points_unsorted,
-                         key=lambda dp: dp[OHMS_DATA_POINT])
-
-    return data_points
-
-
-# ------------------------------------------------------------------------------
-def get_max_watt_point_number(data_points):
-    """Function to find and return the measured data point number with
-the highest power.  The actual Maximum Power Point (MPP) is most likely
-not exactly at this point, but somewhere between this point and one of
-its neighbors and will be found later via interpolation.
-"""
-    data_point_num = 0
-    max_watt_point_number = 0
-
-    for data_point in data_points:
-        if data_point[WATTS_DATA_POINT] > data_points[max_watt_point_number][WATTS_DATA_POINT]:
-            max_watt_point_number = data_point_num
-        data_point_num += 1
-
-    return max_watt_point_number
-
-# ------------------------------------------------------------------------------
-def extrapolate_isc(data_points, max_watt_point_number):
-    """Function to extrapolate the Isc value from the first two measured
-data points.
-"""
-    i1 = data_points[1][AMPS_DATA_POINT]  # NONE data point
-    v1 = data_points[1][VOLTS_DATA_POINT] 
-    
-    i2 = data_points[2][AMPS_DATA_POINT]  # HALF data point
-    v2 = data_points[2][VOLTS_DATA_POINT]
-
-    if v2 != v1 and max_watt_point_number > 3:
-        # Find y (aka I) intercept of line connecting first two measured
-        # points.
-        #
-        # We all remember the y = mx + b form of a linear equation. y is
-        # current, x is voltage, and b is the y-intercept, i.e. Isc.
-        # So:
-        #
-        #   i = mv + Isc
-        #
-        # m is slope = rise/run = (i2 - i1)/(v2 - v1)
-        #
-        # So now:
-        #
-        #    i = ((i2 - i1)/(v2 - v1)) * v + Isc
-        #
-        #  Isc = i - ((i2 - i1)/(v2 - v1)) * v
-        #
-        #  Since this equation is valid for any point (v, i) on the
-        #  line, we can substitute i1 and v1 for i and v:
-        #
-        #  Isc = i1 - ((i2 - i1)/(v2 - v1)) * v1
-        #
-        isc_amps = i1 - ((i2 - i1)/(v2 - v1)) * v1
-
-        # If the extrapolated value is greater than 2% more than the
-        # measured NONE value, it's probaby because there aren't enough
-        # sampled points at the beginning of the curve (e.g. if there's
-        # a base load, but there is shading).  In that case, just return
-        # a value 2% greater than the measured NONE value.
-        if isc_amps > 1.02 * i1:
-            isc_amps = 1.02 * i1
-        
-    else:
-        # If the voltages of the first two points are equal (most likely
-        # because both are zero - PV isn't connected), the equation
-        # above gets a divide-by-zero error so we just set Isc to the
-        # value of the first point.  Also if the highest measured power
-        # is on one of the first three (or four) points, the knee of the
-        # curve is too close to use a linear extrapolation from the
-        # first two points since the second point is likely already
-        # somewhat over the knee and the calculated Isc will be too
-        # high.  So we just set Isc to the value of the first point in
-        # that case too.
-        isc_amps = i1
-
-    isc_volts = 0
-    isc_ohms = 0
-    isc_watts = 0
-    print_and_log("Isc Amps: %.6f" % (isc_amps))
-
-    return (isc_amps, isc_volts, isc_ohms, isc_watts)
-
-# ------------------------------------------------------------------------------
-def write_csv_data_points_to_file(filename, data_points):
-    """Function to write/append each of the CSV data points to the
-output file.
-"""
-    with open(filename, "a") as f:
-        # Write headings
-        f.write("Volts, Amps, Watts, Ohms\n")
-        # Write data points
-        for data_point in data_points:
-            write_csv_data_to_file(f,
-                                   data_point[VOLTS_DATA_POINT],
-                                   data_point[AMPS_DATA_POINT],
-                                   data_point[WATTS_DATA_POINT],
-                                   data_point[OHMS_DATA_POINT])
-
-# ------------------------------------------------------------------------------
-def write_csv_data_to_file(open_filehandle, volts, amps, watts, ohms):
-    """Function to write/append the current voltage, current, watts, and
-ohms values to an output file which the caller has opened for appending
-and has passed the filehandle.
-"""
-    output_line = "%.3f,%.3f,%.3f,%.3f\n" % (volts,amps,watts,ohms)
-    open_filehandle.write(output_line)
-
-# ------------------------------------------------------------------------------
-def write_gp_data_points_to_file(filename, data_points):
-    """Function to write/append each of the gnuplot data points to the
-output file.
-"""
-    with open(filename, "a") as f:
-        for data_point in data_points:
-            write_gp_data_to_file(f,
-                                  data_point[VOLTS_DATA_POINT],
-                                  data_point[AMPS_DATA_POINT],
-                                  data_point[WATTS_DATA_POINT])
-
-# ------------------------------------------------------------------------------
-def write_gp_data_to_file(open_filehandle, volts, amps, watts, new_data_set=False):
-    """Function to write/append the current voltage and current readings
-to an output file which the caller has opened for appending and has
-passed the filehandle.  If new_data_set=True, then the other values are
-ignored and two blank lines are appended to the file.
-"""
-    output_line = "%.3f %.3f %.3f\n" % (volts,amps,watts)
-    if new_data_set:
-        # two blank lines signify a new data set to gnuplot
-        open_filehandle.write("\n")
-        open_filehandle.write("\n")
-    else:
-        open_filehandle.write(output_line)
-
-# ------------------------------------------------------------------------------
-def get_interpolation_func(force_linear_interpolation, data_points,
-                           max_watt_point_number):
-    """Function to derive the interpolation function from the data
-points using the scipy library
-"""
-    # NOTE: I've given up on cubic spline interpolation for now, but
-    # this function still supports it.
-
-    success = 1
-
-    # The first step is to populate two lists: one with the voltage (x)
-    # values and one with the current (y) values. In addition to the
-    # actual measured points (and the extrapolated Isc point), some
-    # dummy points are added to improve the curve fitting results.
-    voltage_values = []
-    current_values = []
-    data_point_num = 0
-    for data_point in data_points:
-        # Get Isc from the first point; we'll need it
-        if data_point_num == 0:
-            isc_amps = data_point[AMPS_DATA_POINT]
-
-        # Add dummy points between the Isc point and the second measured
-        # data point to dampen the overshoot of the cubic spline
-        # interpolation.  It is assumed that this segment is a straight
-        # line.
-        if not force_linear_interpolation and (data_point_num == 1 or
-                                               data_point_num == 2):
-            volts = 0
-            while volts < data_point[VOLTS_DATA_POINT]:
-                #  i = Isc + (((i2 - i1)/v2) * v)
-                amps = isc_amps + ((data_point[AMPS_DATA_POINT] -
-                                    isc_amps)/data_point[VOLTS_DATA_POINT]) * volts
-                log("amps: " + str(amps) + "   volts: " + str(volts))
-                current_values.append(amps)
-                voltage_values.append(volts)
-                volts += 0.1
-
-        # Add the measured point
-        current_values.append(data_point[AMPS_DATA_POINT])
-        voltage_values.append(data_point[VOLTS_DATA_POINT])
-
-        data_point_num += 1
-
-    # When the knee of the curve is sufficiently far into the data set,
-    # cubic spline interpolation works well - especially when the dummy
-    # points are added between the (extrapolated) Isc point and the
-    # first measured point as above.  But when it comes too early in the
-    # data set, cubic spline interpolation still has a large overshoot
-    # effect and we are much better off with simple linear
-    # interpolation.  A better solution *should* be to use Piecewise
-    # Cubic Hermite Interpolation (PCHIP), but I had trouble getting
-    # that to work.  It should only be for cases where the Voc is very
-    # low (< 15V) that the linear interpolation will be used, and this
-    # shouldn't be the case for any modern PV panels unless they are
-    # faulty - in which case the linear curve will be perfectly
-    # adequate.  For various (still mysterious) reasons, the cubic
-    # spline interpolation sometimes fails so we fall back to linear
-    # interpolation in those cases too instead of just crashing.
-    if force_linear_interpolation:
-        try:
-            interpolation_func = interp1d(voltage_values, current_values, kind='linear')
-        except:
-            print_and_log("scipy.interp1d (linear) failed ... ")
-            interpolation_func = 0
-            success = 0
-    else:
-        try:
-            interpolation_func = interp1d(voltage_values, current_values, kind='cubic')
-        except:
-            print_and_log("scipy.interp1d (cubic) failed ... ")
-            interpolation_func = 0
-            success = 0
-    #interpolation_func = pchip(np.array(voltage_values), np.array(current_values))
-
-    return (interpolation_func, success)
-
-# ------------------------------------------------------------------------------
-def generate_interpolated_data_set(sd_data_point_filename, data_points,
-                                   linear_interpolation, interpolation_func):
-    """Function to use interpolation to generate an interpolated data
-set.  This data set includes all of the measured points as well as
-points interpolated at 0.1 V intervals between the measured points
-(unless linear interpolation is being used).
-"""
-    # NOTE: I've given up on cubic spline interpolation for now, but
-    # this function still supports it.
-
-    data_point_num = 0
-    with open(sd_data_point_filename, "a") as f:
-        # Add new data set delimiter
-        write_gp_data_to_file(f, 0, 0, 0, new_data_set=True)
-
-        for data_point in data_points:
-            volts = data_point[VOLTS_DATA_POINT]
-            write_gp_data_to_file(f,
-                                  volts,
-                                  data_point[AMPS_DATA_POINT],
-                                  data_point[WATTS_DATA_POINT])
-
-            # Unless we're doing linear interpolation, add interpolated
-            # points at 0.1 volt intervals
-            volts += 0.1
-            if not linear_interpolation:
-                if data_point_num < (len(data_points) - 1):
-                    while volts < data_points[data_point_num+1][VOLTS_DATA_POINT]:
-                        amps = interpolation_func(volts)
-                        write_gp_data_to_file(f,
-                                              volts,
-                                              amps,
-                                              volts * amps)
-                        volts += 0.1
-
-            data_point_num += 1
-
-# ------------------------------------------------------------------------------
-def interpolate_mpp(data_points, mpp_watt_point_number, interpolation_func):
-    """Function to use interpolation to determine the maximum power
-point
-"""
-    # Passed into the function is the list of data points and the point
-    # number in that list that has the highest power of all the measured
-    # data points.  The actual MPP could be on either side of that
-    # point, so we start with the preceding point and "search" for the
-    # MPP by calculating the power for each voltage value.  The voltage
-    # is incremented by 10mV (0.01V) per step and the current is
-    # calculated using the interpolation function that is passed in.  At
-    # each point the power is calculated.  The search ends when the
-    # calculated power is lower than the previous point's power - the
-    # MPP amps, volts, and watts from the previous point are returned.
-    # This is because the search window starts at a point below the MPP
-    # and searches upward until the MPP is found.  NOTE: there is
-    # probably a more mathematically elegant way to find the maximum
-    # value of f(volts) = volts * interpolation_func(volts).  But even
-    # with the slow RPi it's easier to be lazy and just do it this way,
-    # which is plenty fast.
-
-    # Initialize MPP values to the mpp_watt_point_number measured
-    # values.
-    mpp_amps = data_points[mpp_watt_point_number][AMPS_DATA_POINT]
-    mpp_volts = data_points[mpp_watt_point_number][VOLTS_DATA_POINT]
-    mpp_watts = data_points[mpp_watt_point_number][WATTS_DATA_POINT]
-
-    # Start at previous measured point
-    start_volts = data_points[mpp_watt_point_number-1][VOLTS_DATA_POINT]
-
-    # End at next measured point (shouldn't get this far though)
-    max_volts = data_points[mpp_watt_point_number+1][VOLTS_DATA_POINT]
-
-    # Increment volts, calculating amps by interpolation until the MPP
-    # is found
-    prev_watts = 0
-    volts = start_volts
-    while volts < max_volts:
-        amps = interpolation_func(volts)
-        watts = volts * amps
-        if watts > mpp_watts:
-            mpp_amps = amps
-            mpp_volts = volts
-            mpp_watts = volts * amps
-        if watts < prev_watts:
-            # found it
-            break
-        prev_watts = watts
-        volts += 0.01
-
-    # Calculate resistance
-    if mpp_amps == 0.0:
-        mpp_ohms = INFINITE_VAL
-    else:
-        mpp_ohms = mpp_volts / mpp_amps
-
-    # Print MPP
-    print_and_log("==========================")
-    print_and_log("Maximum power point (MPP): Amps: %.6f   Volts: %.6f   Ohms: %.6f   Watts: %.6f" % (mpp_amps, mpp_volts, mpp_ohms, mpp_watts))
-
-    return (mpp_amps, mpp_volts, mpp_ohms, mpp_watts)
-
-# ------------------------------------------------------------------------------
-def write_gnuplot_file(command_filename, data_filename, pdf_filename,
-                       isc_amps, voc_volts, mpp_amps, mpp_volts, linear):
-    """Function to write the gnuplot command file"""
-    with open(command_filename, "w") as f:
-        # First set the terminal type to PDF and output to the PDF filename
-        f.write("set terminal pdf size 11,8.5\n")
-        output_line = "set output \"" + pdf_filename + "\"\n"
-        f.write(output_line)
-
-        # Set the title and X and Y labels for the plot
-        f.write("set title \"IV Swinger Plot for " + data_filename + "\"\n")
-        f.write("set xlabel \"Voltage (volts)\"\n")
-        f.write("set ylabel \"Current (amps)\"\n")
-
-        # Set the X and Y ranges to be 20% and 30% more than Voc and Isc
-        # respectively
-        max_x = voc_volts * 1.2
-        if max_x > 0:
-            output_line = "set xrange [0:" + str(max_x) + "]\n"
-            f.write(output_line)
-        max_y = isc_amps * 1.3
-        if max_y > 0:
-            output_line = "set yrange [0:" + str(max_y) + "]\n"
-            f.write(output_line)
-
-        # Display grid lines on graph
-        if max_x < 20:
-            output_line = "set xtics 1\n"
+        # IV curves normally are "monotonic", i.e. the voltage increases
+        # along the curve and the current decreases. Even if this is
+        # true for the measured points, the interpolated curve can
+        # violate monotonicity, and the resulting "S" in the curve will
+        # look wrong. This can happen especially in shading cases, where
+        # there is a sudden inflection in the curve. This is addressed
+        # by re-running the interpolation for the "S" shaped segment
+        # with a smaller alpha value. This doesn't completely correct
+        # the problem, but it reduces it to the point where it is much
+        # less noticeable. An alternate solution would be to revert to
+        # linear interpolation for such segments, but that can be too
+        # harsh.
+        p1_p2_points = c.tolist()
+        if rerun_with_low_alpha:
+            return p1_p2_points
         else:
-            output_line = "set xtics 2\n"
-        f.write(output_line)
-        if max_y < 5:
-            output_line = "set ytics 0.5\n"
-        else:
-            output_line = "set ytics 1\n"
-        f.write(output_line)
-        output_line = "set grid\n"
-        f.write(output_line)
+            # Determine direction of voltage and current from p1 to
+            # p2. Normal case is v_p2_gt_v_p1 and i_p2_lte_i_p1.
+            v_p2_gt_v_p1 = True
+            if four_points[2][0] <= four_points[1][0]:
+                v_p2_gt_v_p1 = False
+            v_p2_lte_v_p1 = not v_p2_gt_v_p1
+            i_p2_gt_i_p1 = True
+            if four_points[2][1] <= four_points[1][1]:
+                i_p2_gt_i_p1 = False
+            i_p2_lte_i_p1 = not i_p2_gt_i_p1
+            for ii, point in enumerate(p1_p2_points):
+                if ii:
+                    v_a = p1_p2_points[ii - 1][0]
+                    v_b = point[0]
+                    i_a = p1_p2_points[ii - 1][1]
+                    i_b = point[1]
+                    # If the voltage or current are heading in a
+                    # different direction than they are from p1 to p2,
+                    # break and re-run with low alpha
+                    if ((v_p2_gt_v_p1 and v_b <= v_a) or
+                        (v_p2_lte_v_p1 and v_b > v_a) or
+                        (i_p2_gt_i_p1 and i_b <= i_a) or
+                        (i_p2_lte_i_p1 and i_b > i_a)):
+                        break
+            else:  # no break
+                return p1_p2_points
 
-        if PLOT_IDEAL_CURVE:
-            # Define the ideal PV curve function for "fit"
-            output_line = "ideal_curve(x) = " + str(isc_amps) + " - (a * (exp(b * x) - 1))\n"
-            f.write(output_line)
-            # Suppress verbosity from "fit"
-            f.write("set fit quiet\n")
-            # Run curve fitting
-            output_line = "fit ideal_curve(x) \"" + data_filename + "\" via a, b\n"
-            f.write(output_line)
+        # We'll get here only if we hit the "break" above, meaning we
+        # need to re-run with low alpha
+        p1_p2_points = self.catmull_rom_spline(four_points, num_interp_points,
+                                               rerun_with_low_alpha=True)
+        return p1_p2_points
 
-        # Put a label on the Isc point
-        isc_amps_str = "%.2f" % (isc_amps)
-        output_line = "set label at 0," + str(isc_amps) + " \"Isc = " + isc_amps_str + " A \" point pointtype 7 offset 1,1\n"
-        f.write(output_line)
+    def catmull_rom_chain(self, points_list):
+        """
+        Method mostly borrowed from the Wikipedia article on centripetal
+        Catmull-Rom splines.
 
-        # Put a label on the MPP
-        mpp_watts_str = "%.2f" % (mpp_volts * mpp_amps)
-        mpp_volts_x_amps_str = "%.2f * %.2f" % (mpp_volts, mpp_amps)
-        output_line = "set label at " + str(mpp_volts) + "," + str(mpp_amps) + " \"  MPP = " + mpp_watts_str + " W (" + mpp_volts_x_amps_str + ")\" point pointtype 7\n"
-        f.write(output_line)
+        Calculate centripetal Catmull-Rom for a list of points and
+        return the combined curve.
 
-        # Put a label on the Voc point
-        voc_volts_str = "%.2f" % (voc_volts)
-        output_line = "set label at " + str(voc_volts) + ",0 \"Voc = " + voc_volts_str + " V \" point pointtype 7 offset 1,1\n"
-        f.write(output_line)
+        The input is a list of lists, where each sublist is and [I, V]
+        pair.
 
-        # Build and run the plot command with three plots:
-        #   - measured data points as points
-        #   - interpolated (or smoothed) curve through measured points
-        #   - ideal curve (optional)
-        output_line = "plot \"" + data_filename + "\" index 0 title \"Measured Points\" pointtype 6 linewidth 4"
-        if PLOT_INTERPOLATED_CURVE:
-            output_line += ", "
-            if linear:
-                type_str = "Linear"
-            else:
-                type_str = "Cubic Spline"
-            output_line += "\"" + data_filename + "\" index 1 with lines title "
-            output_line += "\"" + type_str + " Interpolated Curve\" "
-            output_line += "linecolor rgb \"blue\" linewidth 6 linetype 3"
-        elif PLOT_SMOOTHED_CURVE:
-            output_line += ", "
-            output_line += "\"" + data_filename + "\" index 0 using 1:2 smooth csplines title \"Cubic Spline Smoothed Curve\" linecolor rgb \"blue\" linewidth 6 linetype 3"
-        if PLOT_IDEAL_CURVE:
-            output_line += ", "
-            output_line += " ideal_curve(x) title \"Ideal Curve\" linecolor rgb \"purple\" linewidth 6 linetype 3"
-        output_line += "\n"
-        f.write(output_line)
+        The method returns the interpolated curve in the form of a list
+        of [V, I] lists. Note that the curve begins with the second
+        point in the input list and ends with the second-to-last point.
+        """
+        interpolated_curve = []
+        for first_point_num in xrange(len(points_list) - 3):
+            four_points = [points_list[first_point_num],
+                           points_list[first_point_num + 1],
+                           points_list[first_point_num + 2],
+                           points_list[first_point_num + 3]]
+            points = self.catmull_rom_spline(four_points,
+                                             self.num_interp_points)
+            interpolated_curve.extend(points)
 
-        # Now set the terminal to wxt (default dynamic display) and
-        # re-run the plot.  This needs to be suppressed in headless
-        # mode.
-        if not HEADLESS_MODE:
-            f.write("set terminal wxt size 1200,800\n")
-            output_line = "unset output\n"
-            f.write(output_line)
-            f.write("replot\n")
-            f.write("pause -1\n")
+        return interpolated_curve
 
-# ------------------------------------------------------------------------------
-def plot_with_gnuplot (sd_gp_command_filename,
-                       sd_data_point_filename, sd_pdf_filename,
-                       isc_amps, voc_volts, mpp_amps, mpp_volts, lcd, linear):
-    """Function to generate the graph with gnuplot"""
 
-    # Write the gnuplot command file
-    write_gnuplot_file(sd_gp_command_filename,
-                       sd_data_point_filename, sd_pdf_filename,
-                       isc_amps, voc_volts, mpp_amps, mpp_volts, linear)
+#  Main IV Swinger class
+#
+class IV_Swinger(object):
+    """Main IV Swinger class"""
 
-    # Execute the gnuplot command file
-    if isc_amps and voc_volts:
-        # FIXME: redirect of stderr to /dev/null shouldn't be necessary
-        # (and makes debugging impossible!); but currently there are
-        # annoying Glib warnings that I want to suppress
-        #FNULL = open(os.devnull, 'w')
-        #call(["gnuplot", sd_gp_command_filename], stderr=FNULL)
-        call(["gnuplot", sd_gp_command_filename])
+    # Initializer
+    def __init__(self):
+        # Property variables
+        self._shutdown_on_exit = True
+        self._fine_mode = True
+        self._fine_mode_toggle = False
+        self._loads_to_skip = 0
+        self._root_dir = "/IV_Swinger"
+        self._diag_mode = False
+        self._headless_mode = True
+        self._idle_timeout_seconds = 600
+        self._idle_timeout_warning_seconds = 30
+        self._dpst_gpio = 4
+        self._button_gpio = 5
+        self._buzzer_gpio = 18
+        self._button_time_for_shutdown = 3
+        self._lcd_lines = 2
+        self._lcd_disp_chars_per_line = 16
+        self._lcd_mem_chars_per_line = 40
+        self._lcd_chars_per_scroll = 4
+        self._lcd_scroll_delay = 1.2
+        self._mcp23017_i2c_addr = 0x20
+        self._time_between_measurements = 0.05
+        self._samples_per_measurement = 2
+        self._max_retries = 0
+        self._voc_settle_count = 5
+        self._sps = 250
+        self._vdiv_r1 = 180000.0  # R1 = 180k
+        self._vdiv_r2 = 8200.0    # R2 = 8.2k
+        self._vdiv_r3 = 5600.0    # R3 = 5.6k
+        self._vdiv_chp = 0
+        self._vdiv_chn = 1
+        self._amm_op_amp_rf = 82000.0  # Rf = 82k
+        self._amm_op_amp_rg = 1500.0   # Rg = 1.5k
+        self._amm_shunt_max_volts = 0.075
+        self._amm_shunt_max_amps = 10
+        self._amm_chp = 2
+        self._amm_chn = 3
+        self._plot_ideal_curve = False
+        self._plot_interpolated_curve = True
+        self._use_spline_interpolation = True
+        # exception message queue
+        self.exc_queue = Queue.Queue()
 
-# ------------------------------------------------------------------------------
-def clean_up (io_extender, lcd, reason_text):
-    """Function to clean up on exit"""
+    # Properties
+    @property
+    def shutdown_on_exit(self):
+        """Boolean: whether to shut down the Raspberry Pi on an
+        exception or not
+        """
+        return self._shutdown_on_exit
 
-    print_and_log("Cleaning up on exit")
+    @shutdown_on_exit.setter
+    def shutdown_on_exit(self, value):
+        if value not in set([True, False]):
+            raise ValueError("shutdown_on_exit must be boolean")
+        self._shutdown_on_exit = value
 
-    # Turn off all relays
-    turn_off_all_relays(io_extender)
+    @property
+    def fine_mode(self):
+        """FINE mode produces better results but wears out the HALF
+        relay faster.  However, with the adaptive algorithm that only
+        adds the half steps where the curve is bending, most runs only
+        add two extra points in FINE mode.
+        """
+        return self._fine_mode
 
-    # Need user to turn off the DPST switch
-    prompt_and_wait_for_dpst_off(lcd)
+    @fine_mode.setter
+    def fine_mode(self, value):
+        if value not in set([True, False]):
+            raise ValueError("fine_mode must be boolean")
+        self._fine_mode = value
 
-    # Display exit message on LCD
-    lcd.clear()
-    lcd.message('IV_Swinger exit:\n' + reason_text)
+    @property
+    def fine_mode_toggle(self):
+        """ If fine_mode_toggle is True, the pushbutton can be used to
+        toggle the mode.
+        """
+        return self._fine_mode_toggle
 
-    # Clean up GPIO
-    GPIO.cleanup()
+    @fine_mode_toggle.setter
+    def fine_mode_toggle(self, value):
+        if value not in set([True, False]):
+            raise ValueError("fine_mode_toggle must be boolean")
+        self._fine_mode_toggle = value
 
-# ------------------------------------------------------------------------------
-def scrolling_message (text, lcd, stop_event=None, repeat_count=0, beep=False, lock=None):
-    """Function to display a longer message on the 16x2 LCD display.
-The message must be 80 or fewer characters, and if it contains a \n,
-there must be 40 or fewer characters before and after the \n.  The 16x2
-LCD display has memory for 40 characters per line, but only shows 16.
-This function scrolls the message left once (unless repeat_count is
-non-zero) so that the whole message can be read. If the caller doesn't
-include a \n, the first line will contain the first 40 characters and
-the second will contain the remainder, with the split not necesssarily
-coming between words.  If the beep arg is set, sound the beep once per
-repetition.  If the stop_event arg is not None, it must be a
-threading.Event() object in which case it is checked during the
-scrolling and if set, the display is returned to the home position and
-the function returns immediately.  If the lock arg is not None, it must
-be a threading.Lock() object in which case it is acquired and released
-around each LCD object method call.  The first of these is blocking, but
-the others are non-blocking.  For those that are non-blocking, the
-function returns if the lock is not acquired.
-"""
+    @property
+    def loads_to_skip(self):
+        """If loads_to_skip is non-zero, the first N load_pattern values
+        in COARSE_LOAD_LIST or FINE_LOAD_LIST are skipped. This mode is
+        for testing with small power supplies that have short-circuit
+        protection that triggers when small load values are used.
+        """
+        return self._loads_to_skip
 
-    # Init variables
-    char_count = [0,0] # List containing character counts for each line
-    line = 0
-    newline_count = 0
+    @loads_to_skip.setter
+    def loads_to_skip(self, value):
+        self._loads_to_skip = value
 
-    # Count characters per line and check that there is no more than one
-    # newline
-    for char in text:
-        if char == '\n':
-            line = 1
-            newline_count += 1
-            if newline_count > 1:
-                print_and_log("ERROR (scrolling_message): More than two lines in text:\n" + text)
-                exit(-1)
-        else:
-            char_count[line] += 1
+    @property
+    def root_dir(self):
+        """ Root directory on SD card where results and log files are written
+        """
+        return self._root_dir
 
-    # Check character limits (40 per line or 80 total)
-    if char_count[1] > 0:
-        if char_count[0] > LCD_MEM_CHARS_PER_LINE:
-            print_and_log("ERROR (scrolling_message): >40 characters before newline in text:\n" + text)
+    @root_dir.setter
+    def root_dir(self, value):
+        if value[0] != "/":
+            raise ValueError("root_dir must start with /")
+        self._root_dir = value
+
+    @property
+    def logs_dir(self):
+        """ Directory on SD card where log files are written"""
+        logs_dir = self._root_dir + "/logs"
+        return logs_dir
+
+    @property
+    def diag_mode(self):
+        """When true, this property causes the test to run in diagnostic mode
+        """
+        return self._diag_mode
+
+    @diag_mode.setter
+    def diag_mode(self, value):
+        if value not in set([True, False]):
+            raise ValueError("diag_mode must be boolean")
+        self._diag_mode = value
+
+    @property
+    def headless_mode(self):
+        """When true, this property causes the test to run in headless mode
+        """
+        return self._headless_mode
+
+    @headless_mode.setter
+    def headless_mode(self, value):
+        if value not in set([True, False]):
+            raise ValueError("headless_mode must be boolean")
+        self._headless_mode = value
+
+    @property
+    def idle_timeout_seconds(self):
+        """Amount of idle time in seconds before a shutdown is initiated"""
+        return self._idle_timeout_seconds
+
+    @idle_timeout_seconds.setter
+    def idle_timeout_seconds(self, value):
+        if value < 30:
+            raise ValueError("idle_timeout_seconds must be at least 30")
+        self._idle_timeout_seconds = value
+
+    @property
+    def idle_timeout_warning_seconds(self):
+        """Number of seconds before the idle timeout that a warning is
+        issued
+        """
+        return self._idle_timeout_warning_seconds
+
+    @idle_timeout_warning_seconds.setter
+    def idle_timeout_warning_seconds(self, value):
+        if value > self.idle_timeout_seconds:
+            raise ValueError("idle_timeout_warning seconds "
+                             "must be greater than idle_timeout_seconds")
+        self._idle_timeout_warning_seconds = value
+
+    @property
+    def dpst_gpio(self):
+        """GPIO pin (BCM numbering) that the DPST is connected to"""
+        return self._dpst_gpio
+
+    @dpst_gpio.setter
+    def dpst_gpio(self, value):
+        self._dpst_gpio = value
+
+    @property
+    def button_gpio(self):
+        """GPIO pin (BCM numbering) that the pushbutton is connected to"""
+        return self._button_gpio
+
+    @button_gpio.setter
+    def button_gpio(self, value):
+        self._button_gpio = value
+
+    @property
+    def buzzer_gpio(self):
+        """GPIO pin (BCM numbering) that the piezo buzzer is connected to"""
+        return self._buzzer_gpio
+
+    @buzzer_gpio.setter
+    def buzzer_gpio(self, value):
+        self._buzzer_gpio = value
+
+    @property
+    def button_time_for_shutdown(self):
+        """Amount of time in seconds that the pushbutton must be held
+        down in order for a shutdown to be initiated
+        """
+        return self._button_time_for_shutdown
+
+    @button_time_for_shutdown.setter
+    def button_time_for_shutdown(self, value):
+        self._button_time_for_shutdown = value
+
+    @property
+    def lcd_lines(self):
+        """Number of lines on the LCD"""
+        return self._lcd_lines
+
+    @lcd_lines.setter
+    def lcd_lines(self, value):
+        self._lcd_lines = value
+
+    @property
+    def lcd_disp_chars_per_line(self):
+        """Number of characters per line on the LCD display"""
+        return self._lcd_disp_chars_per_line
+
+    @lcd_disp_chars_per_line.setter
+    def lcd_disp_chars_per_line(self, value):
+        self._lcd_disp_chars_per_line = value
+
+    @property
+    def lcd_mem_chars_per_line(self):
+        """Number of characters per LCD line that can be held in memory"""
+        return self._lcd_mem_chars_per_line
+
+    @lcd_mem_chars_per_line.setter
+    def lcd_mem_chars_per_line(self, value):
+        self._lcd_mem_chars_per_line = value
+
+    @property
+    def lcd_chars_per_scroll(self):
+        """Number of characters to scroll on the LCD when displaying a
+        scrolling message. Must be integer divisor of 24
+        (1,2,3,4,6,8,12)
+        """
+        return self._lcd_chars_per_scroll
+
+    @lcd_chars_per_scroll.setter
+    def lcd_chars_per_scroll(self, value):
+        if value not in set([1, 2, 3, 4, 6, 8, 12]):
+            raise ValueError("lcd_chars_per_scroll must "
+                             "be integer divisor of 24")
+        self._lcd_chars_per_scroll = value
+
+    @property
+    def lcd_scroll_delay(self):
+        """Time in seconds to delay between each LCD scroll"""
+        return self._lcd_scroll_delay
+
+    @lcd_scroll_delay.setter
+    def lcd_scroll_delay(self, value):
+        self._lcd_scroll_delay = value
+
+    @property
+    def mcp23017_i2c_addr(self):
+        """Hex I2C address that the MCP23017 is jumpered to"""
+        return self._mcp23017_i2c_addr
+
+    @mcp23017_i2c_addr.setter
+    def mcp23017_i2c_addr(self, value):
+        self._mcp23017_i2c_addr = value
+
+    @property
+    def time_between_measurements(self):
+        """Time in seconds to delay between taking measurements"""
+        return self._time_between_measurements
+
+    @time_between_measurements.setter
+    def time_between_measurements(self, value):
+        self._time_between_measurements = value
+
+    @property
+    def samples_per_measurement(self):
+        """Number of samples to take at each measurement point"""
+        return self._samples_per_measurement
+
+    @samples_per_measurement.setter
+    def samples_per_measurement(self, value):
+        self._samples_per_measurement = value
+
+    @property
+    def max_retries(self):
+        """Number of times to retry failed measurements"""
+        return self._max_retries
+
+    @max_retries.setter
+    def max_retries(self, value):
+        self._max_retries = value
+
+    @property
+    def voc_settle_count(self):
+        """Number of Voc measurements to keep when determining if the
+        value has settled
+        """
+        return self._voc_settle_count
+
+    @voc_settle_count.setter
+    def voc_settle_count(self, value):
+        self._voc_settle_count = value
+
+    @property
+    def sps(self):
+        """Samples per second with which to program the ADC. Must be one
+        of: 8, 16, 64, 128, 250, 475, 860
+        """
+        return self._sps
+
+    @sps.setter
+    def sps(self, value):
+        if value not in set([8, 16, 64, 128, 250, 475, 860]):
+            raise ValueError("illegal sps value")
+        self._sps = value
+
+    # Voltage divider
+    #
+    # The voltage divider consists of 3 resistors rather than the typical 2:
+    #
+    #  PV+  ---O
+    #          |
+    #          |
+    #          >           o +5V
+    #          <  R1       |
+    #          >          --- Schottky diode #1
+    #          |           A
+    #          |           |
+    #          o-----------o----> ADC A0 input
+    #          |           |
+    #          |          --- Schottky diode #2
+    #          |           A
+    #          |           |
+    #          >           o GND
+    #          <  R2
+    #          >
+    #          |           o +5V
+    #          |           |
+    #          |          --- Schottky diode #3
+    #          |           A
+    #          |           |
+    #          o-----------o----> ADC A1 input
+    #          |           |
+    #          |          --- Schottky diode #4
+    #          >           A
+    #          <  R3       |
+    #          >           o GND
+    #          |
+    #          |
+    #  PV-  ---O
+    #
+    # The ADC differential inputs A0 and A1 measure the voltage across
+    # resistor R2.  The Schottky diode clamps assure that the voltage seen
+    # at the ADC inputs cannot be greater than +5V (plus Vfwd of diode) or
+    # less than 0V (minus Vfwd of diode). This protects the ADC inputs. The
+    # reason for resistor R3 is to limit the current in the event that the
+    # PV is connected backwards.  Without R3, if PV- is > +5V, current would
+    # flow through Schottky diode #3 into the +5V rail and there might not
+    # be enough load to sink that much current, which could damage the
+    # battery pack.
+    #
+    # The equation for a three-resistor voltage divider where the output is
+    # measured across the middle (R2) resistor is:
+    #
+    #              R2                           R1+R2+R3
+    #   Vout = ---------- * Vin    OR    Vin = ---------- * Vout
+    #           R1+R2+R3                           R2
+    #
+    # The ADC measures Vout and we want to know Vin, which is the PV
+    # voltage. So we use the second equation.
+    #
+    @property
+    def vdiv_r1(self):
+        """Resistance in ohms of voltage divider resistor R1"""
+        return self._vdiv_r1
+
+    @vdiv_r1.setter
+    def vdiv_r1(self, value):
+        self._vdiv_r1 = value
+
+    @property
+    def vdiv_r2(self):
+        """Resistance in ohms of voltage divider resistor R2"""
+        return self._vdiv_r2
+
+    @vdiv_r2.setter
+    def vdiv_r2(self, value):
+        self._vdiv_r2 = value
+
+    @property
+    def vdiv_r3(self):
+        """Resistance in ohms of voltage divider resistor R3"""
+        return self._vdiv_r3
+
+    @vdiv_r3.setter
+    def vdiv_r3(self, value):
+        self._vdiv_r3 = value
+
+    @property
+    def vdiv_mult(self):
+        """Amount that voltage divider Vout is multiplied to determine Vin"""
+        vdiv_mult = (self._vdiv_r1 +
+                     self._vdiv_r2 +
+                     self._vdiv_r3) / self._vdiv_r2
+        return vdiv_mult
+
+    @property
+    def vdiv_chp(self):
+        """ADC channel connected to positive side of the voltage divider"""
+        return self._vdiv_chp
+
+    @vdiv_chp.setter
+    def vdiv_chp(self, value):
+        self._vdiv_chp = value
+
+    @property
+    def vdiv_chn(self):
+        """ADC channel connected to negative side of the voltage divider"""
+        return self._vdiv_chn
+
+    @vdiv_chn.setter
+    def vdiv_chn(self, value):
+        self._vdiv_chn = value
+
+    # Ammeter
+    @property
+    def amm_op_amp_rf(self):
+        """Resistance in ohms of ammeter op amp resistor Rf"""
+        return self._amm_op_amp_rf
+
+    @amm_op_amp_rf.setter
+    def amm_op_amp_rf(self, value):
+        self._amm_op_amp_rf = value
+
+    @property
+    def amm_op_amp_rg(self):
+        """Resistance in ohms of ammeter op amp resistor Rg"""
+        return self._amm_op_amp_rg
+
+    @amm_op_amp_rg.setter
+    def amm_op_amp_rg(self, value):
+        self._amm_op_amp_rg = value
+
+    @property
+    def amm_op_amp_gain(self):
+        """Gain of ammeter op amp circuit"""
+        amm_op_amp_gain = 1 + (self._amm_op_amp_rf / self._amm_op_amp_rg)
+        return amm_op_amp_gain
+
+    @property
+    def amm_shunt_max_volts(self):
+        """Maximum voltage across ammeter shunt resistor"""
+        return self._amm_shunt_max_volts
+
+    @amm_shunt_max_volts.setter
+    def amm_shunt_max_volts(self, value):
+        self._amm_shunt_max_volts = value
+
+    @property
+    def amm_shunt_max_amps(self):
+        """Maximum current through ammeter shunt resistor"""
+        return self._amm_shunt_max_amps
+
+    @amm_shunt_max_amps.setter
+    def amm_shunt_max_amps(self, value):
+        self._amm_shunt_max_amps = value
+
+    @property
+    def amm_shunt_resistance(self):
+        """Resistance of shunt resistor"""
+        amm_shunt_resistance = (self._amm_shunt_max_volts /
+                                self._amm_shunt_max_amps)
+        return amm_shunt_resistance
+
+    @property
+    def amm_chp(self):
+        """ADC channel connected to positive side of the ammeter shunt
+        resistor
+        """
+        return self._amm_chp
+
+    @amm_chp.setter
+    def amm_chp(self, value):
+        self._amm_chp = value
+
+    @property
+    def amm_chn(self):
+        """ADC channel connected to negative side of the ammeter shunt
+        resistor
+        """
+        return self._amm_chn
+
+    @amm_chn.setter
+    def amm_chn(self, value):
+        self._amm_chn = value
+
+    @property
+    def plot_ideal_curve(self):
+        """If True, an ideal IV curve based on the Isc and Voc is plotted"""
+        return self._plot_ideal_curve
+
+    @plot_ideal_curve.setter
+    def plot_ideal_curve(self, value):
+        if value not in set([True, False]):
+            raise ValueError("plot_ideal_curve must be boolean")
+        self._plot_ideal_curve = value
+
+    @property
+    def plot_interpolated_curve(self):
+        """If True, the interpolated IV curve is plotted"""
+        return self._plot_interpolated_curve
+
+    @plot_interpolated_curve.setter
+    def plot_interpolated_curve(self, value):
+        if value not in set([True, False]):
+            raise ValueError("plot_interpolated_curve must be boolean")
+        self._plot_interpolated_curve = value
+
+    @property
+    def use_spline_interpolation(self):
+        """If True, spline interpolation is used. If False, linear
+        interpolation is used.
+        """
+        return self._use_spline_interpolation
+
+    @use_spline_interpolation.setter
+    def use_spline_interpolation(self, value):
+        if value not in set([True, False]):
+            raise ValueError("use_spline_interpolation must be boolean")
+        self._use_spline_interpolation = value
+
+    # -------------------------------------------------------------------------
+    def set_up_gpio(self):
+        """Method to set up the GPIO pins"""
+
+        # Set GPIO pin numbering to BCM mode
+        GPIO.setmode(GPIO.BCM)
+
+        # Set GPIO pin connected to pushbutton switch to be an input
+        GPIO.setup(self.button_gpio, GPIO.IN)
+
+        # Set GPIO pin connected to piezo buzzer to be an output
+        GPIO.setup(self.buzzer_gpio, GPIO.OUT)
+        GPIO.output(self.buzzer_gpio, False)
+
+        # Check if the pushbutton is pressed now. If it is, then exit
+        # the program. The main reason for this is for the case where
+        # the script is started automatically at boot, but there is an
+        # exception early in the code causing a shutdown. It could be
+        # impossible to get out of such a situation. For this reason,
+        # the call to set_up_gpio is the first thing that the program
+        # does, and this check is the first thing set_up_gpio does.
+        if GPIO.input(self.button_gpio) == BUTTON_ON:
+            GPIO.output(self.buzzer_gpio, True)
+            time.sleep(1)
+            GPIO.output(self.buzzer_gpio, False)
+            print "BUTTON PRESSED - EXITING IMMEDIATELY"
+            GPIO.cleanup()
             exit(-1)
-        elif char_count[1] > LCD_MEM_CHARS_PER_LINE:
-            print_and_log("ERROR (scrolling_message): >40 characters after newline in text:\n" + text)
-            exit(-1)
-    elif char_count[0] > LCD_LINES * LCD_MEM_CHARS_PER_LINE:
-        print_and_log("ERROR (scrolling_message): >80 characters in text:\n" + text)
-        exit(-1)
 
-    # Determine maximum number of characters in longer line and number
-    # of hidden characters in that line
-    if char_count[0] > LCD_MEM_CHARS_PER_LINE:
-        max_chars = LCD_MEM_CHARS_PER_LINE
-    elif char_count[0] > char_count[1]:
-        max_chars = char_count[0]
-    else:
-        max_chars = char_count[1]
-    hidden_chars = max_chars - LCD_DISPLAY_CHARS_PER_LINE
+        # Register pushbutton callback method
+        GPIO.add_event_detect(self.button_gpio, GPIO.RISING,
+                              callback=self.pushbutton_callback,
+                              bouncetime=300)
 
-    # Calculate the number of scrolls needed to show hidden characters
-    float_chars_per_scroll = float(LCD_CHARS_PER_SCROLL)
-    num_scrolls = int(math.ceil(hidden_chars/float_chars_per_scroll))
+        # Set GPIO pin connected to DPST switch to be an input
+        GPIO.setup(self.dpst_gpio, GPIO.IN)
 
-    # Display the message unscrolled for a short time
-    if lock:
-        lock.acquire() # blocking
-    lcd.clear()
-    lcd.message(text)
-    if lock:
-        lock.release()
-    if beep:
-        generate_beep()
-    sleep(LCD_SCROLL_DELAY)
+    # Methods
 
-    # Scroll the message the calculated number of times and repeat the
-    # whole thing the requested number of times
-    for rep_num in range (0, repeat_count + 1):
-        for scroll in range (0, num_scrolls):
-            for shift in range (0, LCD_CHARS_PER_SCROLL):
-                got_lock = True
-                if lock:
-                    got_lock = lock.acquire(0) # non-blocking
-                if got_lock:
-                    # shift left once
-                    lcd.DisplayLeft()
-                    if lock:
-                        lock.release()
-                else:
-                    return
-            # bail out now if stop event is set
-            if stop_event and stop_event.is_set():
-                lcd.home()
-                return
-            # pause so it's visible
-            sleep(LCD_SCROLL_DELAY)
-        got_lock = True
-        if lock:
-            got_lock = lock.acquire(0) # non-blocking
-        if got_lock:
-            # back to beginning of message
-            lcd.home()
-            if lock:
-                lock.release()
-        else:
+    # -------------------------------------------------------------------------
+    def pushbutton_callback(self, channel):
+        """Callback method invoked when the pushbutton switch is pressed
+        """
+
+        # Filter out phantom presses
+        if GPIO.input(self.button_gpio) == BUTTON_OFF:
             return
 
-        if repeat_count:
-            # bail out now if stop event is set
-            if stop_event and stop_event.is_set():
-                return
-            if beep:
-                generate_beep()
-            # pause before next repetition
-            sleep(LCD_SCROLL_DELAY)
+        # Do the rest after acquiring the lock
+        with self.lock:
+            self.pushbutton_callback_locked_section()
 
-# ------------------------------------------------------------------------------
-def find_usb_drives_inner ():
-    """Inner function (used by find_usb_drives) to find all USB drives
-and return the list.  USB drives look like directories under /media.
-But there could be directories under /media that are not USB drives.  So
-filter out any that are not mount points.  It's also possible that a USB
-drive is write-protected so filter those out too.
-"""
-    # Get list of directories under /media (possible USB drives)
-    slash_media_dir_glob = "/media/*"
-    slash_media_dirs = glob.glob(slash_media_dir_glob)
+        return
 
-    # Filter out any that are not actually mount points or are not
-    # writeable (and executable, which is necessary to add
-    # subdirectories/files).
-    usb_drives = []
-    for slash_media_dir in slash_media_dirs:
-        if os.path.ismount(slash_media_dir) and os.access(slash_media_dir,
-                                                          os.W_OK|os.X_OK):
-            # Instead of using os.path.ismount and os.access, could look
-            # in /proc/mounts and check that it is "rw"
+    # -------------------------------------------------------------------------
+    def pushbutton_callback_locked_section(self):
+        """Callback method invoked when the pushbutton switch is pressed
+        """
 
-            # Check for duplicates
-            duplicate = False
-            for usb_drive in usb_drives:
-                if os.path.samefile(usb_drive,slash_media_dir):
-                    duplicate = True
+        # Reset the LCD just in case it is messed up
+        self.reset_lcd()
 
-            # Add to the list if not a duplicate
-            if not duplicate:
-                usb_drives.append(slash_media_dir)
-
-    return usb_drives
-
-# ------------------------------------------------------------------------------
-def find_usb_drives (lcd, wait=True, display=False):
-    """Function to find all USB drives and return the list. If the
-'wait' arg is set to True and no USB drives are found, prompt the user
-and wait until one is inserted (or time out).
-"""
-    global global_lock
-
-    # Find USB drives
-    usb_drives = find_usb_drives_inner()
-
-    # If there are no USB drives, print warning and loop waiting for one
-    # to be inserted
-    if not usb_drives and wait:
-        print_and_log("No USB drives!! Insert one or more USB drives now")
-
-        start_time = time.time()
-
-        while True:
-            wait_time = int(time.time()) - int(start_time)
-            time_left = 30 - wait_time
-            if time_left < 0:
-                time_left = 0
-            msg_text = ['No USB drives!!\nInsert one or',
-                        'more USB drives\nin next %d sec' % time_left]
-            lcd_msg = ScrollingMessage(msg_text, lcd, beep=True, lock=global_lock)
-            lcd_msg.start()
-
-            # Sleep for a second
-            sleep(1)
-
-            # After 30 seconds of polling for a USB drive, time out and
-            # display a message that the files will be copied to USB if
-            # one is inserted later
-            if wait_time > 30:
-                lcd_msg.stop()
-                msg_text = ['Proceeding\nwithout USB',
-                            'Results will\nbe kept on SD',
-                            'card and copied\nto USB drive',
-                            'when one is\navailable']
-                print_and_log("Proceeding without USB drive. Results will be kept on SD card and copied to USB when one is available")
-                lcd_msg = ScrollingMessage(msg_text, lcd, beep=False, lock=global_lock)
-                lcd_msg.start()
-                sleep(10)
-                lcd_msg.stop()
-                break
-
-            # Check again
-            usb_drives = find_usb_drives_inner()
-            if usb_drives:
-                display = True
-                lcd_msg.stop()
-                break
-
-            lcd_msg.stop()
-
-    if display:
-        usb_drives_str = ""
-        for usb_drive in usb_drives:
-            usb_drives_str += usb_drive + " "
-
-        msg_text = ['Found USB drive(s):\n%s' % usb_drives_str]
-        print_and_log("Found USB drive(s): %s" % usb_drives_str)
-        lcd_msg = ScrollingMessage(msg_text, lcd, beep=False, lock=global_lock)
+        # Create the ScrollingMessage object with lock=None so we don't
+        # deadlock
+        msg_text = ("Hold button %d s\nto shut down" %
+                    self.button_time_for_shutdown)
+        lcd_msg = ScrollingMessage(msg_text, self.lcd, beep=False, lock=None,
+                                   exc_queue=self.exc_queue)
         lcd_msg.start()
-        sleep(5)
+
+        # If the button is still pressed, time how long it is pressed - up
+        # to button_time_for_shutdown (property) seconds.
+        start_time = time.time()
+        pressed_time = 0
+        while (GPIO.input(self.button_gpio) == BUTTON_ON and
+               pressed_time < self.button_time_for_shutdown):
+            pressed_time = time.time() - start_time
+
+        # Stop the message
         lcd_msg.stop()
 
-    return usb_drives
+        # If the button was pressed for at least
+        # button_time_for_shutdown (property) seconds, print a dying
+        # message and shut down the RPi.  Otherwise, print a message
+        # that the button was released before the shutdown was initiated
+        # and toggle fine_mode.
+        if pressed_time >= self.button_time_for_shutdown:
+            self.shut_down(lock_held=True)
+        else:
+            msg_text = ["Button released\nbefore %d seconds" %
+                        self.button_time_for_shutdown]
+            if self.fine_mode_toggle:
+                if self.fine_mode:
+                    self.fine_mode = False
+                    msg_text.append("**COARSE MODE**")
+                else:
+                    self.fine_mode = True
+                    msg_text.append("**FINE MODE**")
+            lcd_msg = ScrollingMessage(msg_text, self.lcd, beep=True,
+                                       lock=None, exc_queue=self.exc_queue)
+            lcd_msg.start()
+            time.sleep(1)
+            lcd_msg.stop()
 
-# ------------------------------------------------------------------------------
-def create_iv_swinger_dirs (base_dirs):
-    """Function to create the IV_Swinger directories under the specified
-base directories.  Returns the list of IV_swinger directories.
-"""
-    global global_lock
+        return
 
-    iv_swinger_dirs = []
+    # -------------------------------------------------------------------------
+    def reset_lcd(self):
+        """Method to reset the LCD"""
+        # Code taken from Adafruit_CharLCD constructor
 
-    # In each of the base directories make the IV_Swinger directory if
-    # it doesn't already exist.  Also make the /IV_Swinger/clogs,
-    # /IV_Swinger/csv and /IV_Swinger/pdf directories.
-    for base_dir in base_dirs:
-        sub_dirs = [base_dir + "/IV_Swinger",
-                    base_dir + "/IV_Swinger/logs",
-                    base_dir + "/IV_Swinger/csv",
-                    base_dir + "/IV_Swinger/pdf"]
-        for sub_dir in sub_dirs:
-            if not os.path.exists(sub_dir):
-                try:
-                    os.makedirs(sub_dir)
-                except:
-                    msg_text = ['Failed to make\ndirectory:',
-                                '%s' % sub_dir]
-                    print_and_log("Failed to make directory: %s" % sub_dir)
-                    lcd_msg = ScrollingMessage(msg_text, lcd, beep=True, lock=global_lock)
+        self.lcd.write4bits(0x33)  # initialization
+        self.lcd.write4bits(0x32)  # initialization
+        self.lcd.write4bits(0x28)  # 2 line 5x7 matrix
+        self.lcd.write4bits(0x0C)  # turn cursor off 0x0E to enable cursor
+        self.lcd.write4bits(0x06)  # shift cursor right
+
+        self.lcd.displaycontrol = (self.lcd.LCD_DISPLAYON |
+                                   self.lcd.LCD_CURSOROFF |
+                                   self.lcd.LCD_BLINKOFF)
+
+        self.lcd.displayfunction = (self.lcd.LCD_4BITMODE |
+                                    self.lcd.LCD_1LINE |
+                                    self.lcd.LCD_5x8DOTS |
+                                    self.lcd.LCD_2LINE)
+
+        # Initialize to default text direction (for romance languages)
+        self.lcd.displaymode = (self.lcd.LCD_ENTRYLEFT |
+                                self.lcd.LCD_ENTRYSHIFTDECREMENT)
+        self.lcd.write4bits(self.lcd.LCD_ENTRYMODESET |
+                            self.lcd.displaymode)  # set entry mode
+
+        self.lcd.clear()
+
+    # -------------------------------------------------------------------------
+    def turn_off_all_relays(self, io_extender):
+        """Method to turn off all the relays"""
+        io_extender.write16(ALL_RELAYS_OFF)
+
+    # -------------------------------------------------------------------------
+    def swizzle_byte(self, byte):
+        """Method to reverse the order of the bits in a byte"""
+
+        swizzled_byte = 0
+
+        for bit in xrange(8):
+            swizzled_byte |= ((byte & (1 << bit)) >> bit) << (7 - bit)
+
+        return swizzled_byte
+
+    # -------------------------------------------------------------------------
+    def swizzle_msb(self, value):
+        """Method to reverse the order of the bits in the upper byte of
+        a 16-bit value
+        """
+
+        msb = (value & 0xFF00) >> 8
+        lsb = value & 0xFF
+
+        swizzled_msb = self.swizzle_byte(msb)
+
+        return (swizzled_msb << 8) | lsb
+
+    # -------------------------------------------------------------------------
+    def set_relays_to_pattern(self, load_pattern, io_extender):
+        """Method to set the relays to the supplied load pattern,
+        performing the appropriate inversion (for active-low inputs) and
+        swizzling (for cabling quirk).
+        """
+        # Due to the fact that the "B" outputs are in the reverse order
+        # from the "A" outputs on the Slice of PI/O board, the upper
+        # byte is bit-swizzled.
+        io_extender.write16(self.swizzle_msb(~load_pattern))
+
+    # -------------------------------------------------------------------------
+    def prime_relays(self, io_extender):
+        """Method to turn on each relay briefly (workaround for 'weak'
+        relay issue.
+        """
+        prime_pattern = 0x8000
+        while prime_pattern:
+            self.set_relays_to_pattern(prime_pattern, io_extender)
+            time.sleep(0.02)
+            prime_pattern >>= 1
+        self.turn_off_all_relays(io_extender)
+
+    # -------------------------------------------------------------------------
+    def prompt_and_wait_for_dpst_off(self):
+        """Method to prompt the user to turn off the DPST switch and
+        poll until this occurs.  While polling, the warning pattern is
+        sounded.
+        """
+        # Create warning thread object
+        warning_thread = SoundWarning(on_time=0.1, off_time=0.2)
+
+        if GPIO.input(self.dpst_gpio) == DPST_ON:
+            self.logger.print_and_log("*" * 58)
+            self.logger.print_and_log("Please turn the toggle switch OFF")
+            self.logger.print_and_log("*" * 58)
+
+            # start the warning thread
+            warning_thread.start()  # start the warning thread
+
+            # display the prompt
+            self.lcd.clear()
+            self.lcd.message("Turn switch\nOFF now!!")
+
+            # wait for the switch to be turned off
+            while GPIO.input(self.dpst_gpio) == DPST_ON:
+                time.sleep(0.2)
+
+            # stop the warning thread and clear the message
+            warning_thread.stop()
+            self.lcd.clear()
+
+    # -------------------------------------------------------------------------
+    def read_adc(self, adc, chP=0, chN=1, starting_pga=6144):
+        """Wrapper method around the readADCDifferential method.  It
+        first uses different PGA gain values until it finds the optimal
+        range.  The optimal range is the largest one where the reading
+        is greater than 1/3 of the range (or the smallest range if none
+        of the larger ranges meets this criterion). Plus we need to
+        avoid using a range that is too small to accomodate the
+        reading. The assumption is that the ADC is most accurate when
+        the reading is near the middle of the range. If a reading is
+        slightly less than 1/3 of the range, it will be less than 2/3 of
+        the next smaller range and therefore not at risk for exceeding
+        that range. Once the optimal range has been determined, it takes
+        several readings and returns the average value, in volts.  This
+        obviously exploits the assumption for this application that the
+        voltage at the ADC is fairly stable.
+        """
+
+        # Determine optimal PGA range and then sample voltage at that
+        # PGA gain value.  The PGA_LIST has the largest range first and
+        # the smallest range last.
+        for pga in PGA_LIST:
+            if pga > starting_pga:
+                continue
+            millivolts = adc.readADCDifferential(chP, chN, pga, self.sps)
+            millivolt_sum = millivolt_max = millivolt_min = \
+                millivolt_avg = millivolts
+            if abs(millivolts) > pga / 3 or pga == PGA_LIST[-1]:
+                for _ in xrange(self.samples_per_measurement - 1):
+                    millivolts = adc.readADCDifferential(chP, chN,
+                                                         pga, self.sps)
+                    millivolt_sum += millivolts
+                    if millivolts > millivolt_max:
+                        millivolt_max = millivolts
+                    if millivolts < millivolt_min:
+                        millivolt_min = millivolts
+                millivolt_avg = millivolt_sum / self.samples_per_measurement
+                # percent_in_range = abs((millivolt_avg / pga) * 100)
+                break
+
+        percent_error = abs(((millivolt_max - millivolt_min) /
+                             millivolt_avg) * 100)
+
+        # If the error is > 5%, force the return value to the min or max
+        # - whichever is closer to the average
+        if percent_error > 5:
+            if (abs(millivolt_max - millivolt_avg) <
+                    abs(millivolt_min - millivolt_avg)):
+                millivolt_avg = millivolt_max
+            else:
+                millivolt_avg = millivolt_min
+
+        # A measurement of smaller than +-1mV is assumed to be noise,
+        # and the actual voltage is 0
+        if abs(millivolt_avg) < 1:
+            millivolt_avg = 0
+
+        return millivolt_avg / 1000
+
+    # -------------------------------------------------------------------------
+    def read_voc(self, adc):
+        """Method to read the current Voc voltage, but return 0 for
+        voltages less than 300mV
+        """
+        voc_volts = self.vdiv_mult * self.read_adc(adc, self.vdiv_chp,
+                                                   self.vdiv_chn, 6144)
+        if abs(voc_volts) < 0.300:
+            voc_volts = 0
+
+        return voc_volts
+
+    # -------------------------------------------------------------------------
+    def measure_voc(self, adc, msg_text):
+        """Method to continually measure Voc (10 measurements/second).
+        Once a stable measurement is achieved, the user is prompted to
+        turn the DPST switch on.  Voc measurements continue to be taken
+        until this happens (or until the idle timeout time has passed in
+        which case the system is shut down).  The msg_text parameter
+        should be a string or a list of strings to prompt the user to
+        turn on the toggle switch once the Voc value is stable.  The
+        reason it isn't hardcoded is so the message that is displayed
+        for the first iteration can be different from the message
+        displayed for subsequent iterations.  The passed value of
+        msg_text gets overridden when the idle timeout is close to
+        expiring.  In that case, the number of seconds remaining is
+        counted down on the LCD display and when the timer expires the
+        system is shut down.  The only way for the user to avoid the
+        autoshutdown is to turn on the DPST switch.
+        """
+        # Initialize variables
+        voc_volts = 0
+        voc_amps = INFINITE_VAL
+        voc_watts = 0
+        voc_ohms = INFINITE_VAL
+        prompt_printed = 0
+        voc_volts_history = []
+        voc_settled = 0
+
+        # Create LCD message object with passed value of msg_text
+        lcd_msg = ScrollingMessage(msg_text, self.lcd, beep=False,
+                                   lock=self.lock, exc_queue=self.exc_queue)
+
+        self.logger.print_and_log("Measuring Voc until stable ....")
+        self.lcd.clear()
+        self.lcd.message('Measuring Voc\nuntil stable ...')
+
+        # Capture time the while loop is entered
+        start_time = time.time()
+
+        # Loop until switch is turned on
+        while GPIO.input(self.dpst_gpio) == DPST_OFF:
+
+            # Calculate how many seconds we've been in the loop
+            loop_entry_time = time.time()
+            seconds_in_loop = int(loop_entry_time) - int(start_time)
+
+            # If the timeout has been reached, shut down
+            if seconds_in_loop >= self.idle_timeout_seconds:
+                lcd_msg.stop()
+                self.shut_down(lock_held=False)
+
+            # If the timeout is getting close, override the prompt message
+            # with a beeping message containing the number of seconds
+            # remaining
+            elif seconds_in_loop >= (self.idle_timeout_seconds -
+                                     self.idle_timeout_warning_seconds):
+                lcd_msg.stop()
+                msg_text = ('Auto shutdown\nin %d seconds!!' %
+                            (self.idle_timeout_seconds - seconds_in_loop))
+                lcd_msg = ScrollingMessage(msg_text, self.lcd, beep=True,
+                                           lock=self.lock,
+                                           exc_queue=self.exc_queue)
+                lcd_msg.start()
+
+            # Take Voc measurements
+            amm_volts = self.read_adc(adc, self.amm_chp, self.amm_chn, 6144)
+            curr_voc_amps = ((amm_volts / self.amm_op_amp_gain) /
+                             self.amm_shunt_resistance)
+            curr_voc_volts = self.read_voc(adc)
+            self.logger.log("Voc Amps: %.6f  Voc Volts: %.6f" %
+                            (curr_voc_amps, curr_voc_volts))
+
+            # Return to caller now if voltage is negative
+            if curr_voc_volts < 0.0:
+                lcd_msg.stop()
+                return (curr_voc_amps, curr_voc_volts, voc_ohms, voc_watts)
+
+            # Need to check that switch is still off
+            if GPIO.input(self.dpst_gpio) == DPST_OFF:
+                voc_amps = curr_voc_amps
+                voc_volts = curr_voc_volts
+                voc_watts = voc_volts * voc_amps
+
+                # Keep a list of the voc_volts values from each
+                # iteration.  Only the most recent voc_settle_count
+                # (property) values are kept.  If the list has
+                # voc_settle_count entries and their standard deviation
+                # is less than 0.01, the Voc value is considered
+                # "settled", and the user is requested to turn the
+                # switch on.  It is possible for the Voc value to become
+                # "unsettled" while waiting for the user to flip the
+                # switch, however, and in that case a warning is
+                # printed.
+                voc_volts_history.append(voc_volts)
+                # trim to newest voc_settle_count entries
+                del voc_volts_history[:-self.voc_settle_count]
+                voc_volts_history_std = numpy.std(voc_volts_history)
+
+                if (voc_amps == 0 and
+                        len(voc_volts_history) == self.voc_settle_count):
+                    if voc_volts_history_std < 0.01:
+                        voc_settled = 1
+                    else:
+                        voc_settled = 0
+
+                if voc_settled and not prompt_printed:
+                    if voc_volts <= 0.0:
+                        lcd_msg.stop()
+                        return (voc_amps, voc_volts, voc_ohms, voc_watts)
+                    self.lcd.clear()
+                    self.lcd.message('Voc: %.2f V' % (voc_volts))
+                    time.sleep(1)
+                    self.logger.print_and_log("*" * 58)
+                    print_str = ("Please turn the toggle switch ON "
+                                 "to begin IV curve tracing")
+                    self.logger.print_and_log(print_str)
+                    self.logger.print_and_log("*" * 58)
                     lcd_msg.start()
-                    sleep(5)
+                    prompt_printed = 1
+
+            # Rate limit to 10 Voc measurements/second
+            elapsed_time = time.time() - loop_entry_time
+            if elapsed_time < 0.1:
+                time.sleep(0.1 - elapsed_time)
+
+        self.logger.print_and_log(
+            "Voc Volts: %.6f (std deviation = %.6f over %d measurements)" %
+            (voc_volts, voc_volts_history_std, self.voc_settle_count))
+
+        if not voc_settled:
+            print_str = ("   ===> WARNING: High Voc standard deviation; "
+                         "results may be unreliable")
+            self.logger.print_and_log(print_str)
+            lcd_msg.stop()
+            msg_text = ['==> WARNING:\nHigh Voc standard deviation',
+                        'results may be\nunreliable']
+            lcd_msg = ScrollingMessage(msg_text, self.lcd, beep=True,
+                                       lock=self.lock,
+                                       exc_queue=self.exc_queue)
+            lcd_msg.start()
+            time.sleep(7)
+
+        lcd_msg.stop()
+        return (voc_amps, voc_volts, voc_ohms, voc_watts)
+
+    # -------------------------------------------------------------------------
+    def get_data_values_for_load_pattern(self, load_pattern, io_extender, adc):
+        """Method to set the MCP23017 outputs (controlling the relays)
+        to the values based on the specified load pattern and to read
+        the current and voltage at that point.  Ohms and watts are
+        calculated and the four values are returned in a tuple.
+        """
+        # Set the relays to the provided pattern
+        self.set_relays_to_pattern(load_pattern, io_extender)
+
+        # Pause for time_between_measurements (property) before taking
+        # the voltage and current readings.
+        time.sleep(self.time_between_measurements)
+
+        # Take the current reading.  Retry a few times if the current is
+        # zero, to attempt to work around failing relays. The retry
+        # toggles the load pattern once in the hopes that contact will
+        # be made after the toggle (but probably hastening the demise of
+        # the relays in the process).
+        amm_volts = self.read_adc(adc, self.amm_chp, self.amm_chn, 6144)
+        self.logger.log("AMM Volts: %.6f" % (amm_volts))
+        amps = (amm_volts / self.amm_op_amp_gain) / self.amm_shunt_resistance
+        retry_count = 0
+        while(retry_count < self.max_retries):
+            if amps == 0:
+                retry_count += 1
+                print_str = ("RETRY #%d for load_pattern 0x%x" %
+                             (retry_count, load_pattern))
+                self.logger.print_and_log(print_str)
+                time.sleep(self.time_between_measurements)
+                self.set_relays_to_pattern(load_pattern, io_extender)
+                time.sleep(self.time_between_measurements)
+                self.set_relays_to_pattern(load_pattern, io_extender)
+                time.sleep(self.time_between_measurements)
+                amm_volts = self.read_adc(adc, self.amm_chp,
+                                          self.amm_chn, 6144)
+                self.logger.log("AMM Volts: %.6f" % (amm_volts))
+                amps = ((amm_volts / self.amm_op_amp_gain) /
+                        self.amm_shunt_resistance)
+            else:
+                break
+
+        # Take the voltage reading
+        volts = self.vdiv_mult * self.read_adc(adc, self.vdiv_chp,
+                                               self.vdiv_chn, 6144)
+
+        # Calculate ohms and watts
+        if amps == 0.0:
+            ohms = INFINITE_VAL
+        else:
+            ohms = volts / amps
+
+        watts = volts * amps
+
+        # The relay switching sometimes causes the LCD to get messed
+        # up. We should probably have a snubber circuit across every
+        # relay coil (in addition to the snubbers across the contacts),
+        # but this software workaround will do.  We just reset the LCD
+        # display before using it after we've switched one or more
+        # relays (and after some time has passed).
+        self.reset_lcd()
+
+        # Print current values formatted nicely
+        print_amps = ("%.2f" % amps).rjust(5)
+        print_volts = ("%.2f" % volts).rjust(5)
+        print_ohms = ("%.2f" % ohms).rjust(5)
+        print_watts = ("%.2f" % watts).rjust(6)
+        print_str = ("Amps: " + print_amps + "  Volts: " + print_volts +
+                     "  Ohms: " + print_ohms + "  Watts: " + print_watts +
+                     "  Load pattern: " + format(load_pattern, '#018b'))
+        self.logger.print_and_log(print_str)
+        lcd_str = (print_amps + " A  " + print_volts + " V\n" +
+                   print_ohms + " R " + print_watts + " W")
+        self.lcd.message(lcd_str)
+
+        return (amps, volts, ohms, watts)
+
+    # -------------------------------------------------------------------------
+    def open_circuit(self, load_pattern, io_extender):
+        """Method to activate the OPEN relay to open the circuit, while
+        keeping the other relays as they were. Once the OPEN relay is
+        activated (and after a short delay), the other relays are
+        inactivated. The purpose of this is to avoid inactivating the
+        relays while current is flowing. This completely eliminates any
+        arcing on that side of the relay (the Normally Open, "NO" side),
+        which is the side without a snubber.
+        """
+        # Wait a short time
+        time.sleep(self.time_between_measurements)
+
+        # Set the OPEN bit in the load_pattern passed in and apply that
+        # to the relays
+        load_pattern |= OPEN_ONLY
+        self.set_relays_to_pattern(load_pattern, io_extender)
+
+        # Wait a short time
+        time.sleep(self.time_between_measurements)
+
+        # Turn off all other relays, leaving only the OPEN relay
+        # activated
+        self.set_relays_to_pattern(OPEN_ONLY, io_extender)
+
+        # Wait a short time
+        time.sleep(self.time_between_measurements)
+
+    # -------------------------------------------------------------------------
+    def get_base_loads(self, none_data_point, voc_volts):
+        """Method to determine the 'base load'.  This is some combo of
+        the 50W power resistors to start with before adding the finer
+        grained heating coil loads.  The purpose is to center the
+        fine-grained points over the knee of the curve, where they do
+        the most good.  The method returns a list of the loads that need
+        to be activated before the finer grained loads are activated.
+        """
+        base_loads = BASE_0_OHM
+
+        # The current at the NONE load is basically Isc.  The ratio of
+        # Voc to Isc is roughly the resistance at the knee.
+        approx_isc = none_data_point[AMPS_INDEX]
+        approx_knee_ohms = voc_volts / approx_isc
+
+        # The base load adds to the resistance with no loads selected
+        none_ohms = none_data_point[OHMS_INDEX]
+
+        # The ideal base load is the estimated knee load minus the
+        # resistance of half of the unit load chain.  Half of the unit
+        # load chain is SIX+HALF, which (from empirical data) is 5.6
+        # ohms (average 0.86 ohms per load).
+        ideal_base_load = approx_knee_ohms - 5.6
+        if ideal_base_load < (3 + none_ohms) or approx_isc > TWELVE_MAX_AMPS:
+            base_loads = BASE_0_OHM
+        elif (ideal_base_load < (6 + none_ohms) or
+              approx_isc > THIRTEEN_MAX_AMPS):
+            self.logger.print_and_log("Using 3 ohm base load")
+            base_loads = BASE_3_OHM
+        elif ideal_base_load < (9 + none_ohms):
+            self.logger.print_and_log("Using 6 ohm base load")
+            base_loads = BASE_6_OHM
+        elif ideal_base_load < (12 + none_ohms):
+            self.logger.print_and_log("Using 9 ohm base load")
+            base_loads = BASE_9_OHM
+        elif ideal_base_load < (15 + none_ohms):
+            self.logger.print_and_log("Using 12 ohm base load")
+            base_loads = BASE_12_OHM
+        elif ideal_base_load < (18 + none_ohms):
+            self.logger.print_and_log("Using 15 ohm base load")
+            base_loads = BASE_15_OHM
+        elif ideal_base_load < (21 + none_ohms):
+            self.logger.print_and_log("Using 18 ohm base load")
+            base_loads = BASE_18_OHM
+        else:
+            self.logger.print_and_log("Using 21 ohm base load")
+            base_loads = BASE_21_OHM
+
+        return base_loads
+
+    # -------------------------------------------------------------------------
+    def swing_iv_curve(self, io_extender, adc, voc_volts):
+        """Method to cycle through the load values using the relays,
+        taking a current and voltage measurement at each point.  The
+        results are returned in a list of 4-entry tuples
+        (amps,volts,ohms,watts). If the diag_mode property is set, the
+        relays are activated individually.  If the fine_mode property is
+        set, the load list containing all of the half and full steps is
+        used.  This wears out the HALF relay faster than the others, but
+        this is mitigated by skipping the half steps on parts of the
+        curve that are relatively straight lines.  If the fine_mode
+        property is not set, the load list with full steps (starting
+        with HALF) is used. An adaptive algorithm is used to determine a
+        'base load', i.e. one or more of the power resistors.  See the
+        documentation for the get_base_loads method for more
+        information. If the measured current is zero when the
+        load_pattern is NONE the method returns an empty list.
+        """
+        # Diag mode - activate each relay alone
+        if self.diag_mode:
+            data_points = [(0, 0, 0, 0)]  # placeholder for Isc
+            for load_pattern in DIAG_LOAD_LIST:
+                data_point = (
+                    self.get_data_values_for_load_pattern(
+                        load_pattern, io_extender, adc))
+                data_points.append(data_point)
+                return data_points
+
+        # Fine vs coarse mode
+        if self.fine_mode:
+            # FINE mode - better results, but wears out the HALF relay
+            # faster
+            whole_load_list = FINE_LOAD_LIST
+        else:
+            whole_load_list = COARSE_LOAD_LIST
+
+        # Remove first N entries if loads_to_skip is non-zero
+        load_list = whole_load_list[self.loads_to_skip:]
+
+        data_points_unsorted = [(0, 0, 0, 0)]  # placeholder for Isc
+        base_load_pattern = NONE
+        prev_load_pattern = 0xa5a5
+        for load_pattern in load_list:
+            skip_this_one = False
+            load_pattern_with_base = load_pattern | base_load_pattern
+
+            # Skip this measurement if the current load pattern is the
+            # same as the previous one (which happens when using a
+            # base_load_pattern).
+            if load_pattern_with_base == prev_load_pattern:
+                skip_this_one = True
+
+            # Skip this measurement if we're in FINE mode, and the
+            # current load pattern does not include the HALF load, AND
+            # the previously measured point is very close to being in
+            # line with its two predecessors.  The idea is to avoid the
+            # HALF steps (which wear out the relay) if they add no
+            # value.  Note that the FINE mode load list is out of order,
+            # i.e. the X_AND_A_HALF loads precede the X loads.  So we
+            # optionally go backwards by half a step when we determine
+            # that the curve is bending, which adds resolution where we
+            # need it.  But where the line is straight, we skip the half
+            # steps.
+            #
+            # We'll call the previous three measurements points 1, 2 and
+            # 3 (from oldest to newest). To determine if the curve is
+            # "bending", we first need to calculate the slopes of the
+            # lines through points 1 and 2 and points 2 and 3.  But
+            # we're interested in the slopes as they appear visually on
+            # a graph that is scaled at approximately the ratio of Voc
+            # to Isc.
+            #
+            #  Factor to scale current (I) values by:
+            #    i_scale = Voc/Isc
+            #
+            #  Scaled (visual) slope of line through points 1 and 2:
+            #    m12 = i_scale(i2 - i1)/(v2 - v1)
+            #
+            #  Scaled (visual) slope of line through points 2 and 3:
+            #    m23 = i_scale(i3 - i2)/(v3 - v2)
+            #
+            # The angular difference between the lines is the difference
+            # in the arctangents of their slopes.
+            #
+            #  rot_degrees = arctan(m12) - arctan(m23)
+            #
+            # One last factor to account for is the distance between the
+            # points on the graph.  If the points are very close
+            # together, it's not worth adding a point between them for
+            # the same inflection angle as points that are farther
+            # apart.  The scaling factor is needed for this calculation
+            # too.
+            #
+            # Distance between points 2 and 3:
+            #    d23 = sqrt((v3 - v2)^2 + (i_scale(i3 - i2))^2)
+            #
+            # The final criterion for skipping the half-step point is:
+            #
+            # Skip if:
+            #    rot_degrees * d23 < 50
+            #
+            # The threshold of 50 was determined empirically.
+            #
+            if (self.fine_mode and load_pattern != load_list[0] and
+                    (load_pattern & HALF_ONLY == 0) and
+                    (len(data_points_unsorted) > 2)):
+                data_points_sorted = sorted(data_points_unsorted,
+                                            key=lambda dp: dp[OHMS_INDEX])
+                i1 = data_points_sorted[-3][AMPS_INDEX]
+                v1 = data_points_sorted[-3][VOLTS_INDEX]
+                i2 = data_points_sorted[-2][AMPS_INDEX]
+                v2 = data_points_sorted[-2][VOLTS_INDEX]
+                i3 = data_points_sorted[-1][AMPS_INDEX]
+                v3 = data_points_sorted[-1][VOLTS_INDEX]
+                # The NONE data point is the closest we have to Isc now
+                if data_points_sorted[1][AMPS_INDEX]:
+                    i_scale = voc_volts / data_points_sorted[1][AMPS_INDEX]
+                else:
+                    i_scale = INFINITE_VAL
+                m12 = i_scale * (i2 - i1) / (v2 - v1)
+                m23 = i_scale * (i3 - i2) / (v3 - v2)
+                d23 = math.sqrt((v3 - v2) ** 2 + (i_scale * (i3 - i2)) ** 2)
+                rot_degrees = (math.degrees(math.atan(m12)) -
+                               math.degrees(math.atan(m23)))
+                weight = abs(rot_degrees) * d23
+                print_str = ("m12: " + str(m12) +
+                             " m23: " + str(m23) +
+                             " d23: " + str(d23) +
+                             " Rot degrees: " + str(rot_degrees) +
+                             " Weight: " + str(weight) +
+                             " Load pattern: " + format(load_pattern, '#018b'))
+                self.logger.log(print_str)
+                if weight < 50:
+                    skip_this_one = True
+                else:
+                    self.logger.log("ADDING HALF STEP POINT")
+
+            # Unless we're skipping this point for one of the reasons
+            # above, get its data values and add them to the list
+            if not skip_this_one:
+                data_point = (
+                    self.get_data_values_for_load_pattern(
+                        load_pattern_with_base, io_extender, adc))
+                prev_load_pattern = load_pattern_with_base
+                data_points_unsorted.append(data_point)
+
+            # When the NONE measurement has been taken, determine if one
+            # or more base loads are needed, and if so then get the data
+            # values for the base load(s).  Set base_load_pattern to the
+            # OR of the base loads so the sum of the loads will be
+            # included in the pattern used above in the following
+            # iterations.
+            if load_pattern == NONE:
+                if data_point[AMPS_INDEX] == 0:
+                    # No current with all loads bypassed - something is
+                    # wrong. Return empty list to indicate this to the
+                    # caller.
+                    return []
+                base_loads = self.get_base_loads(data_point, voc_volts)
+                if base_loads != BASE_0_OHM:
+                    for base_load in base_loads:
+                        base_load_pattern |= base_load
+                        data_point = (
+                            self.get_data_values_for_load_pattern(
+                                base_load_pattern, io_extender, adc))
+                        prev_load_pattern = base_load_pattern
+                        data_points_unsorted.append(data_point)
+
+        # Activate the OPEN relay without changing others, and then
+        # deactivate the others
+        self.open_circuit(load_pattern, io_extender)
+
+        # Sort the list in order of increasing resistance (needed
+        # because the fine mode load list is out of order)
+        data_points = sorted(data_points_unsorted,
+                             key=lambda dp: dp[OHMS_INDEX])
+
+        return data_points
+
+    # -------------------------------------------------------------------------
+    def get_max_watt_point_number(self, data_points):
+        """Method to find and return the measured data point number with
+        the highest power.  The actual Maximum Power Point (MPP) is most
+        likely not exactly at this point, but somewhere between this
+        point and one of its neighbors and will be found later via
+        interpolation.
+        """
+        max_watt_point_number = 0
+
+        for data_point_num, data_point in enumerate(data_points):
+            if (data_point[WATTS_INDEX] >
+                    data_points[max_watt_point_number][WATTS_INDEX]):
+                max_watt_point_number = data_point_num
+
+        return max_watt_point_number
+
+    # -------------------------------------------------------------------------
+    def extrapolate_isc(self, data_points, max_watt_point_number):
+        """Method to extrapolate the Isc value from the first two
+        measured data points.
+        """
+        i1 = data_points[1][AMPS_INDEX]  # NONE data point
+        v1 = data_points[1][VOLTS_INDEX]
+
+        i2 = data_points[2][AMPS_INDEX]  # HALF data point
+        v2 = data_points[2][VOLTS_INDEX]
+
+        if v2 != v1 and max_watt_point_number > 3:
+            # Find y (aka I) intercept of line connecting first two
+            # measured points.
+            #
+            # We all remember the y = mx + b form of a linear
+            # equation. y is current, x is voltage, and b is the
+            # y-intercept, i.e. Isc.  So:
+            #
+            #   i = mv + Isc
+            #
+            # m is slope = rise/run = (i2 - i1)/(v2 - v1)
+            #
+            # So now:
+            #
+            #    i = ((i2 - i1)/(v2 - v1)) * v + Isc
+            #
+            #  Isc = i - ((i2 - i1)/(v2 - v1)) * v
+            #
+            #  Since this equation is valid for any point (v, i) on the
+            #  line, we can substitute i1 and v1 for i and v:
+            #
+            #  Isc = i1 - ((i2 - i1)/(v2 - v1)) * v1
+            #
+            isc_amps = i1 - ((i2 - i1) / (v2 - v1)) * v1
+
+            # If the extrapolated value is greater than 2% more than the
+            # measured NONE value, it's probaby because there aren't
+            # enough sampled points at the beginning of the curve
+            # (e.g. if there's a base load, but there is shading).  In
+            # that case, just return a value 2% greater than the
+            # measured NONE value.
+            if isc_amps > 1.02 * i1:
+                isc_amps = 1.02 * i1
+
+        else:
+            # If the voltages of the first two points are equal (most
+            # likely because both are zero - PV isn't connected), the
+            # equation above gets a divide-by-zero error so we just set
+            # Isc to the value of the first point.  Also if the highest
+            # measured power is on one of the first three (or four)
+            # points, the knee of the curve is too close to use a linear
+            # extrapolation from the first two points since the second
+            # point is likely already somewhat over the knee and the
+            # calculated Isc will be too high.  So we just set Isc to
+            # the value of the first point in that case too.
+            isc_amps = i1
+
+        isc_volts = 0
+        isc_ohms = 0
+        isc_watts = 0
+        self.logger.print_and_log("Isc Amps: %.6f" % (isc_amps))
+
+        return (isc_amps, isc_volts, isc_ohms, isc_watts)
+
+    # -------------------------------------------------------------------------
+    def write_csv_data_points_to_file(self, filename, data_points):
+        """Method to write/append each of the CSV data points to the
+        output file.
+        """
+        with open(filename, "a") as f:
+            # Write headings
+            f.write("Volts, Amps, Watts, Ohms\n")
+            # Write data points
+            for data_point in data_points:
+                self.write_csv_data_to_file(f,
+                                            data_point[VOLTS_INDEX],
+                                            data_point[AMPS_INDEX],
+                                            data_point[WATTS_INDEX],
+                                            data_point[OHMS_INDEX])
+
+    # -------------------------------------------------------------------------
+    def write_csv_data_to_file(self, open_filehandle, volts,
+                               amps, watts, ohms):
+        """Method to write/append the current voltage, current, watts,
+        and ohms values to an output file which the caller has opened
+        for appending and has passed the filehandle.
+        """
+        output_line = "%.3f,%.3f,%.3f,%.3f\n" % (volts, amps, watts, ohms)
+        open_filehandle.write(output_line)
+
+    # -------------------------------------------------------------------------
+    def write_gp_data_points_to_file(self, filename, data_points,
+                                     new_data_set=False):
+        """Method to write/append each of the gnuplot data points to the
+        output file.
+        """
+        with open(filename, "a") as f:
+            # Add new data set delimiter
+            if new_data_set:
+                self.write_gp_data_to_file(f, 0, 0, 0, new_data_set=True)
+
+            for data_point in data_points:
+                self.write_gp_data_to_file(f,
+                                           data_point[VOLTS_INDEX],
+                                           data_point[AMPS_INDEX],
+                                           data_point[WATTS_INDEX])
+
+    # -------------------------------------------------------------------------
+    def write_gp_data_to_file(self, open_filehandle, volts, amps,
+                              watts, new_data_set=False):
+        """Method to write/append the current voltage and current
+        readings to an output file which the caller has opened for
+        appending and has passed the filehandle.  If new_data_set=True,
+        then the other values are ignored and two blank lines are
+        appended to the file.
+        """
+        output_line = "%.3f %.3f %.3f\n" % (volts, amps, watts)
+        if new_data_set:
+            # two blank lines signify a new data set to gnuplot
+            open_filehandle.write("\n")
+            open_filehandle.write("\n")
+        else:
+            open_filehandle.write(output_line)
+
+    # -------------------------------------------------------------------------
+    def write_gnuplot_file(self, command_filename, data_filename, pdf_filename,
+                           isc_amps, voc_volts, mpp_amps, mpp_volts, spline):
+        """Method to write the gnuplot command file"""
+        with open(command_filename, "w") as f:
+            # First set the terminal type to PDF and output to the PDF
+            # filename
+            f.write("set terminal pdf size 11,8.5\n")
+            output_line = 'set output "' + pdf_filename + '"\n'
+            f.write(output_line)
+
+            # Set the title and X and Y labels for the plot
+            f.write('set title "IV Swinger Plot for ' + data_filename + '"\n')
+            f.write('set xlabel "Voltage (volts)"\n')
+            f.write('set ylabel "Current (amps)"\n')
+
+            # Set the X and Y ranges to be 20% and 30% more than Voc and
+            # Isc respectively
+            max_x = voc_volts * 1.2
+            if max_x > 0:
+                output_line = "set xrange [0:" + str(max_x) + "]\n"
+                f.write(output_line)
+            max_y = isc_amps * 1.3
+            if max_y > 0:
+                output_line = "set yrange [0:" + str(max_y) + "]\n"
+                f.write(output_line)
+
+            # Display grid lines on graph
+            if max_x < 20:
+                output_line = "set xtics 1\n"
+            else:
+                output_line = "set xtics 2\n"
+            f.write(output_line)
+            if max_y < 5:
+                output_line = "set ytics 0.5\n"
+            else:
+                output_line = "set ytics 1\n"
+            f.write(output_line)
+            output_line = "set grid\n"
+            f.write(output_line)
+
+            if self.plot_ideal_curve:
+                # Define the ideal PV curve function for "fit"
+                output_line = ("ideal_curve(x) = " + str(isc_amps) +
+                               " - (a * (exp(b * x) - 1))\n")
+                f.write(output_line)
+                # Suppress verbosity from "fit"
+                f.write("set fit quiet\n")
+                # Run curve fitting
+                output_line = ('fit ideal_curve(x) "' + data_filename +
+                               '" via a, b\n')
+                f.write(output_line)
+
+            # Put a label on the Isc point
+            isc_amps_str = "%.2f" % (isc_amps)
+            output_line = ('set label at 0,' + str(isc_amps) + ' "Isc = ' +
+                           isc_amps_str +
+                           ' A " point pointtype 7 offset 1,1\n')
+            f.write(output_line)
+
+            # Put a label on the MPP
+            mpp_watts_str = "%.2f" % (mpp_volts * mpp_amps)
+            mpp_volts_x_amps_str = "%.2f * %.2f" % (mpp_volts, mpp_amps)
+            output_line = ("set label at " + str(mpp_volts) + "," +
+                           str(mpp_amps) + ' "  MPP = ' +
+                           mpp_watts_str + " W (" +
+                           mpp_volts_x_amps_str + ')" point pointtype 7\n')
+            f.write(output_line)
+
+            # Put a label on the Voc point
+            voc_volts_str = "%.2f" % (voc_volts)
+            output_line = ("set label at " + str(voc_volts) + ',0 "Voc = ' +
+                           voc_volts_str +
+                           ' V " point pointtype 7 offset 1,1\n')
+            f.write(output_line)
+
+            # Build and run the plot command with three plots:
+            #   - measured data points as points
+            #   - interpolated curve through measured points
+            #   - ideal curve (optional)
+            output_line = ('plot "' + data_filename +
+                           '" index 0 title "Measured Points" ' +
+                           'pointtype 6 linewidth 4')
+            if self.plot_interpolated_curve:
+                output_line += ", "
+                if spline:
+                    type_str = "Catmull-Rom Spline"
+                else:
+                    type_str = "Linear"
+                output_line += '"' + data_filename
+                output_line += '" index 1 with lines title '
+                output_line += '"' + type_str + ' Interpolated Curve" '
+                output_line += 'linecolor rgb "blue" linewidth 6 linetype 3'
+            if self.plot_ideal_curve:
+                output_line += ', '
+                output_line += ' ideal_curve(x) title "Ideal Curve" '
+                output_line += 'linecolor rgb "purple" linewidth 6 linetype 3'
+            output_line += "\n"
+            f.write(output_line)
+
+            # Now set the terminal to wxt (default dynamic display) and
+            # re-run the plot.  This needs to be suppressed in headless
+            # mode.
+            if not self.headless_mode:
+                f.write("set terminal wxt size 1200,800\n")
+                output_line = "unset output\n"
+                f.write(output_line)
+                f.write("replot\n")
+                f.write("pause -1\n")
+
+    # -------------------------------------------------------------------------
+    def plot_with_gnuplot(self, sd_gp_command_filename,
+                          sd_data_point_filename, sd_pdf_filename,
+                          isc_amps, voc_volts, mpp_amps, mpp_volts, spline):
+        """Method to generate the graph with gnuplot"""
+
+        # Write the gnuplot command file
+        self.write_gnuplot_file(sd_gp_command_filename,
+                                sd_data_point_filename, sd_pdf_filename,
+                                isc_amps, voc_volts,
+                                mpp_amps, mpp_volts, spline)
+
+        # Execute the gnuplot command file
+        if isc_amps and voc_volts:
+            subprocess.call(["gnuplot", sd_gp_command_filename])
+
+    # -------------------------------------------------------------------------
+    def shut_down(self, lock_held=True):
+        """Method to shut down the Raspberry Pi"""
+
+        try:
+            if not lock_held:
+                self.lock.acquire()
+            msg_text = "Shutting down\nnow!!"
+            lcd_msg = ScrollingMessage(msg_text, self.lcd, beep=False,
+                                       lock=None, exc_queue=self.exc_queue)
+            lcd_msg.start()
+        finally:
+            time.sleep(2)
+            os.system("shutdown -h now")
+            time.sleep(5)
+            lcd_msg.stop()
+            self.reset_lcd()
+
+    # -------------------------------------------------------------------------
+    def clean_up(self, io_extender, reason_text):
+        """Method to clean up on exit, then shut down"""
+
+        self.logger.print_and_log("Cleaning up on exit: " + reason_text + "\n")
+
+        # Turn off all relays
+        self.turn_off_all_relays(io_extender)
+
+        # Need user to turn off the DPST switch
+        self.prompt_and_wait_for_dpst_off()
+
+        # Display exit message on LCD
+        self.lcd.clear()
+        self.lcd.message('IV_Swinger exit:\n' + reason_text)
+
+        # Shut down after 10 seconds if the shutdown_on_exit property is
+        # True and the exit is not due to a keyboard interrupt.
+        if self.shutdown_on_exit and reason_text != "kbd interrupt":
+            time.sleep(5)
+            self.lcd.clear()
+            self.lcd.message('Shutting down\nin 10 seconds')
+            time.sleep(10)
+            # Suppress shutdown if pushbutton is pressed
+            if GPIO.input(self.button_gpio) == BUTTON_OFF:
+                self.shut_down(lock_held=False)
+        else:
+            # Clean up GPIO
+            GPIO.cleanup()
+
+    # -------------------------------------------------------------------------
+    def find_usb_drives_inner(self):
+        """Inner method (used by find_usb_drives) to find all USB drives
+        and return the list.  USB drives look like directories under
+        /media.  But there could be directories under /media that are
+        not USB drives.  So filter out any that are not mount points.
+        It's also possible that a USB drive is write-protected so filter
+        those out too.
+        """
+        # Get list of directories under /media (possible USB drives)
+        slash_media_dir_glob = "/media/*"
+        slash_media_dirs = glob.glob(slash_media_dir_glob)
+
+        # Filter out any that are not actually mount points or are not
+        # writeable (and executable, which is necessary to add
+        # subdirectories/files).
+        usb_drives = []
+        for slash_media_dir in slash_media_dirs:
+            if (os.path.ismount(slash_media_dir) and
+                os.access(slash_media_dir, os.W_OK | os.X_OK)):
+                # Instead of using os.path.ismount and os.access, could
+                # look in /proc/mounts and check that it is "rw"
+
+                # Check for duplicates
+                duplicate = False
+                for usb_drive in usb_drives:
+                    if os.path.samefile(usb_drive, slash_media_dir):
+                        duplicate = True
+
+                # Add to the list if not a duplicate
+                if not duplicate:
+                    usb_drives.append(slash_media_dir)
+
+        return usb_drives
+
+    # -------------------------------------------------------------------------
+    def find_usb_drives(self, wait=True, display=False):
+        """Method to find all USB drives and return the list. If the
+        'wait' arg is set to True and no USB drives are found, prompt
+        the user and wait until one is inserted (or time out).
+        """
+        # Find USB drives
+        usb_drives = self.find_usb_drives_inner()
+
+        # If there are no USB drives, print warning and loop waiting for one
+        # to be inserted
+        if not usb_drives and wait:
+            self.logger.print_and_log("No USB drives!! Insert one "
+                                      "or more USB drives now")
+
+            start_time = time.time()
+
+            while True:
+                wait_time = int(time.time()) - int(start_time)
+                time_left = 30 - wait_time
+                if time_left < 0:
+                    time_left = 0
+                msg_text = ['No USB drives!!\nInsert one or',
+                            'more USB drives\nin next %d sec' % time_left]
+                lcd_msg = ScrollingMessage(msg_text, self.lcd, beep=True,
+                                           lock=self.lock,
+                                           exc_queue=self.exc_queue)
+                lcd_msg.start()
+
+                # Sleep for a second
+                time.sleep(1)
+
+                # After 30 seconds of polling for a USB drive, time out and
+                # display a message that the files will be copied to USB if
+                # one is inserted later
+                if wait_time > 30:
                     lcd_msg.stop()
+                    msg_text = ['Proceeding\nwithout USB',
+                                'Results will\nbe kept on SD',
+                                'card and copied\nto USB drive',
+                                'when one is\navailable']
+                    print_str = ("Proceeding without USB drive. "
+                                 "Results will be kept on SD card "
+                                 "and copied to USB when one is available")
+                    self.logger.print_and_log(print_str)
+                    lcd_msg = ScrollingMessage(msg_text, self.lcd, beep=False,
+                                               lock=self.lock,
+                                               exc_queue=self.exc_queue)
+                    lcd_msg.start()
+                    time.sleep(10)
+                    lcd_msg.stop()
+                    break
+
+                # Check again
+                usb_drives = self.find_usb_drives_inner()
+                if usb_drives:
+                    display = True
+                    lcd_msg.stop()
+                    break
+
+                lcd_msg.stop()
+
+        if display:
+            usb_drives_str = ""
+            for usb_drive in usb_drives:
+                usb_drives_str += usb_drive + " "
+
+            msg_text = ['Found USB drive(s):\n%s' % usb_drives_str]
+            self.logger.print_and_log("Found USB drive(s): %s" %
+                                      usb_drives_str)
+            lcd_msg = ScrollingMessage(msg_text, self.lcd, beep=False,
+                                       lock=self.lock,
+                                       exc_queue=self.exc_queue)
+            lcd_msg.start()
+            time.sleep(5)
+            lcd_msg.stop()
+
+        return usb_drives
+
+    # -------------------------------------------------------------------------
+    def create_iv_swinger_dirs(self, base_dirs):
+        """Method to create the IV_Swinger directories under the
+        specified base directories.  Returns the list of IV_swinger
+        directories.
+        """
+        iv_swinger_dirs = []
+
+        # In each of the base directories make the IV_Swinger directory
+        # if it doesn't already exist.  Also make the /IV_Swinger/logs,
+        # /IV_Swinger/csv and /IV_Swinger/pdf directories. Note that
+        # "/IV_Swinger" is the value of the root_dir property and may be
+        # overridden,
+        for base_dir in base_dirs:
+            sub_dirs = [base_dir + self.root_dir,
+                        base_dir + self.root_dir + "/logs",
+                        base_dir + self.root_dir + "/csv",
+                        base_dir + self.root_dir + "/pdf"]
+            for sub_dir in sub_dirs:
+                if not os.path.exists(sub_dir):
+                    try:
+                        os.makedirs(sub_dir)
+                    except OSError:
+                        msg_text = ['Failed to make\ndirectory:',
+                                    '%s' % sub_dir]
+                        self.logger.print_and_log("Failed to make "
+                                                  "directory: %s" % sub_dir)
+                        lcd_msg = ScrollingMessage(msg_text, self.lcd,
+                                                   beep=True, lock=self.lock,
+                                                   exc_queue=self.exc_queue)
+                        lcd_msg.start()
+                        time.sleep(5)
+                        lcd_msg.stop()
+                        continue
+
+            iv_swinger_dirs.append(sub_dirs[0])
+
+        return iv_swinger_dirs
+
+    # -------------------------------------------------------------------------
+    def copy_files_to_usb(self, date_time_str, sd_output_dir,
+                          sd_iv_swinger_dir):
+        """Method to copy the files from the SD card /IV_Swinger
+        directory to the USB drives.  If no USB drive is found (or if
+        there are errors writing to all that are), the date/time string
+        is added to the file /IV_Swinger/pending_usb_copy.  If one or
+        more USB drives is found this time, any files from previous runs
+        that were never copied to USB (i.e. those listed in
+        /IV_Swinger/pending_usb_copy) are copied now - in addition to
+        the files for the current run.
+        """
+        # Update tentative USB drives list
+        _usb_drives = self.find_usb_drives(wait=False, display=False)
+
+        # Check space on each drive and remove any from the list that do
+        # not have at least 1 million bytes
+        usb_drives = []
+        for usb_drive in _usb_drives:
+            free_bytes = (os.statvfs(usb_drive).f_bfree *
+                          os.statvfs(usb_drive).f_bsize)
+            if free_bytes > 1000000:
+                usb_drives.append(usb_drive)
+            else:
+                msg_text = ['%s\nis NEARLY FULL!!' % usb_drive,
+                            'Results will not\nbe written to it']
+                lcd_msg = ScrollingMessage(msg_text, self.lcd,
+                                           beep=True, lock=self.lock,
+                                           exc_queue=self.exc_queue)
+                lcd_msg.start()
+                time.sleep(7)
+                lcd_msg.stop()
+            self.logger.print_and_log(usb_drive + " has " + str(free_bytes) +
+                                      " bytes of free space")
+
+        usb_drive_successfully_written = False
+
+        if usb_drives:
+            # Create IV_Swinger directories on the USB drives
+            usb_iv_swinger_dirs = self.create_iv_swinger_dirs(usb_drives)
+
+            # Copy the SD card directory to the directories on the USB
+            # drives
+            for usb_iv_swinger_dir in usb_iv_swinger_dirs:
+                try:
+                    # Copy the log file
+                    usb_logs_dir = usb_iv_swinger_dir + "/logs"
+                    self.logger.log("copy: %s to %s" %
+                                    (PrintAndLog.log_file_name, usb_logs_dir))
+                    shutil.copy(PrintAndLog.log_file_name, usb_logs_dir)
+
+                    # Copy the output files
+                    usb_output_dir = usb_iv_swinger_dir + "/" + date_time_str
+                    self.logger.log("copytree: %s to %s" %
+                                    (sd_output_dir, usb_output_dir))
+                    shutil.copytree(sd_output_dir, usb_output_dir)
+
+                    # Copy the CSV and PDF files to the /csv and /pdf
+                    # directories
+                    for file_type in ["csv", "pdf"]:
+                        file_glob = sd_output_dir + "/*." + file_type
+                        files = glob.glob(file_glob)
+                        for f in files:
+                            usb_file = usb_iv_swinger_dir + "/" + file_type
+                            self.logger.log("copy: %s to %s" % (f, usb_file))
+                            shutil.copy(f, usb_file)
+
+                    # Set success flag if we got this far without an
+                    # exception for at least one USB drive
+                    usb_drive_successfully_written = True
+
+                except (IOError, OSError, shutil.Error) as e:
+                    self.logger.print_and_log("({})".format(e))
+
+            # If pending_usb_copy file exists, open it for reading and
+            # step through the date_time_str values and use copytree to
+            # copy the directory from SD to USB.  Then remove the file.
+            filename = sd_iv_swinger_dir + "/pending_usb_copy"
+            if os.path.isfile(filename):
+                try:
+                    with open(filename, "r") as f:
+                        for my_date_time_str in f.read().splitlines():
+                            sd_output_dir = (sd_iv_swinger_dir + "/" +
+                                             my_date_time_str)
+                            for usb_iv_swinger_dir in usb_iv_swinger_dirs:
+                                usb_output_dir = (usb_iv_swinger_dir + "/" +
+                                                  my_date_time_str)
+                                self.logger.print_and_log(
+                                    "copytree: %s to %s" %
+                                    (sd_output_dir, usb_output_dir))
+                                shutil.copytree(sd_output_dir, usb_output_dir)
+                                for file_type in ["csv", "pdf"]:
+                                    file_glob = (sd_output_dir + "/*." +
+                                                 file_type)
+                                    files = glob.glob(file_glob)
+                                    for f in files:
+                                        usb_file = (usb_iv_swinger_dir + "/" +
+                                                    file_type)
+                                        self.logger.log("copy: %s to %s" %
+                                                        (f, usb_file))
+                                        shutil.copy(f, usb_file)
+                    os.remove(filename)
+                except (IOError, OSError, shutil.Error) as e:
+                    self.logger.print_and_log("({})".format(e))
+
+        if not usb_drive_successfully_written:
+            # If no USB drives, append date_time_str to pending_usb_copy
+            # file in SD IV_Swinger directory
+            filename = sd_iv_swinger_dir + "/pending_usb_copy"
+            try:
+                with open(filename, "a") as f:
+                    f.write(date_time_str + "\n")
+            except (IOError, OSError) as e:
+                self.logger.print_and_log("({})".format(e))
+
+    # -------------------------------------------------------------------------
+    def check_for_thread_errors(self):
+        """Method to check the exception message queue to see if a
+        thread has died, in which case the main thread must exit too.
+        """
+        try:
+            thread_exc = self.exc_queue.get(block=False)
+        except Queue.Empty:
+            pass
+        else:
+            self.logger.print_and_log("THREAD error: " + thread_exc)
+            exit(-1)
+
+    # -------------------------------------------------------------------------
+    def run_meat(self, io_extender):
+        """Method containing most of run(), run with exception
+        handling after io_extender object creation
+        """
+        # Create ADS1115 ADC instance
+        adc = Adafruit_ADS1x15.ADS1x15(ic=ADS1115)
+
+        # Turn off all relays
+        self.turn_off_all_relays(io_extender)
+
+        # Find USB drives
+        self.find_usb_drives(wait=True, display=False)
+
+        msg_text = ['Turn switch ON',
+                    'to begin IV\ncurve tracing']
+
+        while True:
+            # Check exception message queue for thread errors
+            self.check_for_thread_errors()
+
+            # Block until lock is acquired, then release it immediately
+            with self.lock:
+                pass
+
+            # Check the DPST switch state.  If it is ON, ask the user to
+            # turn it off and poll it until that happens.
+            self.prompt_and_wait_for_dpst_off()
+
+            # Activate each relay once by itself. This is a workaround
+            # for a problem of unknown cause where some relays
+            # especially near the end of the chain) sometimes fail to
+            # stay in the activated position.  This seems to help.
+            # self.prime_relays(io_extender);
+
+            # Continually measure Voc while waiting for the DPST switch
+            # to be turned ON
+            (voc_amps,
+             voc_volts,
+             voc_ohms,
+             voc_watts) = self.measure_voc(adc, msg_text)
+
+            # Attempt to acquire lock
+            got_lock = self.lock.acquire(0)  # non-blocking
+
+            # If the lock is busy (i.e. held by the pushbutton
+            # callback), go back the beginning of the main loop and wait
+            # until it is free
+            if not got_lock:
+                continue
+
+            self.lcd.clear()
+            self.lcd.message('Voc: %.2f V' % (voc_volts))
+            time.sleep(0.5)
+
+            if voc_volts < 0.0:
+                msg_text = ("Voc is negative!!\n"
+                            "DISCONNECT PV *NOW* TO AVOID DAMAGE!!")
+                self.logger.print_and_log(msg_text)
+                lcd_msg = ScrollingMessage(msg_text, self.lcd,
+                                           beep=False, lock=None,
+                                           exc_queue=self.exc_queue)
+                lcd_msg.start()
+                while voc_volts < 0.0:
+                    voc_volts = self.read_voc(adc)
+                    self.beeper.generate_beep()
+                lcd_msg.stop()
+                self.lock.release()
+                msg_text = ['Turn switch ON',
+                            'to begin IV\ncurve tracing']
+                continue
+            elif voc_volts == 0.0:
+                msg_text = "Voc is 0 volts!!\nConnect PV now"
+                self.logger.print_and_log(msg_text)
+                warning_thread = SoundWarning(on_time=0.1, off_time=10)
+                warning_thread.start()
+                while voc_volts == 0.0:
+                    lcd_msg = ScrollingMessage(msg_text, self.lcd, beep=False,
+                                               lock=None,
+                                               exc_queue=self.exc_queue)
+                    lcd_msg.start()
+                    time.sleep(1.0)
+                    lcd_msg.stop()
+                    # Release the lock to give the pushbutton callback
+                    # thread a chance to grab it
+                    self.lock.release()
+                    time.sleep(0.01)  # yield to callback thread
+                    self.check_for_thread_errors()
+                    self.lock.acquire()
+                    voc_volts = self.read_voc(adc)
+                warning_thread.stop()
+                self.lock.release()
+                msg_text = ['Turn switch ON',
+                            'to begin IV\ncurve tracing']
+                continue
+            else:
+                # Form the date/time string used for the directory
+                # names.  Note that the date/time is when the DPST
+                # switch is turned on.
+                date_time_str = dt.datetime.now().strftime('%y%m%d_%H_%M_%S')
+
+                # Swing out the IV curve!
+                data_points = self.swing_iv_curve(io_extender, adc, voc_volts)
+
+                # If data_points is an empty list it means the load=NONE
+                # current measurement was zero. This could be because no
+                # light was falling on the panel. Display a message on
+                # the LCD and go back to the beginning of the loop.
+                if not data_points:
+                    msg_text = "Isc is 0 amps\nTry again"
+                    self.logger.print_and_log(msg_text)
+                    warning_thread = SoundWarning(on_time=0.1, off_time=0.2)
+                    warning_thread.start()
+                    lcd_msg = ScrollingMessage(msg_text, self.lcd,
+                                               beep=False, lock=None,
+                                               exc_queue=self.exc_queue)
+                    lcd_msg.start()
+                    time.sleep(3)
+                    lcd_msg.stop()
+                    warning_thread.stop()
+                    self.lock.release()
+                    msg_text = ['Turn switch ON',
+                                'to begin IV\ncurve tracing']
                     continue
 
-        iv_swinger_dirs.append(sub_dirs[0])
+                # Release lock
+                self.lock.release()
 
-    return iv_swinger_dirs
+                # Ask user to turn off the DPST switch
+                self.prompt_and_wait_for_dpst_off()
 
-# ------------------------------------------------------------------------------
-def copy_files_to_usb (lcd, date_time_str, sd_output_dir, sd_iv_swinger_dir):
-    """Function to copy the files from the SD card /IV_Swinger directory
-to the USB drives.  If no USB drive is found, the date/time string is
-added to the file /IV_Swinger/pending_usb_copy.  If one or more USB
-drives is found this time, any files from previous runs that were never
-copied to USB (i.e. those listed in /IV_Swinger/pending_usb_copy) are
-copied now - in addition to the files for the current run.
-"""
-    global log_file_name
+                # Turn off all relays
+                self.turn_off_all_relays(io_extender)
 
-    # Update USB drives list
-    usb_drives = find_usb_drives(lcd, wait=False, display=False)
+                # Clean up LCD after relay switching
+                self.reset_lcd()
 
-    if usb_drives:
-        # Create IV_Swinger directories on the USB drives
-        usb_iv_swinger_dirs = create_iv_swinger_dirs(usb_drives)
+                # Find the measured point number with the highest power
+                max_watt_point_number = (
+                    self.get_max_watt_point_number(data_points))
 
-        # Copy the SD card directory to the directories on the USB
-        # drives
-        for usb_iv_swinger_dir in usb_iv_swinger_dirs:
-            # Copy the log file
-            usb_logs_dir = usb_iv_swinger_dir + "/logs"
-            shutil.copy(log_file_name, usb_logs_dir)
+                # Extrapolate Isc value and store in first element of
+                # data_points list (overwrite placeholder)
+                data_points[0] = self.extrapolate_isc(data_points,
+                                                      max_watt_point_number)
+                isc_amps = data_points[0][AMPS_INDEX]
 
-            # Copy the output files
-            usb_output_dir = usb_iv_swinger_dir + "/" + date_time_str
-            log("copytree: %s to %s" % (sd_output_dir, usb_output_dir))
-            shutil.copytree(sd_output_dir, usb_output_dir)
+                # Add Voc values to the end of the data point list
+                voc_data_point = (voc_amps, voc_volts, voc_ohms, voc_watts)
+                data_points.append(voc_data_point)
 
-            # Copy the CSV and PDF files to the /csv and /pdf directories
-            for file_type in ["csv","pdf"]:
-                file_glob = sd_output_dir + "/*." + file_type
-                files = glob.glob(file_glob)
-                for f in files:
-                    shutil.copy(f, usb_iv_swinger_dir + "/" + file_type)
+                # Create the SD card output directory
+                sd_iv_swinger_dirs = self.create_iv_swinger_dirs([""])
+                sd_iv_swinger_dir = sd_iv_swinger_dirs[0]  # only one
+                sd_output_dir = sd_iv_swinger_dir + "/" + date_time_str
+                os.makedirs(sd_output_dir)
 
-        # If pending_usb_copy file exists, open it for reading
-        # and step through the date_time_str values and use
-        # copytree to copy the directory from SD to USB.  Then
-        # remove the file.
-        filename = sd_iv_swinger_dir + "/pending_usb_copy"
-        if os.path.isfile(filename):
-            try:
-                with open(filename, "r") as f:
-                    for my_date_time_str in f.read().splitlines():
-                        sd_output_dir = sd_iv_swinger_dir + "/" + my_date_time_str
-                        for usb_iv_swinger_dir in usb_iv_swinger_dirs:
-                            usb_output_dir = usb_iv_swinger_dir + "/" + my_date_time_str
-                            print_and_log("copytree: %s to %s" % (sd_output_dir, usb_output_dir))
-                            shutil.copytree(sd_output_dir, usb_output_dir)
-                            for file_type in ["csv","pdf"]:
-                                file_glob = sd_output_dir + "/*." + file_type
-                                files = glob.glob(file_glob)
-                                for f in files:
-                                    shutil.copy(f, usb_iv_swinger_dir + "/" + file_type)
-                    os.remove(filename)
-            except IOError as e:
-                print_and_log("({})".format(e))
-    else:
-        # If no USB drives, append date_time_str to
-        # pending_usb_copy file in SD IV_Swinger directory
-        filename = sd_iv_swinger_dir + "/pending_usb_copy"
-        try:
-            with open(filename, "a") as f:
-                f.write(date_time_str + "\n")
-        except IOError as e:
-            print_and_log("({})".format(e))
+                # Create the leaf file names
+                csv_data_point_leaf_name = ("data_points_" + date_time_str +
+                                            ".csv")
+                gp_command_leaf_name = "gp_command_file_" + date_time_str
+                gp_data_point_leaf_name = "gp_data_points_" + date_time_str
+                gp_pdf_leaf_name = "gp_data_points_" + date_time_str + ".pdf"
 
-# ------------------------------------------------------------------------------
-def main_meat (io_extender, lcd):
-    """Function containing most of main(), run with exception handling
-after io_extender object creation
-"""
-    global global_lock
+                # Get the full-path names of the SD card output files
+                sd_csv_data_point_filename = (sd_output_dir + "/" +
+                                              csv_data_point_leaf_name)
+                sd_gp_command_filename = (sd_output_dir + "/" +
+                                          gp_command_leaf_name)
+                sd_gp_data_point_filename = (sd_output_dir + "/" +
+                                             gp_data_point_leaf_name)
+                sd_gp_pdf_filename = sd_output_dir + "/" + gp_pdf_leaf_name
 
-    # Create ADS1115 ADC instance
-    adc = ADS1x15(ic=ADS1115)
+                # Write the CSV data points to the SD card file
+                self.write_csv_data_points_to_file(sd_csv_data_point_filename,
+                                                   data_points)
 
-    # Turn off all relays
-    turn_off_all_relays(io_extender)
+                # Write the gnuplot data points to the SD card files
+                self.write_gp_data_points_to_file(sd_gp_data_point_filename,
+                                                  data_points,
+                                                  new_data_set=False)
 
-    # Find USB drives
-    usb_drives = find_usb_drives(lcd, wait=True, display=False)
+                # Create an interpolator object with the data_points
+                interpolator = Interpolator(data_points)
 
-    msg_text = ['Turn switch ON',
-                'to begin IV\ncurve tracing']
+                # Get the interpolated data set and MPP
+                if self.use_spline_interpolation:
+                    interp_points = interpolator.spline_interpolated_curve
+                    interpolated_mpp = interpolator.spline_interpolated_mpp
+                else:
+                    interp_points = interpolator.linear_interpolated_curve
+                    interpolated_mpp = interpolator.linear_interpolated_mpp
 
-    while True:
-        # Block until global lock is acquired, then release it
-        # immediately
-        global_lock.acquire()
-        global_lock.release()
+                # Add the interpolated data set to the Gnuplot data
+                # point file
+                self.write_gp_data_points_to_file(sd_gp_data_point_filename,
+                                                  interp_points,
+                                                  new_data_set=True)
 
-        # Check the DPST switch state.  If it is ON, ask the user to turn it
-        # off and poll it until that happens.
-        prompt_and_wait_for_dpst_off(lcd)
+                # Extract the MPP values
+                mpp_amps = interpolated_mpp[AMPS_INDEX]
+                mpp_volts = interpolated_mpp[VOLTS_INDEX]
+                mpp_ohms = interpolated_mpp[OHMS_INDEX]
+                mpp_watts = interpolated_mpp[WATTS_INDEX]
 
-        # Activate each relay once by itself. This is a workaround for a
-        # problem of unknown cause where some relays especially near the
-        # end of the chain) sometimes fail to stay in the activated
-        # position.  This seems to help.
-        #prime_relays(io_extender);
+                # Print MPP info
+                self.logger.print_and_log("==========================")
+                print_str = ("Maximum power point (MPP): "
+                             "Amps: %.6f   Volts: %.6f   "
+                             "Ohms: %.6f   Watts: %.6f" %
+                             (mpp_amps, mpp_volts, mpp_ohms, mpp_watts))
+                self.logger.print_and_log(print_str)
 
-        # Continually measure Voc while waiting for the DPST switch to be
-        # turned ON
-        (voc_amps, voc_volts, voc_ohms, voc_watts) = measure_voc(adc,lcd,msg_text)
+                # Display max power on LCD
+                self.check_for_thread_errors()
+                with self.lock:
+                    self.lcd.clear()
+                    self.lcd.message(' Max Power:\n     %.2f W' %
+                                     (mpp_watts))
+                    time.sleep(2)
 
-        # Attempt to acquire global lock
-        got_lock = global_lock.acquire(0) # non-blocking
+                if voc_volts != 0.0:
+                    # Plot with gnuplot
+                    self.plot_with_gnuplot(sd_gp_command_filename,
+                                           sd_gp_data_point_filename,
+                                           sd_gp_pdf_filename,
+                                           isc_amps, voc_volts,
+                                           mpp_amps,
+                                           mpp_volts,
+                                           self.use_spline_interpolation)
 
-        # If the lock is busy (i.e. held by the pushbutton callback), go
-        # back the beginning of the main loop and wait until it is free
-        if got_lock == False:
-            continue
+                # Copy CSV and PDF files to /IV_Swinger/csv and
+                # /IV_Swinger/pdf
+                for file_type in ["csv", "pdf"]:
+                    file_glob = sd_output_dir + "/*." + file_type
+                    files = glob.glob(file_glob)
+                    for f in files:
+                        shutil.copy(f, sd_iv_swinger_dir + "/" + file_type)
 
-        lcd.clear()
-        lcd.message('Voc: %.2f V' % (voc_volts))
-        sleep(0.5)
+                # Copy files to USB
+                self.copy_files_to_usb(date_time_str, sd_output_dir,
+                                       sd_iv_swinger_dir)
 
-        if voc_volts < 0.0:
-            msg_text = "Voc is negative!!\nDISCONNECT PV *NOW* TO AVOID DAMAGE!!"
-            print_and_log(msg_text)
-            lcd_msg = ScrollingMessage(msg_text, lcd, beep=False, lock=None)
-            lcd_msg.start()
-            while voc_volts < 0.0:
-                voc_volts = read_voc(adc)
-                generate_beep()
-            lcd_msg.stop()
-            global_lock.release()
-            msg_text = ['Turn switch ON',
-                        'to begin IV\ncurve tracing']
-            continue
-        elif voc_volts == 0.0:
-            msg_text = "Voc is 0 volts!!\nConnect PV now"
-            print_and_log(msg_text)
-            warning_thread = SoundWarning(on_time=0.1, off_time=10)
-            warning_thread.start()
-            while voc_volts == 0.0:
-                lcd_msg = ScrollingMessage(msg_text, lcd, beep=False, lock=None)
+                # Display message
+                outdir_msg = "Output folder:\n" + date_time_str
+                self.logger.print_and_log(outdir_msg)
+                self.logger.print_and_log("")
+                lcd_msg = ScrollingMessage(outdir_msg, self.lcd, beep=False,
+                                           lock=self.lock,
+                                           exc_queue=self.exc_queue)
                 lcd_msg.start()
-                sleep(1.0)
+                time.sleep(3)
                 lcd_msg.stop()
-                # Release the lock to give the pushbutton callback
-                # thread a chance to grab it
-                global_lock.release()
-                sleep(0.01) # yield to callback thread
-                global_lock.acquire()
-                voc_volts = read_voc(adc)
-            warning_thread.stop()
-            global_lock.release()
-            msg_text = ['Turn switch ON',
-                        'to begin IV\ncurve tracing']
-            continue
-        else:
-            # Form the date/time string used for the directory names.
-            # Note that the date/time is when the DPST switch is turned
-            # on.
-            #date_time_str = datetime.now().strftime('%Y-%m-%d_%H_%M_%S')
-            date_time_str = datetime.now().strftime('%y%m%d_%H_%M_%S')
+                msg_text = [outdir_msg, 'Turn switch ON\nto start again']
 
-            # Swing out the IV curve!
-            data_points = swing_iv_curve(io_extender, adc, lcd, voc_volts)
+    # -------------------------------------------------------------------------
+    def init_other_class_variables(self):
+        """Method that initializes class variables in the supporting
+        classes based on this class' property values. This method, or an
+        equivalent, must be run before the PrintAndLog,
+        ScrollingMessage, and BeepGenerator classes are instantiated.
+        """
 
-            # Release lock
-            global_lock.release()
+        # Init PrintAndLog class variable(s) from properties
+        date_time_str = dt.datetime.now().strftime('%y%m%d_%H_%M_%S')
+        PrintAndLog.log_file_name = (self.logs_dir + "/" + "log_" +
+                                     date_time_str)
 
-            # Ask user to turn off the DPST switch
-            prompt_and_wait_for_dpst_off(lcd)
+        # Init ScrollingMessage class variable(s) from properties
+        ScrollingMessage.lcd_lines = self.lcd_lines
+        ScrollingMessage.lcd_disp_chars_per_line = self.lcd_disp_chars_per_line
+        ScrollingMessage.lcd_mem_chars_per_line = self.lcd_mem_chars_per_line
+        ScrollingMessage.lcd_chars_per_scroll = self.lcd_chars_per_scroll
+        ScrollingMessage.lcd_scroll_delay = self.lcd_scroll_delay
 
-            # Turn off all relays
-            turn_off_all_relays(io_extender)
+        # Init BeepGenerator class variable(s) from properties
+        BeepGenerator.buzzer_gpio = self.buzzer_gpio
 
-            # Clean up LCD after relay switching
-            reset_lcd(lcd)
+    # -------------------------------------------------------------------------
+    def run(self):
+        """Top-level method to run the IV Swinger"""
 
-            # Find the measured point number with the highest power
-            max_watt_point_number = get_max_watt_point_number(data_points)
+        # Init class variables in supporting classes
+        self.init_other_class_variables()
 
-            # Extrapolate Isc value and store in first element of data_points
-            # list (overwrite placeholder)
-            data_points[0] = extrapolate_isc(data_points, max_watt_point_number)
-            isc_amps = data_points[0][AMPS_DATA_POINT]
+        # Create the logger, beeper, lock, and lcd objects
+        self.logger = PrintAndLog()
+        self.beeper = BeepGenerator()
+        self.lock = threading.Lock()
+        self.lcd = Adafruit_CharLCD.Adafruit_CharLCD()
 
-            # Add Voc values to the end of the data point list
-            voc_data_point = (voc_amps, voc_volts, voc_ohms, voc_watts)
-            data_points.append(voc_data_point)
+        # Set up GPIO pins and reset the LCD
+        self.set_up_gpio()
+        self.reset_lcd()
 
-            # Create the SD card output directory
-            sd_iv_swinger_dirs = create_iv_swinger_dirs([""])
-            sd_iv_swinger_dir = sd_iv_swinger_dirs[0] # only one
-            sd_output_dir = sd_iv_swinger_dir + "/" + date_time_str
-            os.makedirs(sd_output_dir)
+        # Create logs directory
+        if not os.path.exists(self.logs_dir):
+            os.makedirs(self.logs_dir)
 
-            # Create the leaf file names
-            csv_data_point_leaf_name = "data_points_" + date_time_str + ".csv"
-            gp_command_leaf_name = "gp_command_file_" + date_time_str
-            gp_data_point_leaf_name = "gp_data_points_" + date_time_str
-            gp_pdf_leaf_name = "gp_data_points_" + date_time_str + ".pdf"
+        # Print welcome message
+        msg_text = "Welcome to\n     IV Swinger!"
+        self.logger.print_and_log(msg_text)
+        with self.lock:
+            self.lcd.message(msg_text)
+        time.sleep(3)
 
-            # Get the full-path names of the SD card output files
-            sd_csv_data_point_filename = sd_output_dir + "/" + csv_data_point_leaf_name
-            sd_gp_command_filename = sd_output_dir + "/" + gp_command_leaf_name
-            sd_gp_data_point_filename = sd_output_dir + "/" + gp_data_point_leaf_name
-            sd_gp_pdf_filename = sd_output_dir + "/" + gp_pdf_leaf_name
+        # Create MCP23017 I/O extender instance and set all pins as
+        # outputs
+        io_extender = (
+            Adafruit_MCP230xx.Adafruit_MCP230XX(self.mcp23017_i2c_addr,
+                                                MCP23017_PIN_COUNT))
+        for pin in xrange(MCP23017_PIN_COUNT):
+            io_extender.config(pin, io_extender.OUTPUT)
 
-            # Write the CSV data points to the SD card file
-            write_csv_data_points_to_file(sd_csv_data_point_filename,
-                                          data_points)
-
-            # Write the gnuplot data points to the SD card files
-            write_gp_data_points_to_file(sd_gp_data_point_filename,
-                                         data_points)
-
-            # Get the linear interpolation function
-            result = get_interpolation_func(True,
-                                            data_points,
-                                            max_watt_point_number)
-            interpolation_func = result[0]
-            success = result[1]
-
-            if success:
-                # Find the linear interpolation MPP
-                linear_mpp_data_point = interpolate_mpp(data_points,
-                                                        max_watt_point_number,
-                                                        interpolation_func)
-                linear_mpp_amps = linear_mpp_data_point[AMPS_DATA_POINT]
-                linear_mpp_volts = linear_mpp_data_point[VOLTS_DATA_POINT]
-                linear_mpp_watts = linear_mpp_data_point[WATTS_DATA_POINT]
-
-                # Use the linear interpolation function to generate a
-                # second data set that will be plotted with (overlayed
-                # onto) the data points
-                generate_interpolated_data_set(sd_gp_data_point_filename,
-                                               data_points,
-                                               True,
-                                               interpolation_func)
-
-            # Print MPP power
-            global_lock.acquire()
-            lcd.clear()
-            lcd.message(' Max Power:\n     %.2f W' % (linear_mpp_watts))
-            sleep(2)
-            global_lock.release()
-
-            if voc_volts != 0.0:
-                # Plot with gnuplot
-                plot_with_gnuplot(sd_gp_command_filename,
-                                  sd_gp_data_point_filename,
-                                  sd_gp_pdf_filename,
-                                  isc_amps, voc_volts,
-                                  linear_mpp_amps,
-                                  linear_mpp_volts, lcd, True)
-
-            # Copy CSV and PDF files to /IV_Swinger/csv and /IV_Swinger/pdf
-            for file_type in ["csv","pdf"]:
-                file_glob = sd_output_dir + "/*." + file_type
-                files = glob.glob(file_glob)
-                for f in files:
-                    shutil.copy(f, sd_iv_swinger_dir + "/" + file_type)
-
-            # Copy files to USB
-            copy_files_to_usb(lcd, date_time_str,
-                              sd_output_dir, sd_iv_swinger_dir)
-
-            # Display message
-            outdir_msg = "Output folder:\n" + date_time_str
-            print_and_log(outdir_msg)
-            print_and_log("")
-            lcd_msg = ScrollingMessage(outdir_msg, lcd, beep=False, lock=global_lock)
-            lcd_msg.start()
-            sleep(3)
-            lcd_msg.stop()
-            msg_text = [outdir_msg, 'Turn switch ON\nto start again']
+        # Run the rest with all exceptions causing a call to the
+        # clean_up method
+        try:
+            self.run_meat(io_extender)
+        except SystemExit:
+            # explicit calls to exit() - which print their own explanation
+            self.clean_up(io_extender, "explicit exit()")
+        except KeyboardInterrupt:
+            # Ctrl-C
+            self.logger.print_and_log("Keyboard interrupt - exiting")
+            self.clean_up(io_extender, "kbd interrupt")
+        except:
+            # Everything else
+            self.logger.print_and_log("Unexpected error: " +
+                                      str(sys.exc_info()[0]))
+            self.logger.print_and_log(traceback.format_exc())
+            self.clean_up(io_extender, str(sys.exc_info()[0]))
+            raise
 
 
 ############
-### Main ###
+#   Main   #
 ############
 def main():
-    global lcd, global_lock, log_file_name
-
-    # Create logs directory and generate log file name
-    logs_dir = "/IV_Swinger/logs"
-    date_time_str = datetime.now().strftime('%y%m%d_%H_%M_%S')
-    log_file_name = logs_dir + "/" + "log_" + date_time_str
-    if not os.path.exists(logs_dir):
-        try:
-            os.makedirs(logs_dir)
-        except:
-            msg_text = ['Failed to make\ndirectory:',
-                        '%s' % logs_dir]
-            lcd_msg = ScrollingMessage(msg_text, lcd, beep=True, lock=global_lock)
-            lcd_msg.start()
-            sleep(5)
-            lcd_msg.stop()
-
-    # Create the global lock. This is used to arbitrate between the
-    # pushbutton callback thread and the other (including main) threads.
-    # It is a global object because there's no way that I can tell to
-    # add parameters to the callback function.  This is also why the LCD
-    # object has to be global.  I'd love to figure out how to do this
-    # without using globals.
-    global_lock = threading.Lock()
-
-    # Create character LCD instance
-    lcd = Adafruit_CharLCD()
-    reset_lcd(lcd)
-
-    # Set up GPIO pins
-    set_up_gpio()
-
-    # Print welcome message
-    msg_text = "Welcome to\n     IV Swinger!"
-    print_and_log(msg_text)
-
-    global_lock.acquire()
-    lcd.message(msg_text)
-    global_lock.release()
-
-    # The scipy and numpy imports take a few seconds, so in order to get
-    # the welcome message printed earlier (and do something useful while
-    # it is being displayed) we do the imports here - a bit
-    # unconventional I know (and two more globals)
-    global interp1d, np
-    from scipy.interpolate import interp1d as interp1d
-    import numpy as np
-
-    # Create MCP23017 I/O extender instance and set all pins as outputs
-    io_extender = Adafruit_MCP230XX(MCP23017_I2C_ADDR, MCP23017_PIN_COUNT)
-    for pin in range(0, MCP23017_PIN_COUNT):
-        io_extender.config(pin, io_extender.OUTPUT)
-
-    # Run the rest with all exceptions causing a call to the clean_up
-    # function
-    try:
-        main_meat(io_extender, lcd)
-    except SystemExit:
-        # explicit calls to exit() - which print their own explanation
-        clean_up(io_extender, lcd, "explicit exit()")
-    except KeyboardInterrupt:
-        # Ctrl-C
-        print_and_log("Keyboard interrupt - exiting")
-        clean_up(io_extender, lcd, "kbd interrupt")
-    except:
-        # Everything else
-        print_and_log("Unexpected error: " + str(sys.exc_info()[0]))
-        print_and_log(traceback.format_exc())
-        clean_up(io_extender, lcd, str(sys.exc_info()[0]))
-        raise
+    """Main function"""
+    ivs = IV_Swinger()
+    # Override default property values
+    ivs.vdiv_r1 = 178900.0  # tweaked based on DMM measurement
+    ivs.vdiv_r2 = 8200.0    # tweaked based on DMM measurement
+    ivs.vdiv_r3 = 5595.0    # tweaked based on DMM measurement
+    ivs.amm_op_amp_rf = 82100.0  # tweaked based on DMM measurement
+    ivs.amm_op_amp_rg = 1499.0   # tweaked based on DMM measurement
+    ivs.run()
 
 # Boilerplate main() call
 if __name__ == '__main__':
-  main()
+    main()
