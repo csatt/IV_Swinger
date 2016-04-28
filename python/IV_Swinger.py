@@ -154,9 +154,9 @@
 # e.g. directory /IV_Swinger/141213_09_33_31 contains files for a
 # measurement taken on December 13th, 2014 at 9:33:13 am.
 #
-# The program also uses gnuplot to generate a graph of the IV curve that
-# it writes to a PDF file, which is also copied to the USB drive(s) in
-# the same directory.
+# The program also uses pyplot (matplotlib) to generate a graph of the
+# IV curve that it writes to a PDF file, which is also copied to the USB
+# drive(s) in the same directory.
 #
 # If the DPST switch remains OFF (open) for more than 10 minutes, the
 # program initiates a shutdown of the Raspberry Pi.  There is also a
@@ -169,6 +169,7 @@ import Queue
 import datetime as dt
 import glob
 import math
+import matplotlib.pyplot as plt
 import numpy
 import os
 import shutil
@@ -178,10 +179,13 @@ import threading
 import time
 import traceback
 
-import Adafruit_ADS1x15
-import Adafruit_CharLCD
-import Adafruit_MCP230xx
-import RPi.GPIO as GPIO
+# Conditionally import RPi-specific modules. This is so this module can
+# be imported on other platforms for post-processing the output files.
+if os.uname()[4].startswith("arm"):
+    import Adafruit_ADS1x15
+    import Adafruit_CharLCD
+    import Adafruit_MCP230xx
+    import RPi.GPIO as GPIO
 
 
 #################
@@ -805,54 +809,28 @@ class Interpolator(object):
         """
         if self._spline_interpolated_curve is None:
             self._spline_interpolated_curve = []
-            # Start by adding dummy points just after the first point
-            # and just before the last point. This is because the
-            # interpolation doesn't include the intervals between the
-            # first two points and the last two points. By adding a
-            # point very close to the first and last points, these
-            # intervals will be covered too. Note that these points are
-            # only [V, I] pairs since that is what the spline
-            # interpolation uses.
-            point_a = self.given_points[0]   # first given point
-            point_b = self.given_points[1]   # second given point
-            # dummy point is 1/1000 of the way between point a and point b
-            v_vals = numpy.linspace(point_a[VOLTS_INDEX],
-                                    point_b[VOLTS_INDEX], 1000).tolist()
-            i_vals = numpy.linspace(point_a[AMPS_INDEX],
-                                    point_b[AMPS_INDEX], 1000).tolist()
-            first_dummy_point = [v_vals[1], i_vals[1]]
 
-            point_a = self.given_points[-2]  # penultimate given point
-            point_b = self.given_points[-1]  # ultimate given point
-            v_vals = numpy.linspace(point_a[VOLTS_INDEX],
-                                    point_b[VOLTS_INDEX], 1000).tolist()
-            i_vals = numpy.linspace(point_a[AMPS_INDEX],
-                                    point_b[AMPS_INDEX], 1000).tolist()
-            second_dummy_point = [v_vals[-2], i_vals[-2]]
-
-            # First given point
-            list_with_dummies = [[self.given_points[0][VOLTS_INDEX],
-                                  self.given_points[0][AMPS_INDEX]]]
-            # First dummy point
-            list_with_dummies.append(first_dummy_point)
-            # All the middle given points
-            for point in self.given_points[1:-1]:
-                list_with_dummies.append([point[VOLTS_INDEX],
-                                          point[AMPS_INDEX]])
-            # Second dummy point
-            list_with_dummies.append(second_dummy_point)
-            # Last given point
-            list_with_dummies.append([self.given_points[-1][VOLTS_INDEX],
-                                      self.given_points[-1][AMPS_INDEX]])
+            # Generate list of [V, I] pairs
+            vi_points_list = []
+            for point in self.given_points:
+                vi_points_list.append([point[VOLTS_INDEX],
+                                       point[AMPS_INDEX]])
 
             # Call the interpolation method and put the results in a
             # temporary list
-            temp_points = self.catmull_rom_chain(list_with_dummies)
+            temp_points = self.catmull_rom_chain(vi_points_list)
 
             # At this point the curve is only [V, I] pairs and is
             # missing the first and last points. So we add the missing
-            # points and compute the R and P values to each of the final
-            # points in the interpolated curve.
+            # points and compute the R and P values for each of the
+            # final points in the interpolated curve. Note that there
+            # are no points interpolated between the first two points
+            # (Isc point and its successor) and the last two points (Voc
+            # point and its predecessor). This ensures straight lines on
+            # the graph for these two segments which is preferable in
+            # nearly all cases to curved segments. It does assume that
+            # the MPP will never be in one of these segments, but that
+            # is a very good assumption.
             self._spline_interpolated_curve.append(self.given_points[0])
             prev_amps = self.given_points[0][AMPS_INDEX]
             for temp_point in temp_points:
@@ -940,12 +918,15 @@ class Interpolator(object):
             # it looks the best.
             alpha = 0.5
 
-        # Local function to calculate t sub i+i (aka t_j)
+        # Local function to calculate t sub i+1 (aka t_j)
         def t_j(t_i, p_i, p_j):
             x_i, y_i = p_i
             x_j, y_j = p_j
-            return ((((x_j - x_i) ** 2 + (y_j - y_i) ** 2) ** 0.5) ** alpha +
-                    t_i)
+            t_j = math.hypot(x_j - x_i, y_j - y_i) ** alpha + t_i
+            if t_j == t_i:
+                # Prevent divide-by-zero
+                t_j += 0.000000000001
+            return t_j
 
         # Calculate t_0 to t_3
         t_0 = 0
@@ -1008,9 +989,9 @@ class Interpolator(object):
                     # different direction than they are from p1 to p2,
                     # break and re-run with low alpha
                     if ((v_p2_gt_v_p1 and v_b <= v_a) or
-                        (v_p2_lte_v_p1 and v_b > v_a) or
-                        (i_p2_gt_i_p1 and i_b <= i_a) or
-                        (i_p2_lte_i_p1 and i_b > i_a)):
+                            (v_p2_lte_v_p1 and v_b > v_a) or
+                            (i_p2_gt_i_p1 and i_b <= i_a) or
+                            (i_p2_lte_i_p1 and i_b > i_a)):
                         break
             else:  # no break
                 return p1_p2_points
@@ -1092,9 +1073,31 @@ class IV_Swinger(object):
         self._amm_shunt_max_amps = 10
         self._amm_chp = 2
         self._amm_chn = 3
-        self._plot_ideal_curve = False
         self._plot_interpolated_curve = True
         self._use_spline_interpolation = True
+        self._plot_power = False
+        self._max_i_ratio = 1.3
+        self._max_v_ratio = 1.2
+        self._pdf_scale = 1.0
+        self._pdf_title = None
+        self._names = None
+        self._label_all_iscs = False
+        self._label_all_vocs = False
+        self._label_all_mpps = False
+        self._mpp_watts_only = False
+        self._fancy_labels = False
+        self._title_fontsize = 12
+        self._axislabel_fontsize = 9
+        self._ticklabel_fontsize = 8
+        self._isclabel_fontsize = 9
+        self._voclabel_fontsize = 9
+        self._mpplabel_fontsize = 9
+        self._legend_fontsize = 7
+        self._font_scale = 1.0
+        self._point_scale = 1.0
+        self._line_scale = 1.0
+        self._ax1 = None
+        self._ax2 = None
         # exception message queue
         self.exc_queue = Queue.Queue()
 
@@ -1550,17 +1553,6 @@ class IV_Swinger(object):
         self._amm_chn = value
 
     @property
-    def plot_ideal_curve(self):
-        """If True, an ideal IV curve based on the Isc and Voc is plotted"""
-        return self._plot_ideal_curve
-
-    @plot_ideal_curve.setter
-    def plot_ideal_curve(self, value):
-        if value not in set([True, False]):
-            raise ValueError("plot_ideal_curve must be boolean")
-        self._plot_ideal_curve = value
-
-    @property
     def plot_interpolated_curve(self):
         """If True, the interpolated IV curve is plotted"""
         return self._plot_interpolated_curve
@@ -1583,6 +1575,224 @@ class IV_Swinger(object):
         if value not in set([True, False]):
             raise ValueError("use_spline_interpolation must be boolean")
         self._use_spline_interpolation = value
+
+    @property
+    def plot_power(self):
+        """If True, power is plotted along with IV curve.
+        """
+        return self._plot_power
+
+    @plot_power.setter
+    def plot_power(self, value):
+        if value not in set([True, False]):
+            raise ValueError("plot_power must be boolean")
+        self._plot_power = value
+
+    @property
+    def max_i_ratio(self):
+        """Ratio of I-axis range to Isc (or MPP, whichever is greater)
+        """
+        return self._max_i_ratio
+
+    @max_i_ratio.setter
+    def max_i_ratio(self, value):
+        self._max_i_ratio = value
+
+    @property
+    def max_v_ratio(self):
+        """Ratio of V-axis range to Voc
+        """
+        return self._max_v_ratio
+
+    @max_v_ratio.setter
+    def max_v_ratio(self, value):
+        self._max_v_ratio = value
+
+    @property
+    def pdf_scale(self):
+        """Amount to scale PDF (1.0 is no scaling)
+        """
+        return self._pdf_scale
+
+    @pdf_scale.setter
+    def pdf_scale(self, value):
+        self._pdf_scale = value
+
+    @property
+    def pdf_title(self):
+        """Property to set the PDF title"""
+        return self._pdf_title
+
+    @pdf_title.setter
+    def pdf_title(self, value):
+        self._pdf_title = value
+
+    @property
+    def names(self):
+        """Property to set the curve names"""
+        return self._names
+
+    @names.setter
+    def names(self, value):
+        self._names = value
+
+    @property
+    def label_all_iscs(self):
+        """Property to enable labeling all Isc points with --overlay"""
+        return self._label_all_iscs
+
+    @label_all_iscs.setter
+    def label_all_iscs(self, value):
+        self._label_all_iscs = value
+
+    @property
+    def label_all_vocs(self):
+        """Property to enable labeling all Voc points with --overlay"""
+        return self._label_all_vocs
+
+    @label_all_vocs.setter
+    def label_all_vocs(self, value):
+        self._label_all_vocs = value
+
+    @property
+    def label_all_mpps(self):
+        """Property to enable labeling all MPPs with --overlay"""
+        return self._label_all_mpps
+
+    @label_all_mpps.setter
+    def label_all_mpps(self, value):
+        self._label_all_mpps = value
+
+    @property
+    def mpp_watts_only(self):
+        """Property to enable labeling MPPs with watts only (no V * I)"""
+        return self._mpp_watts_only
+
+    @mpp_watts_only.setter
+    def mpp_watts_only(self, value):
+        self._mpp_watts_only = value
+
+    @property
+    def fancy_labels(self):
+        """Property to enable fancy labels for Isc, Voc and MPP"""
+        return self._fancy_labels
+
+    @fancy_labels.setter
+    def fancy_labels(self, value):
+        self._fancy_labels = value
+
+    @property
+    def title_fontsize(self):
+        """Property to set font size of title"""
+        return self._title_fontsize
+
+    @title_fontsize.setter
+    def title_fontsize(self, value):
+        self._title_fontsize = value
+
+    @property
+    def axislabel_fontsize(self):
+        """Property to set font size of axis labels"""
+        return self._axislabel_fontsize
+
+    @axislabel_fontsize.setter
+    def axislabel_fontsize(self, value):
+        self._axislabel_fontsize = value
+
+    @property
+    def ticklabel_fontsize(self):
+        """Property to set font size of axis tick labels"""
+        return self._ticklabel_fontsize
+
+    @ticklabel_fontsize.setter
+    def ticklabel_fontsize(self, value):
+        self._ticklabel_fontsize = value
+
+    @property
+    def isclabel_fontsize(self):
+        """Property to set font size of Isc label"""
+        return self._isclabel_fontsize
+
+    @isclabel_fontsize.setter
+    def isclabel_fontsize(self, value):
+        self._isclabel_fontsize = value
+
+    @property
+    def voclabel_fontsize(self):
+        """Property to set font size of Voc label"""
+        return self._voclabel_fontsize
+
+    @voclabel_fontsize.setter
+    def voclabel_fontsize(self, value):
+        self._voclabel_fontsize = value
+
+    @property
+    def mpplabel_fontsize(self):
+        """Property to set font size of MPP label"""
+        return self._mpplabel_fontsize
+
+    @mpplabel_fontsize.setter
+    def mpplabel_fontsize(self, value):
+        self._mpplabel_fontsize = value
+
+    @property
+    def legend_fontsize(self):
+        """Property to set font size of legend"""
+        return self._legend_fontsize
+
+    @legend_fontsize.setter
+    def legend_fontsize(self, value):
+        self._legend_fontsize = value
+
+    @property
+    def font_scale(self):
+        """Amount to scale fonts (1.0 is no scaling)
+        """
+        return self._font_scale
+
+    @font_scale.setter
+    def font_scale(self, value):
+        self._font_scale = value
+
+    @property
+    def point_scale(self):
+        """Amount to scale measured points (1.0 is no scaling)
+        """
+        return self._point_scale
+
+    @point_scale.setter
+    def point_scale(self, value):
+        self._point_scale = value
+
+    @property
+    def line_scale(self):
+        """Amount to scale interpolated line (1.0 is no scaling)
+        """
+        return self._line_scale
+
+    @line_scale.setter
+    def line_scale(self, value):
+        self._line_scale = value
+
+    @property
+    def ax1(self):
+        """Primary pyplot axes object
+        """
+        return self._ax1
+
+    @ax1.setter
+    def ax1(self, value):
+        self._ax1 = value
+
+    @property
+    def ax2(self):
+        """Primary pyplot axes object
+        """
+        return self._ax2
+
+    @ax2.setter
+    def ax2(self, value):
+        self._ax2 = value
 
     # -------------------------------------------------------------------------
     def set_up_gpio(self):
@@ -2291,7 +2501,7 @@ class IV_Swinger(object):
                     i_scale = INFINITE_VAL
                 m12 = i_scale * (i2 - i1) / (v2 - v1)
                 m23 = i_scale * (i3 - i2) / (v3 - v2)
-                d23 = math.sqrt((v3 - v2) ** 2 + (i_scale * (i3 - i2)) ** 2)
+                d23 = math.hypot(v3 - v2, i_scale * (i3 - i2))
                 rot_degrees = (math.degrees(math.atan(m12)) -
                                math.degrees(math.atan(m23)))
                 weight = abs(rot_degrees) * d23
@@ -2458,25 +2668,25 @@ class IV_Swinger(object):
         open_filehandle.write(output_line)
 
     # -------------------------------------------------------------------------
-    def write_gp_data_points_to_file(self, filename, data_points,
-                                     new_data_set=False):
-        """Method to write/append each of the gnuplot data points to the
+    def write_plt_data_points_to_file(self, filename, data_points,
+                                      new_data_set=False):
+        """Method to write/append each of the plotter data points to the
         output file.
         """
         with open(filename, "a") as f:
             # Add new data set delimiter
             if new_data_set:
-                self.write_gp_data_to_file(f, 0, 0, 0, new_data_set=True)
+                self.write_plt_data_to_file(f, 0, 0, 0, new_data_set=True)
 
             for data_point in data_points:
-                self.write_gp_data_to_file(f,
-                                           data_point[VOLTS_INDEX],
-                                           data_point[AMPS_INDEX],
-                                           data_point[WATTS_INDEX])
+                self.write_plt_data_to_file(f,
+                                            data_point[VOLTS_INDEX],
+                                            data_point[AMPS_INDEX],
+                                            data_point[WATTS_INDEX])
 
     # -------------------------------------------------------------------------
-    def write_gp_data_to_file(self, open_filehandle, volts, amps,
-                              watts, new_data_set=False):
+    def write_plt_data_to_file(self, open_filehandle, volts, amps,
+                               watts, new_data_set=False):
         """Method to write/append the current voltage and current
         readings to an output file which the caller has opened for
         appending and has passed the filehandle.  If new_data_set=True,
@@ -2485,137 +2695,511 @@ class IV_Swinger(object):
         """
         output_line = "%.3f %.3f %.3f\n" % (volts, amps, watts)
         if new_data_set:
-            # two blank lines signify a new data set to gnuplot
+            # two blank lines signify a new data set to plotter
             open_filehandle.write("\n")
             open_filehandle.write("\n")
         else:
             open_filehandle.write(output_line)
 
     # -------------------------------------------------------------------------
-    def write_gnuplot_file(self, command_filename, data_filename, pdf_filename,
-                           isc_amps, voc_volts, mpp_amps, mpp_volts, spline):
-        """Method to write the gnuplot command file"""
-        with open(command_filename, "w") as f:
-            # First set the terminal type to PDF and output to the PDF
-            # filename
-            f.write("set terminal pdf size 11,8.5\n")
-            output_line = 'set output "' + pdf_filename + '"\n'
-            f.write(output_line)
+    def plot_with_pyplot(self, sd_data_point_filenames, sd_pdf_filename,
+                         isc_amps, voc_volts, mpp_amps, mpp_volts, spline):
+        """Method to generate the graph with pyplot.
 
-            # Set the title and X and Y labels for the plot
-            f.write('set title "IV Swinger Plot for ' + data_filename + '"\n')
-            f.write('set xlabel "Voltage (volts)"\n')
-            f.write('set ylabel "Current (amps)"\n')
+        The following parameters are lists:
 
-            # Set the X and Y ranges to be 20% and 30% more than Voc and
-            # Isc respectively
-            max_x = voc_volts * 1.2
-            if max_x > 0:
-                output_line = "set xrange [0:" + str(max_x) + "]\n"
-                f.write(output_line)
-            max_y = isc_amps * 1.3
-            if max_y > 0:
-                output_line = "set yrange [0:" + str(max_y) + "]\n"
-                f.write(output_line)
+           sd_data_point_filenames
+           isc_amps
+           voc_volts
+           mpp_amps
+           mpp_volts
 
-            # Display grid lines on graph
-            if max_x < 20:
-                output_line = "set xtics 1\n"
-            else:
-                output_line = "set xtics 2\n"
-            f.write(output_line)
-            if max_y < 5:
-                output_line = "set ytics 0.5\n"
-            else:
-                output_line = "set ytics 1\n"
-            f.write(output_line)
-            output_line = "set grid\n"
-            f.write(output_line)
+        The normal case is that these lists all have a length of 1 and a
+        single curve is plotted. Support for larger lists is included
+        for external post-processing software that uses this method to
+        plot multiple curves (up to 8) on the same graph.
+        """
+        # Set colors
+        colors = self.set_plot_colors()
 
-            if self.plot_ideal_curve:
-                # Define the ideal PV curve function for "fit"
-                output_line = ("ideal_curve(x) = " + str(isc_amps) +
-                               " - (a * (exp(b * x) - 1))\n")
-                f.write(output_line)
-                # Suppress verbosity from "fit"
-                f.write("set fit quiet\n")
-                # Run curve fitting
-                output_line = ('fit ideal_curve(x) "' + data_filename +
-                               '" via a, b\n')
-                f.write(output_line)
+        # Check args
+        self.check_plot_with_pyplot_args(colors, sd_data_point_filenames,
+                                         isc_amps, voc_volts, mpp_amps,
+                                         mpp_volts)
+        # Set the figure size
+        self.set_figure_size()
 
-            # Put a label on the Isc point
-            isc_amps_str = "%.2f" % (isc_amps)
-            output_line = ('set label at 0,' + str(isc_amps) + ' "Isc = ' +
-                           isc_amps_str +
-                           ' A " point pointtype 7 offset 1,1\n')
-            f.write(output_line)
+        # Set the ax1 property
+        self.ax1 = plt.gca()
 
-            # Put a label on the MPP
-            mpp_watts_str = "%.2f" % (mpp_volts * mpp_amps)
-            mpp_volts_x_amps_str = "%.2f * %.2f" % (mpp_volts, mpp_amps)
-            output_line = ("set label at " + str(mpp_volts) + "," +
-                           str(mpp_amps) + ' "  MPP = ' +
-                           mpp_watts_str + " W (" +
-                           mpp_volts_x_amps_str + ')" point pointtype 7\n')
-            f.write(output_line)
+        # Set the title and X and Y labels for the plot
+        self.set_figure_title(sd_data_point_filenames)
 
-            # Put a label on the Voc point
-            voc_volts_str = "%.2f" % (voc_volts)
-            output_line = ("set label at " + str(voc_volts) + ',0 "Voc = ' +
-                           voc_volts_str +
-                           ' V " point pointtype 7 offset 1,1\n')
-            f.write(output_line)
+        # Set the title and X and Y labels for the plot
+        self.set_x_label()
+        self.set_y_label()
 
-            # Build and run the plot command with three plots:
-            #   - measured data points as points
-            #   - interpolated curve through measured points
-            #   - ideal curve (optional)
-            output_line = ('plot "' + data_filename +
-                           '" index 0 title "Measured Points" ' +
-                           'pointtype 6 linewidth 4')
-            if self.plot_interpolated_curve:
-                output_line += ", "
-                if spline:
-                    type_str = "Catmull-Rom Spline"
-                else:
-                    type_str = "Linear"
-                output_line += '"' + data_filename
-                output_line += '" index 1 with lines title '
-                output_line += '"' + type_str + ' Interpolated Curve" '
-                output_line += 'linecolor rgb "blue" linewidth 6 linetype 3'
-            if self.plot_ideal_curve:
-                output_line += ', '
-                output_line += ' ideal_curve(x) title "Ideal Curve" '
-                output_line += 'linecolor rgb "purple" linewidth 6 linetype 3'
-            output_line += "\n"
-            f.write(output_line)
+        # Set the X and Y ranges
+        max_x = self.set_x_range(voc_volts)
+        max_y = self.set_y_range(isc_amps, mpp_amps)
 
-            # Now set the terminal to wxt (default dynamic display) and
-            # re-run the plot.  This needs to be suppressed in headless
-            # mode.
-            if not self.headless_mode:
-                f.write("set terminal wxt size 1200,800\n")
-                output_line = "unset output\n"
-                f.write(output_line)
-                f.write("replot\n")
-                f.write("pause -1\n")
+        # Display ticks and grid lines on graph
+        self.set_x_ticks(max_x)
+        self.set_y_ticks(max_y)
+        self.display_grid()
+
+        # Set annotate options
+        (xytext_offset, bbox, arrowprops) = self.set_annotate_options()
+
+        # Plot and lable the Isc point(s)
+        self.plot_and_label_isc(isc_amps, xytext_offset, bbox, arrowprops)
+
+        # Plot and label the MPP(s)
+        self.plot_and_label_mpp(mpp_amps, mpp_volts,
+                                xytext_offset, bbox, arrowprops)
+
+        # Plot and label the Voc point(s)
+        self.plot_and_label_voc(voc_volts, xytext_offset, bbox, arrowprops)
+
+        # Plot the measured points and the interpolated curves
+        self.plot_points_and_curves(sd_data_point_filenames, mpp_amps,
+                                    mpp_volts, spline, colors)
+        # Display legend
+        self.display_legend()
+
+        # Adjust margins
+        self.adjust_margins()
+
+        # Print to PDF
+        self.print_to_pdf(sd_pdf_filename)
+
+        # If not in headless mode, open interactive display
+        if not self.headless_mode:
+            self.open_interactive_display()
+
+        # Close all plots
+        self.close_plots()
 
     # -------------------------------------------------------------------------
-    def plot_with_gnuplot(self, sd_gp_command_filename,
-                          sd_data_point_filename, sd_pdf_filename,
-                          isc_amps, voc_volts, mpp_amps, mpp_volts, spline):
-        """Method to generate the graph with gnuplot"""
+    def set_plot_colors(self):
+        """Method to set the colors for plotter curves"""
 
-        # Write the gnuplot command file
-        self.write_gnuplot_file(sd_gp_command_filename,
-                                sd_data_point_filename, sd_pdf_filename,
-                                isc_amps, voc_volts,
-                                mpp_amps, mpp_volts, spline)
+        colors = ("blue",
+                  "green",
+                  "purple",
+                  "cyan",
+                  "magenta",
+                  "brown",
+                  "orange",
+                  "red")
 
-        # Execute the gnuplot command file
-        if isc_amps and voc_volts:
-            subprocess.call(["gnuplot", sd_gp_command_filename])
+        return colors
+
+    # -------------------------------------------------------------------------
+    def check_plot_with_pyplot_args(self, colors, sd_data_point_filenames,
+                                    isc_amps, voc_volts, mpp_amps,
+                                    mpp_volts):
+        """Method to check the args passed to the plot_with_pyplot"""
+        max_len = len(colors)
+        assert len(sd_data_point_filenames) <= max_len, ("Max of " +
+                                                         str(max_len) +
+                                                         " curves supported")
+        assert len(isc_amps) == len(sd_data_point_filenames), \
+            "isc_amps list must be same size as sd_data_point_filenames list"
+        assert len(voc_volts) == len(sd_data_point_filenames), \
+            "voc_volts list must be same size as sd_data_point_filenames list"
+        assert len(mpp_amps) == len(sd_data_point_filenames), \
+            "mpp_amps list must be same size as sd_data_point_filenames list"
+        assert len(mpp_volts) == len(sd_data_point_filenames), \
+            "mpp_volts list must be same size as sd_data_point_filenames list"
+
+    # -------------------------------------------------------------------------
+    def set_figure_size(self):
+        """Method to set the plotter figure size"""
+
+        # Set the figure size to 11 x 8.5 (optionally scaled)
+        plt.gcf().set_size_inches(11 * self.pdf_scale, 8.5 * self.pdf_scale)
+
+    # -------------------------------------------------------------------------
+    def set_figure_title(self, sd_data_point_filenames):
+        """Method to set the plotter figure title"""
+        if len(sd_data_point_filenames) > 1:
+            df_str = "Multiple Runs"
+        else:
+            df_str = sd_data_point_filenames[0]
+            if df_str[:16] == "plt_data_points_":
+                df_str = df_str[16:]
+            df_str += " Run"
+        if self.pdf_title is None:
+            plt.title("IV Swinger Plot for " + df_str,
+                      fontsize=self.title_fontsize * self.font_scale)
+        else:
+            plt.title(self.pdf_title,
+                      fontsize=self.title_fontsize * self.font_scale)
+
+    # -------------------------------------------------------------------------
+    def set_x_label(self):
+        """Method to set the plotter X axis label"""
+        plt.xlabel("Voltage (volts)",
+                   fontsize=self.axislabel_fontsize * self.font_scale)
+
+    # -------------------------------------------------------------------------
+    def set_y_label(self):
+        """Method to set the plotter Y axis label"""
+        plt.ylabel("Current (amps)",
+                   fontsize=self.axislabel_fontsize * self.font_scale)
+
+    # -------------------------------------------------------------------------
+    def set_x_range(self, voc_volts):
+        """Method to set the plotter X axis range. Returns the maximum X
+        value
+        """
+        max_x = 0
+        for volts in voc_volts:
+            if volts * self.max_v_ratio > max_x:
+                max_x = volts * self.max_v_ratio
+        if max_x > 0:
+            plt.xlim(0, max_x)
+
+        return max_x
+
+    # -------------------------------------------------------------------------
+    def set_y_range(self, isc_amps, mpp_amps):
+        """Method to set the plotter Y axis range. Returns the maximum Y
+        value
+        """
+        max_y = 0
+        for amps in isc_amps + mpp_amps:
+            if amps * self.max_i_ratio > max_y:
+                max_y = amps * self.max_i_ratio
+        if max_y > 0:
+            plt.ylim(0, max_y)
+
+        return max_y
+
+    # -------------------------------------------------------------------------
+    def set_x_ticks(self, max_x):
+        """Method to set the plotter X-axis ticks"""
+        if max_x < 20:
+            step = 1.0
+        else:
+            step = 2.0
+        plt.xticks(numpy.arange(0, max_x, step),
+                   fontsize=self.ticklabel_fontsize * self.font_scale)
+
+    # -------------------------------------------------------------------------
+    def set_y_ticks(self, max_y):
+        """Method to set the plotter Y-axis ticks"""
+        if max_y < 5:
+            step = 0.5
+        else:
+            step = 1.0
+        plt.yticks(numpy.arange(0, max_y, step),
+                   fontsize=self.ticklabel_fontsize * self.font_scale)
+
+    # -------------------------------------------------------------------------
+    def display_grid(self):
+        """Method to display the plotter grid"""
+        plt.grid(True)
+
+    # -------------------------------------------------------------------------
+    def set_annotate_options(self):
+        """Method to set the plotter annotation options (for Isc, Voc,
+        and MPP labels)
+        """
+        if self.fancy_labels:
+            xytext_offset = 10
+            bbox = dict(boxstyle="round", facecolor="yellow")
+            arrowprops = dict(arrowstyle="->")
+        else:
+            xytext_offset = 0
+            bbox = dict(boxstyle="square, pad=0",
+                        facecolor="white", edgecolor="white")
+            arrowprops = None
+
+        return (xytext_offset, bbox, arrowprops)
+
+    # -------------------------------------------------------------------------
+    def plot_and_label_isc(self, isc_amps, xytext_offset, bbox, arrowprops):
+        """Method to plot and label/annotate the Isc point(s)"""
+        for ii, isc_amp in enumerate(isc_amps):
+            plt.plot([0], [isc_amp],
+                     marker='o',
+                     color='black',
+                     linestyle='none',
+                     markersize=6.0 * self.point_scale,
+                     markeredgewidth=1,
+                     clip_on=False)
+            if not ii or self.label_all_iscs:
+                isc_amps_str = "%.2f" % (isc_amp)
+                isc_str = "Isc = " + isc_amps_str + " A "
+                plt.annotate(isc_str,
+                             xy=(0, isc_amp),
+                             xytext=(xytext_offset + 5, xytext_offset + 5),
+                             textcoords='offset points',
+                             fontsize=self.isclabel_fontsize * self.font_scale,
+                             horizontalalignment='left',
+                             verticalalignment='bottom',
+                             bbox=bbox,
+                             arrowprops=arrowprops)
+
+    # -------------------------------------------------------------------------
+    def plot_and_label_mpp(self, mpp_amps, mpp_volts,
+                           xytext_offset, bbox, arrowprops):
+        """Method to plot and label/annotate the MPP(s)"""
+        for ii, mpp_amp in enumerate(mpp_amps):
+            plt.plot([mpp_volts[ii]], [mpp_amp],
+                     marker='o',
+                     color='black',
+                     linestyle='none',
+                     markersize=6.0 * self.point_scale,
+                     markeredgewidth=1)
+            if not ii or self.label_all_mpps:
+                mpp_watts_str = "%.2f" % (mpp_volts[ii] * mpp_amp)
+                if (self.mpp_watts_only):
+                    mpp_volts_x_amps_str = ""
+                else:
+                    mpp_volts_x_amps_str = " (%.2f * %.2f)" % (mpp_volts[ii],
+                                                               mpp_amp)
+                mpp_str = ("MPP = " + mpp_watts_str + " W" +
+                           mpp_volts_x_amps_str)
+                plt.annotate(mpp_str,
+                             xy=(mpp_volts[ii], mpp_amp),
+                             xytext=(xytext_offset + 5, xytext_offset + 5),
+                             textcoords='offset points',
+                             fontsize=self.mpplabel_fontsize * self.font_scale,
+                             horizontalalignment='left',
+                             verticalalignment='bottom',
+                             alpha=1.0,
+                             bbox=bbox,
+                             arrowprops=arrowprops)
+
+    # -------------------------------------------------------------------------
+    def plot_and_label_voc(self, voc_volts, xytext_offset, bbox, arrowprops):
+        """Method to plot and label/annotate the Voc point(s)"""
+        for ii, voc_volt in enumerate(voc_volts):
+            plt.plot([voc_volts[ii]], [0],
+                     marker='o',
+                     color='black',
+                     linestyle='none',
+                     markersize=6.0 * self.point_scale,
+                     markeredgewidth=1,
+                     clip_on=False)
+            voc_volts_str = "%.2f" % (voc_volt)
+            if not ii or self.label_all_vocs:
+                voc_volts_str = "%.2f" % (voc_volt)
+                voc_str = "Voc = " + voc_volts_str + " V "
+                plt.annotate(voc_str,
+                             xy=(voc_volt, 0),
+                             xytext=(xytext_offset + 5,
+                                     (xytext_offset + 5 +
+                                      ii * 20 * self.font_scale)),
+                             textcoords='offset points',
+                             fontsize=self.voclabel_fontsize * self.font_scale,
+                             horizontalalignment='left',
+                             verticalalignment='bottom',
+                             bbox=bbox,
+                             arrowprops=arrowprops)
+
+    # -------------------------------------------------------------------------
+    def plot_points_and_curves(self, sd_data_point_filenames, mpp_amps,
+                               mpp_volts, spline, colors):
+        """Method to read the data in each data point file and use
+        pyplot to plot the measured and interpolated curves
+        """
+        ax2 = None
+        for curve_num, df in enumerate(sd_data_point_filenames):
+            with open(df, "r") as f:
+                # Read points from the file
+                (measured_volts,
+                 measured_amps,
+                 measured_watts,
+                 interp_volts,
+                 interp_amps,
+                 interp_watts) = self.read_measured_and_interp_points(f)
+
+                # Plot measured points
+                self.plot_measured_points(curve_num, measured_volts,
+                                          measured_amps)
+
+                if self.plot_interpolated_curve:
+                    # Plot interpolated points
+                    self.plot_interp_points(curve_num, df,
+                                            sd_data_point_filenames,
+                                            interp_volts, interp_amps,
+                                            spline, colors)
+
+                if self.plot_power:
+                    # Plot power curve
+                    self.plot_power_curve(curve_num, interp_volts,
+                                          interp_watts, mpp_volts)
+
+    # -------------------------------------------------------------------------
+    def read_measured_and_interp_points(self, f):
+        """Method to read the measured points and interpolated points
+        from the data point file
+        """
+        first_data_set = True
+        measured_volts = []
+        measured_amps = []
+        measured_watts = []
+        interp_volts = []
+        interp_amps = []
+        interp_watts = []
+        for line in f.read().splitlines():
+            if len(line):
+                volts, amps, watts = line.split()
+                if first_data_set:
+                    measured_volts.append(float(volts))
+                    measured_amps.append(float(amps))
+                    measured_watts.append(float(watts))
+                else:
+                    interp_volts.append(float(volts))
+                    interp_amps.append(float(amps))
+                    interp_watts.append(float(watts))
+            else:
+                # Blank lines delimit data sets
+                first_data_set = False
+
+        return (measured_volts, measured_amps, measured_watts,
+                interp_volts, interp_amps, interp_watts)
+
+    # -------------------------------------------------------------------------
+    def plot_measured_points(self, curve_num, measured_volts, measured_amps):
+        """Method to plot the measured points"""
+        measured_name = "Measured Points"
+        if curve_num:
+            measured_name = ""
+        plt.plot(measured_volts, measured_amps,
+                 marker='o',
+                 color='red',
+                 linestyle='none',
+                 markersize=6.0 * self.point_scale,
+                 markeredgewidth=0.75 * self.point_scale,
+                 markeredgecolor='r',
+                 markerfacecolor='none',
+                 label=measured_name,
+                 clip_on=False)
+
+    # -------------------------------------------------------------------------
+    def plot_interp_points(self, curve_num, df, sd_data_point_filenames,
+                           interp_volts, interp_amps, spline, colors):
+        """Method to plot the interpolated points"""
+        if self.names is None:
+            if len(sd_data_point_filenames) > 1:
+                if df[:16] == "plt_data_points_":
+                    df = df[16:]
+                interp_label = df
+                if self.plot_power:
+                    interp_label += " Current"
+            else:
+                interp_label = "Interpolated IV Curve"
+        else:
+            interp_label = self.names[curve_num]
+        plt.plot(interp_volts, interp_amps,
+                 color=colors[curve_num],
+                 linewidth=2.0 * self.line_scale,
+                 label=interp_label)
+
+    # -------------------------------------------------------------------------
+    def plot_power_curve(self, curve_num, interp_volts, interp_watts,
+                         mpp_volts):
+        """Method to plot the power curve"""
+        name = ""
+        # Set secondary Y-axis based on first curve
+        if not curve_num:
+            # Create a X-axis twin (same X axis, different Y axis)
+            self.ax2 = self.ax1.twinx()
+            # Set ax2 xlim to same as ax1
+            self.ax2.set_xlim(self.ax1.get_xlim())
+            #
+            # Set max ax2 ylim (max_y2) so MPP coincides
+            #
+            # We want the ratio of the max current (max_y1) to the MPP
+            # current to equal the ratio of the max power (max_y2) to the
+            # MPP power:
+            #
+            #    max_y1      max_y2
+            #   -------- = ---------
+            #   mpp_amps   mpp_watts
+            #
+            # Solving for max_y2:
+            #
+            #             max_y1 * mpp_watts
+            #   max_y2 = --------------------
+            #                  mpp_amps
+            #
+            # mpp_watts / mpp_amps = mpp_volts, so:
+            #
+            #   max_y2 = max_y1 * mpp_volts
+            #
+            max_y1 = self.ax1.get_ylim()[1]
+            max_y2 = max_y1 * mpp_volts[0]
+            self.ax2.set_ylim(0, max_y2)
+            fontsize = self.axislabel_fontsize * self.font_scale
+            self.ax2.set_ylabel("Power (watts)", fontsize=fontsize)
+            fontsize = self.ticklabel_fontsize * self.font_scale
+            for yticklabel in self.ax2.get_yticklabels():
+                    yticklabel.set_fontsize(fontsize)
+            name = "Power Curve"
+        # Plot the power curve on ax2
+        p2 = self.ax2.plot(interp_volts, interp_watts,
+                           color="red",
+                           linewidth=2.5 * self.line_scale,
+                           linestyle='--',
+                           label=name)
+        # Set the current axes object back to ax1
+        plt.sca(self.ax1)
+
+    # -------------------------------------------------------------------------
+    def display_legend(self):
+        """Method to display the plotter legend"""
+        fontsize = self.legend_fontsize * self.font_scale
+        if self.ax2 is None:
+            # Normal case
+            legend = self.ax1.legend(prop={'size': fontsize})
+        else:
+            # Add legend for power curve
+            h1, l1 = self.ax1.get_legend_handles_labels()
+            h2, l2 = self.ax2.get_legend_handles_labels()
+            legend = self.ax1.legend(h1+h2, l1+l2, prop={'size': fontsize})
+        # No border
+        legend.get_frame().set_linewidth(0.0)
+
+    # -------------------------------------------------------------------------
+    def adjust_margins(self):
+        """Method to adjust plotter margins"""
+        xsize, ysize = plt.gcf().get_size_inches()
+        left_margin_width = 0.2 + 0.4 * self.font_scale
+        if self.ax2 is None:
+            # Normal case
+            right_margin_width = 0.2 + 0.1 * self.font_scale
+        else:
+            # Add space for power axis labels
+            right_margin_width = left_margin_width
+        top_margin_width = 0.1 + 0.2 * self.font_scale
+        bottom_margin_width = 0.2 + 0.3 * self.font_scale
+        left_adj = left_margin_width / xsize
+        right_adj = 1.0 - right_margin_width / xsize
+        top_adj = 1.0 - top_margin_width / ysize
+        bottom_adj = bottom_margin_width / ysize
+        plt.subplots_adjust(left=left_adj, right=right_adj,
+                            top=top_adj, bottom=bottom_adj)
+
+    # -------------------------------------------------------------------------
+    def print_to_pdf(self, sd_pdf_filename):
+        """Method to print the plot to PDF"""
+        plt.savefig(sd_pdf_filename)
+
+    # -------------------------------------------------------------------------
+    def open_interactive_display(self):
+        """Method to open the interactive plotter display"""
+        plt.show()
+
+    # -------------------------------------------------------------------------
+    def close_plots(self):
+        """Method to close plots in preparation for next plot"""
+        plt.close('all')
 
     # -------------------------------------------------------------------------
     def shut_down(self, lock_held=True):
@@ -2684,7 +3268,7 @@ class IV_Swinger(object):
         usb_drives = []
         for slash_media_dir in slash_media_dirs:
             if (os.path.ismount(slash_media_dir) and
-                os.access(slash_media_dir, os.W_OK | os.X_OK)):
+                    os.access(slash_media_dir, os.W_OK | os.X_OK)):
                 # Instead of using os.path.ismount and os.access, could
                 # look in /proc/mounts and check that it is "rw"
 
@@ -3106,27 +3690,24 @@ class IV_Swinger(object):
                 # Create the leaf file names
                 csv_data_point_leaf_name = ("data_points_" + date_time_str +
                                             ".csv")
-                gp_command_leaf_name = "gp_command_file_" + date_time_str
-                gp_data_point_leaf_name = "gp_data_points_" + date_time_str
-                gp_pdf_leaf_name = "gp_data_points_" + date_time_str + ".pdf"
+                plt_data_point_leaf_name = "plt_data_points_" + date_time_str
+                plt_pdf_leaf_name = "plt_data_points_" + date_time_str + ".pdf"
 
                 # Get the full-path names of the SD card output files
                 sd_csv_data_point_filename = (sd_output_dir + "/" +
                                               csv_data_point_leaf_name)
-                sd_gp_command_filename = (sd_output_dir + "/" +
-                                          gp_command_leaf_name)
-                sd_gp_data_point_filename = (sd_output_dir + "/" +
-                                             gp_data_point_leaf_name)
-                sd_gp_pdf_filename = sd_output_dir + "/" + gp_pdf_leaf_name
+                sd_plt_data_point_filename = (sd_output_dir + "/" +
+                                              plt_data_point_leaf_name)
+                sd_plt_pdf_filename = sd_output_dir + "/" + plt_pdf_leaf_name
 
                 # Write the CSV data points to the SD card file
                 self.write_csv_data_points_to_file(sd_csv_data_point_filename,
                                                    data_points)
 
-                # Write the gnuplot data points to the SD card files
-                self.write_gp_data_points_to_file(sd_gp_data_point_filename,
-                                                  data_points,
-                                                  new_data_set=False)
+                # Write the plotter data points to the SD card files
+                self.write_plt_data_points_to_file(sd_plt_data_point_filename,
+                                                   data_points,
+                                                   new_data_set=False)
 
                 # Create an interpolator object with the data_points
                 interpolator = Interpolator(data_points)
@@ -3139,11 +3720,11 @@ class IV_Swinger(object):
                     interp_points = interpolator.linear_interpolated_curve
                     interpolated_mpp = interpolator.linear_interpolated_mpp
 
-                # Add the interpolated data set to the Gnuplot data
+                # Add the interpolated data set to the plotter data
                 # point file
-                self.write_gp_data_points_to_file(sd_gp_data_point_filename,
-                                                  interp_points,
-                                                  new_data_set=True)
+                self.write_plt_data_points_to_file(sd_plt_data_point_filename,
+                                                   interp_points,
+                                                   new_data_set=True)
 
                 # Extract the MPP values
                 mpp_amps = interpolated_mpp[AMPS_INDEX]
@@ -3168,14 +3749,14 @@ class IV_Swinger(object):
                     time.sleep(2)
 
                 if voc_volts != 0.0:
-                    # Plot with gnuplot
-                    self.plot_with_gnuplot(sd_gp_command_filename,
-                                           sd_gp_data_point_filename,
-                                           sd_gp_pdf_filename,
-                                           isc_amps, voc_volts,
-                                           mpp_amps,
-                                           mpp_volts,
-                                           self.use_spline_interpolation)
+                    # Plot with pyplot
+                    self.plot_with_pyplot([sd_plt_data_point_filename],
+                                          sd_plt_pdf_filename,
+                                          [isc_amps],
+                                          [voc_volts],
+                                          [mpp_amps],
+                                          [mpp_volts],
+                                          self.use_spline_interpolation)
 
                 # Copy CSV and PDF files to /IV_Swinger/csv and
                 # /IV_Swinger/pdf
