@@ -106,6 +106,9 @@
 #                          Label MPP(s) with watts only
 #    -fl, --fancy_labels   Label Isc, Voc and MPP with fancy labels
 #    -l, --linear          Use linear interpolation
+#    --use_gnuplot         Use gnuplot instead of pyplot. Not recommended since
+#                          many of the other options are not supported with
+#                          gnuplot
 #    --interactive         View output in interactive mode
 #    --recalc_isc          Recalculate Isc using the overridden
 #                          extrapolate_isc method
@@ -177,10 +180,14 @@ class CommandLineProcessor(object):
             parser.add_argument("-mw", "--mpp_watts_only", action='store_true',
                                 help="Label MPP(s) with watts only")
             parser.add_argument("-fl", "--fancy_labels", action='store_true',
-                                help="Label Isc, Voc and MPP with "
-                                "fancy labels")
+                                help=("Label Isc, Voc and MPP with "
+                                      "fancy labels"))
             parser.add_argument("-l", "--linear", action='store_true',
                                 help="Use linear interpolation")
+            parser.add_argument("--use_gnuplot", action='store_true',
+                                help=("Use gnuplot instead of pyplot. Not "
+                                      "recommended since many of the other "
+                                      "options are not supported with gnuplot"))
             parser.add_argument("--interactive", action='store_true',
                                 help=("View output in interactive mode"))
             parser.add_argument("--recalc_isc", action='store_true',
@@ -295,19 +302,25 @@ class IV_Swinger_extended(IV_Swinger.IV_Swinger):
 
         return (isc_amps, isc_volts, isc_ohms, isc_watts)
 
-    def plot_with_plotter(self, args, csv_proc):
-        """Method to run pyplot"""
+    def plot_graphs(self, args, csv_proc):
+        """Method to generate the graph or graphs with pyplot or gnuplot
+        """
 
+        self.use_gnuplot = False
+        if args.use_gnuplot:
+            self.use_gnuplot = True
+        sd_gp_command_filename = "gp_command"
         if args.overlay:
-            # Plot with pyplot
+            # Plot with pyplot or gnuplot
             sd_plt_pdf_filename = "overlaid.pdf"
-            self.plot_with_pyplot(csv_proc.plt_data_point_files,
-                                  sd_plt_pdf_filename,
-                                  csv_proc.plt_isc_amps,
-                                  csv_proc.plt_voc_volts,
-                                  csv_proc.plt_mpp_amps,
-                                  csv_proc.plt_mpp_volts,
-                                  self.use_spline_interpolation)
+            self.plot_with_plotter(sd_gp_command_filename,
+                                   csv_proc.plt_data_point_files,
+                                   sd_plt_pdf_filename,
+                                   csv_proc.plt_isc_amps,
+                                   csv_proc.plt_voc_volts,
+                                   csv_proc.plt_mpp_amps,
+                                   csv_proc.plt_mpp_volts,
+                                   self.use_spline_interpolation)
             print "Generated: " + sd_plt_pdf_filename
 
         else:
@@ -321,13 +334,14 @@ class IV_Swinger_extended(IV_Swinger.IV_Swinger):
                 fn_wo_suffix = os.path.splitext(os.path.basename
                                                 (csv_filename))[0]
                 sd_plt_pdf_filename = fn_wo_suffix + ".pdf"
-                self.plot_with_pyplot([sd_plt_data_point_filename],
-                                      sd_plt_pdf_filename,
-                                      [isc_amps],
-                                      [voc_volts],
-                                      [mpp_amps],
-                                      [mpp_volts],
-                                      self.use_spline_interpolation)
+                self.plot_with_plotter(sd_gp_command_filename,
+                                       [sd_plt_data_point_filename],
+                                       sd_plt_pdf_filename,
+                                       [isc_amps],
+                                       [voc_volts],
+                                       [mpp_amps],
+                                       [mpp_volts],
+                                       self.use_spline_interpolation)
                 print "Generated: " + sd_plt_pdf_filename
 
 
@@ -516,7 +530,7 @@ class IV_Swinger_plotter(object):
         csv_proc = CsvFileProcessor(args, csv_files, ivs_extended)
 
         # Plot graphs
-        ivs_extended.plot_with_plotter(args, csv_proc)
+        ivs_extended.plot_graphs(args, csv_proc)
 
 
 ############
