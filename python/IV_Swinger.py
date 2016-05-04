@@ -4104,12 +4104,15 @@ class IV_Swinger(object):
                 # Create the leaf file names
                 csv_data_point_leaf_name = ("data_points_" + date_time_str +
                                             ".csv")
+                gp_command_leaf_name = "gp_command_file_" + date_time_str
                 plt_data_point_leaf_name = "plt_data_points_" + date_time_str
                 plt_pdf_leaf_name = "plt_data_points_" + date_time_str + ".pdf"
 
                 # Get the full-path names of the SD card output files
                 sd_csv_data_point_filename = (sd_output_dir + "/" +
                                               csv_data_point_leaf_name)
+                sd_gp_command_filename = (sd_output_dir + "/" +
+                                          gp_command_leaf_name)
                 sd_plt_data_point_filename = (sd_output_dir + "/" +
                                               plt_data_point_leaf_name)
                 sd_plt_pdf_filename = sd_output_dir + "/" + plt_pdf_leaf_name
@@ -4163,14 +4166,15 @@ class IV_Swinger(object):
                     time.sleep(2)
 
                 if voc_volts != 0.0:
-                    # Plot with pyplot
-                    self.plot_with_pyplot([sd_plt_data_point_filename],
-                                          sd_plt_pdf_filename,
-                                          [isc_amps],
-                                          [voc_volts],
-                                          [mpp_amps],
-                                          [mpp_volts],
-                                          self.use_spline_interpolation)
+                    # Plot with plotter (gnuplot or pyplot)
+                    self.plot_with_plotter(sd_gp_command_filename
+                                           [sd_plt_data_point_filename],
+                                           sd_plt_pdf_filename,
+                                           [isc_amps],
+                                           [voc_volts],
+                                           [mpp_amps],
+                                           [mpp_volts],
+                                           self.use_spline_interpolation)
 
                 # Copy CSV and PDF files to /IV_Swinger/csv and
                 # /IV_Swinger/pdf
