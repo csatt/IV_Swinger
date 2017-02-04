@@ -3,8 +3,8 @@ import Tkinter as tk
 
 
 class Tooltip:
-    '''
-    It creates a tooltip for a given widget as the mouse goes on it.
+    """
+    Creates a tooltip for a given widget as the mouse moves over it
 
     see:
 
@@ -28,20 +28,27 @@ class Tooltip:
           wraplength on creation
       by Alberto Vassena on 2016.11.05.
 
-      Tested on Ubuntu 16.04/16.10, running Python 3.5.2
-
-    TODO: themes styles support
-    '''
+    - Modified by Chris Satterlee for IV Swinger 2:
+        - Converted to Python 2.x
+        - Added staytime parameter
+        - Added offset_up and offset_left parameters
+    """
 
     def __init__(self, widget,
                  bg='#FFFFEA',
                  pad=(5, 3, 5, 3),
                  text='widget info',
                  waittime=400,
-                 wraplength=250):
+                 wraplength=250,
+                 staytime=1000,
+                 offset_up=False,
+                 offset_left=False):
 
-        self.waittime = waittime  # in miliseconds, originally 500
+        self.waittime = waittime  # in milliseconds, originally 500
         self.wraplength = wraplength  # in pixels, originally 180
+        self.staytime = staytime  # in milliseconds per char
+        self.offset_up = offset_up
+        self.offset_left = offset_left
         self.widget = widget
         self.text = text
         self.widget.bind("<Enter>", self.onEnter)
@@ -54,6 +61,9 @@ class Tooltip:
 
     def onEnter(self, event=None):
         self.schedule()
+        total_staytime = self.staytime * max(len(self.text), 30)
+        canceltime = self.waittime + total_staytime
+        self.widget.after(canceltime, self.hide)
 
     def onLeave(self, event=None):
         self.unschedule()
@@ -83,6 +93,11 @@ class Tooltip:
             mouse_x, mouse_y = w.winfo_pointerxy()
 
             x1, y1 = mouse_x + tip_delta[0], mouse_y + tip_delta[1]
+            if self.offset_left:
+                x1 = mouse_x - tip_delta[0] - width
+            if self.offset_up:
+                y1 = mouse_y - tip_delta[1] - height
+
             x2, y2 = x1 + width, y1 + height
 
             x_delta = x2 - s_width

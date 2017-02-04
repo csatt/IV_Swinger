@@ -63,11 +63,17 @@
 #
 import argparse
 import ConfigParser
+import datetime as dt
 import glob
 import io
 import os
 import re
-import resource
+try:
+    # Mac/Unix only
+    import resource
+except ImportError:
+    # Used only for memory leak debug, so just skip import on Windows
+    pass
 import serial
 import serial.tools.list_ports
 import shutil
@@ -79,6 +85,7 @@ import Tkinter as tk
 import tkFileDialog
 import tkMessageBox as tkmsg
 import tkSimpleDialog as tksd
+from PIL import Image, ImageTk
 try:
     # Mac only
     from AppKit import NSSearchPathForDirectoriesInDomains as get_mac_dir
@@ -101,11 +108,7 @@ RC_TIMEOUT = -3
 RC_SERIAL_EXCEPTION = -4
 RC_ZERO_VOC = -5
 RC_ZERO_ISC = -6
-SPLASH_IMG_320 = "Splash_320x240.gif"
-SPLASH_IMG_800 = "Splash_800x600.gif"
-SPLASH_IMG_1024 = "Splash_1024x768.gif"
-SPLASH_IMG_1200 = "Splash_1200x900.gif"
-SPLASH_IMG_1600 = "Splash_1600x1200.gif"
+SPLASH_IMG = "Splash_Screen.png"
 CFG_STRING = 0
 CFG_FLOAT = 1
 CFG_INT = 2
@@ -113,8 +116,19 @@ CFG_BOOLEAN = 3
 WIZARD_MIN_HEIGHT_PIXELS = 250  # pixels
 WIZARD_TREE_HEIGHT = 100  # rows
 WIZARD_TREE_WIDTH = 300  # pixels
+TOOLTIP_COLOR = "#FFFF40"
 TOOLTIP_WAITTIME = 800
 TOOLTIP_WRAP_PIXELS = 250
+TOOLTIP_STAYTIME = 35
+TOP_TT_KWARGS = {"bg": TOOLTIP_COLOR,
+                 "waittime": TOOLTIP_WAITTIME,
+                 "wraplength": TOOLTIP_WRAP_PIXELS,
+                 "staytime": TOOLTIP_STAYTIME}
+BOT_TT_KWARGS = {"bg": TOOLTIP_COLOR,
+                 "waittime": TOOLTIP_WAITTIME,
+                 "wraplength": TOOLTIP_WRAP_PIXELS,
+                 "staytime": TOOLTIP_STAYTIME,
+                 "offset_up": True}
 # Tk constants
 N = tk.N
 S = tk.S
@@ -202,10 +216,12 @@ class GraphicalUserInterface(ttk.Frame):
         self.init_instance_vars()
         self.set_grid()
         self.get_config()
+        self.start_to_right()
         self.set_style()
         self.create_menu_bar()
         self.menu_bar.disable_calibration()
         self.create_widgets()
+        self.update_idletasks()
         self.ivs2.log_initial_debug_info()
         self.after(100, lambda: self.attempt_arduino_handshake())
 
@@ -490,15 +506,13 @@ class GraphicalUserInterface(ttk.Frame):
     # -------------------------------------------------------------------------
     def set_style(self):
         self.style = ttk.Style()
-        font = "Arial 19 bold italic"
-        if self.ivs2.x_pixels > 800:
-            font = ("Arial " +
-                    str(int(self.ivs2.x_pixels / 43.0)) +
-                    " bold italic")
+        font = ("Arial " +
+                str(max(int(round(self.ivs2.x_pixels / 43.0)), 19)) +
+                " bold italic")
         self.style.configure("go_stop_button.TButton",
                              foreground="red",
                              background="gray",
-                             padding=5,
+                             padding=10,
                              font=font)
 
     # -------------------------------------------------------------------------
@@ -594,6 +608,8 @@ class GraphicalUserInterface(ttk.Frame):
 
     # -------------------------------------------------------------------------
     def create_widgets(self):
+        total_cols = 12
+        pad_cols = 2
         column = 1
         row = 1
         # Grid layout
@@ -603,33 +619,34 @@ class GraphicalUserInterface(ttk.Frame):
         row += 1
         self.grid_args['img_pane'] = {"column": column,
                                       "row": row,
-                                      "columnspan": 12}
+                                      "columnspan": total_cols}
         row += 1
-        self.grid_args['results_button'] = {"column": column,
-                                            "row": row,
-                                            "rowspan": 3}
-        column += 2
+        self.grid_args['prefs_results_buttons'] = {"column": column,
+                                                   "row": row,
+                                                   "rowspan": 3}
+        column += pad_cols
         self.grid_args['axis_ranges_box'] = {"column": column,
                                              "row": row,
                                              "rowspan": 3,
                                              "sticky": (W)}
-        column += 2
+        column += pad_cols
         self.grid_args['go_button'] = {"column": column,
                                        "row": row,
                                        "rowspan": 3}
-        column += 2
+        column += pad_cols
         self.grid_args['plot_power_cb'] = {"column": column,
                                            "row": row,
                                            "rowspan": 3}
         column += 1
+        remaining_cols = total_cols - column + 1
         self.grid_args['looping_controls_box'] = {"column": column,
                                                   "row": row,
                                                   "sticky": (S, W),
-                                                  "columnspan": 5}
+                                                  "columnspan": remaining_cols}
         # Create them
         self.create_img_size_combo()
         self.create_img_pane()
-        self.create_results_button()
+        self.create_prefs_results_button_box()
         self.create_go_button()
         self.create_plot_power_cb()
         self.create_axis_ranges_box()
@@ -641,11 +658,12 @@ class GraphicalUserInterface(ttk.Frame):
         """
         self.img_size_combo = ImgSizeCombo(master=self,
                                            textvariable=self.resolution_str)
+        aspect = "%sx%s" % (str(self.ivs2.plot_x_inches),
+                            str(self.ivs2.plot_y_inches))
         tt_text = ("Pull down to select desired display size or type in "
                    "desired size and hit Enter. Must be an apect ratio of "
-                   "4:3 (height wil be modified if not)")
-        Tooltip(self.img_size_combo, text=tt_text,
-                waittime=TOOLTIP_WAITTIME, wraplength=TOOLTIP_WRAP_PIXELS)
+                   "%s (height will be modified if not)" % aspect)
+        Tooltip(self.img_size_combo, text=tt_text, **TOP_TT_KWARGS)
         self.img_size_combo.bind('<<ComboboxSelected>>', self.update_img_size)
         self.img_size_combo.bind('<Return>', self.update_img_size)
         self.img_size_combo.grid(**self.grid_args['img_size_combo'])
@@ -658,21 +676,39 @@ class GraphicalUserInterface(ttk.Frame):
         self.img_pane.grid(**self.grid_args['img_pane'])
 
     # -------------------------------------------------------------------------
-    def create_results_button(self):
-        """Method to create the Results Wizard button"""
-        self.results_button = ResultsButton(master=self,
-                                            text="Results Wizard")
-        self.results_button['width'] = 9
-        if self.ivs2.x_pixels > 800:
-            self.results_button['width'] = self.ivs2.x_pixels / 89
+    def create_prefs_results_button_box(self):
+        """Method to create the box containing the Preferences and Results
+           Wizard buttons
+        """
+        self.prefs_results_bb = ttk.Frame(self)
+        self.preferences_button = ttk.Button(master=self.prefs_results_bb,
+                                             text="Preferences")
+        # Tooltip
+        tt_text = "Open Preferences dialog"
+        Tooltip(self.preferences_button, text=tt_text, **BOT_TT_KWARGS)
+        self.preferences_button.bind('<Button-1>', self.show_preferences)
+        self.preferences_button.pack()
+
+        self.results_button = ttk.Button(master=self.prefs_results_bb,
+                                         text="Results Wizard")
         # Tooltip
         tt_text = ("View results of previous runs, combine multiple curves on "
                    "the same plot, modify their title and appearance, copy "
                    "them to USB (or elsewhere), and more ...")
-        Tooltip(self.results_button, text=tt_text,
-                waittime=TOOLTIP_WAITTIME, wraplength=TOOLTIP_WRAP_PIXELS)
+        Tooltip(self.results_button, text=tt_text, **BOT_TT_KWARGS)
         self.results_button.bind('<Button-1>', self.results_actions)
-        self.results_button.grid(**self.grid_args['results_button'])
+        self.results_button.pack(pady=(8, 0))
+
+        self.prefs_results_bb.grid(**self.grid_args['prefs_results_buttons'])
+
+    # -------------------------------------------------------------------------
+    def recreate_prefs_results_button_box(self):
+        """Method to remove the current box around the Preferences and Results
+           Wizard buttons and create a new one
+        """
+        old_button_box = self.prefs_results_bb
+        self.create_prefs_results_button_box()
+        old_button_box.destroy()
 
     # -------------------------------------------------------------------------
     def create_axis_ranges_box(self):
@@ -691,8 +727,7 @@ class GraphicalUserInterface(ttk.Frame):
                    "when a plot is currently displayed, it will be redrawn "
                    "using the new values (does not apply to overlays that "
                    "have been 'finished')")
-        Tooltip(axis_ranges_box, text=tt_text,
-                waittime=TOOLTIP_WAITTIME, wraplength=TOOLTIP_WRAP_PIXELS)
+        Tooltip(axis_ranges_box, text=tt_text, **BOT_TT_KWARGS)
 
         # Title label
         title_label = ttk.Label(master=axis_ranges_box,
@@ -744,15 +779,12 @@ class GraphicalUserInterface(ttk.Frame):
         """Method to create the go button and its associated bindings
         """
         self.go_button = GoStopButton(master=self, text=text)
-        self.go_button['width'] = 8
-        if self.ivs2.x_pixels > 800:
-            self.go_button['width'] = self.ivs2.x_pixels / 120
+        self.go_button['width'] = 9
         # Tooltip
         tt_text = ("Trigger an IV curve trace (if ready). If loop mode is "
                    "selected, this button changes to a STOP button and curve "
                    "tracing continues until stopped.")
-        Tooltip(self.go_button, text=tt_text,
-                waittime=TOOLTIP_WAITTIME, wraplength=TOOLTIP_WRAP_PIXELS)
+        Tooltip(self.go_button, text=tt_text, **BOT_TT_KWARGS)
 
         # Left-clicking go button and hitting Return or space bar do the
         # same thing
@@ -769,8 +801,7 @@ class GraphicalUserInterface(ttk.Frame):
                                        variable=self.plot_power)
         # Tooltip
         tt_text = "Check to add the power curve to the plot"
-        Tooltip(self.plot_power_cb, text=tt_text,
-                waittime=TOOLTIP_WAITTIME, wraplength=TOOLTIP_WRAP_PIXELS)
+        Tooltip(self.plot_power_cb, text=tt_text, **BOT_TT_KWARGS)
         self.plot_power_cb.grid(**self.grid_args['plot_power_cb'])
 
     # -------------------------------------------------------------------------
@@ -800,11 +831,14 @@ class GraphicalUserInterface(ttk.Frame):
         self.loop_rate_cb = LoopRateLimit(master=loop_rate_box,
                                           gui=self,
                                           variable=self.loop_rate)
-        tt_text = "Check to limit repetition rate of looping"
-        Tooltip(self.loop_rate_cb, text=tt_text,
-                waittime=TOOLTIP_WAITTIME, wraplength=TOOLTIP_WRAP_PIXELS)
         loop_rate_pad.pack(side=LEFT)
         self.loop_rate_cb.pack(side=LEFT)
+        if self.ivs2.cfg.getboolean('Looping', 'restore values'):
+            if self.loop_rate_limit:
+                self.loop_rate_cb.state(['selected'])
+                self.loop_rate_cb.update_value_str()
+        tt_text = "Check to limit repetition rate of looping"
+        Tooltip(self.loop_rate_cb, text=tt_text, **BOT_TT_KWARGS)
 
         # Box containing the padding and loop save checkbutton
         loop_save_box = ttk.Frame(looping_controls_box)
@@ -812,11 +846,15 @@ class GraphicalUserInterface(ttk.Frame):
         self.loop_save_cb = LoopSaveResults(master=loop_save_box,
                                             gui=self,
                                             variable=self.loop_save)
-        tt_text = "Check to save results while looping"
-        Tooltip(self.loop_save_cb, text=tt_text,
-                waittime=TOOLTIP_WAITTIME, wraplength=TOOLTIP_WRAP_PIXELS)
         loop_save_pad.pack(side=LEFT)
         self.loop_save_cb.pack(side=LEFT)
+        if (self.ivs2.cfg.getboolean('Looping', 'restore values') and
+                self.ivs2.cfg.getboolean('Looping', 'loop mode')):
+            if self.loop_save_results:
+                self.loop_save_cb.state(['selected'])
+                self.loop_save_cb.update_value_str()
+        tt_text = "Check to save results while looping"
+        Tooltip(self.loop_save_cb, text=tt_text, **BOT_TT_KWARGS)
 
         # Loop mode checkbutton
         self.loop_mode_cb = LoopMode(master=looping_controls_box,
@@ -826,8 +864,7 @@ class GraphicalUserInterface(ttk.Frame):
                                      save_results=self.loop_save_cb,
                                      lock_axes=self.range_lock_cb)
         tt_text = "Check to enable automatic repetition of curve tracing"
-        Tooltip(self.loop_mode_cb, text=tt_text,
-                waittime=TOOLTIP_WAITTIME, wraplength=TOOLTIP_WRAP_PIXELS)
+        Tooltip(self.loop_mode_cb, text=tt_text, **BOT_TT_KWARGS)
 
         # Grid placement within enclosing box
         self.loop_mode_cb.grid(**grid_args['loop_mode_cb'])
@@ -1405,7 +1442,9 @@ class GraphicalUserInterface(ttk.Frame):
         if match:
             # Use x_pixels, calculate y_pixels
             x_pixels = int(match.group(1))
-            y_pixels = int(x_pixels * 0.75)
+            y_pixels = int(round(x_pixels *
+                                 self.ivs2.plot_y_inches /
+                                 self.ivs2.plot_x_inches))
             new_res_str = str(x_pixels) + "x" + str(y_pixels)
             self.ivs2.logger.log("New resolution: " + new_res_str)
             # Set the resolution string to the new value
@@ -1419,17 +1458,29 @@ class GraphicalUserInterface(ttk.Frame):
             curr_go_txt = self.go_button['text']
             self.go_button.destroy()
             self.create_go_button(text=curr_go_txt)
+            # Recreate Preferences and Results Wizard buttons
+            self.recreate_prefs_results_button_box()
             # Redisplay the image with the new settings (saves config)
             self.redisplay_img(reprocess_adc=False)
         else:
             # No match - keep current value
             x_pixels = self.ivs2.x_pixels
-            y_pixels = int(x_pixels * 0.75)
+            y_pixels = int(round(x_pixels *
+                                 self.ivs2.plot_y_inches /
+                                 self.ivs2.plot_x_inches))
             new_res_str = str(x_pixels) + "x" + str(y_pixels)
             self.ivs2.logger.log("Keeping old resolution: " + new_res_str)
             self.resolution_str.set(new_res_str)
         event.widget.selection_clear()  # remove annoying highlight
         event.widget.tk_focusNext().focus()  # move focus out so Return works
+
+    # -------------------------------------------------------------------------
+    def get_curr_x_pixels(self):
+        res_str = self.resolution_str.get()
+        res_re = re.compile('(\d+)')
+        match = res_re.search(res_str)
+        x_pixels = int(match.group(1))
+        return x_pixels
 
     # -------------------------------------------------------------------------
     def redisplay_img(self, reprocess_adc=False):
@@ -1455,12 +1506,29 @@ class GraphicalUserInterface(ttk.Frame):
                 self.ivs2.plot_results()
                 self.display_img(self.ivs2.current_img)
             if remove_directory:
+                if self.ivs2.hdd_output_dir == os.getcwd():
+                    os.chdir("..")
                 shutil.rmtree(self.ivs2.hdd_output_dir)
             else:
                 self.clean_up_files(self.ivs2.hdd_output_dir,
                                     loop_mode=False)
         # Save the config
         self.save_config()
+
+    # -------------------------------------------------------------------------
+    def show_preferences(self, event=None):
+        # Create the Preferences dialog
+        PreferencesDialog(self)
+
+        # FIXME: There's a weird bug where the button takes its "pressed"
+        # appearance and never turns back to its normal appearance when the
+        # dialog is closed. The current workaround is to re-create the button
+        # (actually the whole box containing both buttons) and then destroy the
+        # previous button box. Another workaround is to use
+        # "self.wait_window(self)" to block this method from ever returning,
+        # but it is not understood why that works, and it doesn't seem like a
+        # great idea.
+        self.recreate_prefs_results_button_box()
 
     # -------------------------------------------------------------------------
     def results_actions(self, event=None):
@@ -1513,6 +1581,9 @@ class GraphicalUserInterface(ttk.Frame):
         loop. Unlike an actual loop, however, it is non-blocking.  This
         is essential in order for the GUI not to lock up.
         """
+        # Capture the start time
+        loop_start_time = dt.datetime.now()
+
         # Add the stop button if needed. Also disable the loop mode
         # checkbuttons.
         self.swing_loop_id = None
@@ -1556,9 +1627,11 @@ class GraphicalUserInterface(ttk.Frame):
 
         # Schedule another call with "after" if looping
         if loop_mode:
-            delay_ms = self.loop_delay * 1000
-            if not self.loop_rate_limit or delay_ms < 100:
-                delay_ms = 100
+            elapsed_time = dt.datetime.now() - loop_start_time
+            elapsed_ms = int(round(elapsed_time.total_seconds() * 1000))
+            delay_ms = self.loop_delay * 1000 - elapsed_ms
+            if not self.loop_rate_limit or delay_ms <= 0:
+                delay_ms = 1
             id = self.after(delay_ms,
                             lambda: self.swing_loop(loop_mode=True,
                                                     first_loop=False))
@@ -1582,6 +1655,7 @@ class GraphicalUserInterface(ttk.Frame):
         self.img_pane.splash_img_showing = False
         # Update values in range boxes
         self.update_axis_ranges()
+        self.update_idletasks()
 
     # -------------------------------------------------------------------------
     def clean_up_after_failure(self, dir):
@@ -1593,6 +1667,8 @@ class GraphicalUserInterface(ttk.Frame):
         if len(files) < 2:
             for f in files:
                 self.clean_up_file(f)
+            if dir == os.getcwd():
+                os.chdir("..")
             os.rmdir(dir)
             msg_str = "Removed " + dir
             self.ivs2.logger.log(msg_str)
@@ -1608,6 +1684,11 @@ class GraphicalUserInterface(ttk.Frame):
         for f in plt_files:
             self.clean_up_file(f)
 
+        # Always remove the PNG file(s)
+        png_files = glob.glob(dir + '/*.png')
+        for f in png_files:
+            self.clean_up_file(f)
+
         # Selectively remove other files in loop mode
         if loop_mode:
             if not self.loop_save_results:
@@ -1615,6 +1696,11 @@ class GraphicalUserInterface(ttk.Frame):
                 loop_files = glob.glob(dir + '/*')
                 for f in loop_files:
                     self.clean_up_file(f)
+                # Remove the (now empty) directory
+                if dir == os.getcwd():
+                    os.chdir("..")
+                os.rmdir(dir)
+
             elif not self.loop_save_graphs:
                 # Remove GIF only
                 self.clean_up_file(self.ivs2.current_img)
@@ -1640,8 +1726,7 @@ class GraphicalUserInterface(ttk.Frame):
         self.stop_button['width'] = self.go_button['width']
         # Tooltip
         tt_text = "Press button to stop looping"
-        Tooltip(self.stop_button, text=tt_text,
-                waittime=TOOLTIP_WAITTIME, wraplength=TOOLTIP_WRAP_PIXELS)
+        Tooltip(self.stop_button, text=tt_text, **BOT_TT_KWARGS)
         self.stop_button.bind('<Button-1>', self.stop_actions)
         self.root.bind('<Return>', self.stop_actions)
         self.root.bind('<space>', self.stop_actions)
@@ -1665,10 +1750,6 @@ class GraphicalUserInterface(ttk.Frame):
         self.loop_mode_cb.state(['!disabled'])
         self.loop_rate_cb.state(['!disabled'])
         self.loop_save_cb.state(['!disabled'])
-
-        # Remove the loop directory if it is empty (normal if not saving)
-        if not os.listdir(self.ivs2.hdd_output_dir):
-            os.rmdir(self.ivs2.hdd_output_dir)
 
     # -------------------------------------------------------------------------
     def show_baud_mismatch_dialog(self):
@@ -1788,9 +1869,8 @@ properly to the PV module
 
     # -------------------------------------------------------------------------
     def start(self):
-        self.root.protocol("WM_DELETE_WINDOW", self.close_gui)
         self.start_on_top()
-        self.start_to_right()
+        self.root.protocol("WM_DELETE_WINDOW", self.close_gui)
         self.root.mainloop()
 
 
@@ -1802,14 +1882,16 @@ class ImgSizeCombo(ttk.Combobox):
     # Initializer
     def __init__(self, master=None, textvariable=None):
         ttk.Combobox.__init__(self, master=master, textvariable=textvariable)
-        curr_size = (str(master.ivs2.x_pixels) + "x" +
-                     str(int(master.ivs2.x_pixels * 0.75)))
+        y_pixels = int(round(master.ivs2.x_pixels *
+                             master.ivs2.plot_y_inches /
+                             master.ivs2.plot_x_inches))
+        curr_size = (str(master.ivs2.x_pixels) + "x" + str(y_pixels))
         textvariable.set(curr_size)
-        self['values'] = ('320x240',
-                          '800x600',
-                          '1024x768',
-                          '1200x900',
-                          '1600x1200')
+        self['values'] = ('550x425',
+                          '750x580',
+                          '971x750',
+                          '1085x838',
+                          '1100x850')
         self['width'] = 10
 
 
@@ -1893,54 +1975,52 @@ class ResultsWizard(tk.Toplevel):
     # -------------------------------------------------------------------------
     def buttons(self, master):
         """Method to create the dialog buttons"""
+        width = 12
         # Right buttons
         self.right_buttonbox = ttk.Frame(master)
         expand_button = ttk.Button(self.right_buttonbox, text="Expand All",
-                                   width=10, command=self.expand_all)
+                                   width=width, command=self.expand_all)
         collapse_button = ttk.Button(self.right_buttonbox,
                                      text="Collapse All",
-                                     width=10, command=self.collapse_all)
+                                     width=width, command=self.collapse_all)
         title_button = ttk.Button(self.right_buttonbox,
                                   text="Change Title",
-                                  width=10,
+                                  width=width,
                                   command=self.change_title)
         overlay_button = ttk.Button(self.right_buttonbox,
                                     text="Overlay",
-                                    width=10,
+                                    width=width,
                                     command=self.overlay_runs)
         pdf_button = ttk.Button(self.right_buttonbox,
                                 text="View PDF",
-                                width=10,
+                                width=width,
                                 command=self.view_pdf)
         update_button = ttk.Button(self.right_buttonbox,
                                    text="Update",
-                                   width=10,
-                                   command=self.update)
+                                   width=width,
+                                   command=self.update_selected)
         copy_button = ttk.Button(self.right_buttonbox,
                                  text="Copy",
-                                 width=10,
+                                 width=width,
                                  command=self.copy_selected)
 
         # Add button tooltips
-        tt_wt = TOOLTIP_WAITTIME
-        tt_wp = TOOLTIP_WRAP_PIXELS
         tt_text = "Expand all date groupings"
-        Tooltip(expand_button, text=tt_text, waittime=tt_wt, wraplength=tt_wp)
+        Tooltip(expand_button, text=tt_text,  **TOP_TT_KWARGS)
         tt_text = "Collapse all date groupings"
-        Tooltip(collapse_button, text=tt_text,
-                waittime=tt_wt, wraplength=tt_wp)
+        Tooltip(collapse_button, text=tt_text, **TOP_TT_KWARGS)
         tt_text = "Change the title of the current plot"
-        Tooltip(title_button, text=tt_text, waittime=tt_wt, wraplength=tt_wp)
+        Tooltip(title_button, text=tt_text,  **TOP_TT_KWARGS)
         tt_text = "Combine up to 8 curves on the same plot"
-        Tooltip(overlay_button, text=tt_text, waittime=tt_wt, wraplength=tt_wp)
+        Tooltip(overlay_button, text=tt_text,  **TOP_TT_KWARGS)
         tt_text = "Open the PDF in a viewer"
-        Tooltip(pdf_button, text=tt_text, waittime=tt_wt, wraplength=tt_wp)
-        tt_text = ("Apply current plotting options to all selected runs. "
-                   "IMPORTANT: Select runs BEFORE making changes to plotting "
-                   "options.")
-        Tooltip(update_button, text=tt_text, waittime=tt_wt, wraplength=tt_wp)
+        Tooltip(pdf_button, text=tt_text,  **TOP_TT_KWARGS)
+        tt_text = ("Apply current plotting options (including size) to all "
+                   "selected runs.  IMPORTANT: Select runs BEFORE making "
+                   "changes to plotting options.")
+        Tooltip(update_button, text=tt_text,  **TOP_TT_KWARGS)
         tt_text = "Copy one or more runs or overlays to USB or elsewhere"
-        Tooltip(copy_button, text=tt_text, waittime=tt_wt, wraplength=tt_wp)
+        Tooltip(copy_button, text=tt_text,  **TOP_TT_KWARGS)
 
         # Pack buttons into containing box
         expand_button.pack()
@@ -1952,11 +2032,10 @@ class ResultsWizard(tk.Toplevel):
         copy_button.pack()
 
         # Done button
-        self.done_button = ttk.Button(master, text="Done", width=10,
+        self.done_button = ttk.Button(master, text="Done", width=width,
                                       command=self.done)
         tt_text = "Exit the Results Wizard"
-        Tooltip(self.done_button, text=tt_text,
-                waittime=tt_wt, wraplength=tt_wp)
+        Tooltip(self.done_button, text=tt_text, **TOP_TT_KWARGS)
         self.protocol("WM_DELETE_WINDOW", self.done)
 
     # -------------------------------------------------------------------------
@@ -1971,8 +2050,7 @@ class ResultsWizard(tk.Toplevel):
         tt_text = ("Click on path at the top to change. Shift-click and "
                    "Control-click can be used to selected multiple runs "
                    "for copying or overlaying.")
-        Tooltip(self.tree, text=tt_text,
-                waittime=1500, wraplength=TOOLTIP_WRAP_PIXELS)
+        Tooltip(self.tree, text=tt_text, **TOP_TT_KWARGS)
         self.tree.pack(side=LEFT)
         self.treescroll.pack(side=LEFT, fill=Y)
 
@@ -2028,7 +2106,7 @@ class ResultsWizard(tk.Toplevel):
         """
         # Add overlays parent to Treeview if it doesn't already exist
         if not self.tree.exists(subdir):
-            self.tree.insert('', 'end', subdir, text="Overlays")
+            self.tree.insert('', 0, subdir, text="Overlays")
 
         # Get a list of the overlay subdirectories, newest first
         overlays = sorted(os.listdir(os.path.join(self.results_dir, subdir)),
@@ -2152,10 +2230,16 @@ class ResultsWizard(tk.Toplevel):
         """
         dts = IV_Swinger.DateTimeStr.extract_date_time_str(selection)
         overlay_dir = os.path.join(self.results_dir, 'overlays', dts)
-        gif_leaf_name = "overlaid.gif"
+        gif_leaf_name = ("overlaid_" + dts + ".gif")
         gif_full_path = os.path.join(overlay_dir, gif_leaf_name)
         if os.path.exists(gif_full_path):
             self.master.display_img(gif_full_path)
+        else:
+            # Legacy
+            gif_leaf_name = "overlaid.gif"
+            gif_full_path = os.path.join(overlay_dir, gif_leaf_name)
+            if os.path.exists(gif_full_path):
+                self.master.display_img(gif_full_path)
 
     # -------------------------------------------------------------------------
     def non_overlay_select_actions(self, selection):
@@ -2531,6 +2615,12 @@ class ResultsWizard(tk.Toplevel):
             run_str = str(len(self.overlaid_runs)) + " Runs"
             init_val = "IV Swinger Plot for " + run_str
         else:
+            # Display error dialog and return if any overlays are selected
+            selected_overlays = self.get_selected_overlays()
+            if len(selected_overlays):
+                tkmsg.showinfo(message=("ERROR: cannot change title on "
+                                        "completed overlays"))
+                return
             sel_runs = self.get_selected_runs(include_whole_days=False)
             if len(sel_runs) == 1:
                 dts = IV_Swinger.DateTimeStr.extract_date_time_str(sel_runs[0])
@@ -2572,6 +2662,9 @@ class ResultsWizard(tk.Toplevel):
             (file, ext) = os.path.splitext(img)
             pdf = file + ".pdf"
             if self.master.overlay_mode:
+                # In overlay mode, the PDF is only generated when the Finished
+                # button is pressed, so we have to generate it "on demand" when
+                # the View PDF button is pressed.
                 self.ivp.plot_graphs_to_pdf(self.ivp.ivsp_ivse,
                                             self.ivp.csv_proc)
             if os.path.exists(pdf):
@@ -2581,7 +2674,7 @@ class ResultsWizard(tk.Toplevel):
         tkmsg.showinfo(message=err_str)
 
     # -------------------------------------------------------------------------
-    def update(self, event=None):
+    def update_selected(self, event=None):
         """Callback method to update the selected runs when the Update button
            is pressed.
         """
@@ -2600,8 +2693,10 @@ class ResultsWizard(tk.Toplevel):
             return
 
         # Hack: invisible progress bar (length=0). For some reason, this solves
-        # the problem of the images not getting displayed during the update
-        pb = ProgressBar(master=self, length=0, maximum=len(selected_runs))
+        # the (Mac-only) problem of the images not getting displayed during the
+        # update
+        if sys.platform == 'darwin':
+            pb = ProgressBar(master=self, length=0, maximum=len(selected_runs))
 
         # Loop through runs, regenerating/redisplaying
         for run_dir in selected_runs:
@@ -2616,6 +2711,9 @@ class ResultsWizard(tk.Toplevel):
             # Prepare IVS2 object for regeneration of plot with modified
             # options
             self.prep_ivs2_for_redisplay(run_dir, adc_csv_file)
+
+            # Set x_pixels to current value
+            self.master.ivs2.x_pixels = self.master.get_curr_x_pixels()
 
             # Get the title from the saved config
             self.master.plot_title = None
@@ -2640,7 +2738,8 @@ class ResultsWizard(tk.Toplevel):
             self.update_idletasks()
 
         # Destroy dummy progress bar
-        pb.destroy()
+        if sys.platform == 'darwin':
+            pb.destroy()
 
         # Display done message if multiple runs selected
         if len(selected_runs) > 1:
@@ -2754,7 +2853,7 @@ class ResultsWizard(tk.Toplevel):
 
         # Add overlays parent to Treeview if it doesn't already exist
         if not self.tree.exists(parent):
-            self.tree.insert('', 'end', parent, text="Overlays")
+            self.tree.insert('', 0, parent, text="Overlays")
 
         # Translate to human readable date and time
         xlated = IV_Swinger.DateTimeStr.xlate_date_time_str(overlay)
@@ -2785,8 +2884,7 @@ class ResultsWizard(tk.Toplevel):
                                                 width=7,
                                                 command=self.overlay_cancel)
         tt_text = "Exit overlay mode without saving"
-        Tooltip(self.overlay_cancel_button, text=tt_text,
-                waittime=TOOLTIP_WAITTIME, wraplength=TOOLTIP_WRAP_PIXELS)
+        Tooltip(self.overlay_cancel_button, text=tt_text, **TOP_TT_KWARGS)
         overlay_button_pad = ttk.Label(self.overlay_widget_buttonbox,
                                        text="    ")
         self.overlay_finish_button = ttk.Button(self.overlay_widget_buttonbox,
@@ -2795,8 +2893,7 @@ class ResultsWizard(tk.Toplevel):
                                                 command=self.overlay_finished)
         tt_text = ("Save overlay and generate PDF. NOTE: Overlays cannot be "
                    "modified once they have been saved.")
-        Tooltip(self.overlay_finish_button, text=tt_text,
-                waittime=TOOLTIP_WAITTIME, wraplength=TOOLTIP_WRAP_PIXELS)
+        Tooltip(self.overlay_finish_button, text=tt_text, **TOP_TT_KWARGS)
 
         # Create the Treeview widget that lists the overlay members and
         # allows the user to label and reorder them
@@ -2840,8 +2937,7 @@ class ResultsWizard(tk.Toplevel):
                                                  offvalue=offvalue)
         tt_text = ("Default is to label the Isc point of the first curve "
                    "only. Check to label the Isc points of all curves.")
-        Tooltip(self.label_all_iscs_cb, text=tt_text,
-                waittime=TOOLTIP_WAITTIME, wraplength=TOOLTIP_WRAP_PIXELS)
+        Tooltip(self.label_all_iscs_cb, text=tt_text, **TOP_TT_KWARGS)
 
         # Add checkbutton to choose whether to label all MPPs
         variable = self.master.label_all_mpps
@@ -2854,8 +2950,7 @@ class ResultsWizard(tk.Toplevel):
                                                  offvalue=offvalue)
         tt_text = ("Default is to label the MPP of the first curve "
                    "only. Check to label the MPPs of all curves.")
-        Tooltip(self.label_all_mpps_cb, text=tt_text,
-                waittime=TOOLTIP_WAITTIME, wraplength=TOOLTIP_WRAP_PIXELS)
+        Tooltip(self.label_all_mpps_cb, text=tt_text, **TOP_TT_KWARGS)
 
         # Add checkbutton to choose whether to display watts only on MPPs
         variable = self.master.mpp_watts_only
@@ -2868,8 +2963,7 @@ class ResultsWizard(tk.Toplevel):
                                                  offvalue=offvalue)
         tt_text = ("Default is for MPP label to include V*I values. "
                    "Check to display watts only.")
-        Tooltip(self.mpp_watts_only_cb, text=tt_text,
-                waittime=TOOLTIP_WAITTIME, wraplength=TOOLTIP_WRAP_PIXELS)
+        Tooltip(self.mpp_watts_only_cb, text=tt_text, **TOP_TT_KWARGS)
 
         # Add checkbutton to choose whether to label all Voc points
         variable = self.master.label_all_vocs
@@ -2882,8 +2976,7 @@ class ResultsWizard(tk.Toplevel):
                                                  offvalue=offvalue)
         tt_text = ("Default is to label the Voc point of the first curve "
                    "only. Check to label the Voc points of all curves.")
-        Tooltip(self.label_all_vocs_cb, text=tt_text,
-                waittime=TOOLTIP_WAITTIME, wraplength=TOOLTIP_WRAP_PIXELS)
+        Tooltip(self.label_all_vocs_cb, text=tt_text, **TOP_TT_KWARGS)
         # Layout
         self.label_all_iscs_cb.grid(column=0, row=0, sticky=(W))
         self.label_all_mpps_cb.grid(column=0, row=1, sticky=(W))
@@ -2937,7 +3030,7 @@ class ResultsWizard(tk.Toplevel):
                    "Add or remove curves using Control-click in the selection "
                    "tree view pane above.")
         Tooltip(self.overlay_widget_treeview, text=tt_text,
-                waittime=TOOLTIP_WAITTIME, wraplength=TOOLTIP_WRAP_PIXELS)
+                **TOP_TT_KWARGS)
 
         # Register callback for changing the name
         self.overlay_widget_treeview.bind("<Double-ButtonPress-1>",
@@ -3083,6 +3176,8 @@ class ResultsWizard(tk.Toplevel):
         self.tree.delete(self.overlay_iid)
 
         # Remove overlay directory
+        if self.master.overlay_dir == os.getcwd():
+            os.chdir("..")
         shutil.rmtree(self.master.overlay_dir)
 
     # -------------------------------------------------------------------------
@@ -3127,7 +3222,12 @@ class ResultsWizard(tk.Toplevel):
             if not os.path.exists(self.master.overlay_dir):
                 return True
             # Remove directory if it doesn't contain overlaid PDF
-            if "overlaid.pdf" not in os.listdir(self.master.overlay_dir):
+            overlay_pdf = ("overlaid_" +
+                           os.path.basename(self.master.overlay_dir) +
+                           ".pdf")
+            if overlay_pdf not in os.listdir(self.master.overlay_dir):
+                if self.master.overlay_dir == os.getcwd():
+                    os.chdir("..")
                 shutil.rmtree(self.master.overlay_dir)
                 return True
             # Clean up the directory
@@ -3286,7 +3386,7 @@ class MenuBar(tk.Menu):
             self.about_menu = tk.Menu(self.menubar, name='apple')
             self.menubar.add_cascade(menu=self.about_menu)
             self.master.root.createcommand('tk::mac::ShowPreferences',
-                                           self.show_preferences)
+                                           self.master.show_preferences)
         else:
             self.about_menu = tk.Menu(self.menubar)
             self.menubar.add_cascade(menu=self.about_menu, label='About')
@@ -3356,10 +3456,6 @@ class MenuBar(tk.Menu):
         self.menubar.add_cascade(menu=self.help_menu, label='Help')
         self.help_menu.add_command(label="Help topic 1",
                                    command=self.show_help)
-
-    # -------------------------------------------------------------------------
-    def show_preferences(self):
-        PreferencesDialog(self.master)
 
     # -------------------------------------------------------------------------
     def show_about_dialog(self):
@@ -3461,9 +3557,7 @@ class Dialog(tk.Toplevel):
     provided for the subclass to override. A placeholder function to
     validate the input before applying it is also provided for optional
     override.
-
     """
-
     # Initializer
     def __init__(self, master=None, title=None, has_ok_button=True,
                  has_cancel_button=True, return_ok=False, ok_label="OK",
@@ -3628,10 +3722,10 @@ Current calibration (a bit trickier):"""
                         len(help_text_2.split('\n')) +
                         len(current_heading.split('\n')) +
                         len(help_text_3.split('\n')))
-        if self.master.ivs2.x_pixels <= 800:
+        if self.master.ivs2.x_pixels <= 750:
             font_size = 12
             total_height *= 0.85
-        elif self.master.ivs2.x_pixels <= 1024:
+        elif self.master.ivs2.x_pixels <= 1100:
             font_size = 13
             total_height *= 0.9
         else:
@@ -3681,11 +3775,9 @@ class PreferencesDialog(Dialog):
         """Create body, which is a Notebook (tabbed frames)
         """
         self.nb = ttk.Notebook(master)
-        # self.general_tab = ttk.Frame(self.nb)
         self.plotting_tab = ttk.Frame(self.nb)
         self.looping_tab = ttk.Frame(self.nb)
         self.arduino_tab = ttk.Frame(self.nb)
-        # self.nb.add(self.general_tab, text='General')
         self.nb.add(self.plotting_tab, text='Plotting')
         self.nb.add(self.looping_tab, text='Looping')
         self.nb.add(self.arduino_tab, text='Arduino')
@@ -3816,7 +3908,7 @@ class PreferencesDialog(Dialog):
         # Add Restore Defaults button in its own container box
         plotting_restore_box = ttk.Frame(master=self.plotting_tab, padding=10)
         plotting_restore = ttk.Button(plotting_restore_box,
-                                      text="Restore Defaults", width=13,
+                                      text="Restore Defaults",
                                       command=self.restore_plotting_defaults)
 
         # Add Help button in its own container box
@@ -4017,7 +4109,7 @@ class PreferencesDialog(Dialog):
         # Add Restore Defaults button in its own container box
         arduino_restore_box = ttk.Frame(master=self.arduino_tab, padding=10)
         arduino_restore = ttk.Button(arduino_restore_box,
-                                     text="Restore Defaults", width=13,
+                                     text="Restore Defaults",
                                      command=self.restore_arduino_defaults)
 
         # Add Help button in its own container box
@@ -4706,35 +4798,21 @@ class ImagePane(ttk.Label):
     # Initializer
     def __init__(self, master=None):
         ttk.Label.__init__(self, master=master)
+        self.master = master
         self.display_splash_img()
 
     # -------------------------------------------------------------------------
     def display_splash_img(self):
         """Method to display the appropriately-sized splash image"""
-        if self.master.ivs2.x_pixels <= 320:
-            self.current_img = tk.PhotoImage(file=SPLASH_IMG_320)
-        elif self.master.ivs2.x_pixels <= 800:
-            self.current_img = tk.PhotoImage(file=SPLASH_IMG_800)
-        elif self.master.ivs2.x_pixels <= 1024:
-            self.current_img = tk.PhotoImage(file=SPLASH_IMG_1024)
-        elif self.master.ivs2.x_pixels <= 1200:
-            self.current_img = tk.PhotoImage(file=SPLASH_IMG_1200)
-        elif self.master.ivs2.x_pixels <= 1600:
-            self.current_img = tk.PhotoImage(file=SPLASH_IMG_1600)
+        x_pixels = self.master.ivs2.x_pixels
+        y_pixels = int(round(self.master.ivs2.x_pixels *
+                             self.master.ivs2.plot_y_inches /
+                             self.master.ivs2.plot_x_inches))
+        img = Image.open(SPLASH_IMG).resize((x_pixels, y_pixels))
+        self.current_img = ImageTk.PhotoImage(img)
         self['image'] = self.current_img
         self.image = self.current_img
         self.splash_img_showing = True
-
-
-# Results button class
-#
-class ResultsButton(ttk.Button):
-    """Button class used for the results button"""
-
-    # Initializer
-    def __init__(self, master=None, text=None):
-        ttk.Button.__init__(self, master=master)
-        self['text'] = text
 
 
 # Go/Stop button class
@@ -4871,10 +4949,6 @@ class LoopRateLimit(ttk.Checkbutton):
         self.loop_rate_limit = variable
         self.value_label_obj = None
         self.state(['disabled'])
-        if self.gui.ivs2.cfg.getboolean('Looping', 'restore values'):
-            if self.gui.loop_rate_limit:
-                self.state(['selected'])
-                self.update_value_str()
 
     # -------------------------------------------------------------------------
     def update_loop_rate_limit(self, event=None):
@@ -4926,11 +5000,6 @@ class LoopSaveResults(ttk.Checkbutton):
         self.loop_save_results = variable
         self.value_label_obj = None
         self.state(['disabled'])
-        if (self.gui.ivs2.cfg.getboolean('Looping', 'restore values') and
-                self.gui.ivs2.cfg.getboolean('Looping', 'loop mode')):
-            if self.gui.loop_save_results:
-                self.state(['selected'])
-                self.update_value_str()
 
     # -------------------------------------------------------------------------
     def update_loop_save_results(self, event=None):
@@ -5262,6 +5331,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         """Method to set argparse args to default values"""
 
         self.args.name = self.curve_names
+        self.args.overlay_name = "overlaid_" + os.path.basename(self.plot_dir)
         self.args.title = self.title
         self.args.fancy_labels = self.fancy_labels
         self.args.interactive = False
@@ -5275,6 +5345,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         self.args.recalc_isc = False
         self.args.use_gnuplot = False
         self.args.gif = False
+        self.args.png = False
         self.args.scale = 1.0
         self.args.font_scale = self.font_scale
         self.args.line_scale = self.line_scale
@@ -5290,8 +5361,24 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         """Method to plot the graphs to a PDF"""
 
         self.args.gif = False
+        self.args.png = False
         self.set_ivs_properties(self.args, ivs)
-        ivs.plot_graphs(self.args, csvp)
+        try:
+            ivs.plot_graphs(self.args, csvp)
+        except IOError as e:
+            err_str = ("({})".format(e) +
+                       "\n\n"
+                       "PDF could not be written. If you have it open in a "
+                       "viewer, close it BEFORE clicking OK.")
+            tkmsg.showinfo(message=err_str)
+            try:
+                ivs.plot_graphs(self.args, csvp)
+            except IOError as e:
+                err_str = ("({})".format(e) +
+                           "\n\n"
+                           "PDF still could not be written. "
+                           "It will not be updated.")
+                tkmsg.showinfo(message=err_str)
 
     # -------------------------------------------------------------------------
     def plot_graphs_to_gif(self, ivs, csvp):
@@ -5310,19 +5397,18 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         # method, we have to adjust the scale parameters and the DPI
         # value based on the value of the x_pixels property. The
         # x_pixels property can be changed from a combobox in the GUI.
-        default_dpi = 100.0
-        default_x_pixels = 1600.0
-        default_x_inches = 8.0
-        default_y_inches = 6.0
-        self.args.scale = default_y_inches/ivs.plot_y_inches
-        self.args.plot_x_scale = ((default_x_inches/ivs.plot_x_inches) /
-                                  self.args.scale)
-        self.args.point_scale *= self.args.scale * 1.1
-        self.args.gif = True
+        self.args.png = True
         self.set_ivs_properties(self.args, ivs)
+        default_dpi = 100.0
+        default_x_pixels = 1100.0
         ivs.plot_dpi = default_dpi * (self.x_pixels/default_x_pixels)
         ivs.plot_graphs(self.args, csvp)
-        self.current_img = ivs.plt_img_filename
+        png_file = ivs.plt_img_filename
+        (file, ext) = os.path.splitext(png_file)
+        gif_file = file + ".gif"
+        im = Image.open(png_file)
+        im.save(gif_file)
+        self.current_img = gif_file
 
     # -------------------------------------------------------------------------
     def run(self):
@@ -5402,7 +5488,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._i_cal = 1.0
         self._plot_title = None
         self._current_img = None
-        self._x_pixels = 1024  # Default GIF width (aspect is 4:3, so 1024x768)
+        self._x_pixels = 1085  # Default GIF width (1085x838)
         self._plot_lock_axis_ranges = False
         self._generate_pdf = True
         self._fancy_labels = True
@@ -6183,7 +6269,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """Method to create the HDD output directory"""
 
         # Create the HDD output directory
-        hdd_iv_swinger_dirs = self.create_iv_swinger_dirs([""])
+        hdd_iv_swinger_dirs = self.create_iv_swinger_dirs([""],
+                                                          include_csv=False,
+                                                          include_pdf=False)
         hdd_iv_swinger_dir = hdd_iv_swinger_dirs[0]  # only one
         self.hdd_output_dir = os.path.join(hdd_iv_swinger_dir, date_time_str)
         os.makedirs(self.hdd_output_dir)

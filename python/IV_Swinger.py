@@ -181,13 +181,17 @@ import traceback
 
 # Conditionally import RPi-specific modules. This is so this module can
 # be imported on other platforms for post-processing the output files.
-if os.uname()[4].startswith("arm"):
-    import Adafruit_ADS1x15
-    import Adafruit_CharLCD
-    import Adafruit_MCP230xx
-    import RPi.GPIO as GPIO
-# Suppress matplotlib import on RPi 1 (too slow))
-if not os.uname()[4].startswith("armv6"):
+if sys.platform != 'win32':
+    if os.uname()[4].startswith("arm"):
+        import Adafruit_ADS1x15
+        import Adafruit_CharLCD
+        import Adafruit_MCP230xx
+        import RPi.GPIO as GPIO
+if sys.platform != 'win32':
+    # Suppress matplotlib import on RPi 1 (too slow))
+    if not os.uname()[4].startswith("armv6"):
+        import matplotlib.pyplot as plt
+else:
     import matplotlib.pyplot as plt
 
 
@@ -3217,6 +3221,14 @@ class IV_Swinger(object):
             "mpp_volts list must be same size as sd_data_point_filenames list"
 
     # -------------------------------------------------------------------------
+    def pyplot_supports_gif(self):
+        """Method to determine if plotting to GIF is supported by pyplot
+           (platform dependent). Returns True if plotting to GIF is
+           supported, and False if it is not.
+        """
+        return 'gif' in plt.gcf().canvas.get_supported_filetypes()
+
+    # -------------------------------------------------------------------------
     def set_figure_size(self):
         """Method to set the plotter figure size"""
 
@@ -4006,7 +4018,8 @@ class IV_Swinger(object):
         return usb_drives
 
     # -------------------------------------------------------------------------
-    def create_iv_swinger_dirs(self, base_dirs):
+    def create_iv_swinger_dirs(self, base_dirs, include_csv=True,
+                               include_pdf=True):
         """Method to create the IV_Swinger directories under the
         specified base directories.  Returns the list of IV_swinger
         directories.
@@ -4020,9 +4033,11 @@ class IV_Swinger(object):
         # overridden,
         for base_dir in base_dirs:
             sub_dirs = [base_dir + self.root_dir,
-                        base_dir + self.root_dir + "/logs",
-                        base_dir + self.root_dir + "/csv",
-                        base_dir + self.root_dir + "/pdf"]
+                        base_dir + self.root_dir + "/logs"]
+            if include_csv:
+                sub_dirs.append(base_dir + self.root_dir + "/csv")
+            if include_pdf:
+                sub_dirs.append(base_dir + self.root_dir + "/pdf")
             for sub_dir in sub_dirs:
                 if not os.path.exists(sub_dir):
                     try:
