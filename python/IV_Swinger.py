@@ -3173,8 +3173,8 @@ class IV_Swinger(object):
         if not self.headless_mode:
             self.open_interactive_display()
 
-        # Close all plots
-        self.close_plots()
+        # Clear the figure in preparation for the next plot
+        plt.clf()
 
     # -------------------------------------------------------------------------
     def plot_labeled_points(self, isc_amps, mpp_amps, mpp_volts, voc_volts):
@@ -3851,8 +3851,12 @@ class IV_Swinger(object):
             plt.show()
 
     # -------------------------------------------------------------------------
-    def close_plots(self):
-        """Method to close plots in preparation for next plot"""
+    @staticmethod
+    def close_plots():
+        """Static method to close all plots. This is required on Windows
+           before exiting a Tkinter GUI that has used the plotter or
+           else it throws some strange errors and hangs on exit.
+        """
         plt.close('all')
 
     # -------------------------------------------------------------------------

@@ -1865,6 +1865,7 @@ properly to the PV module
             self.clean_up_files(self.overlay_dir)
         if self.ivs2.hdd_output_dir is not None:
             self.clean_up_files(self.ivs2.hdd_output_dir)
+        IV_Swinger.IV_Swinger.close_plots()
         self.root.destroy()
 
     # -------------------------------------------------------------------------
