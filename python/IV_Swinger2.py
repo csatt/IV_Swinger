@@ -109,6 +109,7 @@ RC_SERIAL_EXCEPTION = -4
 RC_ZERO_VOC = -5
 RC_ZERO_ISC = -6
 SPLASH_IMG = "Splash_Screen.png"
+TITLEBAR_ICON = "../icons/IV_Swinger2.ico"  # Windows
 CFG_STRING = 0
 CFG_FLOAT = 1
 CFG_INT = 2
@@ -514,7 +515,11 @@ class GraphicalUserInterface(ttk.Frame):
         self.root.resizable(width=False, height=False)
         # No dotted line in menus
         self.root.option_add('*tearOff', False)
+        # Add title and titlebar icon (Windows)
         self.root.title('IV Swinger 2')
+        if sys.platform == 'win32' and os.path.exists(TITLEBAR_ICON):
+            self.root.tk.call('wm', 'iconbitmap', self.root._w,
+                              '-default', TITLEBAR_ICON)
 
     # -------------------------------------------------------------------------
     def set_style(self):
@@ -3628,7 +3633,7 @@ class Dialog(tk.Toplevel):
 
         # Layout
         box.grid(column=0, row=1, sticky=(E))
-        if self.win_sys == 'win32':  # Windows
+        if sys.platform == 'win32':  # Windows
             ok_col = 0
             cancel_col = 1
         else:  # Mac, other
