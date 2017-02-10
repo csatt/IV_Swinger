@@ -189,11 +189,25 @@ DEBUG_MEMLEAK = False
 #   Global functions   #
 ########################
 def debug_memleak(str):
+    """Global function to print the current memory usage at a give place in the
+       code or point in time. Not supported on Windows.
+    """
     if DEBUG_MEMLEAK:
         date_time_str = IV_Swinger.DateTimeStr.get_date_time_str()
         print ("%s: Memory usage (%s): %s (kb)" %
                (date_time_str, str,
                 resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
+
+
+def get_app_dir():
+    """Global function to return the directory where the application is
+       located, regardless of whether it is a script or a frozen
+       executable (e.g. built with pyinstaller).
+    """
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    elif __file__:
+        return os.path.dirname(__file__)
 
 
 #################
@@ -221,7 +235,6 @@ class GraphicalUserInterface(ttk.Frame):
         self.create_menu_bar()
         self.menu_bar.disable_calibration()
         self.create_widgets()
-        self.update_idletasks()
         self.ivs2.log_initial_debug_info()
         self.after(100, lambda: self.attempt_arduino_handshake())
 
@@ -4809,7 +4822,8 @@ class ImagePane(ttk.Label):
         y_pixels = int(round(self.master.ivs2.x_pixels *
                              self.master.ivs2.plot_y_inches /
                              self.master.ivs2.plot_x_inches))
-        img = Image.open(SPLASH_IMG).resize((x_pixels, y_pixels))
+        splash_img = os.path.join(get_app_dir(), SPLASH_IMG)
+        img = Image.open(splash_img).resize((x_pixels, y_pixels))
         self.current_img = ImageTk.PhotoImage(img)
         self['image'] = self.current_img
         self.image = self.current_img
