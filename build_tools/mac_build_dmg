@@ -1,4 +1,4 @@
 #!/bin/bash
 dmgbuild -s $GITHUB/IV_Swinger/build_tools/dmgbuild_settings.py \
          "IV Swinger2 install" \
-         IV_Swinger2_v2.0.0.dmg
+         IV_Swinger2_v2.0.0_mac.dmg

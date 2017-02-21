@@ -201,7 +201,7 @@ def add_install_execute_sequence():
     install_execute_seq = soup.new_tag("InstallExecuteSequence")
     soup.Wix.Product.append(install_execute_seq)
     rm_exist_products = soup.new_tag("RemoveExistingProducts",
-                                     Before="InstallIniitialize")
+                                     Before="InstallInitialize")
     install_execute_seq.append(rm_exist_products)
 
 

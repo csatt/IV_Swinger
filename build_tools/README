@@ -159,8 +159,12 @@ NOTE: it is assumed that you already have python and pip installed as
 
  12) Test the installed app by launching from the Start Menu
 
+ 13) Rename the MSI file, e.g.:
+
+       rename IV_Swinger2.msi IV_Swinger2_v2.0.0_win.msi
+
 --------------------------------------------------------------------------------
-Acceptable Windows error and warnings:
+Acceptable Windows errors and warnings:
 
 The run_pyi.bat script may generate the following, which are all OK:
 
