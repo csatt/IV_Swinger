@@ -1,0 +1,174 @@
+This directory contains scripts used for building Mac and Windows
+executables and packaging them in installers.
+
+Do NOT use this directory for running these tools. If you do that, then
+the output files might accidently get committed to the repo, and that is
+not what we want.
+
+--------------------------------------------------------------------------------
+Instructions for Mac build:
+
+  1) Install pyinstaller:
+
+       % sudo pip install pyinstaller
+
+  2) Install dmgbuild:
+
+       % sudo pip install dmgbuild   <== DIDN'T WORK FOR ME
+     OR
+       - Download tar.gz file from https://pypi.python.org/pypi/dmgbuild
+       - Unzip into ~/Downloads
+       % cd ~/Downloads/dmgbuild-1.2.1  (or whatever the version is now)
+       % sudo python setup.py build install
+
+  2) Set environment variable $GITHUB to point to the parent directory
+     of your clone of the IV_Swinger GitHub repo, e.g.:
+
+       % export GITHUB="$HOME/GitHub"
+
+  3) Complete all testing using straight Python (this assumes that
+     you have installed all of the required Python packages):
+
+       % cd $GITHUB/IV_Swinger/python
+       % python IV_Swinger2.py
+
+  4) Create a build folder/directory somewhere NOT under $GITHUB, e.g.:
+
+       % mkdir $HOME/IV_Swinger2_build
+
+  5) Run pyinstaller script in that folder:
+
+       % cd $HOME/IV_Swinger2_build
+       % $GITHUB/IV_Swinger/build_tools/mac_run_pyi
+
+       NOTE: this generates a lot of warnings and errors. See the
+             section "Acceptable Mac errors and warnings" below.
+
+  6) Test the generated executable:
+
+       % cd $HOME/IV_Swinger2_build/dist
+       % open IV\ Swinger\ 2.app
+
+  7) Build the DMG with dmgbuild:
+
+       - Edit $GITHUB/IV_Swinger/build_tools/mac_build_dmg to update the
+         version number in the .dmg file name
+
+       % cd $HOME/IV_Swinger2_build
+       % $GITHUB/IV_Swinger/build_tools/mac_build_dmg
+
+  8) Test the DMG:
+
+       % open *.dmg
+
+       Follow instructions to install
+
+  9) Test the installed app by launching from Applications folder
+
+--------------------------------------------------------------------------------
+Acceptable Mac errors and warnings
+
+The mac_run_pyi script may generate the following, which are all OK:
+
+ - Anything labeled "INFO:" is ok
+
+ - Traceback (most recent call last):
+     File "<string>", line 2, in <module>
+   ImportError: No module named win32com
+
+ - 12582 WARNING:   Removing import PIL.ImageTk from module Tkinter
+    => and other similar WARNINGs
+
+ - NibLoaderError: Invalid NIB file [/System/Library/Frameworks/Python.framework/Versions/2.7/Extras/lib/python/matplotlib/backends/Matplotlib.nib]
+
+ - RuntimeError: The WebAgg backend requires Tornado.
+
+ - 20663 WARNING: library Advapi32 required via ctypes not found
+   20664 WARNING: library setupapi required via ctypes not found
+
+ - 25290 WARNING: failed to copy flags of /System/Library/Frameworks/Tcl.framework/Versions/8.5/Resources/Scripts/msgs/hi.msg
+    => and other similar WARNINGs
+
+--------------------------------------------------------------------------------
+Instructions for Windows build:
+
+NOTE: it is assumed that you already have python and pip installed as
+      well as all of the python packages required to run IV_Swinger2.py
+      using straight Python.
+
+  1) Install WiX, pyinstaller, BeautifulSoup4, and lxml:
+
+       http://wixtoolset.org/releases/ (install latest)
+         -> add %WIX%bin to your %path%
+       pip install pyinstaller
+       pip install beautifulsoup4
+       pip install lxml
+
+  2) Set environment variable %GITHUB% to point to the parent directory
+     of your clone of the IV_Swinger GitHub repo, e.g.:
+
+       set GITHUB=%HOME%\Documents\GitHub
+       setx GITHUB %HOME%\Documents\GitHub
+
+  3) Complete all testing using straight Python:
+
+       cd %GITHUB%\IV_Swinger\python
+       python IV_Swinger2.py
+
+  4) Create a build folder/directory somewhere NOT under %GITHUB%, e.g.:
+
+       mkdir %HOME%\IV_Swinger2_build
+
+  5) Run the run_pyi.bat script in that folder:
+
+       cd %HOME%\IV_Swinger2_build
+       %GITHUB%\IV_Swinger\build_tools\run_pyi.bat
+
+       NOTE: this generates a lot of warnings and errors. See the
+             section "Acceptable Windows errors and warnings" below.
+
+  6) Test the generated executable:
+
+       cd %HOME%\IV_Swinger2_build\dist\"IV Swinger 2"
+       "IV Swinger 2.exe"
+
+  7) Run the WiX "heat" utility like this:
+
+       cd %HOME%\IV_Swinger2_build
+       heat dir ".\dist\IV Swinger 2" -ag -sfrag -sreg -template product -out heat.wxs
+
+       Now you have a file %HOME%\IV_Swinger2_build\heat.wxs
+
+  8) Run the fix_heat_wxs.py script:
+
+       python %GITHUB%\IV_Swinger\build_tools\fix_heat_wxs.py heat.wxs -o IV_Swinger2.wxs
+
+  9) Run candle (WiX tool):
+
+       candle IV_Swinger2.wxs
+
+ 10) Run light (WiX tool):
+
+       light -b ".\dist\IV Swinger 2" -sice:ICE60 IV_Swinger2.wixobj
+
+ 11) Test the installer:
+
+       msiexec /i IV_Swinger2.msi /l*v IV_Swinger2.log
+     OR
+       Find it with Windows Explorer and double-click it
+
+ 12) Test the installed app by launching from the Start Menu
+
+--------------------------------------------------------------------------------
+Acceptable Windows error and warnings:
+
+The run_pyi.bat script may generate the following, which are all OK:
+
+ - Anything labeled "INFO:" is ok
+ 
+ - 12582 WARNING:   Removing import PIL.ImageTk from module Tkinter
+    => and other similar WARNINGs
+
+ - RuntimeError: The WebAgg backend requires Tornado.
+
+--------------------------------------------------------------------------------
