@@ -3,7 +3,7 @@
  *
  * IV_Swinger2.ino: IV Swinger 2 Arduino sketch
  *
- * Copyright (C) 2016  Chris Satterlee
+ * Copyright (C) 2017  Chris Satterlee
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -117,6 +117,7 @@
 #define _impl_CASSERT_LINE(predicate, line) \
     typedef char _impl_PASTE(assertion_failed_on_line_,line)[2*!!(predicate)-1];
 
+#define VERSION "1.0.1"        // Version of this Arduino sketch
 #define FALSE 0                // Boolean false value
 #define TRUE 1                 // Boolean true value
 #define MAX_UINT (1<<16)-1     // Max unsigned integer
@@ -179,10 +180,14 @@ void setup()
   SPI.begin();
   SPI.setClockDivider(clk_div);
 
+  // Print version number
+  Serial.print("IV Swinger2 sketch version ");
+  Serial.println(VERSION);
+
   // Tell host that we're ready, and wait for acknowledgement
   host_ready = FALSE;
   while (!host_ready) {
-    Serial.println("Ready");  // FIXME: add firmware revision
+    Serial.println("Ready");
     if (get_host_msg(incoming_msg)) {
       if (strstr(incoming_msg, "Ready")) {
         host_ready = TRUE;

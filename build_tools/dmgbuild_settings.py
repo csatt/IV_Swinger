@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+###############################################################################
+#
+# Modified from http://dmgbuild.readthedocs.io/en/latest/example.html
+#
+###############################################################################
 from __future__ import unicode_literals
 
 import biplist
@@ -33,13 +38,39 @@ def icon_from_app(app_path):
     return os.path.join(app_path, 'Contents', 'Resources', icon_name)
 
 
+def get_version(app_path):
+    version_file = os.path.join(app_path, 'Contents', 'Resources',
+                                'version.txt')
+    try:
+        with open(version_file, "r") as f:
+            lines = f.read().splitlines()
+            if len(lines) != 1:
+                err_str = ("ERROR: " + version_file + " has " +
+                           str(len(lines)) + " lines")
+                print err_str
+                return "vFIXME"
+            version = lines[0]
+            if len(version) == 0 or version[0] != 'v':
+                err_str = ("ERROR: " + version_file + " has invalid " +
+                           "version: " + version)
+                print err_str
+                return "vFIXME"
+            print "Application version: " + version
+            return version
+    except IOError:
+        err_str = "ERROR: " + version_file + " doesn't exist"
+        print err_str
+        return "vFIXME"
+
+
 # .. Basics ...................................................................
 
 # Uncomment to override the output filename
-# filename = 'test.dmg'
+version = get_version(application)
+filename = "IV_Swinger2_" + version + "_mac.dmg"
 
 # Uncomment to override the output volume name
-# volume_name = 'Test'
+volume_name = 'IV Swinger2 install'
 
 # Volume format (see hdiutil create -help)
 format = defines.get('format', 'UDZO')

@@ -5,7 +5,7 @@
 #
 # IV_Swinger_plotter.py: IV Swinger plotter module
 #
-# Copyright (C) 2016  Chris Satterlee
+# Copyright (C) 2016, 2017  Chris Satterlee
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

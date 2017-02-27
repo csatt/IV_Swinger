@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# Build DMG with dmgbuild. The volume name and file name are set in
+# dmgbuild_settings.py so the command line values are dummies.
+#
 dmgbuild -s $GITHUB/IV_Swinger/build_tools/dmgbuild_settings.py \
-         "IV Swinger2 install" \
-         IV_Swinger2_v2.0.0_mac.dmg
+         "XXXX" XXXX.dmg

@@ -26,17 +26,19 @@ Instructions for Mac build:
 
        % export GITHUB="$HOME/GitHub"
 
-  3) Complete all testing using straight Python (this assumes that
+  3) Update the version string in $GITHUB/IV_Swinger/python/version.txt
+
+  4) Complete all testing using straight Python (this assumes that
      you have installed all of the required Python packages):
 
        % cd $GITHUB/IV_Swinger/python
        % python IV_Swinger2.py
 
-  4) Create a build folder/directory somewhere NOT under $GITHUB, e.g.:
+  5) Create a build folder/directory somewhere NOT under $GITHUB, e.g.:
 
        % mkdir $HOME/IV_Swinger2_build
 
-  5) Run pyinstaller script in that folder:
+  6) Run pyinstaller script in that folder:
 
        % cd $HOME/IV_Swinger2_build
        % $GITHUB/IV_Swinger/build_tools/mac_run_pyi
@@ -44,26 +46,23 @@ Instructions for Mac build:
        NOTE: this generates a lot of warnings and errors. See the
              section "Acceptable Mac errors and warnings" below.
 
-  6) Test the generated executable:
+  7) Test the generated executable:
 
        % cd $HOME/IV_Swinger2_build/dist
        % open IV\ Swinger\ 2.app
 
-  7) Build the DMG with dmgbuild:
-
-       - Edit $GITHUB/IV_Swinger/build_tools/mac_build_dmg to update the
-         version number in the .dmg file name
+  8) Build the DMG with dmgbuild:
 
        % cd $HOME/IV_Swinger2_build
        % $GITHUB/IV_Swinger/build_tools/mac_build_dmg
 
-  8) Test the DMG:
+  9) Test the DMG:
 
        % open *.dmg
 
        Follow instructions to install
 
-  9) Test the installed app by launching from Applications folder
+ 10) Test the installed app by launching from Applications folder
 
 --------------------------------------------------------------------------------
 Acceptable Mac errors and warnings
@@ -141,27 +140,23 @@ NOTE: it is assumed that you already have python and pip installed as
 
   8) Run the fix_heat_wxs.py script:
 
-       python %GITHUB%\IV_Swinger\build_tools\fix_heat_wxs.py heat.wxs -o IV_Swinger2.wxs
+       python %GITHUB%\IV_Swinger\build_tools\fix_heat_wxs.py heat.wxs
 
   9) Run candle (WiX tool):
 
-       candle IV_Swinger2.wxs
+       candle IV_Swinger2_*.wxs
 
  10) Run light (WiX tool):
 
-       light -b ".\dist\IV Swinger 2" -sice:ICE60 IV_Swinger2.wixobj
+       light -b ".\dist\IV Swinger 2" -sice:ICE60 IV_Swinger2_*.wixobj
 
  11) Test the installer:
 
-       msiexec /i IV_Swinger2.msi /l*v IV_Swinger2.log
+       msiexec /i IV_Swinger2_*.msi /l*v IV_Swinger2.log
      OR
        Find it with Windows Explorer and double-click it
 
  12) Test the installed app by launching from the Start Menu
-
- 13) Rename the MSI file, e.g.:
-
-       rename IV_Swinger2.msi IV_Swinger2_v2.0.0_win.msi
 
 --------------------------------------------------------------------------------
 Acceptable Windows errors and warnings:

@@ -59,22 +59,30 @@
 # optional arguments:
 #   -h, --help            show this help message and exit
 #   -o OUTFILE, --outfile OUTFILE
-#                         Name of output file (default=IV_Swinger.wxs)
+#                         Name of output file
+#                         (default=IV_Swinger_<version>_win.wxs)
 import argparse
 from bs4 import BeautifulSoup
+import os
 import re
 
 # Constants
-VERSION = "2.0.0.1"
 MANUFACTURER = "Chris Satterlee"
 PRODUCT_NAME = "IV Swinger 2"
-PRODUCT_NAME_W_VERSION = "IV Swinger v" + VERSION
 UPGRADE_CODE = "{c09606ca-ca7e-47ea-9f0f-fbc246d877c9}"
+
+# Get version from version.txt
+app_path = os.path.join(".", "dist", PRODUCT_NAME)
+version_from_file = get_version(app_path)   # x.x.x
+version = version_from_file + ".0"          # x.x.x.0
+product_name_w_version = "IV Swinger v" + version
+default_outfile = "IV_Swinger2_" + version + "_win.wxs"
 
 # Parse command line args
 parser = argparse.ArgumentParser()
-parser.add_argument("-o", "--outfile", type=str, default="IV_Swinger.wxs",
-                    help=("Name of output file (default=IV_Swinger.wxs)"))
+parser.add_argument("-o", "--outfile", type=str, default=default_outfile,
+                    help=("Name of output file (default=" +
+                          default_outfile + ")"))
 parser.add_argument("input_wxs", metavar='input_wxs_file',
                     type=str, nargs=1,
                     help=("Name of input .wxs file"))
@@ -83,6 +91,29 @@ args = parser.parse_args()
 # Read input file into a BeautifulSoup object using XML parsing
 soup = BeautifulSoup(open(args.input_wxs[0]), "xml")
 
+
+def get_version(app_path):
+    version_file = os.path.join(app_path, "version.txt")
+    try:
+        with open(version_file, "r") as f:
+            lines = f.read().splitlines()
+            if len(lines) != 1:
+                err_str = ("ERROR: " + version_file + " has " +
+                           str(len(lines)) + " lines")
+                print err_str
+                return "vFIXME"
+            version = lines[0]
+            if len(version) == 0 or version[0] != 'v':
+                err_str = ("ERROR: " + version_file + " has invalid " +
+                           "version: " + version)
+                print err_str
+                return "vFIXME"
+            print "Application version: " + version
+            return version
+    except IOError:
+        err_str = "ERROR: " + version_file + " doesn't exist"
+        print err_str
+        return "vFIXME"
 
 def prettify_4space(s, encoding=None, formatter="minimal"):
     """Wrapper function for the BeautifulSoup prettify method to convert
@@ -99,9 +130,9 @@ def fix_product_attributes():
     """
     soup.Wix.Product['Id'] = "*"
     soup.Wix.Product['Manufacturer'] = MANUFACTURER
-    soup.Wix.Product['Name'] = PRODUCT_NAME_W_VERSION
+    soup.Wix.Product['Name'] = product_name_w_version
     soup.Wix.Product['UpgradeCode'] = UPGRADE_CODE
-    soup.Wix.Product['Version'] = VERSION
+    soup.Wix.Product['Version'] = version
 
 
 def get_component_ids():
@@ -191,7 +222,7 @@ def add_upgrade_tag():
                                     Property="PREVIOUSFOUND",
                                     Minimum="0.0.0",
                                     IncludeMinimum="yes",
-                                    Maximum=VERSION,
+                                    Maximum=version,
                                     IncludeMaximum="no"))
 
 

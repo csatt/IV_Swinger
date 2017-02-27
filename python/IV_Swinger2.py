@@ -5,7 +5,7 @@
 #
 # IV_Swinger2.py: IV Swinger 2 host application module
 #
-# Copyright (C) 2016  Chris Satterlee
+# Copyright (C) 2017  Chris Satterlee
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -101,6 +101,7 @@ from Tooltip import Tooltip
 #   Constants   #
 #################
 APP_NAME = "IV_Swinger2"
+VERSION_FILE = "version.txt"
 RC_SUCCESS = 0
 RC_FAILURE = -1
 RC_BAUD_MISMATCH = -2
@@ -229,6 +230,7 @@ class GraphicalUserInterface(ttk.Frame):
         self.memory_monitor()
         self.ivs2 = ivs2
         self.init_instance_vars()
+        self.get_version()
         self.set_grid()
         self.get_config()
         self.start_to_right()
@@ -242,6 +244,28 @@ class GraphicalUserInterface(ttk.Frame):
     def memory_monitor(self):
         debug_memleak("memory_monitor")
         self.after(1000, lambda: self.memory_monitor())
+
+    def get_version(self):
+        version_file = os.path.join(get_app_dir(), VERSION_FILE)
+        try:
+            with open(version_file, "r") as f:
+                lines = f.read().splitlines()
+                if len(lines) != 1:
+                    err_str = ("ERROR: " + VERSION_FILE + " has " +
+                               str(len(lines)) + " lines")
+                    self.ivs2.logger.print_and_log(err_str)
+                    return
+                version = lines[0]
+                if len(version) == 0 or version[0] != 'v':
+                    err_str = ("ERROR: " + VERSION_FILE + " has invalid " +
+                               "version: " + version)
+                    self.ivs2.logger.print_and_log(err_str)
+                    return
+                self.version = version
+                self.ivs2.logger.log("Application version: " + version)
+        except IOError:
+            err_str = "ERROR: " + VERSION_FILE + " doesn't exist"
+            self.ivs2.logger.print_and_log(err_str)
 
     def init_instance_vars(self):
         self.resolution_str = tk.StringVar()
@@ -258,6 +282,7 @@ class GraphicalUserInterface(ttk.Frame):
         self.label_all_mpps = tk.StringVar()
         self.mpp_watts_only = tk.StringVar()
         self.label_all_vocs = tk.StringVar()
+        self.version = "UNKNOWN"
         self.grid_args = {}
         self.results_wiz = None
         self.img_file = None
@@ -524,13 +549,12 @@ class GraphicalUserInterface(ttk.Frame):
     # -------------------------------------------------------------------------
     def set_style(self):
         self.style = ttk.Style()
-        font = ("Arial " +
+        font = ("TkDefaultFont " +
                 str(max(int(round(self.ivs2.x_pixels / 43.0)), 19)) +
                 " bold italic")
         self.style.configure("go_stop_button.TButton",
                              foreground="red",
-                             background="gray",
-                             padding=10,
+                             padding=4,
                              font=font)
 
     # -------------------------------------------------------------------------
@@ -634,6 +658,9 @@ class GraphicalUserInterface(ttk.Frame):
         self.grid_args['img_size_combo'] = {"column": column,
                                             "row": row,
                                             "sticky": (W)}
+        self.grid_args['version_label'] = {"column": total_cols,
+                                           "row": row,
+                                           "sticky": (E)}
         row += 1
         self.grid_args['img_pane'] = {"column": column,
                                       "row": row,
@@ -648,9 +675,9 @@ class GraphicalUserInterface(ttk.Frame):
                                              "rowspan": 3,
                                              "sticky": (W)}
         column += pad_cols
-        self.grid_args['go_button'] = {"column": column,
-                                       "row": row,
-                                       "rowspan": 3}
+        self.grid_args['go_button_box'] = {"column": column,
+                                           "row": row,
+                                           "rowspan": 3}
         column += pad_cols
         self.grid_args['plot_power_cb'] = {"column": column,
                                            "row": row,
@@ -663,9 +690,10 @@ class GraphicalUserInterface(ttk.Frame):
                                                   "columnspan": remaining_cols}
         # Create them
         self.create_img_size_combo()
+        self.create_version_label()
         self.create_img_pane()
         self.create_prefs_results_button_box()
-        self.create_go_button()
+        self.create_go_button_box()
         self.create_plot_power_cb()
         self.create_axis_ranges_box()
         self.create_looping_controls()
@@ -685,6 +713,14 @@ class GraphicalUserInterface(ttk.Frame):
         self.img_size_combo.bind('<<ComboboxSelected>>', self.update_img_size)
         self.img_size_combo.bind('<Return>', self.update_img_size)
         self.img_size_combo.grid(**self.grid_args['img_size_combo'])
+
+    # -------------------------------------------------------------------------
+    def create_version_label(self):
+        """Method to create the version label
+        """
+        version_text = "         Version: " + self.version
+        self.version_label = ttk.Label(master=self, text=version_text)
+        self.version_label.grid(**self.grid_args['version_label'])
 
     # -------------------------------------------------------------------------
     def create_img_pane(self):
@@ -793,13 +829,20 @@ class GraphicalUserInterface(ttk.Frame):
         axis_ranges_box.grid(**self.grid_args['axis_ranges_box'])
 
     # -------------------------------------------------------------------------
-    def create_go_button(self, text=None):
-        """Method to create the go button and its associated bindings
+    def create_go_button_box(self):
+        """Method to create the go button and its associated bindings, along
+        with the status label, both packed in a box
         """
-        self.go_button = GoStopButton(master=self, text=text)
-        self.go_button['width'] = 9
+        # Box around button and status label - this is gridded into the
+        # main GUI window
+        self.go_button_box = ttk.Frame(self)
+
+        # Go button
+        self.go_button = GoStopButton(master=self.go_button_box)
+        if not self.ivs2.arduino_ready:
+            self.go_button.state(['disabled'])
         # Tooltip
-        tt_text = ("Trigger an IV curve trace (if ready). If loop mode is "
+        tt_text = ("Trigger an IV curve trace (if connected). If loop mode is "
                    "selected, this button changes to a STOP button and curve "
                    "tracing continues until stopped.")
         Tooltip(self.go_button, text=tt_text, **BOT_TT_KWARGS)
@@ -809,7 +852,18 @@ class GraphicalUserInterface(ttk.Frame):
         self.go_button.bind('<Button-1>', self.go_actions)
         self.root.bind('<Return>', self.go_actions)
         self.root.bind('<space>', self.go_actions)
-        self.go_button.grid(**self.grid_args['go_button'])
+
+        # Status label
+        self.go_button_status_label = ttk.Label(master=self.go_button_box)
+        if not self.ivs2.arduino_ready:
+            self.go_button_status_label['text'] = "Not connected"
+
+        # Grid placement in enclosing box
+        self.go_button.grid(column=0, row=0)
+        self.go_button_status_label.grid(column=0, row=1)
+
+        # Grid placement of box within main GUI
+        self.go_button_box.grid(**self.grid_args['go_button_box'])
 
     # -------------------------------------------------------------------------
     def create_plot_power_cb(self):
@@ -1416,7 +1470,6 @@ class GraphicalUserInterface(ttk.Frame):
         """
         # Bail out now if Arduino ready flag is set
         if self.ivs2.arduino_ready:
-            self.go_button['text'] = "Swing!"
             return
 
         # Find new serial ports, if any
@@ -1431,8 +1484,8 @@ class GraphicalUserInterface(ttk.Frame):
             self.create_menu_bar()
 
         if self.ivs2.usb_port is not None:
-            self.go_button['text'] = "Not Ready"
             self.go_button.state(['disabled'])
+            self.go_button_status_label['text'] = "Not connected"
             self.update_idletasks()
             # Reset Arduino
             rc = self.ivs2.reset_arduino()
@@ -1440,8 +1493,10 @@ class GraphicalUserInterface(ttk.Frame):
                 # Wait for Arduino ready message
                 rc = self.ivs2.wait_for_arduino_ready_and_ack()
                 if rc == RC_SUCCESS:
-                    self.go_button['text'] = "Swing!"
                     self.go_button.state(['!disabled'])
+                    self.go_button_status_label['text'] = "     Connected     "
+                    self.after(1000,
+                               lambda: self.clear_go_button_status_label())
                     if self.ivs2.cfg.get('USB', 'port') != self.ivs2.usb_port:
                         self.ivs2.cfg_set('USB', 'port', self.ivs2.usb_port)
                         self.save_config()
@@ -1449,6 +1504,10 @@ class GraphicalUserInterface(ttk.Frame):
 
         # If any of the above failed, try again in 1 second
         self.after(1000, lambda: self.attempt_arduino_handshake())
+
+    # -------------------------------------------------------------------------
+    def clear_go_button_status_label(self):
+        self.go_button_status_label['text'] = " " * 30
 
     # -------------------------------------------------------------------------
     def update_img_size(self, event=None):
@@ -1473,9 +1532,8 @@ class GraphicalUserInterface(ttk.Frame):
             self.ivs2.cfg_set('General', 'x pixels', self.ivs2.x_pixels)
             # Update style and recreate go_button
             self.set_style()
-            curr_go_txt = self.go_button['text']
             self.go_button.destroy()
-            self.create_go_button(text=curr_go_txt)
+            self.create_go_button_box()
             # Recreate Preferences and Results Wizard buttons
             self.recreate_prefs_results_button_box()
             # Redisplay the image with the new settings (saves config)
@@ -1740,7 +1798,7 @@ class GraphicalUserInterface(ttk.Frame):
         removed.
 
         """
-        self.stop_button = GoStopButton(master=self, text='STOP')
+        self.stop_button = GoStopButton(master=self.go_button_box, text='STOP')
         self.stop_button['width'] = self.go_button['width']
         # Tooltip
         tt_text = "Press button to stop looping"
@@ -1748,7 +1806,7 @@ class GraphicalUserInterface(ttk.Frame):
         self.stop_button.bind('<Button-1>', self.stop_actions)
         self.root.bind('<Return>', self.stop_actions)
         self.root.bind('<space>', self.stop_actions)
-        self.stop_button.grid(**self.grid_args['go_button'])
+        self.stop_button.grid(column=0, row=0)
         self.update_idletasks()
 
     # -------------------------------------------------------------------------
@@ -1907,9 +1965,10 @@ class ImgSizeCombo(ttk.Combobox):
         curr_size = (str(master.ivs2.x_pixels) + "x" + str(y_pixels))
         textvariable.set(curr_size)
         self['values'] = ('550x425',
-                          '750x580',
-                          '971x750',
-                          '1085x838',
+                          '660x510',
+                          '770x595',
+                          '880x680',
+                          '990x765',
                           '1100x850')
         self['width'] = 10
 
@@ -1989,6 +2048,7 @@ class ResultsWizard(tk.Toplevel):
         self.right_buttonbox.grid(column=1, row=0, sticky=(N, E))
         master.rowconfigure(0, weight=1)
         #  Row 1
+        self.shortcut_button.grid(column=0, row=1, sticky=(S, W))
         self.done_button.grid(column=1, row=1, sticky=(S, E))
 
     # -------------------------------------------------------------------------
@@ -2049,6 +2109,13 @@ class ResultsWizard(tk.Toplevel):
         pdf_button.pack()
         update_button.pack()
         copy_button.pack()
+
+        # Shortcut button
+        text = "Make desktop shortcut"
+        self.shortcut_button = ttk.Button(master, text=text,
+                                          command=self.make_shortcut)
+        tt_text = "Create a desktop shortcut to results folder"
+        Tooltip(self.shortcut_button, text=tt_text,  **TOP_TT_KWARGS)
 
         # Done button
         self.done_button = ttk.Button(master, text="Done", width=width,
@@ -2208,7 +2275,8 @@ class ResultsWizard(tk.Toplevel):
         """
         self.master.focus_set()
         self.master.results_button.state(['!disabled'])
-        self.master.go_button.state(['!disabled'])
+        if self.master.ivs2.arduino_ready:
+            self.master.go_button.state(['!disabled'])
         self.master.ivs2.cfg_filename = None  # property will restore
         self.master.get_config()
         self.master.update_plot_power_cb()
@@ -2473,6 +2541,75 @@ class ResultsWizard(tk.Toplevel):
 
         # Display a summary message
         self.display_copy_summary(num_copied)
+
+    # -------------------------------------------------------------------------
+    def make_shortcut(self, event=None):
+        """Method to create a desktop shortcut to the app data folder
+        """
+        # Find path to Desktop
+        desktop_path = os.path.expanduser(os.path.join("~", "Desktop"))
+        if not os.path.exists(desktop_path):
+            err_str = "ERROR: " + desktop_path + " does not exist"
+            tkmsg.showinfo(message=err_str)
+
+        # Define shortcut name
+        desktop_shortcut_path = os.path.join(desktop_path, "IV_Swinger2")
+
+        CREATED = 0
+        EXISTS_SAME = 1
+        EXISTS_DIFFERENT = 2
+        FAILED = 3
+        result = None
+
+        if sys.platform == 'win32':
+            import win32com.client
+            # For Windows, use win32com
+            desktop_shortcut_path += ".lnk"
+            try:
+                ws = win32com.client.Dispatch("wscript.shell")
+                shortcut = ws.CreateShortcut(desktop_shortcut_path)
+                if len(shortcut.TargetPath) > 0:
+                    curr_value = shortcut.TargetPath
+                    if curr_value == self.results_dir:
+                        result = EXISTS_SAME
+                    else:
+                        result = EXISTS_DIFFERENT
+                else:
+                    shortcut.TargetPath = self.results_dir
+                    shortcut.Save()
+                    result = CREATED
+            except:
+                result = FAILED
+        else:
+            # For Mac or Linux, just create a symlink
+            if os.path.exists(desktop_shortcut_path):
+                if os.path.islink(desktop_shortcut_path):
+                    curr_value = os.readlink(desktop_shortcut_path)
+                    if curr_value == self.results_dir:
+                        result = EXISTS_SAME
+                    else:
+                        result = EXISTS_DIFFERENT
+            else:
+                try:
+                    os.symlink(self.results_dir, desktop_shortcut_path)
+                    result = CREATED
+                except:
+                    result = FAILED
+
+        if result == CREATED:
+            msg_str = "Shortcut created:\n" + desktop_shortcut_path
+        elif result == EXISTS_SAME:
+            msg_str = "Shortcut already exists"
+        elif result == EXISTS_DIFFERENT:
+            msg_str = ("ERROR: Shortcut\n" + desktop_shortcut_path +
+                       "\nalready exists, but its target is:\n" +
+                       curr_value + "\ninstead of:\n" +
+                       self.results_dir)
+        elif result == FAILED:
+            msg_str = "ERROR: could not create shortcut"
+        else:
+            msg_str = "ERROR: Programming bug"
+        tkmsg.showinfo(message=msg_str)
 
     # -------------------------------------------------------------------------
     def get_selected_runs(self, include_whole_days=True):
@@ -3464,20 +3601,20 @@ class MenuBar(tk.Menu):
 
     # -------------------------------------------------------------------------
     def create_help_menu(self):
-        # FIXME: not sure if special code is needed for Mac - other
-        # looks better
         if self.win_sys == 'aqua':  # Mac
             self.help_menu = tk.Menu(self.menubar, name='help')
+            self.menubar.add_cascade(menu=self.help_menu, label='Help')
             self.master.root.createcommand('tk::mac::ShowHelp',
                                            self.show_help)
         else:
             self.help_menu = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.help_menu, label='Help')
-        self.help_menu.add_command(label="Help topic 1",
-                                   command=self.show_help)
+            self.menubar.add_cascade(menu=self.help_menu, label='Help')
+            self.help_menu.add_command(label="IV Swinger 2 Help",
+                                       command=self.show_help)
 
     # -------------------------------------------------------------------------
     def show_about_dialog(self):
+        version_str = "Version: " + self.master.version + "\n\n"
         about_str = """
 IV Swinger and IV Swinger 2 are open
 source hardware and software projects
@@ -3498,7 +3635,7 @@ at:
 
    https://github.com/csatt/IV_Swinger
 """
-        tkmsg.showinfo(message=about_str)
+        tkmsg.showinfo(message=version_str+about_str)
 
     # -------------------------------------------------------------------------
     def view_log_file(self):
@@ -3557,8 +3694,7 @@ at:
 
     # -------------------------------------------------------------------------
     def show_help(self):
-        help_str = "Help not yet implemented"
-        tkmsg.showinfo(message=help_str)
+        GlobalHelpDialog(self.master)
 
 
 # Generic dialog class (based on
@@ -3679,6 +3815,107 @@ class Dialog(tk.Toplevel):
         # put focus back to the master window
         self.master.focus_set()
         self.destroy()
+
+
+# Global help dialog class
+#
+class GlobalHelpDialog(Dialog):
+    """Extension of the generic Dialog class used for the global Help
+    dialog
+    """
+    # Initializer
+    def __init__(self, master=None):
+        title = "IV Swinger 2 Help"
+        Dialog.__init__(self, master=master, title=title,
+                        has_cancel_button=False, return_ok=True)
+
+    # -------------------------------------------------------------------------
+    def body(self, master):
+        """Create body, which is just a Text widget"""
+        help_text_intro = """
+More specific help for the IV Swinger 2 app can be found in "tooltips" that
+appear when the mouse pointer is hovered over a control or set of controls,
+and also via Help buttons that appear in various places. More comprehensive
+help can be found in the IV Swinger 2 User Guide.
+
+This global help dialog is intended to give a new user a very coarse overview
+of how to use the app.
+
+There are three main things you can do with the IV Swinger 2 app:
+  1) Swing IV curves
+  2) Deal with previous results
+  3) Set preferences
+"""
+        help_heading_1 = """
+Swinging IV curves"""
+        help_text_1 = """
+When the IV Swinger 2 hardware is connected to a USB port on the computer
+running the app, the large "Swing!" button in the middle of the lower panel
+is enabled. Click on the "Swing!" button to capture and display the IV curve.
+
+"Plot Power" can be checked to include the power curve on the graph. This
+can be done after the fact too.
+
+"Loop Mode" can be checked to repeatedly swing IV curves. "Rate Limit" can
+be checked to slow down the looping rate to a specified interval.  Since
+looping can generate a lot of data and image files, the default is to not
+save the results. "Save Results" can be checked to override this default.
+"""
+        help_heading_2 = """
+Dealing with previous results"""
+        help_text_2 = """
+Click on the "Results Wizard" button to:
+  - View results of previous runs
+  - Combine multiple curves on the same plot (overlays)
+  - Modify the title and appearance of curves and overlays
+  - Copy them to USB (or elsewhere)
+  - View the PDF
+The Results Wizard does not require the hardware to be connected. In fact it
+can be run on results that were collected by a different computer and copied
+to a USB drive.
+"""
+        help_heading_3 = """
+Setting preferences"""
+        help_text_3 = """
+Click on the "Preferences" button to change the default behavior of the app.
+"Plotting" tab preference changes are visible immediately on the curve
+currently being displayed, regardless of whether it is a new one or an older
+one being displayed by the Results Wizard. Use the Help buttons on the
+Preferences dialog tabs for more detailed information.
+
+Note that when using the Results Wizard, the preferences settings reflect
+those that were in effect for the curve being displayed. This allows the user
+to make incremental changes. However, when the Results Wizard is closed,
+the preferences revert to those that were in effect before it was opened.
+"""
+        total_height = (len(help_text_intro.split('\n')) +
+                        len(help_heading_1.split('\n')) +
+                        len(help_text_1.split('\n')) +
+                        len(help_heading_2.split('\n')) +
+                        len(help_text_2.split('\n')) +
+                        len(help_heading_3.split('\n')) +
+                        len(help_text_3.split('\n')))
+        if self.master.ivs2.x_pixels <= 800:
+            font_size = 12
+            total_height *= 0.85
+        elif self.master.ivs2.x_pixels <= 1024:
+            font_size = 13
+            total_height *= 0.9
+        else:
+            font_size = 14
+            total_height *= 0.95
+        font = "Arial " + str(font_size)
+        self.text = tk.Text(master, height=total_height, borderwidth=10)
+        self.text.tag_configure('body_tag', font=font)
+        self.text.tag_configure('heading_tag', font=font, underline=True)
+        self.text.insert('end', help_text_intro, ('body_tag'))
+        self.text.insert('end', help_heading_1, ('heading_tag'))
+        self.text.insert('end', help_text_1, ('body_tag'))
+        self.text.insert('end', help_heading_2, ('heading_tag'))
+        self.text.insert('end', help_text_2, ('body_tag'))
+        self.text.insert('end', help_heading_3, ('heading_tag'))
+        self.text.insert('end', help_text_3, ('body_tag'))
+        self.text.grid()
 
 
 # Calibration help dialog class
@@ -4843,7 +5080,7 @@ class GoStopButton(ttk.Button):
     # Initializer
     def __init__(self, master=None, text=None):
         ttk.Button.__init__(self, master=master)
-        self['text'] = "Not Ready"
+        self['text'] = "Swing!"
         if text is not None:
             self['text'] = text
         self['style'] = "go_stop_button.TButton"
@@ -5404,19 +5641,13 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
     def plot_graphs_to_gif(self, ivs, csvp):
         """Method to plot the graphs to a GIF"""
 
-        # Generating a GIF of a given resolution is trickier than it
-        # should be. First of all, apparently pyplot can only generate
-        # GIFs that have a 4:3 aspect ratio. If another aspect ratio is
-        # used, there will be gray bars added to pad it out to the
-        # requested ratio - but that obviously isn't appealing. So we'll
-        # stick to 4:3.  The default pyplot image size is 8" x 6" at 100
-        # DPI.  When a GIF is generated without overriding those
-        # defaults, the resulting resolution is 1600x1200.  But the
-        # resolution changes if different values are used for the width
-        # and/or height and/or DPI.  Before calling the plot_graphs()
-        # method, we have to adjust the scale parameters and the DPI
-        # value based on the value of the x_pixels property. The
-        # x_pixels property can be changed from a combobox in the GUI.
+        # Pyplot cannot generate GIFs on Windows, so we generate a PNG
+        # and then convert it to GIF with PIL (regardless of platform).
+        #
+        # Before calling the plot_graphs() method, we have to adjust the
+        # scale parameters and the DPI value based on the value of the
+        # x_pixels property. The x_pixels property can be changed from a
+        # combobox in the GUI.
         self.args.png = True
         self.set_ivs_properties(self.args, ivs)
         default_dpi = 100.0
@@ -5508,7 +5739,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._i_cal = 1.0
         self._plot_title = None
         self._current_img = None
-        self._x_pixels = 1085  # Default GIF width (1085x838)
+        self._x_pixels = 770  # Default GIF width (770x595)
         self._plot_lock_axis_ranges = False
         self._generate_pdf = True
         self._fancy_labels = True
@@ -6058,6 +6289,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
         # Otherwise wait for ready message from Arduino
         rc = self.receive_msg_from_arduino()
+        version_intro = "IV Swinger2 sketch version"
+        if (rc == RC_SUCCESS and
+            self.msg_from_arduino.startswith(version_intro)):
+            rc = self.receive_msg_from_arduino()
         if rc == RC_SUCCESS and self.msg_from_arduino == unicode('Ready\n'):
             self.arduino_ready = True
         elif rc != RC_SUCCESS:
