@@ -98,10 +98,10 @@ def get_version(app_path):
 
 
 app_path = os.path.join(".", "dist", PRODUCT_NAME)
-version_from_file = get_version(app_path)   # x.x.x
-version = version_from_file + ".0"          # x.x.x.0
-product_name_w_version = "IV Swinger v" + version
-default_outfile = "IV_Swinger2_" + version + "_win.wxs"
+version_from_file = get_version(app_path)   # vX.X.X
+version = version_from_file[1:] + ".0"      # X.X.X.0
+product_name_w_version = "IV Swinger " + version_from_file
+default_outfile = "IV_Swinger2_" + version_from_file + "_win.wxs"
 
 # Parse command line args
 parser = argparse.ArgumentParser()
