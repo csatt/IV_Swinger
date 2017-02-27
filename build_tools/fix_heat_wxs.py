@@ -71,27 +71,8 @@ MANUFACTURER = "Chris Satterlee"
 PRODUCT_NAME = "IV Swinger 2"
 UPGRADE_CODE = "{c09606ca-ca7e-47ea-9f0f-fbc246d877c9}"
 
+
 # Get version from version.txt
-app_path = os.path.join(".", "dist", PRODUCT_NAME)
-version_from_file = get_version(app_path)   # x.x.x
-version = version_from_file + ".0"          # x.x.x.0
-product_name_w_version = "IV Swinger v" + version
-default_outfile = "IV_Swinger2_" + version + "_win.wxs"
-
-# Parse command line args
-parser = argparse.ArgumentParser()
-parser.add_argument("-o", "--outfile", type=str, default=default_outfile,
-                    help=("Name of output file (default=" +
-                          default_outfile + ")"))
-parser.add_argument("input_wxs", metavar='input_wxs_file',
-                    type=str, nargs=1,
-                    help=("Name of input .wxs file"))
-args = parser.parse_args()
-
-# Read input file into a BeautifulSoup object using XML parsing
-soup = BeautifulSoup(open(args.input_wxs[0]), "xml")
-
-
 def get_version(app_path):
     version_file = os.path.join(app_path, "version.txt")
     try:
@@ -114,6 +95,27 @@ def get_version(app_path):
         err_str = "ERROR: " + version_file + " doesn't exist"
         print err_str
         return "vFIXME"
+
+
+app_path = os.path.join(".", "dist", PRODUCT_NAME)
+version_from_file = get_version(app_path)   # x.x.x
+version = version_from_file + ".0"          # x.x.x.0
+product_name_w_version = "IV Swinger v" + version
+default_outfile = "IV_Swinger2_" + version + "_win.wxs"
+
+# Parse command line args
+parser = argparse.ArgumentParser()
+parser.add_argument("-o", "--outfile", type=str, default=default_outfile,
+                    help=("Name of output file (default=" +
+                          default_outfile + ")"))
+parser.add_argument("input_wxs", metavar='input_wxs_file',
+                    type=str, nargs=1,
+                    help=("Name of input .wxs file"))
+args = parser.parse_args()
+
+# Read input file into a BeautifulSoup object using XML parsing
+soup = BeautifulSoup(open(args.input_wxs[0]), "xml")
+
 
 def prettify_4space(s, encoding=None, formatter="minimal"):
     """Wrapper function for the BeautifulSoup prettify method to convert
