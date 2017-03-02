@@ -86,6 +86,7 @@ import tkFileDialog
 import tkMessageBox as tkmsg
 import tkSimpleDialog as tksd
 from PIL import Image, ImageTk
+from send2trash import send2trash
 try:
     # Mac only
     from AppKit import NSSearchPathForDirectoriesInDomains as get_mac_dir
@@ -2078,6 +2079,10 @@ class ResultsWizard(tk.Toplevel):
                                    text="Update",
                                    width=width,
                                    command=self.update_selected)
+        delete_button = ttk.Button(self.right_buttonbox,
+                                   text="Delete",
+                                   width=width,
+                                   command=self.delete_selected)
         copy_button = ttk.Button(self.right_buttonbox,
                                  text="Copy",
                                  width=width,
@@ -2098,6 +2103,8 @@ class ResultsWizard(tk.Toplevel):
                    "selected runs.  IMPORTANT: Select runs BEFORE making "
                    "changes to plotting options.")
         Tooltip(update_button, text=tt_text,  **TOP_TT_KWARGS)
+        tt_text = "Send one or more runs or overlays to trash"
+        Tooltip(delete_button, text=tt_text,  **TOP_TT_KWARGS)
         tt_text = "Copy one or more runs or overlays to USB or elsewhere"
         Tooltip(copy_button, text=tt_text,  **TOP_TT_KWARGS)
 
@@ -2108,6 +2115,7 @@ class ResultsWizard(tk.Toplevel):
         overlay_button.pack()
         pdf_button.pack()
         update_button.pack()
+        delete_button.pack()
         copy_button.pack()
 
         # Shortcut button
@@ -2466,83 +2474,6 @@ class ResultsWizard(tk.Toplevel):
         self.tree.delete(*self.tree.get_children())
 
     # -------------------------------------------------------------------------
-    def expand_all(self, event=None):
-        """Method to expand/open all Treeview date groupings (click on
-        button)
-        """
-        for date in self.dates:
-            self.tree.item(date, open=True)
-
-    # -------------------------------------------------------------------------
-    def collapse_all(self, event=None):
-        """Method to collapse/close all Treeview date groupings (click on
-        button)
-        """
-        for date in self.dates:
-            self.tree.item(date, open=False)
-
-    # -------------------------------------------------------------------------
-    def get_copy_dest(self):
-        """Method to get the copy destination from the user
-        """
-        # Open a tkFileDialog to get user to choose a destination
-        options = {}
-        options['parent'] = self.master
-        options['title'] = 'Choose Copy Destination'
-        if sys.platform == 'darwin':
-            options['message'] = options['title']
-        self.copy_dest = tkFileDialog.askdirectory(**options)
-        if self.copy_dest is '':  # Cancel
-            return RC_FAILURE
-
-        # If leaf directory is named IV_Swinger2, assume the user meant
-        # to choose its parent directory
-        if os.path.basename(self.copy_dest) == APP_NAME:
-            self.copy_dest = os.path.dirname(self.copy_dest)
-
-        # Check that it is writeable
-        if not os.access(self.copy_dest, os.W_OK | os.X_OK):
-            err_str = "ERROR: " + self.copy_dest + " is not writeable"
-            tkmsg.showinfo(message=err_str)
-            return RC_FAILURE
-
-        return RC_SUCCESS
-
-    # -------------------------------------------------------------------------
-    def copy_selected(self, event=None):
-        """Method to copy the selected runs and/or overlays (to a USB drive or
-        elsewhere)
-        """
-        # Get the selected run(s) from the Treeview
-        selected_runs = self.get_selected_runs()
-
-        # Get the selected overlay(s) from the Treeview
-        selected_overlays = self.get_selected_overlays()
-
-        # Display error dialog and return if nothing is selected
-        if not len(selected_runs) and not len(selected_overlays):
-            tkmsg.showinfo(message="ERROR: no runs or overlays are selected")
-            return
-
-        # Get destination from user
-        rc = self.get_copy_dest()
-        if rc != RC_SUCCESS:
-            return
-
-        all_selected = selected_runs + selected_overlays
-
-        # Do a "dry run" to check if any of the directories to be
-        # copied to already exist. If so, ask user for permission to
-        # overwrite (or not).
-        overwrite = self.copy_overwrite_precheck(all_selected)
-
-        # Copy all directories
-        num_copied = self.copy_dirs(all_selected, overwrite)
-
-        # Display a summary message
-        self.display_copy_summary(num_copied)
-
-    # -------------------------------------------------------------------------
     def make_shortcut(self, event=None):
         """Method to create a desktop shortcut to the app data folder
         """
@@ -2610,6 +2541,123 @@ class ResultsWizard(tk.Toplevel):
         else:
             msg_str = "ERROR: Programming bug"
         tkmsg.showinfo(message=msg_str)
+
+    # -------------------------------------------------------------------------
+    def expand_all(self, event=None):
+        """Method to expand/open all Treeview date groupings (click on
+        button)
+        """
+        for date in self.dates:
+            self.tree.item(date, open=True)
+
+    # -------------------------------------------------------------------------
+    def collapse_all(self, event=None):
+        """Method to collapse/close all Treeview date groupings (click on
+        button)
+        """
+        for date in self.dates:
+            self.tree.item(date, open=False)
+
+    # -------------------------------------------------------------------------
+    def get_copy_dest(self):
+        """Method to get the copy destination from the user
+        """
+        # Open a tkFileDialog to get user to choose a destination
+        options = {}
+        options['parent'] = self.master
+        options['title'] = 'Choose Copy Destination'
+        if sys.platform == 'darwin':
+            options['message'] = options['title']
+        self.copy_dest = tkFileDialog.askdirectory(**options)
+        if self.copy_dest is '':  # Cancel
+            return RC_FAILURE
+
+        # If leaf directory is named IV_Swinger2, assume the user meant
+        # to choose its parent directory
+        if os.path.basename(self.copy_dest) == APP_NAME:
+            self.copy_dest = os.path.dirname(self.copy_dest)
+
+        # Check that it is writeable
+        if not os.access(self.copy_dest, os.W_OK | os.X_OK):
+            err_str = "ERROR: " + self.copy_dest + " is not writeable"
+            tkmsg.showinfo(message=err_str)
+            return RC_FAILURE
+
+        return RC_SUCCESS
+
+    # -------------------------------------------------------------------------
+    def delete_selected(self, event=None):
+        """Method to send the selected runs and/or overlays to the trash
+        """
+        # Get the selected run(s) from the Treeview
+        selected_runs = self.get_selected_runs()
+
+        # Get the selected overlay(s) from the Treeview
+        selected_overlays = self.get_selected_overlays()
+
+        # Display error dialog and return if nothing is selected
+        if not len(selected_runs) and not len(selected_overlays):
+            tkmsg.showinfo(message="ERROR: no runs or overlays are selected")
+            return
+
+        all_selected = selected_runs + selected_overlays
+
+        if self.ok_to_trash(len(selected_runs), len(selected_overlays)):
+            # Send selected runs and overlays to trash
+            for selected in all_selected:
+                send2trash(selected)
+            # Delete them from the treeview
+            self.tree.delete(*self.tree.selection())
+
+    # -------------------------------------------------------------------------
+    def ok_to_trash(self, num_selected_runs, num_selected_overlays):
+        """Method to prompt the user before moving runs and overlays to the
+           trash
+        """
+        msg_str = ""
+        if num_selected_runs:
+            msg_str += "Send " + str(num_selected_runs)
+            msg_str += " runs to the trash?\n"
+        if num_selected_overlays:
+            msg_str += "Send " + str(num_selected_overlays)
+            msg_str += " overlays to the trash?\n"
+        granted = tkmsg.askyesno("OK to send to trash?", msg_str,
+                                 default=tkmsg.NO)
+        return granted
+
+    # -------------------------------------------------------------------------
+    def copy_selected(self, event=None):
+        """Method to copy the selected runs and/or overlays (to a USB drive or
+        elsewhere)
+        """
+        # Get the selected run(s) from the Treeview
+        selected_runs = self.get_selected_runs()
+
+        # Get the selected overlay(s) from the Treeview
+        selected_overlays = self.get_selected_overlays()
+
+        # Display error dialog and return if nothing is selected
+        if not len(selected_runs) and not len(selected_overlays):
+            tkmsg.showinfo(message="ERROR: no runs or overlays are selected")
+            return
+
+        # Get destination from user
+        rc = self.get_copy_dest()
+        if rc != RC_SUCCESS:
+            return
+
+        all_selected = selected_runs + selected_overlays
+
+        # Do a "dry run" to check if any of the directories to be
+        # copied to already exist. If so, ask user for permission to
+        # overwrite (or not).
+        overwrite = self.copy_overwrite_precheck(all_selected)
+
+        # Copy all directories
+        num_copied = self.copy_dirs(all_selected, overwrite)
+
+        # Display a summary message
+        self.display_copy_summary(num_copied)
 
     # -------------------------------------------------------------------------
     def get_selected_runs(self, include_whole_days=True):
@@ -6291,7 +6339,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         rc = self.receive_msg_from_arduino()
         version_intro = "IV Swinger2 sketch version"
         if (rc == RC_SUCCESS and
-            self.msg_from_arduino.startswith(version_intro)):
+                self.msg_from_arduino.startswith(version_intro)):
             rc = self.receive_msg_from_arduino()
         if rc == RC_SUCCESS and self.msg_from_arduino == unicode('Ready\n'):
             self.arduino_ready = True
