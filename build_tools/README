@@ -21,24 +21,24 @@ Instructions for Mac build:
        % cd ~/Downloads/dmgbuild-1.2.1  (or whatever the version is now)
        % sudo python setup.py build install
 
-  2) Set environment variable $GITHUB to point to the parent directory
+  3) Set environment variable $GITHUB to point to the parent directory
      of your clone of the IV_Swinger GitHub repo, e.g.:
 
        % export GITHUB="$HOME/GitHub"
 
-  3) Update the version string in $GITHUB/IV_Swinger/python/version.txt
+  4) Update the version string in $GITHUB/IV_Swinger/python/version.txt
 
-  4) Complete all testing using straight Python (this assumes that
+  5) Complete all testing using straight Python (this assumes that
      you have installed all of the required Python packages):
 
        % cd $GITHUB/IV_Swinger/python
        % python IV_Swinger2.py
 
-  5) Create a build folder/directory somewhere NOT under $GITHUB, e.g.:
+  6) Create a build folder/directory somewhere NOT under $GITHUB, e.g.:
 
        % mkdir $HOME/IV_Swinger2_build
 
-  6) Run pyinstaller script in that folder:
+  7) Run pyinstaller script in that folder:
 
        % cd $HOME/IV_Swinger2_build
        % $GITHUB/IV_Swinger/build_tools/mac_run_pyi
@@ -46,23 +46,23 @@ Instructions for Mac build:
        NOTE: this generates a lot of warnings and errors. See the
              section "Acceptable Mac errors and warnings" below.
 
-  7) Test the generated executable:
+  8) Test the generated executable:
 
        % cd $HOME/IV_Swinger2_build/dist
        % open IV\ Swinger\ 2.app
 
-  8) Build the DMG with dmgbuild:
+  9) Build the DMG with dmgbuild:
 
        % cd $HOME/IV_Swinger2_build
        % $GITHUB/IV_Swinger/build_tools/mac_build_dmg
 
-  9) Test the DMG:
+ 10) Test the DMG:
 
        % open *.dmg
 
        Follow instructions to install
 
- 10) Test the installed app by launching from Applications folder
+ 11) Test the installed app by launching from Applications folder
 
 --------------------------------------------------------------------------------
 Acceptable Mac errors and warnings
