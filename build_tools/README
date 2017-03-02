@@ -1,5 +1,5 @@
-This directory contains scripts used for building Mac and Windows
-executables and packaging them in installers.
+The build_tools directory contains scripts used for building Mac and
+Windows executables and packaging them in installers.
 
 Do NOT use this directory for running these tools. If you do that, then
 the output files might accidently get committed to the repo, and that is
@@ -109,16 +109,18 @@ NOTE: it is assumed that you already have python and pip installed as
        set GITHUB=%HOME%\Documents\GitHub
        setx GITHUB %HOME%\Documents\GitHub
 
-  3) Complete all testing using straight Python:
+  3) Update the version string in %GITHUB%\IV_Swinger\python\version.txt
+
+  4) Complete all testing using straight Python:
 
        cd %GITHUB%\IV_Swinger\python
        python IV_Swinger2.py
 
-  4) Create a build folder/directory somewhere NOT under %GITHUB%, e.g.:
+  5) Create a build folder/directory somewhere NOT under %GITHUB%, e.g.:
 
        mkdir %HOME%\IV_Swinger2_build
 
-  5) Run the run_pyi.bat script in that folder:
+  6) Run the run_pyi.bat script in that folder:
 
        cd %HOME%\IV_Swinger2_build
        %GITHUB%\IV_Swinger\build_tools\run_pyi.bat
@@ -126,37 +128,37 @@ NOTE: it is assumed that you already have python and pip installed as
        NOTE: this generates a lot of warnings and errors. See the
              section "Acceptable Windows errors and warnings" below.
 
-  6) Test the generated executable:
+  7) Test the generated executable:
 
        cd %HOME%\IV_Swinger2_build\dist\"IV Swinger 2"
        "IV Swinger 2.exe"
 
-  7) Run the WiX "heat" utility like this:
+  8) Run the WiX "heat" utility like this:
 
        cd %HOME%\IV_Swinger2_build
        heat dir ".\dist\IV Swinger 2" -ag -sfrag -sreg -template product -out heat.wxs
 
        Now you have a file %HOME%\IV_Swinger2_build\heat.wxs
 
-  8) Run the fix_heat_wxs.py script:
+  9) Run the fix_heat_wxs.py script:
 
        python %GITHUB%\IV_Swinger\build_tools\fix_heat_wxs.py heat.wxs
 
-  9) Run candle (WiX tool):
+ 10) Run candle (WiX tool):
 
        candle IV_Swinger2_*.wxs
 
- 10) Run light (WiX tool):
+ 11) Run light (WiX tool):
 
        light -b ".\dist\IV Swinger 2" -sice:ICE60 IV_Swinger2_*.wixobj
 
- 11) Test the installer:
+ 12) Test the installer:
 
        msiexec /i IV_Swinger2_*.msi /l*v IV_Swinger2.log
      OR
        Find it with Windows Explorer and double-click it
 
- 12) Test the installed app by launching from the Start Menu
+ 13) Test the installed app by launching from the Start Menu
 
 --------------------------------------------------------------------------------
 Acceptable Windows errors and warnings:
