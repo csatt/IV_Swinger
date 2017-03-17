@@ -3682,6 +3682,8 @@ description), and software can be found
 at:
 
    https://github.com/csatt/IV_Swinger
+
+Copyright (C) 2017  Chris Satterlee
 """
         tkmsg.showinfo(message=version_str+about_str)
 

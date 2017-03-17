@@ -6,3 +6,4 @@ pyinstaller --windowed \
             --add-data="$GITHUB/IV_Swinger/python/version.txt:." \
             --name "IV Swinger 2" \
             $GITHUB/IV_Swinger/python/IV_Swinger2.py
+$GITHUB/IV_Swinger/build_tools/fix_info_plist.py ./dist/IV\ Swinger\ 2.app/Contents/Info.plist
