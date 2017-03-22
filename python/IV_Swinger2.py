@@ -85,6 +85,9 @@ import Tkinter as tk
 import tkFileDialog
 import tkMessageBox as tkmsg
 import tkSimpleDialog as tksd
+from ScrolledText import ScrolledText as ScrolledText
+from Tkconstants import N, S, E, W, TOP, BOTTOM, LEFT, RIGHT
+from Tkconstants import HORIZONTAL, VERTICAL, X, Y, YES, BOTH
 from PIL import Image, ImageTk
 from send2trash import send2trash
 try:
@@ -112,6 +115,7 @@ RC_ZERO_VOC = -5
 RC_ZERO_ISC = -6
 SPLASH_IMG = "Splash_Screen.png"
 TITLEBAR_ICON = "IV_Swinger2.ico"  # Windows
+HELP_DIALOG_FONT = "Arial"
 CFG_STRING = 0
 CFG_FLOAT = 1
 CFG_INT = 2
@@ -132,20 +136,7 @@ BOT_TT_KWARGS = {"bg": TOOLTIP_COLOR,
                  "wraplength": TOOLTIP_WRAP_PIXELS,
                  "staytime": TOOLTIP_STAYTIME,
                  "offset_up": True}
-# Tk constants
-N = tk.N
-S = tk.S
-W = tk.W
-E = tk.E
-TOP = tk.TOP
-BOTTOM = tk.BOTTOM
-LEFT = tk.LEFT
-RIGHT = tk.RIGHT
-HORIZONTAL = tk.HORIZONTAL
-VERTICAL = tk.VERTICAL
-X = tk.X
-Y = tk.Y
-BOTH = tk.BOTH
+
 # From Arduino SPI.h:
 SPI_CLOCK_DIV4 = 0x00
 SPI_CLOCK_DIV16 = 0x01
@@ -3938,24 +3929,8 @@ those that were in effect for the curve being displayed. This allows the user
 to make incremental changes. However, when the Results Wizard is closed,
 the preferences revert to those that were in effect before it was opened.
 """
-        total_height = (len(help_text_intro.split('\n')) +
-                        len(help_heading_1.split('\n')) +
-                        len(help_text_1.split('\n')) +
-                        len(help_heading_2.split('\n')) +
-                        len(help_text_2.split('\n')) +
-                        len(help_heading_3.split('\n')) +
-                        len(help_text_3.split('\n')))
-        if self.master.ivs2.x_pixels <= 800:
-            font_size = 12
-            total_height *= 0.85
-        elif self.master.ivs2.x_pixels <= 1024:
-            font_size = 13
-            total_height *= 0.9
-        else:
-            font_size = 14
-            total_height *= 0.95
-        font = "Arial " + str(font_size)
-        self.text = tk.Text(master, height=total_height, borderwidth=10)
+        font = HELP_DIALOG_FONT
+        self.text = ScrolledText(master, height=30, borderwidth=10)
         self.text.tag_configure('body_tag', font=font)
         self.text.tag_configure('heading_tag', font=font, underline=True)
         self.text.insert('end', help_text_intro, ('body_tag'))
@@ -4023,22 +3998,8 @@ Current calibration (a bit trickier):"""
   performed quickly and in steady sunlight so that the Isc is not changing
   between the DMM measurement and the IV swing. Repeat to confirm/adjust.
 """
-        total_height = (len(help_text_1.split('\n')) +
-                        len(voltage_heading.split('\n')) +
-                        len(help_text_2.split('\n')) +
-                        len(current_heading.split('\n')) +
-                        len(help_text_3.split('\n')))
-        if self.master.ivs2.x_pixels <= 750:
-            font_size = 12
-            total_height *= 0.85
-        elif self.master.ivs2.x_pixels <= 1100:
-            font_size = 13
-            total_height *= 0.9
-        else:
-            font_size = 14
-            total_height *= 0.95
-        font = "Arial " + str(font_size)
-        self.text = tk.Text(master, height=total_height, borderwidth=10)
+        font = HELP_DIALOG_FONT
+        self.text = ScrolledText(master, height=30, borderwidth=10)
         self.text.tag_configure('body_tag', font=font)
         self.text.tag_configure('heading_tag', font=font, underline=True)
         self.text.insert('end', help_text_1, ('body_tag'))
@@ -4838,18 +4799,8 @@ ADC correction:
   uncorrected values, regardless of this setting. Also note that the
   calibration settings are used regardless of this setting.
 """
-        total_height = (len(help_text_1.split('\n')))
-        if self.master.ivs2.x_pixels <= 800:
-            font_size = 12
-            total_height *= 0.90
-        elif self.master.ivs2.x_pixels <= 1024:
-            font_size = 13
-            total_height *= 0.95
-        else:
-            font_size = 14
-            total_height *= 1.0
-        font = "Arial " + str(font_size)
-        self.text = tk.Text(master, height=total_height, borderwidth=10)
+        font = HELP_DIALOG_FONT
+        self.text = ScrolledText(master, height=30, borderwidth=10)
         self.text.tag_configure('body_tag', font=font)
         self.text.tag_configure('heading_tag', font=font, underline=True)
         self.text.insert('end', help_text_1, ('body_tag'))
@@ -4900,18 +4851,8 @@ the right of the "Swing!" button. The lone Preferences option is to choose
 whether the settings on the main screen should be retained after the program is
 closed and restored the next time it is opened.
 """
-        total_height = (len(help_text_1.split('\n')))
-        if self.master.ivs2.x_pixels <= 800:
-            font_size = 12
-            total_height *= 0.85
-        elif self.master.ivs2.x_pixels <= 1024:
-            font_size = 13
-            total_height *= 0.9
-        else:
-            font_size = 14
-            total_height *= 0.95
-        font = "Arial " + str(font_size)
-        self.text = tk.Text(master, height=total_height, borderwidth=10)
+        font = HELP_DIALOG_FONT
+        self.text = ScrolledText(master, height=15, borderwidth=10)
         self.text.tag_configure('body_tag', font=font)
         self.text.tag_configure('heading_tag', font=font, underline=True)
         self.text.insert('end', help_text_1, ('body_tag'))
@@ -4974,18 +4915,8 @@ Aspect width:
   Width of graph's aspect ratio (max 8). Used for "distance" calculation in the
   discard algorithm.
 """
-        total_height = (len(help_text_1.split('\n')))
-        if self.master.ivs2.x_pixels <= 800:
-            font_size = 12
-            total_height *= 0.85
-        elif self.master.ivs2.x_pixels <= 1024:
-            font_size = 13
-            total_height *= 0.9
-        else:
-            font_size = 14
-            total_height *= 0.95
-        font = "Arial " + str(font_size)
-        self.text = tk.Text(master, height=total_height, borderwidth=10)
+        font = HELP_DIALOG_FONT
+        self.text = ScrolledText(master, height=30, borderwidth=10)
         self.text.tag_configure('body_tag', font=font)
         self.text.tag_configure('heading_tag', font=font, underline=True)
         self.text.insert('end', help_text_1, ('body_tag'))
@@ -5054,28 +4985,8 @@ the overlay PDF (and GIF) to a USB drive or elsewhere. Note that once an
 overlay is finalized, only the images are saved; it is not possible to modify
 an overlay after it is finalized.
 """
-        total_height = (len(help_text_intro.split('\n')) +
-                        len(help_heading_1.split('\n')) +
-                        len(help_text_1.split('\n')) +
-                        len(help_heading_2.split('\n')) +
-                        len(help_text_2.split('\n')) +
-                        len(help_heading_3.split('\n')) +
-                        len(help_text_3.split('\n')) +
-                        len(help_heading_4.split('\n')) +
-                        len(help_text_4.split('\n')) +
-                        len(help_heading_5.split('\n')) +
-                        len(help_text_5.split('\n')))
-        if self.master.ivs2.x_pixels <= 800:
-            font_size = 12
-            total_height *= 0.85
-        elif self.master.ivs2.x_pixels <= 1024:
-            font_size = 13
-            total_height *= 0.9
-        else:
-            font_size = 14
-            total_height *= 0.95
-        font = "Arial " + str(font_size)
-        self.text = tk.Text(master, height=total_height, borderwidth=10)
+        font = HELP_DIALOG_FONT
+        self.text = ScrolledText(master, height=30, borderwidth=10)
         self.text.tag_configure('body_tag', font=font)
         self.text.tag_configure('heading_tag', font=font, underline=True)
         self.text.insert('end', help_text_intro, ('body_tag'))
