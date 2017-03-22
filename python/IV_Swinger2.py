@@ -86,8 +86,7 @@ import tkFileDialog
 import tkMessageBox as tkmsg
 import tkSimpleDialog as tksd
 from ScrolledText import ScrolledText as ScrolledText
-from Tkconstants import N, S, E, W, TOP, BOTTOM, LEFT, RIGHT
-from Tkconstants import HORIZONTAL, VERTICAL, X, Y, YES, BOTH
+from Tkconstants import N, S, E, W, LEFT, HORIZONTAL, Y, BOTH
 from PIL import Image, ImageTk
 from send2trash import send2trash
 try:
@@ -1909,22 +1908,23 @@ properly to the PV module
 
     # -------------------------------------------------------------------------
     def start_centered(self):
-        # Causes app to open centered (side-to-side) on screen, aligned to top
-        self.root.geometry('+%d+0' % ((self.root.winfo_screenwidth()/2) -
+        # Causes app to open centered (side-to-side) on screen, aligned
+        # to top (5 pixel overscan compensation)
+        self.root.geometry('+%d+5' % ((self.root.winfo_screenwidth()/2) -
                                       (self.ivs2.x_pixels/2)))
 
     # -------------------------------------------------------------------------
     def start_to_right(self):
-        # Causes app to open to the right of the screen (with 20
-        # pixels left), aligned to top
-        self.root.geometry('+%d+0' % (self.root.winfo_screenwidth() -
+        # Causes app to open to the right of the screen (with 20 pixels
+        # left), aligned to top (5 pixel overscan compensation)
+        self.root.geometry('+%d+5' % (self.root.winfo_screenwidth() -
                                       self.ivs2.x_pixels - 20))
 
     # -------------------------------------------------------------------------
     def start_to_left(self):
-        # Causes app to open to the left of the screen (with 20
-        # pixels left), aligned to top
-        self.root.geometry('+20+0')
+        # Causes app to open to the left of the screen (with 20 pixels
+        # left), aligned to top (5 pixel overscan compensation)
+        self.root.geometry('+20+5')
 
     # -------------------------------------------------------------------------
     def close_gui(self):
