@@ -1045,6 +1045,21 @@ class GraphicalUserInterface(ttk.Frame):
             self.apply_title_config()
 
     # -------------------------------------------------------------------------
+    def get_saved_title(self, cfg_file):
+        """Method to get the title configuration from the specified .cfg file
+        """
+        my_cfg = ConfigParser.SafeConfigParser()
+        with open(cfg_file, "r") as cfg_fp:
+            # Read values from file
+            my_cfg.readfp(cfg_fp)
+            try:
+                # Get title config
+                title = my_cfg.get("Plotting", "title")
+            except ConfigParser.NoOptionError:
+                title = None
+        return title
+
+    # -------------------------------------------------------------------------
     def get_old_title_config(self, cfg_file):
         """Method to get the title configuration from the specified .cfg file
            and apply its value to the current config and its
@@ -1053,21 +1068,11 @@ class GraphicalUserInterface(ttk.Frame):
         if DEBUG_CONFIG:
             dbg_str = "get_old_title_config: Reading config from " + cfg_file
             self.ivs2.logger.print_and_log(dbg_str)
-        my_cfg = ConfigParser.SafeConfigParser()
-        with open(cfg_file, "r") as cfg_fp:
-            section = "Plotting"
-            option = "title"
-            # Read values from file
-            my_cfg.readfp(cfg_fp)
-            try:
-                # Get title config
-                title = my_cfg.get(section, option)
-            except ConfigParser.NoOptionError:
-                title = None
-            # Update title in current config
-            self.ivs2.cfg_set(section, option, title)
-            # Apply title config only
-            self.apply_title_config()
+        title = self.get_saved_title(cfg_file)
+        # Update title in current config
+        self.ivs2.cfg_set("Plotting", "title", title)
+        # Apply title config only
+        self.apply_title_config()
 
     # -------------------------------------------------------------------------
     def apply_one_config(self, section, option, config_type, old_prop_val):
@@ -2238,8 +2243,20 @@ class ResultsWizard(tk.Toplevel):
             # and collapse_all methods
             self.dates.append(date)
 
+        # Get the title from the saved config
+        title = None
+        run_dir = self.get_run_dir(subdir)
+        cfg_file = os.path.join(run_dir, APP_NAME + ".cfg")
+        if os.path.exists(cfg_file):
+            title = self.master.get_saved_title(cfg_file)
+        if title == "None" or title is None:
+            title_str = ""
+        else:
+            title_str = "   " + title
+
         # Add child time item (iid is full date_time_str)
-        self.tree.insert(date, 'end', subdir, text=xlated_time)
+        text = xlated_time + title_str
+        self.tree.insert(date, 'end', subdir, text=text)
 
     # -------------------------------------------------------------------------
     def done(self, event=None):
