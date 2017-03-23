@@ -2934,6 +2934,7 @@ class ResultsWizard(tk.Toplevel):
             self.master.plot_title = None
             cfg_file = os.path.join(run_dir, APP_NAME + ".cfg")
             if os.path.exists(cfg_file):
+                self.master.ivs2.cfg_filename = cfg_file
                 self.master.get_old_title_config(cfg_file)
                 self.master.plot_title = self.master.ivs2.plot_title
 
