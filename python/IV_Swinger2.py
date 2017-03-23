@@ -2860,6 +2860,9 @@ class ResultsWizard(tk.Toplevel):
             else:
                 self.master.plot_title = new_title
                 self.master.redisplay_img(reprocess_adc=False)
+                text = self.tree.item(dts)['text'][:8] + "   " + new_title
+                self.tree.item(dts, text=text)
+                
 
     # -------------------------------------------------------------------------
     def view_pdf(self, event=None):
