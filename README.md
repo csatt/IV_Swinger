@@ -9,7 +9,7 @@ YouTube demo videos (IV Swinger 2):
 
 [![IV Swinger 2 Demo: Part I](http://img.youtube.com/vi/WhnTWciiNNo/0.jpg)](http://www.youtube.com/watch?v=WhnTWciiNNo)
 
-[![IV Swinger 2 Demo: Part II](http://img.youtube.com/vi/9iPq5AsuU_U0.jpg)](http://www.youtube.com/watch?v=9iPq5AsuU_U)
+[![IV Swinger 2 Demo: Part II](http://img.youtube.com/vi/9iPq5AsuU_U/0.jpg)](http://www.youtube.com/watch?v=9iPq5AsuU_U)
 
 YouTube demo video (IV Swinger):
 
