@@ -698,7 +698,7 @@ class GraphicalUserInterface(ttk.Frame):
         aspect = "%sx%s" % (str(self.ivs2.plot_x_inches),
                             str(self.ivs2.plot_y_inches))
         tt_text = ("Pull down to select desired display size or type in "
-                   "desired size and hit Enter. Must be an apect ratio of "
+                   "desired size and hit Enter. Must be an aspect ratio of "
                    "%s (height will be modified if not)" % aspect)
         Tooltip(self.img_size_combo, text=tt_text, **TOP_TT_KWARGS)
         self.img_size_combo.bind('<<ComboboxSelected>>', self.update_img_size)
@@ -2115,11 +2115,8 @@ class ResultsWizard(tk.Toplevel):
         copy_button.pack()
 
         # Shortcut button
-        text = "Make desktop shortcut"
-        self.shortcut_button = ttk.Button(master, text=text,
-                                          command=self.make_shortcut)
-        tt_text = "Create a desktop shortcut to results folder"
-        Tooltip(self.shortcut_button, text=tt_text,  **TOP_TT_KWARGS)
+        self.shortcut_button = ttk.Button(master)
+        self.config_shortcut_button()
 
         # Done button
         self.done_button = ttk.Button(master, text="Done", width=width,
@@ -2138,7 +2135,7 @@ class ResultsWizard(tk.Toplevel):
         self.tree.bind('<<TreeviewSelect>>', self.select)
         self.populate_tree()
         tt_text = ("Click on path at the top to change. Shift-click and "
-                   "Control-click can be used to selected multiple runs "
+                   "Control-click can be used to select multiple runs "
                    "for copying or overlaying.")
         Tooltip(self.tree, text=tt_text, **TOP_TT_KWARGS)
         self.tree.pack(side=LEFT)
@@ -2257,6 +2254,11 @@ class ResultsWizard(tk.Toplevel):
         # Add child time item (iid is full date_time_str)
         text = xlated_time + title_str
         self.tree.insert(date, 'end', subdir, text=text)
+
+    # -------------------------------------------------------------------------
+    def delete_all(self):
+        """Method to delete all items from the Treeview"""
+        self.tree.delete(*self.tree.get_children())
 
     # -------------------------------------------------------------------------
     def done(self, event=None):
@@ -2475,11 +2477,24 @@ class ResultsWizard(tk.Toplevel):
             self.results_dir = dir
             self.delete_all()
             self.populate_tree()
+            self.config_import_button()
 
     # -------------------------------------------------------------------------
-    def delete_all(self):
-        """Method to delete all items from the Treeview"""
-        self.tree.delete(*self.tree.get_children())
+    def config_shortcut_button(self):
+        """Method to configure the shortcut button normally"""
+        self.shortcut_button['text'] = "Make desktop shortcut"
+        self.shortcut_button['command'] = self.make_shortcut
+        tt_text = "Create a desktop shortcut to results folder"
+        Tooltip(self.shortcut_button, text=tt_text,  **TOP_TT_KWARGS)
+
+    # -------------------------------------------------------------------------
+    def config_import_button(self):
+        """Method to configure the shortcut button as the import button"""
+        self.shortcut_button['text'] = "Import All"
+        self.shortcut_button['command'] = self.import_results
+        to_from = (self.master.ivs2.app_data_dir, self.results_dir)
+        tt_text = "Import results to %s from %s" % to_from
+        Tooltip(self.shortcut_button, text=tt_text,  **TOP_TT_KWARGS)
 
     # -------------------------------------------------------------------------
     def make_shortcut(self, event=None):
@@ -2549,6 +2564,47 @@ class ResultsWizard(tk.Toplevel):
         else:
             msg_str = "ERROR: Programming bug"
         tkmsg.showinfo(message=msg_str)
+
+    # -------------------------------------------------------------------------
+    def import_results(self, event=None):
+        """Method to import results to app data folder"""
+        # Get the list of runs to import from the current tree
+        import_runs = []
+        for date in self.dates:
+            for run in self.tree.get_children(date):
+                run_path = os.path.join(self.results_dir, run)
+                import_runs.append(run_path)
+
+        # Get the list of overlays to import
+        import_overlays = []
+        if self.tree.exists('overlays'):
+            for overlay in self.tree.get_children('overlays'):
+                dts = IV_Swinger.DateTimeStr.extract_date_time_str(overlay)
+                overlay_path = os.path.join(self.results_dir, 'overlays', dts)
+                import_overlays.append(overlay_path)
+
+        all_import = import_runs + import_overlays
+
+        # Set the copy destination to the parent of the app data folder
+        # (i.e. strip off the IV_Swinger2)
+        self.copy_dest = os.path.dirname(self.master.ivs2.app_data_dir)
+
+        # Do a "dry run" to check if any of the directories to be
+        # copied to already exist. If so, ask user for permission to
+        # overwrite (or not).
+        overwrite = self.copy_overwrite_precheck(all_import)
+
+        # Copy all directories
+        num_copied = self.copy_dirs(all_import, overwrite)
+
+        # Display a summary message
+        self.display_copy_summary(num_copied)
+
+        # Restore the tree to the app data folder
+        self.results_dir = self.master.ivs2.app_data_dir
+        self.delete_all()
+        self.populate_tree()
+        self.config_shortcut_button()
 
     # -------------------------------------------------------------------------
     def expand_all(self, event=None):
@@ -2862,7 +2918,6 @@ class ResultsWizard(tk.Toplevel):
                 self.master.redisplay_img(reprocess_adc=False)
                 text = self.tree.item(dts)['text'][:8] + "   " + new_title
                 self.tree.item(dts, text=text)
-                
 
     # -------------------------------------------------------------------------
     def view_pdf(self, event=None):
@@ -4921,7 +4976,7 @@ Max Isc poll:
   Maximum number of loops waiting for Isc to stabilize before giving up.
 
 Isc stable ADC:
-  Three consective measurements must vary less than this amount for Isc to be
+  Three consecutive measurements must vary less than this amount for Isc to be
   considered stable.
 
 Max discards:
