@@ -135,6 +135,11 @@ BOT_TT_KWARGS = {"bg": TOOLTIP_COLOR,
                  "wraplength": TOOLTIP_WRAP_PIXELS,
                  "staytime": TOOLTIP_STAYTIME,
                  "offset_up": True}
+SKETCH_VER_LT = -1
+SKETCH_VER_EQ = 0
+SKETCH_VER_GT = 1
+SKETCH_VER_ERR = -2
+LATEST_SKETCH_VER = "1.1.0"
 
 # From Arduino SPI.h:
 SPI_CLOCK_DIV4 = 0x00
@@ -169,10 +174,31 @@ MAX_DISCARDS_DEFAULT = 300
 ASPECT_HEIGHT_DEFAULT = 2
 ASPECT_WIDTH_DEFAULT = 3
 # Other Arduino constants
-MAX_MSG_LEN_TO_ARDUINO = 30
 ARDUINO_MAX_INT = (1 << 15) - 1
 ADC_MAX = 4095
 MAX_ASPECT = 8
+# Default caalibration values
+V_CAL_DEFAULT = 1.0197
+I_CAL_DEFAULT = 1.1187
+# Default resistor values
+R1_DEFAULT = 150000.0   # R1 = 150k nominal
+R1_DEFAULT_BUG = 180000.0   # This was a bug
+R2_DEFAULT = 7500.0     # R2 = 7.5k nominal
+RF_DEFAULT = 75000.0    # Rf = 75k
+RG_DEFAULT = 1000.0     # Rg = 1k
+SHUNT_DEFAULT = 5000.0  # Shunt = 5000 microohms
+# Arduino EEPROM constants
+EEPROM_VALID_ADDR = 0
+EEPROM_VALID_COUNT_ADDR = 4
+EEPROM_R1_OHMS_ADDR = 8
+EEPROM_R2_OHMS_ADDR = 12
+EEPROM_RF_OHMS_ADDR = 16
+EEPROM_RG_OHMS_ADDR = 20
+EEPROM_SHUNT_UOHMS_ADDR = 24
+EEPROM_V_CAL_X1M_ADDR = 28
+EEPROM_I_CAL_X1M_ADDR = 32
+EEPROM_VALID_VALUE = "123456.7890"
+EEPROM_VALID_COUNT = 7  # increment if any added
 # Debug constants
 DEBUG_CONFIG = False
 DEBUG_MEMLEAK = False
@@ -1197,6 +1223,44 @@ class GraphicalUserInterface(ttk.Frame):
         args = (section, 'current', CFG_FLOAT, self.ivs2.i_cal)
         self.ivs2.i_cal = self.apply_one_config(*args)
 
+        # NOTE: The "old" values in the args values are used when the
+        # .cfg file is missing values for a particular config
+        # type. Since the resistors were not originally included in the
+        # config, they will be missing in the .cfg files of older
+        # runs. Instead of using the current values of their associated
+        # properties, we use the default values. In the case of R1,
+        # however, there was a bug in the code when the older runs were
+        # generated, so we need to use that older (bad) value. This
+        # should prevent unexpected changes in the old graphs when they
+        # are updated (for example to plot power).
+
+        # Resistor R1
+        args = (section, 'r1 ohms', CFG_FLOAT, R1_DEFAULT_BUG)
+        self.ivs2.vdiv_r1 = self.apply_one_config(*args)
+
+        # Resistor R2
+        args = (section, 'r2 ohms', CFG_FLOAT, R2_DEFAULT)
+        self.ivs2.vdiv_r2 = self.apply_one_config(*args)
+
+        # Resistor Rf
+        args = (section, 'rf ohms', CFG_FLOAT, RF_DEFAULT)
+        self.ivs2.amm_op_amp_rf = self.apply_one_config(*args)
+
+        # Resistor Rg
+        args = (section, 'rg ohms', CFG_FLOAT, RG_DEFAULT)
+        self.ivs2.amm_op_amp_rg = self.apply_one_config(*args)
+
+        # Shunt resistor
+        #
+        # For "legacy" reasons, the shunt resistor is specified by two values:
+        # max volts and max amps.  It's resistance is max_volts/max_amps.  The
+        # max_amps value is hardcoded to 10A, so we just keep the value of
+        # max_volts in the config.
+        args = (section, 'shunt max volts', CFG_FLOAT,
+                (self.ivs2.amm_shunt_max_amps *
+                 (SHUNT_DEFAULT / 1000000.0)))
+        self.ivs2.amm_shunt_max_volts = self.apply_one_config(*args)
+
     # -------------------------------------------------------------------------
     def apply_plotting_config(self):
         """Method to apply the Plotting section options read from the
@@ -1419,6 +1483,12 @@ class GraphicalUserInterface(ttk.Frame):
         self.ivs2.cfg.add_section(section)
         self.ivs2.cfg_set(section, 'voltage', self.ivs2.v_cal)
         self.ivs2.cfg_set(section, 'current', self.ivs2.i_cal)
+        self.ivs2.cfg_set(section, 'r1 ohms', self.ivs2.vdiv_r1)
+        self.ivs2.cfg_set(section, 'r2 ohms', self.ivs2.vdiv_r2)
+        self.ivs2.cfg_set(section, 'rf ohms', self.ivs2.amm_op_amp_rf)
+        self.ivs2.cfg_set(section, 'rg ohms', self.ivs2.amm_op_amp_rg)
+        self.ivs2.cfg_set(section, 'shunt max volts',
+                          self.ivs2.amm_shunt_max_volts)
 
         # Plotting config
         section = "Plotting"
@@ -1454,7 +1524,7 @@ class GraphicalUserInterface(ttk.Frame):
         self.ivs2.cfg_set(section, 'aspect width', self.aspect_width)
 
     # -------------------------------------------------------------------------
-    def attempt_arduino_handshake(self):
+    def attempt_arduino_handshake(self, write_eeprom=False):
         """This method is a 'best-effort' attempt to reset the Arduino
         and perform the initial handshake when the GUI comes up. If this
         succeeds, there will be no delay when the go button is pressed
@@ -1487,12 +1557,13 @@ class GraphicalUserInterface(ttk.Frame):
             rc = self.ivs2.reset_arduino()
             if rc == RC_SUCCESS:
                 # Wait for Arduino ready message
-                rc = self.ivs2.wait_for_arduino_ready_and_ack()
+                rc = self.ivs2.wait_for_arduino_ready_and_ack(write_eeprom)
                 if rc == RC_SUCCESS:
                     self.go_button.state(['!disabled'])
                     self.go_button_status_label['text'] = "     Connected     "
                     self.after(1000,
                                lambda: self.clear_go_button_status_label())
+                    self.check_arduino_sketch_version()
                     if self.ivs2.cfg.get('USB', 'port') != self.ivs2.usb_port:
                         self.ivs2.cfg_set('USB', 'port', self.ivs2.usb_port)
                         self.save_config()
@@ -1504,6 +1575,12 @@ class GraphicalUserInterface(ttk.Frame):
     # -------------------------------------------------------------------------
     def clear_go_button_status_label(self):
         self.go_button_status_label['text'] = " " * 30
+
+    # -------------------------------------------------------------------------
+    def check_arduino_sketch_version(self):
+        if self.ivs2.arduino_sketch_ver != "Unknown":
+            if self.ivs2.arduino_sketch_ver_lt(LATEST_SKETCH_VER):
+                DownlevelArduinoSketchDialog(self)
 
     # -------------------------------------------------------------------------
     def update_img_size(self, event=None):
@@ -1640,9 +1717,9 @@ class GraphicalUserInterface(ttk.Frame):
         self.go_button.state(['!pressed'])
 
     # -------------------------------------------------------------------------
-    def reestablish_arduino_comm(self):
+    def reestablish_arduino_comm(self, write_eeprom=False):
         self.ivs2.arduino_ready = False
-        self.attempt_arduino_handshake()
+        self.attempt_arduino_handshake(write_eeprom)
 
     # -------------------------------------------------------------------------
     def swing_loop(self, loop_mode=False, first_loop=False):
@@ -2477,6 +2554,21 @@ class ResultsWizard(tk.Toplevel):
             self.results_dir = dir
             self.delete_all()
             self.populate_tree()
+            if not self.tree.exists('overlays') and not len(self.dates):
+                # If there are no overlays or runs in the specified folder, but
+                # there is a subfolder named IV_Swinger2 or the parent
+                # directory is named IV_Swinger2, then assume the user meant to
+                # select the subfolder or parent folder respectively
+                ivs2_subdir = os.path.join(self.results_dir, APP_NAME)
+                parent_dir = os.path.dirname(self.results_dir)
+                if os.path.isdir(ivs2_subdir):
+                    self.results_dir = ivs2_subdir
+                    self.delete_all()
+                    self.populate_tree()
+                elif os.path.basename(parent_dir) == APP_NAME:
+                    self.results_dir = parent_dir
+                    self.delete_all()
+                    self.populate_tree()
             self.config_import_button()
 
     # -------------------------------------------------------------------------
@@ -3671,6 +3763,8 @@ class MenuBar(tk.Menu):
         self.menubar.add_cascade(menu=self.file_menu, label='File')
         self.file_menu.add_command(label="View Log File",
                                    command=self.view_log_file)
+        self.file_menu.add_command(label="View Config File",
+                                   command=self.view_config_file)
 
     # -------------------------------------------------------------------------
     def create_usb_port_menu(self):
@@ -3691,6 +3785,8 @@ class MenuBar(tk.Menu):
                                         command=self.get_v_cal_value)
         self.calibrate_menu.add_command(label="Current Calibration",
                                         command=self.get_i_cal_value)
+        self.calibrate_menu.add_command(label="Resistors",
+                                        command=self.get_resistor_values)
         self.calibrate_menu.add_command(label="Calibration Help",
                                         command=self.show_calibration_help)
 
@@ -3752,7 +3848,11 @@ at:
 
 Copyright (C) 2017  Chris Satterlee
 """
-        tkmsg.showinfo(message=version_str+about_str)
+        sketch_ver = self.master.ivs2.arduino_sketch_ver
+        sketch_ver_str = ""
+        if sketch_ver != "Unknown":
+            sketch_ver_str = "Arduino sketch version: " + sketch_ver + "\n\n"
+        tkmsg.showinfo(message=version_str+sketch_ver_str+about_str)
 
     # -------------------------------------------------------------------------
     def view_log_file(self):
@@ -3767,6 +3867,10 @@ Copyright (C) 2017  Chris Satterlee
             options['message'] = options['title']
         log_file = tkFileDialog.askopenfilename(**options)
         self.master.sys_view_file(log_file)
+
+    # -------------------------------------------------------------------------
+    def view_config_file(self):
+        self.master.sys_view_file(self.master.ivs2.cfg_filename)
 
     # -------------------------------------------------------------------------
     def select_serial(self):
@@ -3788,6 +3892,8 @@ Copyright (C) 2017  Chris Satterlee
             new_v_cal = self.master.ivs2.v_cal * (new_voc / curr_voc)
             self.master.ivs2.v_cal = new_v_cal
             self.master.ivs2.cfg_set('Calibration', 'voltage', new_v_cal)
+            # Update value in EEPROM
+            self.update_values_in_eeprom()
             # Redisplay the image with the new settings (saves config)
             self.master.redisplay_img(reprocess_adc=True)
 
@@ -3802,8 +3908,25 @@ Copyright (C) 2017  Chris Satterlee
             new_i_cal = self.master.ivs2.i_cal * (new_isc / curr_isc)
             self.master.ivs2.i_cal = new_i_cal
             self.master.ivs2.cfg_set('Calibration', 'current', new_i_cal)
+            # Update value in EEPROM
+            self.update_values_in_eeprom()
             # Redisplay the image with the new settings (saves config)
             self.master.redisplay_img(reprocess_adc=True)
+
+    # -------------------------------------------------------------------------
+    def update_values_in_eeprom(self):
+        if self.master.ivs2.arduino_sketch_ver_lt("1.1.0"):
+            warning_str = """
+WARNING: Calibration values cannot be stored on the IV Swinger 2 hardware with
+this version of the Arduino software. Please upgrade.
+"""
+            tkmsg.showinfo(message=warning_str)
+        else:
+            self.master.reestablish_arduino_comm(write_eeprom=True)
+
+    # -------------------------------------------------------------------------
+    def get_resistor_values(self):
+        ResistorValuesDialog(self.master)
 
     # -------------------------------------------------------------------------
     def show_calibration_help(self):
@@ -4036,7 +4159,12 @@ class CalibrationHelpDialog(Dialog):
         help_text_1 = """
 Voltage and current calibration are performed by "correcting" the open circuit
 voltage (Voc) and short circuit current (Isc) values of a given IV curve with
-values that are measured with a digital multimeter (DMM).
+values that are measured with a digital multimeter (DMM).  The calibration is
+stored on the IV Swinger 2 hardware:
+     - One laptop can be used with different IV Swinger 2's and each will have
+       its own calibration
+     - A given IV Swinger 2 only needs to be calibrated once, and that
+       calibration will apply for any laptop it is used with
 """
         voltage_heading = """
 Voltage calibration:"""
@@ -4074,6 +4202,18 @@ Current calibration (a bit trickier):"""
   performed quickly and in steady sunlight so that the Isc is not changing
   between the DMM measurement and the IV swing. Repeat to confirm/adjust.
 """
+        resistors_heading = """
+Resistors:"""
+        help_text_4 = """
+  Measured values of the resistors used in the IV Swinger 2 voltmeter and
+  ammeter circuits can be specified.  Note, however, that it is not very useful
+  to do this if you perform the voltage and current calibrations since those
+  will account for any differences in the resistances from their nominal values
+  (in addition to other sources of error).  It could be useful, however, if the
+  software is being used with a "scaled up" or "scaled down" version of IV
+  Swinger 2 (i.e. one that is configured for higher or lower voltages and
+  currents).
+"""
         font = HELP_DIALOG_FONT
         self.text = ScrolledText(master, height=30, borderwidth=10)
         self.text.tag_configure('body_tag', font=font)
@@ -4083,7 +4223,315 @@ Current calibration (a bit trickier):"""
         self.text.insert('end', help_text_2, ('body_tag'))
         self.text.insert('end', current_heading, ('heading_tag'))
         self.text.insert('end', help_text_3, ('body_tag'))
+        self.text.insert('end', resistors_heading, ('heading_tag'))
+        self.text.insert('end', help_text_4, ('body_tag'))
         self.text.grid()
+
+
+# Downlevel Arduino sketch dialog class
+#
+class DownlevelArduinoSketchDialog(Dialog):
+    """Extension of the generic Dialog class used for the downlevel
+       Arduino sketch dialog
+    """
+    # Initializer
+    def __init__(self, master=None):
+        title = "Downlevel Arduino Code"
+        Dialog.__init__(self, master=master, title=title,
+                        has_cancel_button=False, return_ok=True)
+
+    # Create body, which is just a Text widget
+    def body(self, master):
+
+        heading_text = "** ATTENTION **\n\n"
+        text_1 = """
+The Arduino software ("sketch") on the IV Swinger 2 hardware that is currently
+connected is not the most current version.
+"""
+        text_2 = ("\n    Version detected: " +
+                  self.master.ivs2.arduino_sketch_ver)
+        text_3 = ("\n     Current version: " +
+                  LATEST_SKETCH_VER + "\n")
+
+        text_4 = """
+You may continue with the older version, but it is recommended that you update
+at your earliest convenience.
+
+Here is the procedure:
+
+      - Install the Arduino application (IDE) from:
+
+           https://www.arduino.cc/en/Main/Software
+
+      - Open the Arduino application
+
+      - Find where the Arduino application looks for sketches:
+
+           Arduino->Preferences->Sketchbook location
+
+      - Use your browser to go to:
+"""
+        text_5 = ("\n          " + "https://raw.githubusercontent.com/" +
+                  "csatt/IV_Swinger/master/Arduino/IV_Swinger2/" +
+                  "IV_Swinger2.ino")
+        text_6 = """
+
+      - Right-click and use "Save As" to save IV_Swinger.ino to the Arduino
+        sketchbook folder found above (make sure your browser doesn't add an
+        extension like .txt to the file name)
+
+      - Go back to the Arduino application and find the IV_swinger2.ino sketch
+        using:
+
+           File->Open
+
+        The Arduino application will inform you that IV_Swinger2.ino must be in
+        a folder named IV_Swinger2 and it will offer to do that for you. Accept
+        its kind offer.
+
+        Click on arrow button or select "Upload" from "Sketch" menu.
+"""
+        font = HELP_DIALOG_FONT
+        self.text = ScrolledText(master, width=95, height=30, borderwidth=10)
+        self.text.tag_configure('heading_tag', font=font, underline=True)
+        self.text.tag_configure('body_tag', font=font)
+        self.text.insert('end', heading_text, ('heading_tag'))
+        self.text.insert('end', text_1, ('body_tag'))
+        self.text.insert('end', text_2, ('body_tag'))
+        self.text.insert('end', text_3, ('body_tag'))
+        self.text.insert('end', text_4, ('body_tag'))
+        self.text.insert('end', text_5, ('body_tag'))
+        self.text.insert('end', text_6, ('body_tag'))
+        self.text.grid()
+
+
+# Resistor values dialog class
+#
+class ResistorValuesDialog(Dialog):
+    """Extension of the generic Dialog class used for the Resistor Values
+    dialog
+    """
+    # Initializer
+    def __init__(self, master=None):
+        self.r1_str = tk.StringVar()
+        self.r2_str = tk.StringVar()
+        self.rf_str = tk.StringVar()
+        self.rg_str = tk.StringVar()
+        self.shunt_str = tk.StringVar()
+        title = APP_NAME + " Resistor Values"
+        Dialog.__init__(self, master=master, title=title)
+
+    # -------------------------------------------------------------------------
+    def body(self, master):
+        frame = ttk.Frame(master)
+
+        # Add label and entry box to select R1 resistance
+        r1_label = ttk.Label(master=frame, text="R1 (ohms):")
+        r1_entry = ttk.Entry(master=frame,
+                             width=8,
+                             textvariable=self.r1_str)
+        r1_ohms = self.master.ivs2.cfg.getfloat('Calibration', 'r1 ohms')
+        self.r1_str.set(r1_ohms)
+
+        # Add label and entry box to select R2 resistance
+        r2_label = ttk.Label(master=frame, text="R2 (ohms):")
+        r2_entry = ttk.Entry(master=frame,
+                             width=8,
+                             textvariable=self.r2_str)
+        r2_ohms = self.master.ivs2.cfg.getfloat('Calibration', 'r2 ohms')
+        self.r2_str.set(r2_ohms)
+
+        # Add label and entry box to select Rf resistance
+        rf_label = ttk.Label(master=frame, text="Rf (ohms):")
+        rf_entry = ttk.Entry(master=frame,
+                             width=8,
+                             textvariable=self.rf_str)
+        rf_ohms = self.master.ivs2.cfg.getfloat('Calibration', 'rf ohms')
+        self.rf_str.set(rf_ohms)
+
+        # Add label and entry box to select Rg resistance
+        rg_label = ttk.Label(master=frame, text="Rg (ohms):")
+        rg_entry = ttk.Entry(master=frame,
+                             width=8,
+                             textvariable=self.rg_str)
+        rg_ohms = self.master.ivs2.cfg.getfloat('Calibration', 'rg ohms')
+        self.rg_str.set(rg_ohms)
+
+        # Add label and entry box to select Shunt resistance
+        shunt_label = ttk.Label(master=frame, text="Shunt (microohms):")
+        shunt_entry = ttk.Entry(master=frame,
+                                width=8,
+                                textvariable=self.shunt_str)
+        shunt_max_volts = self.master.ivs2.cfg.getfloat('Calibration',
+                                                        'shunt max volts')
+        shunt_uohms = ((shunt_max_volts /
+                        self.master.ivs2.amm_shunt_max_amps) * 1000000.0)
+        self.shunt_str.set(shunt_uohms)
+
+        # Add Restore Defaults button in its own container box
+        restore_box = ttk.Frame(master=frame, padding=10)
+        restore = ttk.Button(restore_box,
+                             text="Restore Defaults",
+                             command=self.restore_defaults)
+
+        # Layout
+        pady = 8
+        frame.grid(column=0, row=0, sticky=W, columnspan=2)
+        row = 0
+        r1_label.grid(column=0, row=row, sticky=W, pady=pady)
+        r1_entry.grid(column=1, row=row, pady=pady)
+        row = 1
+        r2_label.grid(column=0, row=row, sticky=W, pady=pady)
+        r2_entry.grid(column=1, row=row, pady=pady)
+        row = 2
+        rf_label.grid(column=0, row=row, sticky=W, pady=pady)
+        rf_entry.grid(column=1, row=row, pady=pady)
+        row = 3
+        rg_label.grid(column=0, row=row, sticky=W, pady=pady)
+        rg_entry.grid(column=1, row=row, pady=pady)
+        row = 4
+        shunt_label.grid(column=0, row=row, sticky=W, pady=pady)
+        shunt_entry.grid(column=1, row=row, pady=pady)
+        row = 5
+        restore_box.grid(column=2, row=row, sticky=W, pady=pady,
+                         columnspan=2)
+        restore.grid(column=0, row=0, sticky=W)
+        frame.grid()
+
+    # -------------------------------------------------------------------------
+    def restore_defaults(self, event=None):
+        """Restore resistor values to defaults"""
+        self.r1_str.set(str(R1_DEFAULT))
+        self.r2_str.set(str(R2_DEFAULT))
+        self.rf_str.set(str(RF_DEFAULT))
+        self.rg_str.set(str(RG_DEFAULT))
+        self.shunt_str.set(str(SHUNT_DEFAULT))
+
+    # -------------------------------------------------------------------------
+    def snapshot(self):
+        """Override snapshot() method of parent to capture original
+           configuration and property values
+        """
+        # Snapshot config
+        self.master.get_snapshot_config()
+
+        # Snapshot properties
+        self.snapshot_values['vdiv_r1'] = self.master.ivs2.vdiv_r1
+        self.snapshot_values['vdiv_r2'] = self.master.ivs2.vdiv_r2
+        self.snapshot_values['amm_op_amp_rf'] = self.master.ivs2.amm_op_amp_rf
+        self.snapshot_values['amm_op_amp_rg'] = self.master.ivs2.amm_op_amp_rg
+        amm_shunt_max_volts = self.master.ivs2.amm_shunt_max_volts
+        self.snapshot_values['amm_shunt_max_volts'] = amm_shunt_max_volts
+
+    # -------------------------------------------------------------------------
+    def validate(self):
+        """Override validate() method of parent to check for legal values"""
+        err_str = "ERROR:"
+        try:
+            r1_ohms = float(self.r1_str.get())
+            r2_ohms = float(self.r2_str.get())
+            rf_ohms = float(self.rf_str.get())
+            rg_ohms = float(self.rg_str.get())
+            shunt_uohms = float(self.shunt_str.get())
+        except ValueError:
+            err_str += "\n  All fields must be floating point"
+        else:
+            if r1_ohms <= 0.0:
+                err_str += "\n  R1 value must be positive"
+            if r2_ohms <= 0.0:
+                err_str += "\n  R2 value must be positive"
+            if rf_ohms <= 0.0:
+                err_str += "\n  Rf value must be positive"
+            if rg_ohms <= 0.0:
+                err_str += "\n  Rg value must be positive"
+            if shunt_uohms <= 1.0:
+                err_str += "\n  Shunt value must be >1 (unit is microohms)"
+        if len(err_str) > len("ERROR:"):
+            self.show_resistor_error_dialog(err_str)
+            return False
+        else:
+            return True
+
+    # -------------------------------------------------------------------------
+    def show_resistor_error_dialog(self, err_str):
+        tkmsg.showinfo(message=err_str)
+
+    # -------------------------------------------------------------------------
+    def revert(self):
+        """Override revert() method of parent to apply original values to
+           properties and the config
+        """
+        # Restore config
+        self.master.save_snapshot_config()
+        self.master.get_config()
+
+        # Restore properties
+        self.master.ivs2.vdiv_r1 = self.snapshot_values['vdiv_r1']
+        self.master.ivs2.vdiv_r2 = self.snapshot_values['vdiv_r2']
+        self.master.ivs2.amm_op_amp_rf = self.snapshot_values['amm_op_amp_rf']
+        self.master.ivs2.amm_op_amp_rg = self.snapshot_values['amm_op_amp_rg']
+        amm_shunt_max_volts = self.snapshot_values['amm_shunt_max_volts']
+        self.master.ivs2.amm_shunt_max_volts = amm_shunt_max_volts
+
+    # -------------------------------------------------------------------------
+    def apply(self):
+        """Override apply() method of parent to apply new values to properties
+           and the config
+        """
+        if not self.validate():
+            return
+
+        resistance_opt_changed = False
+        section = "Calibration"
+        option = "r1 ohms"
+        r1_ohms = float(self.r1_str.get())
+        if r1_ohms != self.master.ivs2.cfg.getfloat(section, option):
+            self.master.ivs2.cfg_set(section, option, r1_ohms)
+            args = (section, option, CFG_FLOAT, self.master.ivs2.vdiv_r1)
+            self.master.ivs2.vdiv_r1 = self.master.apply_one_config(*args)
+            resistance_opt_changed = True
+        option = "r2 ohms"
+        r2_ohms = float(self.r2_str.get())
+        if r2_ohms != self.master.ivs2.cfg.getfloat(section, option):
+            self.master.ivs2.cfg_set(section, option, r2_ohms)
+            args = (section, option, CFG_FLOAT, self.master.ivs2.vdiv_r2)
+            self.master.ivs2.vdiv_r2 = self.master.apply_one_config(*args)
+            resistance_opt_changed = True
+        option = "rf ohms"
+        rf_ohms = float(self.rf_str.get())
+        if rf_ohms != self.master.ivs2.cfg.getfloat(section, option):
+            self.master.ivs2.cfg_set(section, option, rf_ohms)
+            args = (section, option, CFG_FLOAT,
+                    self.master.ivs2.amm_op_amp_rf)
+            val = self.master.apply_one_config(*args)
+            self.master.ivs2.amm_op_amp_rf = val
+            resistance_opt_changed = True
+        option = "rg ohms"
+        rg_ohms = float(self.rg_str.get())
+        if rg_ohms != self.master.ivs2.cfg.getfloat(section, option):
+            self.master.ivs2.cfg_set(section, option, rg_ohms)
+            args = (section, option, CFG_FLOAT,
+                    self.master.ivs2.amm_op_amp_rg)
+            val = self.master.apply_one_config(*args)
+            self.master.ivs2.amm_op_amp_rg = val
+            resistance_opt_changed = True
+        option = "shunt max volts"
+        shunt_uohms = float(self.shunt_str.get())
+        shunt_ohms = shunt_uohms / 1000000.0
+        shunt_max_volts = self.master.ivs2.amm_shunt_max_amps * shunt_ohms
+        if shunt_max_volts != self.master.ivs2.cfg.getfloat(section, option):
+            self.master.ivs2.cfg_set(section, option, shunt_max_volts)
+            args = (section, option, CFG_FLOAT,
+                    self.master.ivs2.amm_shunt_max_volts)
+            val = self.master.apply_one_config(*args)
+            self.master.ivs2.amm_shunt_max_volts = val
+            resistance_opt_changed = True
+
+        # Update values in EEPROM and save the config if anything changed
+        if resistance_opt_changed:
+            self.master.menu_bar.update_values_in_eeprom()
+            # Save config
+            self.master.save_config()
 
 
 # Preferences dialog class
@@ -5765,15 +6213,16 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._adc_ch1_offset = 0
         self._adc_range = 4096.0
         self._msg_timer_timeout = 50
-        self._vdiv_r1 = 180000.0       # R1 = 180k nominal
-        self._vdiv_r2 = 7500.0         # R2 = 7.5k nominal
-        self._amm_op_amp_rf = 75000.0  # Rf = 75k
-        self._amm_op_amp_rg = 1000.0   # Rg = 1k
-        self._adc_vref = 5.0           # ADC voltage reference = 5V
-        self._amm_shunt_max_volts = 0.050
-        self._amm_shunt_max_amps = 10
-        self._v_cal = 1.0
-        self._i_cal = 1.0
+        self._vdiv_r1 = R1_DEFAULT
+        self._vdiv_r2 = R2_DEFAULT
+        self._amm_op_amp_rf = RF_DEFAULT
+        self._amm_op_amp_rg = RG_DEFAULT
+        self._adc_vref = 5.0             # ADC voltage reference = 5V
+        self._amm_shunt_max_amps = 10.0  # Legacy - hardcoded
+        self._amm_shunt_max_volts = (self._amm_shunt_max_amps *
+                                     (SHUNT_DEFAULT / 1000000.0))
+        self._v_cal = V_CAL_DEFAULT
+        self._i_cal = I_CAL_DEFAULT
         self._plot_title = None
         self._current_img = None
         self._x_pixels = 770  # Default GIF width (770x595)
@@ -5786,6 +6235,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._line_scale = LINE_SCALE_DEFAULT
         self._point_scale = POINT_SCALE_DEFAULT
         self._correct_adc = True
+        self._arduino_ver_major = -1
+        self._arduino_ver_minor = -1
+        self._arduino_ver_patch = -1
 
     # Properties
     # ---------------------------------
@@ -6252,6 +6704,17 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                      float(last_measured_minus_offset))
         return v_adj
 
+    # ---------------------------------
+    @property
+    def arduino_sketch_ver(self):
+        """Arduino sketch version"""
+        if self._arduino_ver_major > -1:
+            return "%d.%d.%d" % (self._arduino_ver_major,
+                                 self._arduino_ver_minor,
+                                 self._arduino_ver_patch)
+        else:
+            return "Unknown"
+
     # -------------------------------------------------------------------------
     def cfg_set(self, section, option, value):
         """Method to set a config option. Just a wrapper around the
@@ -6315,7 +6778,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         return RC_SUCCESS
 
     # -------------------------------------------------------------------------
-    def wait_for_arduino_ready_and_ack(self):
+    def wait_for_arduino_ready_and_ack(self, write_eeprom=False):
         """Method to wait for the Arduino ready message, and send
            acknowledgement
         """
@@ -6329,6 +6792,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         version_intro = "IV Swinger2 sketch version"
         if (rc == RC_SUCCESS and
                 self.msg_from_arduino.startswith(version_intro)):
+            rc = self.get_arduino_sketch_ver(self.msg_from_arduino)
+            if rc != RC_SUCCESS:
+                return rc
             rc = self.receive_msg_from_arduino()
         if rc == RC_SUCCESS and self.msg_from_arduino == unicode('Ready\n'):
             self.arduino_ready = True
@@ -6341,9 +6807,26 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             return RC_FAILURE
 
         # Send config message(s) to Arduino
-        rc = self.send_config_msgs_to_arduino()
+        rc = self.send_config_msgs_to_arduino(write_eeprom)
         if rc != RC_SUCCESS:
             return rc
+
+        # Request EEPROM values from Arduino
+        self.eeprom_values_received = False
+        rc = self.request_eeprom_dump()
+        if rc != RC_SUCCESS:
+            return rc
+        # Special case: EEPROM has never been written (and therefore no values
+        # are returned).  We want to write it with the current values rather
+        # than waiting for a calibration.
+        if (self.arduino_sketch_ver_ge("1.1.0") and
+                not self.eeprom_values_received):
+            rc = self.send_config_msgs_to_arduino(write_eeprom=True)
+            if rc != RC_SUCCESS:
+                return rc
+            rc = self.request_eeprom_dump()
+            if rc != RC_SUCCESS:
+                return rc
 
         # Send ready message to Arduino
         rc = self.send_msg_to_arduino("Ready")
@@ -6353,7 +6836,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         return RC_SUCCESS
 
     # -------------------------------------------------------------------------
-    def send_config_msgs_to_arduino(self):
+    def send_config_msgs_to_arduino(self, write_eeprom=False):
         """Method to send config messages to the Arduino, waiting for each
         reply"""
         config_dict = {"CLK_DIV": "spi clock div",
@@ -6370,6 +6853,32 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             rc = self.send_one_config_msg_to_arduino(config_type, config_value)
             if rc != RC_SUCCESS:
                 return rc
+
+        if write_eeprom and self.arduino_sketch_ver_ge("1.1.0"):
+            config_values = [(str(EEPROM_VALID_ADDR) + " " +
+                              EEPROM_VALID_VALUE),
+                             (str(EEPROM_VALID_COUNT_ADDR) + " " +
+                              str(EEPROM_VALID_COUNT)),
+                             (str(EEPROM_R1_OHMS_ADDR) + " " +
+                              str(int(self.vdiv_r1))),
+                             (str(EEPROM_R2_OHMS_ADDR) + " " +
+                              str(int(self.vdiv_r2))),
+                             (str(EEPROM_RF_OHMS_ADDR) + " " +
+                              str(int(self.amm_op_amp_rf))),
+                             (str(EEPROM_RG_OHMS_ADDR) + " " +
+                              str(int(self.amm_op_amp_rg))),
+                             (str(EEPROM_SHUNT_UOHMS_ADDR) + " " +
+                              str(int(self.amm_shunt_resistance *
+                                      1000000.0))),
+                             (str(EEPROM_V_CAL_X1M_ADDR) + " " +
+                              str(int(self.v_cal * 1000000.0))),
+                             (str(EEPROM_I_CAL_X1M_ADDR) + " " +
+                              str(int(self.i_cal * 1000000.0)))]
+            for config_value in config_values:
+                rc = self.send_one_config_msg_to_arduino("WRITE_EEPROM",
+                                                         config_value)
+                if rc != RC_SUCCESS:
+                    return rc
 
         return RC_SUCCESS
 
@@ -6393,6 +6902,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def send_msg_to_arduino(self, msg):
         """Method to send a message to the Arduino"""
 
+        if self.arduino_sketch_ver_lt("1.1.0"):
+            MAX_MSG_LEN_TO_ARDUINO = 30
+        else:
+            MAX_MSG_LEN_TO_ARDUINO = 35
         if len(msg + "\n") > MAX_MSG_LEN_TO_ARDUINO:
             err_str = "ERROR: Message to Arduino is too long: " + msg
             self.logger.print_and_log(err_str)
@@ -6462,6 +6975,180 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def log_msg_from_arduino(self, msg):
         """Method to log a message from the Arduino"""
         self.logger.log("Arduino: " + msg.rstrip())
+
+    # -------------------------------------------------------------------------
+    def request_eeprom_dump(self):
+        """Method to send a DUMP_EEPROM 'config' message to the Arduino and
+           capture the values returned
+        """
+        if self.arduino_sketch_ver_lt("1.1.0"):
+            return RC_SUCCESS
+        rc = self.send_msg_to_arduino("Config: DUMP_EEPROM")
+        if rc != RC_SUCCESS:
+            return rc
+        self.msg_from_arduino = "None"
+        while self.msg_from_arduino != unicode('Config processed\n'):
+            rc = self.receive_msg_from_arduino()
+            if rc != RC_SUCCESS:
+                return rc
+            if self.msg_from_arduino.startswith("EEPROM addr"):
+                rc = self.process_eeprom_value()
+                self.eeprom_values_received = True
+                if rc != RC_SUCCESS:
+                    return rc
+
+        return RC_SUCCESS
+
+    # -------------------------------------------------------------------------
+    def get_arduino_sketch_ver(self, msg):
+        """Method to extract the version number of the Arduino sketch from the
+           message containing it
+        """
+        sketch_ver_re = re.compile('sketch version (\d+)\.(\d+)\.(\d+)')
+        match = sketch_ver_re.search(msg)
+        if match:
+            self._arduino_ver_major = int(match.group(1))
+            self._arduino_ver_minor = int(match.group(2))
+            self._arduino_ver_patch = int(match.group(3))
+        else:
+            err_str = "ERROR: Bad Arduino version message: " + msg
+            self.logger.print_and_log(err_str)
+            return RC_FAILURE
+
+        return RC_SUCCESS
+
+    # -------------------------------------------------------------------------
+    def compare_arduino_sketch_ver(self, test_version):
+        """Method to compare the Arduino sketch version with the
+           specified value. Returns:
+              SKETCH_VER_LT: if sketch version is lower
+              SKETCH_VER_EQ: if sketch version is equal
+              SKETCH_VER_GT: if sketch version is greater
+        """
+        test_ver_re = re.compile('(\d+)\.(\d+)\.(\d+)')
+        match = test_ver_re.search(test_version)
+        if match:
+            test_ver_major = int(match.group(1))
+            test_ver_minor = int(match.group(2))
+            test_ver_patch = int(match.group(3))
+            if (self._arduino_ver_major < test_ver_major or
+                (self._arduino_ver_major == test_ver_major and
+                 self._arduino_ver_minor < test_ver_minor) or
+                (self._arduino_ver_major == test_ver_major and
+                 self._arduino_ver_minor == test_ver_minor and
+                 self._arduino_ver_patch < test_ver_patch)):
+                return SKETCH_VER_LT
+            elif (self._arduino_ver_major == test_ver_major and
+                  self._arduino_ver_minor == test_ver_minor and
+                  self._arduino_ver_patch == test_ver_patch):
+                return SKETCH_VER_EQ
+            else:
+                return SKETCH_VER_GT
+        else:
+            err_str = "ERROR: Bad test version: " + test_version
+            self.logger.print_and_log(err_str)
+            return SKETCH_VER_ERR
+
+    # -------------------------------------------------------------------------
+    def arduino_sketch_ver_lt(self, test_version):
+        """Method to test whether the Arduino sketch version is less than the
+           specified value
+        """
+        if self.compare_arduino_sketch_ver(test_version) == SKETCH_VER_LT:
+            return True
+        else:
+            return False
+
+    # -------------------------------------------------------------------------
+    def arduino_sketch_ver_eq(self, test_version):
+        """Method to test whether the Arduino sketch version is equal to the
+           specified value
+        """
+        if self.compare_arduino_sketch_ver(test_version) == SKETCH_VER_EQ:
+            return True
+        else:
+            return False
+
+    # -------------------------------------------------------------------------
+    def arduino_sketch_ver_gt(self, test_version):
+        """Method to test whether the Arduino sketch version is greater than
+           the specified value
+        """
+        if self.compare_arduino_sketch_ver(test_version) == SKETCH_VER_GT:
+            return True
+        else:
+            return False
+
+    # -------------------------------------------------------------------------
+    def arduino_sketch_ver_le(self, test_version):
+        """Method to test whether the Arduino sketch version is less than or
+           equal to the specified value
+        """
+        if (self.arduino_sketch_ver_lt(test_version) or
+                self.arduino_sketch_ver_eq(test_version)):
+            return True
+        else:
+            return False
+
+    # -------------------------------------------------------------------------
+    def arduino_sketch_ver_ge(self, test_version):
+        """Method to test whether the Arduino sketch version is greater than
+           or equal to the specified value
+        """
+        if (self.arduino_sketch_ver_gt(test_version) or
+                self.arduino_sketch_ver_eq(test_version)):
+            return True
+        else:
+            return False
+
+    # -------------------------------------------------------------------------
+    def process_eeprom_value(self):
+        """Method to process one EEPROM value returned by the Arduino"""
+        eeprom_re = re.compile('EEPROM addr: (\d+)\s+value: (\d+\.\d+)')
+        match = eeprom_re.search(self.msg_from_arduino)
+        if match:
+            eeprom_addr = int(match.group(1))
+            eeprom_value = match.group(2)
+        else:
+            err_str = ("ERROR: Bad EEPROM value message: " +
+                       self.msg_from_arduino)
+            self.logger.print_and_log(err_str)
+            return RC_FAILURE
+
+        if eeprom_addr == EEPROM_VALID_ADDR:
+            if eeprom_value != EEPROM_VALID_VALUE:
+                err_str = ("ERROR: Bad EEPROM valid value: " +
+                           self.msg_from_arduino)
+                self.logger.print_and_log(err_str)
+                return RC_FAILURE
+        elif eeprom_addr == EEPROM_VALID_COUNT_ADDR:
+            if int(float(eeprom_value)) > EEPROM_VALID_COUNT:
+                warn_str = ("WARNING: EEPROM contains more values than " +
+                            "supported by this version of the application: " +
+                            self.msg_from_arduino)
+                self.logger.print_and_log(warn_str)
+        elif eeprom_addr == EEPROM_R1_OHMS_ADDR:
+            self.vdiv_r1 = float(eeprom_value)
+        elif eeprom_addr == EEPROM_R2_OHMS_ADDR:
+            self.vdiv_r2 = float(eeprom_value)
+        elif eeprom_addr == EEPROM_RF_OHMS_ADDR:
+            self.amm_op_amp_rf = float(eeprom_value)
+        elif eeprom_addr == EEPROM_RG_OHMS_ADDR:
+            self.amm_op_amp_rg = float(eeprom_value)
+        elif eeprom_addr == EEPROM_SHUNT_UOHMS_ADDR:
+            self.amm_shunt_max_volts = (self.amm_shunt_max_amps *
+                                        (float(eeprom_value) / 1000000.0))
+        elif eeprom_addr == EEPROM_V_CAL_X1M_ADDR:
+            self.v_cal = float(eeprom_value) / 1000000.0
+        elif eeprom_addr == EEPROM_I_CAL_X1M_ADDR:
+            self.i_cal = float(eeprom_value) / 1000000.0
+        else:
+            warn_str = ("WARNING: EEPROM value not " +
+                        "supported by this version of the application: " +
+                        self.msg_from_arduino)
+            self.logger.print_and_log(warn_str)
+
+        return RC_SUCCESS
 
     # -------------------------------------------------------------------------
     def correct_adc_values(self):
@@ -6832,9 +7519,6 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 def main():
     """Main function"""
     ivs2 = IV_Swinger2()
-    # Override default property values
-    ivs2.v_cal = 0.8561
-    ivs2.i_cal = 1.1187
     ivs2.run()
 
 

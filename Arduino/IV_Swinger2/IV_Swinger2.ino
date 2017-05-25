@@ -110,6 +110,8 @@
  *
  */
 #include <SPI.h>
+#include <EEPROM.h>
+#include <avr/pgmspace.h>
 
 // Compile-time assertion macros (from Stack Overflow)
 #define COMPILER_ASSERT(predicate) _impl_CASSERT_LINE(predicate,__LINE__)
@@ -117,14 +119,14 @@
 #define _impl_CASSERT_LINE(predicate, line) \
     typedef char _impl_PASTE(assertion_failed_on_line_,line)[2*!!(predicate)-1];
 
-#define VERSION "1.0.1"        // Version of this Arduino sketch
+#define VERSION "1.1.0"        // Version of this Arduino sketch
 #define FALSE 0                // Boolean false value
 #define TRUE 1                 // Boolean true value
 #define MAX_UINT (1<<16)-1     // Max unsigned integer
 #define MAX_INT (1<<15)-1      // Max integer
 #define MAX_ULONG (1<<32)-1    // Max unsigned long integer
 #define MAX_LONG (1<<31)-1     // Max long integer
-#define MAX_MSG_LEN 30         // Maximum length of a host message
+#define MAX_MSG_LEN 35         // Maximum length of a host message
 #define MSG_TIMER_TIMEOUT 1000 // Number of times to poll for host message
 #define CLK_DIV SPI_CLOCK_DIV8 // SPI clock divider ratio
 #define SERIAL_BAUD 57600      // Serial port baud rate
@@ -149,6 +151,7 @@
 #define ASPECT_WIDTH 3         // Width of graph's aspect ratio (max 8)
 #define TOTAL_WEIGHT (CH1_1ST_WEIGHT + CH1_2ND_WEIGHT)
 #define AVG_WEIGHT (int) ((TOTAL_WEIGHT + 1) / 2)
+#define EEPROM_VALID_VALUE 123456.7890
 
 // Compile-time assertions
 COMPILER_ASSERT(MAX_IV_MEAS <= (unsigned int) MAX_UINT);
@@ -170,6 +173,8 @@ void setup()
 {
   boolean host_ready = FALSE;
   char incoming_msg[MAX_MSG_LEN];
+  const static char ready_str[] PROGMEM = "Ready";
+  const static char config_str[] PROGMEM = "Config";
 
   // Initialization
   pinMode(ADC_CS_PIN, OUTPUT);
@@ -181,20 +186,20 @@ void setup()
   SPI.setClockDivider(clk_div);
 
   // Print version number
-  Serial.print("IV Swinger2 sketch version ");
-  Serial.println(VERSION);
+  Serial.print(F("IV Swinger2 sketch version "));
+  Serial.println(F(VERSION));
 
   // Tell host that we're ready, and wait for acknowledgement
   host_ready = FALSE;
   while (!host_ready) {
-    Serial.println("Ready");
+    Serial.println(F("Ready"));
     if (get_host_msg(incoming_msg)) {
-      if (strstr(incoming_msg, "Ready")) {
+      if (strstr_P(incoming_msg, ready_str)) {
         host_ready = TRUE;
       }
-      else if (strstr(incoming_msg, "Config")) {
+      else if (strstr_P(incoming_msg, config_str)) {
         process_config_msg(incoming_msg);
-        Serial.println("Config processed");
+        Serial.println(F("Config processed"));
       }
     }
   }
@@ -224,7 +229,7 @@ void loop()
   float usecs_per_iv_pair;
 
   // Wait for go message from host
-  Serial.println("Waiting for go message");
+  Serial.println(F("Waiting for go message"));
   go_msg_received = FALSE;
   while (!go_msg_received) {
     if (get_host_msg(incoming_msg)) {
@@ -281,7 +286,7 @@ void loop()
   }
   adc_ch0_val = read_adc(VOLTAGE_CH);  // Read CH0 (voltage)
   if (poll_timeout)
-    Serial.println("Polling for stable Isc timed out");
+    Serial.println(F("Polling for stable Isc timed out"));
 
   // Isc is approximately the value of the first of the three points
   // above
@@ -391,46 +396,46 @@ void loop()
   // Report results on serial port
   //
   // Isc point
-  Serial.print("Isc CH0:");
+  Serial.print(F("Isc CH0:"));
   Serial.print(adc_offset);
-  Serial.print(" CH1:");
+  Serial.print(F(" CH1:"));
   Serial.println(isc_adc);
   // Middle points
   for (ii = 0; ii < pt_num; ii++) {
     Serial.print(ii);
-    Serial.print(" CH0:");
+    Serial.print(F(" CH0:"));
     Serial.print(adc_ch0_vals[ii]);
-    Serial.print(" CH1:");
+    Serial.print(F(" CH1:"));
     Serial.println(adc_ch1_vals[ii]);
   }
   // Voc point
-  Serial.print("Voc CH0:");
+  Serial.print(F("Voc CH0:"));
   Serial.print(voc_adc);
-  Serial.print(" CH1:");
+  Serial.print(F(" CH1:"));
   Serial.println(adc_offset);
   // Diagnostic info
-  /* Serial.print("post_ch1_usecs: "); */
+  /* Serial.print(F("post_ch1_usecs: ")); */
   /* Serial.println(post_ch1_usecs); */
-  /* Serial.print("post_ch0_usecs: "); */
+  /* Serial.print(F("post_ch0_usecs: ")); */
   /* Serial.println(post_ch0_usecs); */
-  /* Serial.print("next_post_ch1_usecs: "); */
+  /* Serial.print(F("next_post_ch1_usecs: ")); */
   /* Serial.println(next_post_ch1_usecs); */
-  Serial.print("Isc poll loops: ");
+  Serial.print(F("Isc poll loops: "));
   Serial.println(isc_poll_loops);
-  Serial.print("Number of measurements: ");
+  Serial.print(F("Number of measurements: "));
   Serial.println(num_meas);
-  Serial.print("Number of recorded points: ");
+  Serial.print(F("Number of recorded points: "));
   Serial.println(pt_num);
-  Serial.print("i_scale: ");
+  Serial.print(F("i_scale: "));
   Serial.println(i_scale);
-  Serial.print("v_scale: ");
+  Serial.print(F("v_scale: "));
   Serial.println(v_scale);
-  Serial.print("Elapsed usecs: ");
+  Serial.print(F("Elapsed usecs: "));
   Serial.println(elapsed_usecs);
   usecs_per_iv_pair = (float) elapsed_usecs / num_meas;
-  Serial.print("Time (usecs) per i/v reading: ");
+  Serial.print(F("Time (usecs) per i/v reading: "));
   Serial.println(usecs_per_iv_pair);
-  Serial.println("Output complete");
+  Serial.println(F("Output complete"));
 
 }
 
@@ -447,7 +452,7 @@ boolean get_host_msg(char * msg) {
         // Substitute NULL for newline
         msg[char_num++] = '\0';
         msg_received = TRUE;
-        Serial.print("Received host message: ");
+        Serial.print(F("Received host message: "));
         Serial.println(msg);
         break;
       } else {
@@ -466,7 +471,20 @@ void process_config_msg(char * msg) {
   char *substr;
   char *config_type;
   char *config_val;
+  char *config_val2;
   int ii = 0;
+  const static char clk_div_str[] PROGMEM = "CLK_DIV";
+  const static char max_iv_points_str[] PROGMEM = "MAX_IV_POINTS";
+  const static char min_isc_adc_str[] PROGMEM = "MIN_ISC_ADC";
+  const static char max_isc_poll_str[] PROGMEM = "MAX_ISC_POLL";
+  const static char isc_stable_adc_str[] PROGMEM = "ISC_STABLE_ADC";
+  const static char max_discards_str[] PROGMEM = "MAX_DISCARDS";
+  const static char aspect_height_str[] PROGMEM = "ASPECT_HEIGHT";
+  const static char aspect_width_str[] PROGMEM = "ASPECT_WIDTH";
+  const static char write_eeprom_str[] PROGMEM = "WRITE_EEPROM";
+  const static char dump_eeprom_str[] PROGMEM = "DUMP_EEPROM";
+  int eeprom_addr;
+  float eeprom_value;
   substr = strtok(msg, " ");  // "Config:"
   while (substr != NULL) {
     substr = strtok(NULL, " ");
@@ -474,32 +492,63 @@ void process_config_msg(char * msg) {
       config_type = substr;
     } else if (ii == 1) {
       config_val = substr;
+    } else if (ii == 2) {
+      config_val2 = substr;
     } else if (substr != NULL) {
-      Serial.println("ERROR: Too many fields in config message");
+      Serial.println(F("ERROR: Too many fields in config message"));
       break;
     }
     ii++;
   }
-  if (strcmp(config_type, "CLK_DIV") == 0) {
+  if (strcmp_P(config_type, clk_div_str) == 0) {
     clk_div = atoi(config_val);
     SPI.setClockDivider(clk_div);
-  } else if (strcmp(config_type, "MAX_IV_POINTS") == 0) {
+  } else if (strcmp_P(config_type, max_iv_points_str) == 0) {
     max_iv_points = atoi(config_val);
-  } else if (strcmp(config_type, "MIN_ISC_ADC") == 0) {
+  } else if (strcmp_P(config_type, min_isc_adc_str) == 0) {
     min_isc_adc = atoi(config_val);
-  } else if (strcmp(config_type, "MAX_ISC_POLL") == 0) {
+  } else if (strcmp_P(config_type, max_isc_poll_str) == 0) {
     max_isc_poll = atoi(config_val);
-  } else if (strcmp(config_type, "ISC_STABLE_ADC") == 0) {
+  } else if (strcmp_P(config_type, isc_stable_adc_str) == 0) {
     isc_stable_adc = atoi(config_val);
-  } else if (strcmp(config_type, "MAX_DISCARDS") == 0) {
+  } else if (strcmp_P(config_type, max_discards_str) == 0) {
     max_discards = atoi(config_val);
-  } else if (strcmp(config_type, "ASPECT_HEIGHT") == 0) {
+  } else if (strcmp_P(config_type, aspect_height_str) == 0) {
     aspect_height = atoi(config_val);
-  } else if (strcmp(config_type, "ASPECT_WIDTH") == 0) {
+  } else if (strcmp_P(config_type, aspect_width_str) == 0) {
     aspect_width = atoi(config_val);
+  } else if (strcmp_P(config_type, write_eeprom_str) == 0) {
+    eeprom_addr = atoi(config_val);
+    eeprom_value = atof(config_val2);
+    EEPROM.put(eeprom_addr, eeprom_value);
+  } else if (strcmp_P(config_type, dump_eeprom_str) == 0) {
+    dump_eeprom();
   } else {
-    Serial.print("ERROR: Unknown config type: ");
+    Serial.print(F("ERROR: Unknown config type: "));
     Serial.println(config_type);
+  }
+}
+
+void dump_eeprom() {
+  int eeprom_addr, eeprom_valid_count;
+  float eeprom_value;
+
+  // Dump valid EEPROM entries
+  EEPROM.get(0, eeprom_value);
+  // Only dump if address 0 has "magic" value
+  if (eeprom_value == EEPROM_VALID_VALUE) {
+    // Second location has count of valid entries
+    EEPROM.get(sizeof(float), eeprom_value);
+    eeprom_valid_count = (int)eeprom_value;
+    for (eeprom_addr = 0;
+         eeprom_addr < ((eeprom_valid_count + 2) * sizeof(float));
+         eeprom_addr += sizeof(float)) {
+      EEPROM.get(eeprom_addr, eeprom_value);
+      Serial.print(F("EEPROM addr: "));
+      Serial.print(eeprom_addr, DEC);
+      Serial.print(F("  value: "));
+      Serial.println(eeprom_value, 4);
+    }
   }
 }
 
