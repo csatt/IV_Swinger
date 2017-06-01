@@ -32,7 +32,7 @@ Instructions for Mac build:
      you have installed all of the required Python packages):
 
        % cd $GITHUB/IV_Swinger/python
-       % python IV_Swinger2.py
+       % python IV_Swinger2_gui.py
 
   6) Create a build folder/directory somewhere NOT under $GITHUB, e.g.:
 
@@ -92,7 +92,7 @@ The mac_run_pyi script may generate the following, which are all OK:
 Instructions for Windows build:
 
 NOTE: it is assumed that you already have python and pip installed as
-      well as all of the python packages required to run IV_Swinger2.py
+      well as all of the python packages required to run IV_Swinger2_gui.py
       using straight Python.
 
   1) Install WiX, pyinstaller, BeautifulSoup4, and lxml:
@@ -114,7 +114,7 @@ NOTE: it is assumed that you already have python and pip installed as
   4) Complete all testing using straight Python:
 
        cd %GITHUB%\IV_Swinger\python
-       python IV_Swinger2.py
+       python IV_Swinger2_gui.py
 
   5) Create a build folder/directory somewhere NOT under %GITHUB%, e.g.:
 
