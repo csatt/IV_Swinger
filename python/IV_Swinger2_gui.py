@@ -909,7 +909,7 @@ class GraphicalUserInterface(ttk.Frame):
                 rc = self.ivs2.process_adc_values()
             if rc == RC_SUCCESS:
                 self.ivs2.plot_title = self.props.plot_title
-                self.ivs2.plot_results()
+                self.plot_results()
                 if not self.props.suppress_cfg_file_copy:
                     self.config.add_axes_and_title()
                 self.display_img(self.ivs2.current_img)
@@ -922,6 +922,47 @@ class GraphicalUserInterface(ttk.Frame):
                                     loop_mode=False)
         # Save the config
         self.save_config()
+
+    # -------------------------------------------------------------------------
+    def plot_results(self):
+        """Wrapper method around the IV_Swinger2 method of the same name. Adds
+           option for user to retry if the file is open in a viewer
+           (Windows issue).
+        """
+        self.retry_if_pdf_permission_denied(self.ivs2.plot_results)
+
+    # -------------------------------------------------------------------------
+    def retry_if_pdf_permission_denied(self, func, *args):
+        """Method to call another function (with its args) that may fail due to
+           a 'Permission denied' exception on a PDF file. If the
+           exception is encountered, the user is prompted to close the
+           file if they have it open in a viewer. Then the function is
+           called again.
+        """
+        try:
+            func(*args)
+        except IOError as e:
+            if self.pdf_permission_denied(e):
+                err_str = ("({})".format(e) +
+                           "\n\n"
+                           "PDF could not be written. If you have it open in "
+                           "a viewer, close it BEFORE clicking OK.")
+                tkmsg.showinfo(message=err_str)
+                try:
+                    func(*args)
+                except IOError as e:
+                    if self.pdf_permission_denied(e):
+                        err_str = ("({})".format(e) +
+                                   "\n\n"
+                                   "PDF still could not be written. "
+                                   "It will not be updated.")
+                        tkmsg.showinfo(message=err_str)
+
+    # -------------------------------------------------------------------------
+    def pdf_permission_denied(self, e):
+        exception_str = "({})".format(e)
+        pdf_permission_denied_re = re.compile("Permission denied:.*\.pdf'")
+        return pdf_permission_denied_re.search(exception_str)
 
     # -------------------------------------------------------------------------
     def save_config(self):
@@ -2531,29 +2572,14 @@ class ResultsWizard(tk.Toplevel):
         tkmsg.showinfo(message=err_str)
 
     # -------------------------------------------------------------------------
-    def plot_graphs_to_pdf(self, event=None):
+    def plot_graphs_to_pdf(self):
         """Wrapper method around the IV_Swinger2_plotter method of
            the same name. Adds option for user to retry if
            the file is open in a viewer (Windows issue).
         """
-        try:
-            self.ivp.plot_graphs_to_pdf(self.ivp.ivsp_ivse,
-                                        self.ivp.csv_proc)
-        except IOError as e:
-            err_str = ("({})".format(e) +
-                       "\n\n"
-                       "PDF could not be written. If you have it open in a "
-                       "viewer, close it BEFORE clicking OK.")
-            tkmsg.showinfo(message=err_str)
-            try:
-                self.ivp.plot_graphs_to_pdf(self.ivp.ivsp_ivse,
-                                            self.ivp.csv_proc)
-            except IOError as e:
-                err_str = ("({})".format(e) +
-                           "\n\n"
-                           "PDF still could not be written. "
-                           "It will not be updated.")
-                tkmsg.showinfo(message=err_str)
+        self.master.retry_if_pdf_permission_denied(self.ivp.plot_graphs_to_pdf,
+                                                   self.ivp.ivsp_ivse,
+                                                   self.ivp.csv_proc)
 
     # -------------------------------------------------------------------------
     def update_selected(self, event=None):
