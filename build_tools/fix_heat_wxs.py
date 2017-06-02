@@ -99,7 +99,10 @@ def get_version(app_path):
 
 app_path = os.path.join(".", "dist", PRODUCT_NAME)
 version_from_file = get_version(app_path)   # vX.X.X
-version = version_from_file[1:] + ".0"      # X.X.X.0
+if version_from_file.endswith("beta"):
+    version = version_from_file[1:-4] + ".99"   # X.X.X.99
+else:
+    version = version_from_file[1:] + ".0"      # X.X.X.0
 product_name_w_version = "IV Swinger " + version_from_file
 default_outfile = "IV_Swinger2_" + version_from_file + "_win.wxs"
 
