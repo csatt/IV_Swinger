@@ -152,6 +152,7 @@ MAX_DISCARDS_DEFAULT = IV_Swinger2.MAX_DISCARDS_DEFAULT
 ASPECT_HEIGHT_DEFAULT = IV_Swinger2.ASPECT_HEIGHT_DEFAULT
 ASPECT_WIDTH_DEFAULT = IV_Swinger2.ASPECT_WIDTH_DEFAULT
 ARDUINO_MAX_INT = IV_Swinger2.ARDUINO_MAX_INT
+MAX_IV_POINTS_MAX = IV_Swinger2.MAX_IV_POINTS_MAX
 ADC_MAX = IV_Swinger2.ADC_MAX
 MAX_ASPECT = IV_Swinger2.MAX_ASPECT
 V_CAL_DEFAULT = IV_Swinger2.V_CAL_DEFAULT
@@ -4371,7 +4372,7 @@ class PreferencesDialog(Dialog):
         max_iv_entry = ttk.Entry(master=arduino_widget_box,
                                  width=8,
                                  textvariable=self.max_iv_points_str)
-        label_txt = ("(< " + str(MAX_IV_POINTS_DEFAULT + 1) + ")")
+        label_txt = ("(< " + str(MAX_IV_POINTS_MAX + 1) + ")")
         max_iv_constraint_label = ttk.Label(master=arduino_widget_box,
                                             text=label_txt)
         max_iv_points = self.master.config.cfg.getint('Arduino',
@@ -4613,9 +4614,9 @@ class PreferencesDialog(Dialog):
         except ValueError:
             err_str += "\n  All fields must be integers"
         else:
-            if max_iv_points > MAX_IV_POINTS_DEFAULT:
+            if max_iv_points > MAX_IV_POINTS_MAX:
                 err_str += ("\n  Max IV points must be no more than " +
-                            str(MAX_IV_POINTS_DEFAULT))
+                            str(MAX_IV_POINTS_MAX))
             if min_isc_adc > ADC_MAX:
                 err_str += ("\n  Min Isc ADC must be no more than " +
                             str(ADC_MAX))

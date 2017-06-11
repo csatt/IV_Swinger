@@ -119,7 +119,7 @@
 #define _impl_CASSERT_LINE(predicate, line) \
     typedef char _impl_PASTE(assertion_failed_on_line_,line)[2*!!(predicate)-1];
 
-#define VERSION "1.1.0"        // Version of this Arduino sketch
+#define VERSION "1.2.0"        // Version of this Arduino sketch
 #define FALSE 0                // Boolean false value
 #define TRUE 1                 // Boolean true value
 #define MAX_UINT (1<<16)-1     // Max unsigned integer
@@ -140,10 +140,10 @@
 #define RELAY_INACTIVE HIGH    // Relay pin is active low
 #define RELAY_ACTIVE LOW       // Relay pin is active low
 #define MAX_IV_POINTS 275      // Max number of I/V pairs to capture
-#define MAX_IV_MEAS 60000      // Max number of I/V measurements (inc discards)
+#define MAX_IV_MEAS 1000000    // Max number of I/V measurements (inc discards)
 #define CH1_1ST_WEIGHT 5       // Amount to weigh 1st CH1 value in avg calc
 #define CH1_2ND_WEIGHT 3       // Amount to weigh 2nd CH1 value in avg calc
-#define MIN_ISC_ADC 100        // Minimum ADC count for Isc
+#define MIN_ISC_ADC 10         // Minimum ADC count for Isc
 #define MAX_ISC_POLL 5000      // Max loops to wait for Isc to stabilize
 #define ISC_STABLE_ADC 5       // Stable Isc changes less than this
 #define MAX_DISCARDS 300       // Maximum consecutive discarded points
@@ -152,9 +152,10 @@
 #define TOTAL_WEIGHT (CH1_1ST_WEIGHT + CH1_2ND_WEIGHT)
 #define AVG_WEIGHT (int) ((TOTAL_WEIGHT + 1) / 2)
 #define EEPROM_VALID_VALUE 123456.7890
+//#define CAPTURE_UNFILTERED
 
 // Compile-time assertions
-COMPILER_ASSERT(MAX_IV_MEAS <= (unsigned int) MAX_UINT);
+COMPILER_ASSERT(MAX_IV_MEAS <= (unsigned long) MAX_ULONG);
 COMPILER_ASSERT(TOTAL_WEIGHT <= 16);
 COMPILER_ASSERT(ASPECT_HEIGHT <= 8);
 COMPILER_ASSERT(ASPECT_WIDTH <= 8);
@@ -215,18 +216,24 @@ void loop()
   int ii;
   int adc_ch0_delta, adc_ch1_delta;
   int manhattan_distance, min_manhattan_distance;
-  unsigned int num_meas = 1; // counts IV measurements taken
-  unsigned int pt_num = 1;   // counts points actually recorded
-  unsigned int isc_poll_loops = 0;
-  unsigned int num_discarded_pts = 0;
-  unsigned int i_scale, v_scale;
-  unsigned int adc_ch0_vals[MAX_IV_POINTS], adc_ch1_vals[MAX_IV_POINTS];
-  unsigned int isc_adc, voc_adc, adc_offset;
-  unsigned int adc_ch0_val;
-  unsigned int adc_ch1_val_prev_prev, adc_ch1_val_prev, adc_ch1_val;
-  unsigned long start_usecs, elapsed_usecs;
-  /* unsigned long post_ch0_usecs, post_ch1_usecs, next_post_ch1_usecs; */
+  int pt_num = 1;   // counts points actually recorded
+  int isc_poll_loops = 0;
+  int num_discarded_pts = 0;
+  int i_scale, v_scale;
+  int adc_ch0_vals[MAX_IV_POINTS], adc_ch1_vals[MAX_IV_POINTS];
+  int isc_adc, voc_adc, adc_offset;
+  int adc_ch0_val_prev_prev, adc_ch0_val_prev, adc_ch0_val;
+  int adc_ch1_val_prev_prev, adc_ch1_val_prev, adc_ch1_val;
+  unsigned long num_meas = 1; // counts IV measurements taken
+  long start_usecs, elapsed_usecs;
   float usecs_per_iv_pair;
+#ifdef CAPTURE_UNFILTERED
+#define MAX_UNFILTERED_POINTS 100
+  boolean capture_unfiltered = FALSE;
+  int unfiltered_index = 0;
+  int unfiltered_adc_ch0_vals[MAX_UNFILTERED_POINTS];
+  int unfiltered_adc_ch1_vals[MAX_UNFILTERED_POINTS];
+#endif
 
   // Wait for go message from host
   Serial.println(F("Waiting for go message"));
@@ -255,36 +262,57 @@ void loop()
       adc_offset = adc_ch1_val;
     }
   }
+  min_isc_adc += adc_offset; // Increase minimum Isc ADC value by offset
 
   // Activate relay
   digitalWrite(RELAY_PIN, RELAY_ACTIVE);
 
-  // Wait until three consecutive current measurements either decrease
-  // or are equal, the difference between each pair is no more
-  // than isc_stable_adc, and the current is greater than min_isc_adc.
+  // Wait until three consecutive measurements:
+  //   - have current greater than min_isc_adc
+  //   - have increasing or equal voltage
+  //   - have a current difference less than or equal to isc_stable_adc
+  adc_ch0_val_prev_prev = ADC_MAX;
+  adc_ch0_val_prev = ADC_MAX;
   adc_ch1_val_prev_prev = 0;
   adc_ch1_val_prev = 0;
   poll_timeout = TRUE;
   for (ii = 0; ii < max_isc_poll; ii++) {
     adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
+    adc_ch0_val = read_adc(VOLTAGE_CH);  // Read CH0 (voltage)
+#ifdef CAPTURE_UNFILTERED
+    if (((adc_ch1_val > min_isc_adc) || capture_unfiltered) &&
+        (unfiltered_index < MAX_UNFILTERED_POINTS)) {
+      unfiltered_adc_ch1_vals[unfiltered_index] = adc_ch1_val;
+      unfiltered_adc_ch0_vals[unfiltered_index++] = adc_ch0_val;
+      capture_unfiltered = TRUE;
+    }
+#endif
     // Nested ifs should be faster than &&
-    if (adc_ch1_val <= adc_ch1_val_prev) {
-      if (adc_ch1_val_prev <= adc_ch1_val_prev_prev) {
-        if ((adc_ch1_val_prev_prev - adc_ch1_val_prev) <= isc_stable_adc) {
-          if ((adc_ch1_val_prev - adc_ch1_val) <= isc_stable_adc) {
-            if (adc_ch1_val > min_isc_adc) {
+    if (adc_ch1_val > min_isc_adc) {
+      if (adc_ch0_val >= adc_ch0_val_prev) {
+        if (adc_ch0_val_prev >= adc_ch0_val_prev_prev) {
+          if (abs(adc_ch1_val_prev - adc_ch1_val) <= isc_stable_adc) {
+            if (abs(adc_ch1_val_prev_prev -
+                    adc_ch1_val_prev) <= isc_stable_adc) {
               poll_timeout = FALSE;
               isc_poll_loops = ii + 1;
               break;
             }
           }
         }
+        // Shift all values
+        adc_ch0_val_prev_prev = adc_ch0_val_prev;
+        adc_ch1_val_prev_prev = adc_ch1_val_prev;
+        adc_ch0_val_prev = adc_ch0_val;
+        adc_ch1_val_prev = adc_ch1_val;
+      } else {
+        // If voltage decreases, discard the previous point but keep the
+        // one before that
+        adc_ch0_val_prev = adc_ch0_val;
+        adc_ch1_val_prev = adc_ch1_val;
       }
     }
-    adc_ch1_val_prev_prev = adc_ch1_val_prev;
-    adc_ch1_val_prev = adc_ch1_val;
   }
-  adc_ch0_val = read_adc(VOLTAGE_CH);  // Read CH0 (voltage)
   if (poll_timeout)
     Serial.println(F("Polling for stable Isc timed out"));
 
@@ -332,13 +360,14 @@ void loop()
     // Read both channels back-to-back. Channel 1 is first since it was
     // first in the reads for point 0 above.
     adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
-    /* if (num_meas == 2) */
-    /*   post_ch1_usecs = micros(); */
-    /* if (num_meas == 3) */
-    /*   next_post_ch1_usecs = micros(); */
     adc_ch0_val = read_adc(VOLTAGE_CH);  // Read CH0 (voltage)
-    /* if (num_meas == 2) */
-    /*   post_ch0_usecs = micros(); */
+#ifdef CAPTURE_UNFILTERED
+    //------------------------- Unfiltered ----------------------
+    if (unfiltered_index < MAX_UNFILTERED_POINTS) {
+      unfiltered_adc_ch1_vals[unfiltered_index] = adc_ch1_val;
+      unfiltered_adc_ch0_vals[unfiltered_index++] = adc_ch0_val;
+    }
+#endif
     //--------------------- CH1: current -----------------
     if (update_prev_ch1) {
       // Adjust previous CH1 value to weighted average with this value.
@@ -351,10 +380,43 @@ void loop()
     adc_ch1_val_prev = adc_ch1_val;
     //--------------------- CH0: voltage -----------------
     adc_ch0_vals[pt_num] = adc_ch0_val;
-    //------------------- Discard decision ---------------
-    // "Manhattan distance" is sum of scaled deltas
+    adc_ch0_val_prev = adc_ch0_val;
+    //------------------------ Deltas  -------------------
     adc_ch0_delta = adc_ch0_val - adc_ch0_vals[pt_num-1];
     adc_ch1_delta = adc_ch1_vals[pt_num-1] - adc_ch1_val;
+    //---------------------- Done check  -----------------
+    // Check if we've reached the tail of the curve.
+    if (adc_ch1_val < (adc_offset << 2)) {
+      // Current is very close to zero (less than 4x the offset value),
+      // so we're done.
+      break;
+    }
+    //--------------- Voltage decrease check -------------
+    // At this point we know that all preceding points are in order of
+    // increasing voltage.  However, it is possible that one or more of
+    // them are erroneously high due to relay "bounce". This is detected
+    // when the voltage of this point is lower than the voltage of the
+    // previous point. If that is the case, we search backwards through
+    // the previous points until we find one that has a lower voltage
+    // and replace its successor with the current point and rewind the
+    // pt_num counter. While it is probably not possible for the bounce
+    // to span more than two or three points, this covers the general
+    // case of it spanning N points (and starting at any point).
+    if (adc_ch0_val < adc_ch0_vals[pt_num-1]) {
+      while (pt_num > 1) {
+        if (adc_ch0_val < adc_ch0_vals[pt_num-2]) {
+          pt_num--;
+        } else {
+          break;
+        }
+      } 
+      adc_ch0_vals[pt_num-1] = adc_ch0_val;
+      adc_ch1_vals[pt_num-1] = adc_ch1_val;
+      update_prev_ch1 = TRUE; // Adjust this CH1 value on next measurement
+      continue;
+    }
+    //------------------- Discard decision ---------------
+    // "Manhattan distance" is sum of scaled deltas
     manhattan_distance = (adc_ch0_delta * v_scale) + (adc_ch1_delta * i_scale);
     // Keep measurement if Manhattan distance is big enough; otherwise
     // discard.  However, if we've discarded max_discards consecutive
@@ -369,17 +431,6 @@ void loop()
         // We're done
         break;
       }
-      // Nested ifs should be faster than &&
-      if (adc_ch1_val < 7) {
-        if (adc_ch0_delta <= 0) {
-          if (adc_ch1_delta <= 0) {
-            // Current value is "zero" and neither value is changing, so
-            // we're done. Since we don't really know the adc_offset for
-            // CH1, we use a value of <7 for "zero".
-            break;
-          }
-        }
-      }
     } else {
       // Don't record this one
       update_prev_ch1 = FALSE; // And don't adjust prev CH1 val next time
@@ -387,7 +438,7 @@ void loop()
     }
   }
   if (update_prev_ch1) {
-    // Last one didn't get adjusted, so do it now
+    // Last one didn't get adjusted (or even saved), so save it now
     adc_ch1_vals[pt_num-1] = adc_ch1_val;
   }
   elapsed_usecs = micros() - start_usecs;
@@ -413,13 +464,15 @@ void loop()
   Serial.print(voc_adc);
   Serial.print(F(" CH1:"));
   Serial.println(adc_offset);
-  // Diagnostic info
-  /* Serial.print(F("post_ch1_usecs: ")); */
-  /* Serial.println(post_ch1_usecs); */
-  /* Serial.print(F("post_ch0_usecs: ")); */
-  /* Serial.println(post_ch0_usecs); */
-  /* Serial.print(F("next_post_ch1_usecs: ")); */
-  /* Serial.println(next_post_ch1_usecs); */
+#ifdef CAPTURE_UNFILTERED
+  for (ii = 0; ii < unfiltered_index; ii++) {
+    Serial.print(ii);
+    Serial.print(F(" Unfiltered CH0:"));
+    Serial.print(unfiltered_adc_ch0_vals[ii]);
+    Serial.print(F(" Unfiltered CH1:"));
+    Serial.println(unfiltered_adc_ch1_vals[ii]);
+  }
+#endif
   Serial.print(F("Isc poll loops: "));
   Serial.println(isc_poll_loops);
   Serial.print(F("Number of measurements: "));
@@ -567,8 +620,8 @@ int read_adc(int ch) {
   return ((ms_byte << 8) | ls_byte);     // {ms_byte, lsb}
 }
 
-void compute_v_and_i_scale(unsigned int isc_adc, unsigned int voc_adc,
-                           unsigned int * v_scale, unsigned int * i_scale) {
+void compute_v_and_i_scale(int isc_adc, int voc_adc,
+                           int * v_scale, int * i_scale) {
 
   // Find integer scaling values for V and I, with the sum of the values
   // being 16 or less.  These values are used for calculating the
@@ -608,9 +661,9 @@ void compute_v_and_i_scale(unsigned int isc_adc, unsigned int voc_adc,
   //
 
   boolean i_scale_gt_v_scale;
-  unsigned int initial_v_scale, initial_i_scale;
-  unsigned int lg, sm, round_up_mask;
-  unsigned int lg_scale, sm_scale;
+  int initial_v_scale, initial_i_scale;
+  int lg, sm, round_up_mask;
+  int lg_scale, sm_scale;
   char bit_num, shift_amt = 0;
   initial_v_scale = aspect_width * isc_adc;
   initial_i_scale = aspect_height * voc_adc;

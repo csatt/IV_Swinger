@@ -73,6 +73,7 @@
 import argparse
 import ConfigParser
 import io
+import math
 import os
 import re
 import serial
@@ -130,8 +131,8 @@ LINE_SCALE_DEFAULT = 1.0
 POINT_SCALE_DEFAULT = 1.0
 # Default Arduino config
 SPI_CLK_DEFAULT = SPI_CLOCK_DIV8
-MAX_IV_POINTS_DEFAULT = 275
-MIN_ISC_ADC_DEFAULT = 100
+MAX_IV_POINTS_DEFAULT = 140
+MIN_ISC_ADC_DEFAULT = 10
 MAX_ISC_POLL_DEFAULT = 5000
 ISC_STABLE_DEFAULT = 5
 MAX_DISCARDS_DEFAULT = 300
@@ -139,6 +140,7 @@ ASPECT_HEIGHT_DEFAULT = 2
 ASPECT_WIDTH_DEFAULT = 3
 # Other Arduino constants
 ARDUINO_MAX_INT = (1 << 15) - 1
+MAX_IV_POINTS_MAX = 275
 ADC_MAX = 4095
 MAX_ASPECT = 8
 # Default calibration values
@@ -1145,6 +1147,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._sio = None
         self._arduino_ready = False
         self._data_points = []
+        self._unfiltered_adc_pairs = []
         self._adc_pairs = []
         self._adc_pairs_corrected = []
         self._adc_ch0_offset = 0
@@ -1198,6 +1201,18 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     @data_points.setter
     def data_points(self, value):
         self._data_points = value
+
+    # ---------------------------------
+    @property
+    def unfiltered_adc_pairs(self):
+        """Property to get the unfiltered ADC value pairs. These are only
+           captured when using a debug Arduino sketch.
+        """
+        return self._unfiltered_adc_pairs
+
+    @unfiltered_adc_pairs.setter
+    def unfiltered_adc_pairs(self, value):
+        self._unfiltered_adc_pairs = value
 
     # ---------------------------------
     @property
@@ -1931,13 +1946,21 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         # Loop through list, filling the adc_pairs list with the CH0/CH1
         # pairs
         self.adc_pairs = []
+        self.unfiltered_adc_pairs = []
         adc_re = re.compile('CH0:(\d+)\s+CH1:(\d+)')
+        unfiltered_adc_re_str = 'Unfiltered CH0:(\d+)\s+Unfiltered CH1:(\d+)'
+        unfiltered_adc_re = re.compile(unfiltered_adc_re_str)
         for msg in received_msgs:
             match = adc_re.search(msg)
             if match:
                 ch0_adc = int(match.group(1))
                 ch1_adc = int(match.group(2))
                 self.adc_pairs.append((ch0_adc, ch1_adc))
+            unfiltered_match = unfiltered_adc_re.search(msg)
+            if unfiltered_match:
+                ch0_adc = int(unfiltered_match.group(1))
+                ch1_adc = int(unfiltered_match.group(2))
+                self.unfiltered_adc_pairs.append((ch0_adc, ch1_adc))
 
         return RC_SUCCESS
 
@@ -2124,22 +2147,17 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def correct_adc_values(self):
         """Method to remove errors from the ADC values. This consists of the
         following corrections:
-           - Adjust voltages to compensate for Voc shift
-           - Enforce no voltage decreases
-           - Enforce no current increases
-           - Remove duplicates
-        At some point, more sophisticated "noise reduction" may be
-        substituted for the simplistic monotonicity enforcement.
+           - Adjust voltages to compensate for offset and Voc shift
+           - Combine points with same voltage (use average current)
+           - Apply a noise reduction algorithm
         """
         self.logger.log("Correcting ADC values:")
         self.adc_pairs_corrected = []
         voc_pair_num = (len(self.adc_pairs) - 1)  # last one is Voc
         v_adj = self.v_adj
         self.logger.log("  v_adj = " + str(v_adj))
-        num_v_decreases = 0
-        num_i_increases = 0
-        num_dups = 0
         for pair_num, adc_pair in enumerate(self.adc_pairs):
+            # Adjust voltages to compensate for offset and Voc shift
             if pair_num == voc_pair_num:
                 v_adj = 1.0
             ch0_adc_corrected = (adc_pair[0] - self._adc_ch0_offset) * v_adj
@@ -2151,32 +2169,106 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 prev_adc1_corrected = ch1_adc_corrected
                 continue
 
-            # Enforce no voltage decreases
-            if ch0_adc_corrected < prev_adc0_corrected:
-                ch0_adc_corrected = prev_adc0_corrected
-                num_v_decreases += 1
-
-            # Enforce no current increases
-            if ch1_adc_corrected > prev_adc1_corrected:
-                ch1_adc_corrected = prev_adc1_corrected
-                num_i_increases += 1
-
-            # Filter out dups
-            if ((ch0_adc_corrected != prev_adc0_corrected) or
-                    (ch1_adc_corrected != prev_adc1_corrected)):
-                self.adc_pairs_corrected.append((ch0_adc_corrected,
-                                                 ch1_adc_corrected))
-            else:
-                num_dups += 1
+            # Combine points with same voltage (use average current)
+            if (ch0_adc_corrected == prev_adc0_corrected):
+                ch1_adc_corrected = (ch1_adc_corrected +
+                                     prev_adc1_corrected) / 2.0
+                del self.adc_pairs_corrected[-1]
+            self.adc_pairs_corrected.append((ch0_adc_corrected,
+                                             ch1_adc_corrected))
 
             prev_adc0_corrected = ch0_adc_corrected
             prev_adc1_corrected = ch1_adc_corrected
 
-        self.logger.log("  Voltage decreases corrected: " +
-                        str(num_v_decreases))
-        self.logger.log("  Current increases corrected: " +
-                        str(num_i_increases))
-        self.logger.log("  Duplicates removed: " + str(num_dups))
+        # Noise reduction
+        #
+        # Start with a large value for the rotation threshold and
+        # call the reduce_noise() method in a loop, reducing the
+        # threshold each time.
+        first_iter_rot_thresh = 30.0
+        last_iter_rot_thresh = 5.0
+        iterations = int(first_iter_rot_thresh / last_iter_rot_thresh)
+        for ii in xrange(iterations):
+            rot_thresh = first_iter_rot_thresh / (ii + 1)
+            self.reduce_noise(rot_thresh=rot_thresh)
+
+    # -------------------------------------------------------------------------
+    def reduce_noise(self, rot_thresh=5.0):
+        """Method to smooth out "bumps" in the curve. The trick is to
+           disambiguate between deviations (bad) and inflections
+           (normal). For each point on the curve, the rotation angle
+           at that point is calculated. If this angle exceeds a
+           threshold, it is either a deviation or an inflection. It
+           is an inflection if the rotation angle relative to
+           several points away is actually larger than the rotation
+           angle relative to the neighbor points.  Inflections are
+           left alone. Deviations are corrected by replacing them
+           with a point interpolated (linearly) between its neighbors.
+        """
+        num_points = len(self.adc_pairs_corrected)
+        # Calculate the distance (in points) of the "far" points for
+        # the inflection comparison.  It is 1/25 of the total number
+        # of points, but always at least 2.
+        dist = int(num_points / 25.0)
+        if dist < 2:
+            dist = 2
+        for point in xrange(num_points - 1):
+            # Rotation calculation
+            pairs_list = self.adc_pairs_corrected
+            rot_degrees = self.rotation_at_point(pairs_list, point)
+            if abs(rot_degrees) > rot_thresh:
+                deviation = True
+                if point > (dist - 1) and (point + dist) < num_points:
+                    long_rot_degrees = self.rotation_at_point(pairs_list,
+                                                              point,
+                                                              distance=dist)
+                    if ((long_rot_degrees > 0) and (rot_degrees > 0) and
+                            (long_rot_degrees > rot_degrees)):
+                        deviation = False
+                    if ((long_rot_degrees <= 0) and (rot_degrees < 0) and
+                            (long_rot_degrees < rot_degrees)):
+                        deviation = False
+                if deviation:
+                    prev_point = self.adc_pairs_corrected[point-1]
+                    next_point = self.adc_pairs_corrected[point+1]
+                    ch0_adc_corrected = (prev_point[0] + next_point[0]) / 2.0
+                    ch1_adc_corrected = (prev_point[1] + next_point[1]) / 2.0
+                    self.adc_pairs_corrected[point] = (ch0_adc_corrected,
+                                                       ch1_adc_corrected)
+
+    # -------------------------------------------------------------------------
+    def rotation_at_point(self, pairs_list, point, distance=1):
+        """Method to calculate the angular rotation at a point on the
+           curve. The list of points and the point number of
+           interest are passed in.  By default, the angle is
+           calculated using the immediate neighbor points
+           (distance=1), but setting this parameter to a larger
+           value calculates the angle using points at that distance
+           on either side from the specified point.
+        """
+        if point == 0:
+            return 0.0
+        if pairs_list:
+            i_scale = pairs_list[-1][0] / pairs_list[0][1]  # Voc/Isc
+        else:
+            i_scale = IV_Swinger.INFINITE_VAL
+        i1 = pairs_list[point - distance][1]
+        v1 = pairs_list[point - distance][0]
+        i2 = pairs_list[point][1]
+        v2 = pairs_list[point][0]
+        i3 = pairs_list[point + distance][1]
+        v3 = pairs_list[point + distance][0]
+        if v2 == v1:
+            m12 = IV_Swinger.INFINITE_VAL
+        else:
+            m12 = i_scale * (i2 - i1) / (v2 - v1)
+        if v3 == v2:
+            m23 = IV_Swinger.INFINITE_VAL
+        else:
+            m23 = i_scale * (i3 - i2) / (v3 - v2)
+        rot_degrees = (math.degrees(math.atan(m12)) -
+                       math.degrees(math.atan(m23)))
+        return rot_degrees
 
     # -------------------------------------------------------------------------
     def convert_adc_values(self):
@@ -2369,6 +2461,12 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self.write_adc_pairs_to_csv_file(self.hdd_adc_pairs_csv_filename,
                                          self.adc_pairs)
 
+        # Write Unfiltered ADC pairs (if any) to CSV file
+        if len(self.unfiltered_adc_pairs):
+            unfiltered_adc_csv = self.hdd_unfiltered_adc_pairs_csv_filename
+            self.write_adc_pairs_to_csv_file(unfiltered_adc_csv,
+                                             self.unfiltered_adc_pairs)
+
         # Process ADC values
         rc = self.process_adc_values()
         if rc != RC_SUCCESS:
@@ -2386,13 +2484,18 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """
         # Create the leaf file names
         adc_pairs_csv_leaf_name = "adc_pairs_" + date_time_str + ".csv"
+        unfiltered_adc_pairs_csv_leaf_name = ("unfiltered_adc_pairs_" +
+                                              date_time_str + ".csv")
         csv_data_pt_leaf_name = self.file_prefix + date_time_str + ".csv"
 
         # Get the full-path names of the HDD output files
-        self.hdd_adc_pairs_csv_filename = os.path.join(dir,
-                                                       adc_pairs_csv_leaf_name)
-        self.hdd_csv_data_point_filename = os.path.join(dir,
-                                                        csv_data_pt_leaf_name)
+        unfiltered_adc_csv = os.path.join(dir,
+                                          unfiltered_adc_pairs_csv_leaf_name)
+        self.hdd_unfiltered_adc_pairs_csv_filename = unfiltered_adc_csv
+        adc_csv = os.path.join(dir, adc_pairs_csv_leaf_name)
+        self.hdd_adc_pairs_csv_filename = adc_csv
+        csv = os.path.join(dir, csv_data_pt_leaf_name)
+        self.hdd_csv_data_point_filename = csv
 
     # -------------------------------------------------------------------------
     def process_adc_values(self):
