@@ -124,6 +124,7 @@ RC_TIMEOUT = IV_Swinger2.RC_TIMEOUT
 RC_SERIAL_EXCEPTION = IV_Swinger2.RC_SERIAL_EXCEPTION
 RC_ZERO_VOC = IV_Swinger2.RC_ZERO_VOC
 RC_ZERO_ISC = IV_Swinger2.RC_ZERO_ISC
+RC_ISC_TIMEOUT = IV_Swinger2.RC_ISC_TIMEOUT
 CFG_STRING = IV_Swinger2.CFG_STRING
 CFG_FLOAT = IV_Swinger2.CFG_FLOAT
 CFG_INT = IV_Swinger2.CFG_INT
@@ -163,6 +164,7 @@ R2_DEFAULT = IV_Swinger2.R2_DEFAULT
 RF_DEFAULT = IV_Swinger2.RF_DEFAULT
 RG_DEFAULT = IV_Swinger2.RG_DEFAULT
 SHUNT_DEFAULT = IV_Swinger2.SHUNT_DEFAULT
+INFINITE_VAL = IV_Swinger2.INFINITE_VAL
 
 # GUI-specific
 VERSION_FILE = "version.txt"
@@ -197,6 +199,8 @@ SPI_COMBO_VALS_INV = {v: k for k, v in SPI_COMBO_VALS.items()}
 FANCY_LABELS_DEFAULT = "Fancy"
 INTERPOLATION_TYPE_DEFAULT = "Linear"
 CORRECT_ADC_DEFAULT = "On"
+REDUCE_NOISE_DEFAULT = "On"
+BATTERY_BIAS_DEFAULT = "Off"
 # Debug constants
 DEBUG_MEMLEAK = False
 
@@ -1080,6 +1084,8 @@ class GraphicalUserInterface(ttk.Frame):
                 self.show_zero_voc_dialog()
             if rc == RC_ZERO_ISC:
                 self.show_zero_isc_dialog()
+            if rc == RC_ISC_TIMEOUT:
+                self.show_isc_timeout_dialog()
             if loop_mode:
                 self.stop_actions(event=None)
             self.clean_up_after_failure(self.ivs2.hdd_output_dir)
@@ -1276,6 +1282,17 @@ Check that the IV Swinger 2 is connected
 properly to the PV module
 """
         tkmsg.showinfo(message=zero_isc_str)
+
+    # -------------------------------------------------------------------------
+    def show_isc_timeout_dialog(self):
+        isc_timeout_str = """
+ERROR: Timed out polling for stable Isc
+
+The "Isc stable ADC" value may need to be
+increased to a larger value on the Arduino
+tab of Preferences
+"""
+        tkmsg.showinfo(message=isc_timeout_str)
 
     # -------------------------------------------------------------------------
     def start_on_top(self):
@@ -2120,7 +2137,7 @@ class ResultsWizard(tk.Toplevel):
     # -------------------------------------------------------------------------
     def config_import_button(self):
         """Method to configure the shortcut button as the import button"""
-        self.shortcut_button['text'] = "Import All"
+        self.shortcut_button['text'] = "Import"
         self.shortcut_button['command'] = self.import_results
         to_from = (self.master.ivs2.app_data_dir, self.results_dir)
         tt_text = "Import results to %s from %s" % to_from
@@ -2198,20 +2215,29 @@ class ResultsWizard(tk.Toplevel):
     # -------------------------------------------------------------------------
     def import_results(self, event=None):
         """Method to import results to app data folder"""
-        # Get the list of runs to import from the current tree
-        import_runs = []
-        for date in self.dates:
-            for run in self.tree.get_children(date):
-                run_path = os.path.join(self.results_dir, run)
-                import_runs.append(run_path)
+        # Get the selected run(s) from the Treeview
+        import_runs = self.get_selected_runs()
 
-        # Get the list of overlays to import
-        import_overlays = []
-        if self.tree.exists('overlays'):
-            for overlay in self.tree.get_children('overlays'):
-                dts = IV_Swinger2.extract_date_time_str(overlay)
-                overlay_path = os.path.join(self.results_dir, 'overlays', dts)
-                import_overlays.append(overlay_path)
+        # Get the selected overlay(s) from the Treeview
+        import_overlays = self.get_selected_overlays()
+
+        # Import everything if nothing is selected
+        if not len(import_runs) and not len(import_overlays):
+            # Get the list of runs to import from the current tree
+            import_runs = []
+            for date in self.dates:
+                for run in self.tree.get_children(date):
+                    run_path = os.path.join(self.results_dir, run)
+                    import_runs.append(run_path)
+
+            # Get the list of overlays to import
+            import_overlays = []
+            if self.tree.exists('overlays'):
+                for overlay in self.tree.get_children('overlays'):
+                    dts = IV_Swinger2.extract_date_time_str(overlay)
+                    overlay_path = os.path.join(self.results_dir,
+                                                'overlays', dts)
+                    import_overlays.append(overlay_path)
 
         all_import = import_runs + import_overlays
 
@@ -3155,7 +3181,8 @@ class ResultsWizard(tk.Toplevel):
             csv_files_found = 0
             for file in os.listdir(csv_dir):
                 if (file.endswith(dts + '.csv') and
-                        not file.startswith('adc_pairs')):
+                        not file.startswith('adc_pairs') and
+                        not file.startswith('unfiltered_adc_pairs')):
                     csv_file_full_path = os.path.join(csv_dir, file)
                     self.selected_csv_files.append(csv_file_full_path)
                     csv_files_found += 1
@@ -3290,6 +3317,7 @@ class MenuBar(tk.Menu):
         self.create_window_menu()
         self.create_help_menu()
         self.master.root['menu'] = self.menubar
+        self.calibration_disabled = True
 
     # -------------------------------------------------------------------------
     def create_about_menu(self):
@@ -3333,6 +3361,8 @@ class MenuBar(tk.Menu):
                                         command=self.get_v_cal_value)
         self.calibrate_menu.add_command(label="Current Calibration",
                                         command=self.get_i_cal_value)
+        self.calibrate_menu.add_command(label="Bias Battery",
+                                        command=self.get_battery_bias)
         self.calibrate_menu.add_command(label="Resistors",
                                         command=self.get_resistor_values)
         self.calibrate_menu.add_command(label="Calibration Help",
@@ -3343,12 +3373,14 @@ class MenuBar(tk.Menu):
         kwargs = {"state": "disabled"}
         self.calibrate_menu.entryconfig("Voltage Calibration", **kwargs)
         self.calibrate_menu.entryconfig("Current Calibration", **kwargs)
+        self.calibration_disabled = True
 
     # -------------------------------------------------------------------------
     def enable_calibration(self):
         kwargs = {"state": "normal"}
         self.calibrate_menu.entryconfig("Voltage Calibration", **kwargs)
         self.calibrate_menu.entryconfig("Current Calibration", **kwargs)
+        self.calibration_disabled = False
 
     # -------------------------------------------------------------------------
     def create_window_menu(self):
@@ -3432,7 +3464,8 @@ Copyright (C) 2017  Chris Satterlee
 
     # -------------------------------------------------------------------------
     def get_v_cal_value(self):
-        curr_voc = self.master.ivs2.ivp.csv_proc.plt_voc_volts[0]
+        data_points = self.master.ivs2.data_points
+        curr_voc = round(data_points[-1][IV_Swinger2.VOLTS_INDEX], 4)
         prompt_str = "Enter measured Voc value:"
         new_voc = tksd.askfloat(title="Voltage Calibration",
                                 prompt=prompt_str,
@@ -3448,7 +3481,8 @@ Copyright (C) 2017  Chris Satterlee
 
     # -------------------------------------------------------------------------
     def get_i_cal_value(self):
-        curr_isc = self.master.ivs2.ivp.csv_proc.plt_isc_amps[0]
+        data_points = self.master.ivs2.data_points
+        curr_isc = round(data_points[0][IV_Swinger2.AMPS_INDEX], 4)
         prompt_str = "Enter measured Isc value:"
         new_isc = tksd.askfloat(title="Current Calibration",
                                 prompt=prompt_str,
@@ -3476,6 +3510,10 @@ this version of the Arduino software. Please upgrade.
     # -------------------------------------------------------------------------
     def get_resistor_values(self):
         ResistorValuesDialog(self.master)
+
+    # -------------------------------------------------------------------------
+    def get_battery_bias(self):
+        BiasBatteryDialog(self.master)
 
     # -------------------------------------------------------------------------
     def show_calibration_help(self):
@@ -3985,12 +4023,12 @@ class ResistorValuesDialog(Dialog):
         except ValueError:
             err_str += "\n  All fields must be floating point"
         else:
-            if r1_ohms <= 0.0:
-                err_str += "\n  R1 value must be positive"
+            if r1_ohms < 0.0:
+                err_str += "\n  R1 value must be zero or positive"
             if r2_ohms <= 0.0:
                 err_str += "\n  R2 value must be positive"
-            if rf_ohms <= 0.0:
-                err_str += "\n  Rf value must be positive"
+            if rf_ohms < 0.0:
+                err_str += "\n  Rf value must be zero or positive"
             if rg_ohms <= 0.0:
                 err_str += "\n  Rg value must be positive"
             if shunt_uohms <= 1.0:
@@ -4083,6 +4121,292 @@ class ResistorValuesDialog(Dialog):
             self.master.save_config()
 
 
+# Bias battery dialog class
+#
+class BiasBatteryDialog(Dialog):
+    """Extension of the generic Dialog class used for the Bias Battery
+    calibration dialog
+    """
+    # Initializer
+    def __init__(self, master=None):
+        title = APP_NAME + "Bias Battery"
+        section = "Calibration"
+        option = "bias battery voltage"
+        self.v_batt = master.config.cfg.getfloat(section, option)
+        option = "bias battery resistance"
+        self.r_batt = master.config.cfg.getfloat(section, option)
+        self.ready_to_calibrate = False
+        self.curve_looks_ok = False
+        self.reestablish_arduino_comm_reqd = False
+        Dialog.__init__(self, master=master, title=title)
+
+    # -------------------------------------------------------------------------
+    def body(self, master):
+        frame = ttk.Frame(master)
+
+        desc_text = """
+This calibration is used only for the cell version of IV Swinger 2,
+which sometimes requires a bias battery in series with the PV cell.  To
+perform the calibration, connect the battery to the IV Swinger 2 WITHOUT
+THE PV CELL and click on the "Calibrate" button below."""
+
+        # Add label with description text
+        desc_label = ttk.Label(master=frame, text=desc_text)
+
+        # Add Calibrate button in its own container box
+        calibrate_button_box = ttk.Frame(master=frame, padding=10)
+        calibrate_button = ttk.Button(calibrate_button_box,
+                                      text="Calibrate",
+                                      command=self.calibrate_battery_bias)
+
+        # Add battery voltage and resistance labels and values
+        labels_and_values_box = ttk.Frame(master=frame, padding=10)
+        label_box = ttk.Frame(master=labels_and_values_box, padding=10)
+        v_batt_label = ttk.Label(master=label_box,
+                                 text="    Battery voltage (Volts): ")
+        r_batt_label = ttk.Label(master=label_box,
+                                 text="    Battery resistance (Ohms): ")
+
+        # Add battery voltage and resistance values
+        values_box = ttk.Frame(master=labels_and_values_box, padding=10)
+        if self.v_batt == 0.0:
+            v_batt_str = "No bias"
+            r_batt_str = "No bias"
+        else:
+            v_batt_str = "%.4f" % self.v_batt
+            r_batt_str = "%.4f" % self.r_batt
+        self.v_batt_value = ttk.Label(master=values_box, text=v_batt_str)
+        self.r_batt_value = ttk.Label(master=values_box, text=r_batt_str)
+
+        # Layout
+        frame.grid(column=0, row=0, sticky=W, columnspan=2)
+        row = 0
+        desc_label.grid(column=0, row=row, sticky=W)
+        row = 1
+        calibrate_button_box.grid(column=0, row=row, sticky=(S, W), pady=4)
+        calibrate_button.grid(column=0, row=0, sticky=W)
+        row = 2
+        labels_and_values_box.grid(column=0, row=row, sticky=W)
+        label_box.pack(side=LEFT)
+        values_box.pack(side=LEFT)
+        v_batt_label.grid(column=0, row=0, sticky=W)
+        r_batt_label.grid(column=0, row=1, sticky=W)
+        self.v_batt_value.grid(column=0, row=0, sticky=W)
+        self.r_batt_value.grid(column=0, row=1, sticky=W)
+        frame.grid()
+
+    # -------------------------------------------------------------------------
+    def snapshot(self):
+        """Override snapshot() method of parent to capture original
+           configuration and property values
+        """
+        # Snapshot config
+        self.master.config.get_snapshot()
+
+        # Snapshot properties
+        v_batt = self.master.ivs2.v_batt
+        r_batt = self.master.ivs2.r_batt
+        self.snapshot_values['bias battery voltage'] = v_batt
+        self.snapshot_values['bias battery resistance'] = r_batt
+
+    # -------------------------------------------------------------------------
+    def revert(self):
+        """Override revert() method of parent to apply original values to
+           properties and the config
+        """
+        # Restore config
+        self.master.config.save_snapshot()
+        self.master.config.get()
+
+        # Restore properties
+        snap_v_batt = self.snapshot_values['bias battery voltage']
+        snap_r_batt = self.snapshot_values['bias battery resistance']
+        self.master.ivs2.v_batt = snap_v_batt
+        self.master.ivs2.r_batt = snap_r_batt
+
+        # Restart Arduino if calibration was performed to restore the
+        # isc_stable_adc value
+        if self.reestablish_arduino_comm_reqd:
+            self.master.reestablish_arduino_comm()
+
+    # -------------------------------------------------------------------------
+    def apply(self):
+        """Override apply() method of parent to apply new values to properties
+           and the config
+        """
+        bias_changed = False
+        section = "Calibration"
+        option = "bias battery voltage"
+        if self.v_batt != self.master.config.cfg.getfloat(section, option):
+            self.master.config.cfg_set(section, option, self.v_batt)
+            args = (section, option, CFG_FLOAT, self.master.ivs2.v_batt)
+            self.master.ivs2.v_batt = self.master.config.apply_one(*args)
+            bias_changed = True
+        option = "bias battery resistance"
+        if self.r_batt != self.master.config.cfg.getfloat(section, option):
+            self.master.config.cfg_set(section, option, self.r_batt)
+            args = (section, option, CFG_FLOAT, self.master.ivs2.r_batt)
+            self.master.ivs2.r_batt = self.master.config.apply_one(*args)
+            bias_changed = True
+
+        # Update values in EEPROM and save the config if anything changed
+        if bias_changed:
+            self.master.menu_bar.update_values_in_eeprom()
+            # Save config
+            self.master.props.suppress_cfg_file_copy = True
+            self.master.save_config()
+        elif self.reestablish_arduino_comm_reqd:
+            # Restart Arduino if calibration was performed (to restore
+            # the isc_stable_adc value, et al)
+            self.master.reestablish_arduino_comm()
+
+    # -------------------------------------------------------------------------
+    def calibrate_battery_bias(self):
+        """Swing an IV curve of the bias battery and extract the battery voltage
+        and internal resistance from that curve
+        """
+        if not self.master.ivs2.arduino_ready:
+            err_str = ("ERROR: The IV Swinger 2 is not connected.")
+            tkmsg.showinfo(message=err_str)
+            return
+        if not self.ready_to_calibrate:
+            title_str = "Ready to calibrate bias battery?"
+            msg_str = """
+Is the bias battery connected to the IV Swinger 2 WITHOUT THE PV
+CELL?  Click YES to perform the calibration, NO to cancel."""
+            self.ready_to_calibrate = tkmsg.askyesno(title_str,
+                                                     msg_str,
+                                                     default=tkmsg.YES)
+        if self.ready_to_calibrate:
+            # Temporarily lower max_iv_points and increase
+            # isc_stable_adc
+            restore_max_iv_points = self.master.ivs2.max_iv_points
+            restore_isc_stable_adc = self.master.ivs2.isc_stable_adc
+            self.master.ivs2.max_iv_points = 80
+            self.master.ivs2.isc_stable_adc = 200
+            self.master.reestablish_arduino_comm()
+            self.reestablish_arduino_comm_reqd = True
+
+            # Force ADC correction and noise reduction ON
+            restore_correct_adc = self.master.ivs2.correct_adc
+            restore_reduce_noise = self.master.ivs2.reduce_noise
+            self.master.ivs2.correct_adc = True
+            self.master.ivs2.reduce_noise = True
+
+            # Force battery bias OFF
+            restore_battery_bias = self.master.ivs2.battery_bias
+            self.master.ivs2.battery_bias = False
+
+            # Swing the IV curve
+            rc = self.master.ivs2.swing_iv_curve()
+
+            # Save config to output directory (this also overwrites the
+            # normal config file)
+            config = IV_Swinger2.Configuration(ivs2=self.master.ivs2)
+            config.populate()
+            config.add_axes_and_title()
+            config.save(self.master.ivs2.hdd_output_dir)
+
+            # Restore config file
+            self.master.props.suppress_cfg_file_copy = True
+            self.master.save_config()
+
+            # Restore properties
+            self.master.ivs2.max_iv_points = restore_max_iv_points
+            self.master.ivs2.isc_stable_adc = restore_isc_stable_adc
+            self.master.ivs2.correct_adc = restore_correct_adc
+            self.master.ivs2.reduce_noise = restore_reduce_noise
+            self.master.ivs2.battery_bias = restore_battery_bias
+
+            if rc == RC_SUCCESS:
+                # Display curve
+                self.master.display_img(self.master.ivs2.current_img)
+                if not self.curve_looks_ok:
+                    # Ask user if curve looks OK
+                    title_str = "Good battery curve?"
+                    msg_str = """
+Click YES if ALL of the following are true of
+the displayed curve:
+
+   - The Voc point is close to the rated
+     voltage of the battery
+
+   - The curve is nearly a straight line
+     between MPP and Voc
+
+   - The curve crosses the maximum
+     expected Isc of the PV cell at a
+     voltage > 0.5V
+"""
+                    self.curve_looks_ok = tkmsg.askyesno(title_str,
+                                                         msg_str,
+                                                         default=tkmsg.YES)
+                if self.curve_looks_ok:
+                    # Calculate bias values
+                    data_points = self.master.ivs2.data_points
+                    v_batt = data_points[-1][IV_Swinger2.VOLTS_INDEX]
+                    r_batt = round(self.calc_r_batt(), 4)
+                    self.v_batt_value['text'] = "%.4f" % v_batt
+                    self.r_batt_value['text'] = "%.4f" % r_batt
+                    self.v_batt = v_batt
+                    self.r_batt = r_batt
+
+                # Clean up
+                self.master.clean_up_files(self.master.ivs2.hdd_output_dir)
+            else:
+                err_str = ("ERROR: Failed to swing curve for bias battery")
+                tkmsg.showinfo(message=err_str)
+                return
+
+    # -------------------------------------------------------------------------
+    def calc_r_batt(self):
+        """Empirical results show that there is a slight non-linearity of the
+           actual battery curve. This method finds a value for the
+           internal resistance of the battery that produces the smallest
+           net power error.
+        """
+        data_points = self.master.ivs2.data_points
+        # We will use the points from four past the MPP to four before the
+        # end
+        min_v_pt = self.master.ivs2.get_max_watt_point_number(data_points) + 4
+        max_v_pt = len(data_points) - 5
+        max_v = data_points[max_v_pt][IV_Swinger2.VOLTS_INDEX]
+        max_v_amps = data_points[max_v_pt][IV_Swinger2.AMPS_INDEX]
+        r_batt_list = []
+
+        for point_num, data_point in enumerate(data_points):
+            if point_num < min_v_pt or point_num >= max_v_pt:
+                continue
+            volts = data_point[IV_Swinger2.VOLTS_INDEX]
+            amps = data_point[IV_Swinger2.AMPS_INDEX]
+            if amps != max_v_amps:
+                r_batt = (max_v - volts) / (amps - max_v_amps)
+                r_batt_list.append(r_batt)
+
+        v_batt = data_points[-1][IV_Swinger2.VOLTS_INDEX]
+        min_power_err_sum = INFINITE_VAL
+        for r_batt in r_batt_list:
+            power_err_sum = 0.0
+            for point_num, data_point in enumerate(data_points):
+                if point_num < min_v_pt or point_num >= max_v_pt:
+                    continue
+                volts = data_point[IV_Swinger2.VOLTS_INDEX]
+                amps = data_point[IV_Swinger2.AMPS_INDEX]
+                if amps > 9.0:
+                    continue
+                expected_v = v_batt - (amps * r_batt)
+                power_err = (volts * amps - expected_v * amps)
+                power_err_sum += power_err
+            log_str = "r_batt:%.6f  total power error:%.6f" % (r_batt,
+                                                               power_err_sum)
+            self.master.ivs2.logger.log(log_str)
+            if abs(power_err_sum) < abs(min_power_err_sum):
+                best_r_batt = r_batt
+                min_power_err_sum = power_err_sum
+
+        return best_r_batt
+
+
 # Preferences dialog class
 #
 class PreferencesDialog(Dialog):
@@ -4099,6 +4423,8 @@ class PreferencesDialog(Dialog):
         self.line_scale = tk.StringVar()
         self.point_scale = tk.StringVar()
         self.correct_adc = tk.StringVar()
+        self.reduce_noise = tk.StringVar()
+        self.battery_bias = tk.StringVar()
         self.spi_clk_str = tk.StringVar()
         self.max_iv_points_str = tk.StringVar()
         self.min_isc_adc_str = tk.StringVar()
@@ -4246,6 +4572,42 @@ class PreferencesDialog(Dialog):
         if self.master.config.cfg.getboolean(section, 'correct adc'):
             self.correct_adc.set("On")
 
+        # Add radio buttons to choose whether noise reduction algorithm
+        # should be applied or not
+        reduce_noise_label = ttk.Label(master=plotting_widget_box,
+                                       text="ADC noise reduction:")
+        reduce_noise_off_rb = ttk.Radiobutton(master=plotting_widget_box,
+                                              text="Off",
+                                              variable=self.reduce_noise,
+                                              command=self.immediate_apply,
+                                              value="Off")
+        reduce_noise_on_rb = ttk.Radiobutton(master=plotting_widget_box,
+                                             text="On",
+                                             variable=self.reduce_noise,
+                                             command=self.immediate_apply,
+                                             value="On")
+        self.reduce_noise.set("Off")
+        if self.master.config.cfg.getboolean(section, 'reduce noise'):
+            self.reduce_noise.set("On")
+
+        # Add radio buttons to choose whether a battery bias should be
+        # applied or not
+        battery_bias_label = ttk.Label(master=plotting_widget_box,
+                                       text="Battery bias:")
+        battery_bias_off_rb = ttk.Radiobutton(master=plotting_widget_box,
+                                              text="Off",
+                                              variable=self.battery_bias,
+                                              command=self.immediate_apply,
+                                              value="Off")
+        battery_bias_on_rb = ttk.Radiobutton(master=plotting_widget_box,
+                                             text="On",
+                                             variable=self.battery_bias,
+                                             command=self.immediate_apply,
+                                             value="On")
+        self.battery_bias.set("Off")
+        if self.master.config.cfg.getboolean(section, 'battery bias'):
+            self.battery_bias.set("On")
+
         # Add Restore Defaults button in its own container box
         plotting_restore_box = ttk.Frame(master=self.plotting_tab, padding=10)
         plotting_restore = ttk.Button(plotting_restore_box,
@@ -4281,16 +4643,24 @@ class PreferencesDialog(Dialog):
         point_scale_label.grid(column=0, row=row, sticky=W, pady=pady)
         point_scale_entry.grid(column=1, row=row, sticky=W, pady=pady)
         point_scale_slider.grid(column=2, row=row, sticky=W, pady=pady)
-        # Suppress displaying ADC correction widgets if the adc_pairs
-        # property is not populated (unless we're still at the splash
-        # screen)
+        # Suppress displaying ADC correction, noise reduction and
+        # battery bias widgets if the adc_pairs property is not
+        # populated (unless we're still at the splash screen)
         if (self.master.ivs2.adc_pairs is not None or
                 self.master.img_pane.splash_img_showing):
             row = 5
-            correct_adc_label.grid(column=0, row=row, sticky=W)
-            correct_adc_off_rb.grid(column=1, row=row, sticky=W)
-            correct_adc_on_rb.grid(column=2, row=row, sticky=W)
-        row = 6
+            correct_adc_label.grid(column=0, row=row, sticky=W, pady=pady)
+            correct_adc_off_rb.grid(column=1, row=row, sticky=W, pady=pady)
+            correct_adc_on_rb.grid(column=2, row=row, sticky=W, pady=pady)
+            row = 6
+            reduce_noise_label.grid(column=0, row=row, sticky=W, pady=pady)
+            reduce_noise_off_rb.grid(column=1, row=row, sticky=W, pady=pady)
+            reduce_noise_on_rb.grid(column=2, row=row, sticky=W, pady=pady)
+            row = 7
+            battery_bias_label.grid(column=0, row=row, sticky=W, pady=pady)
+            battery_bias_off_rb.grid(column=1, row=row, sticky=W, pady=pady)
+            battery_bias_on_rb.grid(column=2, row=row, sticky=W, pady=pady)
+        row = 8
         plotting_help_box.grid(column=0, row=row, sticky=W, pady=pady,
                                columnspan=2)
         plotting_help.grid(column=0, row=0, sticky=W)
@@ -4306,6 +4676,8 @@ class PreferencesDialog(Dialog):
         self.line_scale.set(str(LINE_SCALE_DEFAULT))
         self.point_scale.set(str(POINT_SCALE_DEFAULT))
         self.correct_adc.set(str(CORRECT_ADC_DEFAULT))
+        self.reduce_noise.set(str(REDUCE_NOISE_DEFAULT))
+        self.battery_bias.set(str(BATTERY_BIAS_DEFAULT))
         self.immediate_apply()
 
     # -------------------------------------------------------------------------
@@ -4580,6 +4952,8 @@ class PreferencesDialog(Dialog):
         self.snapshot_values['line_scale'] = self.master.ivs2.line_scale
         self.snapshot_values['point_scale'] = self.master.ivs2.point_scale
         self.snapshot_values['correct_adc'] = self.master.ivs2.correct_adc
+        self.snapshot_values['reduce_noise'] = self.master.ivs2.reduce_noise
+        self.snapshot_values['battery_bias'] = self.master.ivs2.battery_bias
 
     # -------------------------------------------------------------------------
     def validate(self):
@@ -4661,10 +5035,12 @@ class PreferencesDialog(Dialog):
         self.master.ivs2.line_scale = self.snapshot_values['line_scale']
         self.master.ivs2.point_scale = self.snapshot_values['point_scale']
         self.master.ivs2.correct_adc = self.snapshot_values['correct_adc']
+        self.master.ivs2.reduce_noise = self.snapshot_values['reduce_noise']
+        self.master.ivs2.battery_bias = self.snapshot_values['battery_bias']
 
         # Redisplay image if anything changed (saves config)
         if self.plot_props.prop_vals_changed():
-            reprocess_adc = self.plot_props.correct_adc_prop_changed()
+            reprocess_adc = self.plot_props.adc_prop_changed()
             self.master.redisplay_img(reprocess_adc=reprocess_adc)
             self.plot_props.update_prop_vals()
 
@@ -4709,10 +5085,18 @@ class PreferencesDialog(Dialog):
         correct_adc = (self.correct_adc.get() == "On")
         self.master.config.cfg_set(section, 'correct adc', correct_adc)
         self.master.ivs2.correct_adc = correct_adc
+        # Reduce noise
+        reduce_noise = (self.reduce_noise.get() == "On")
+        self.master.config.cfg_set(section, 'reduce noise', reduce_noise)
+        self.master.ivs2.reduce_noise = reduce_noise
+        # Battery bias
+        battery_bias = (self.battery_bias.get() == "On")
+        self.master.config.cfg_set(section, 'battery bias', battery_bias)
+        self.master.ivs2.battery_bias = battery_bias
 
         # Redisplay image if anything changed (saves config)
         if self.plot_props.prop_vals_changed():
-            reprocess_adc = self.plot_props.correct_adc_prop_changed()
+            reprocess_adc = self.plot_props.adc_prop_changed()
             self.master.redisplay_img(reprocess_adc=reprocess_adc)
             self.plot_props.update_prop_vals()
 
@@ -4808,6 +5192,8 @@ class PlottingProps(object):
         self.prop_vals['line_scale'] = self.ivs2.line_scale
         self.prop_vals['point_scale'] = self.ivs2.point_scale
         self.prop_vals['correct_adc'] = self.ivs2.correct_adc
+        self.prop_vals['reduce_noise'] = self.ivs2.reduce_noise
+        self.prop_vals['battery_bias'] = self.ivs2.battery_bias
 
     # -------------------------------------------------------------------------
     def prop_vals_changed(self):
@@ -4819,14 +5205,19 @@ class PlottingProps(object):
                 (self.prop_vals['font_scale'] != self.ivs2.font_scale) or
                 (self.prop_vals['line_scale'] != self.ivs2.line_scale) or
                 (self.prop_vals['point_scale'] != self.ivs2.point_scale) or
-                (self.prop_vals['correct_adc'] != self.ivs2.correct_adc))
+                (self.prop_vals['correct_adc'] != self.ivs2.correct_adc) or
+                (self.prop_vals['reduce_noise'] != self.ivs2.reduce_noise) or
+                (self.prop_vals['battery_bias'] != self.ivs2.battery_bias))
 
     # -------------------------------------------------------------------------
-    def correct_adc_prop_changed(self):
-        """Compare current value of correct_adc property with previously
-           captured value to see if it has changed
+    def adc_prop_changed(self):
+        """Compare current value of correct_adc, reduce_noise and battery_bias
+           properties with previously captured values to see if any have
+           changed
         """
-        return (self.prop_vals['correct_adc'] != self.ivs2.correct_adc)
+        return ((self.prop_vals['correct_adc'] != self.ivs2.correct_adc) or
+                (self.prop_vals['reduce_noise'] != self.ivs2.reduce_noise) or
+                (self.prop_vals['battery_bias'] != self.ivs2.battery_bias))
 
 
 # Plotting help dialog class
@@ -4876,10 +5267,24 @@ ADC correction:
   By default, several "corrections" are made to the raw values read by the
   analog to digital converter (ADC) chip to correct for noise and other effects
   that affect the proper rendering of the IV curve and the calculation of the
-  maximum power. If "Off" is selected, these corrections are not
-  performed. Note that the values written to the ADC CSV file are the
-  uncorrected values, regardless of this setting. Also note that the
+  maximum power. If "Off" is selected, these corrections are not performed.
+  Note that the values written to the ADC CSV file are the uncorrected values,
+  regardless of this setting. Also note that the current and voltage
   calibration settings are used regardless of this setting.
+
+ADC noise reduction:
+  This control is specific to the noise reduction component of the ADC
+  correction.  If ADC correction is enabled, noise reduction may be enabled and
+  disabled with this control.  If ADC correction is not enabled, this control
+  has no effect.
+
+Battery bias:
+  The cell version of IV Swinger 2 may require a bias battery to be placed in
+  series with the PV cell in order to trace the curve properly.  A calibration
+  of the bias battery must be performed before swinging a cell IV curve using
+  the bias battery.  Once that has been done, this control enables the software
+  to "subtract" the bias such that the rendered IV curve is that of the PV cell
+  alone.
 """
         font = HELP_DIALOG_FONT
         self.text = ScrolledText(master, height=30, borderwidth=10)

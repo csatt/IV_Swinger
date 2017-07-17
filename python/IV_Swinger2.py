@@ -104,6 +104,7 @@ RC_TIMEOUT = -3
 RC_SERIAL_EXCEPTION = -4
 RC_ZERO_VOC = -5
 RC_ZERO_ISC = -6
+RC_ISC_TIMEOUT = -7
 CFG_STRING = 0
 CFG_FLOAT = 1
 CFG_INT = 2
@@ -116,6 +117,11 @@ LATEST_SKETCH_VER = "1.1.0"
 
 # From IV_Swinger
 PLOT_COLORS = IV_Swinger.PLOT_COLORS
+AMPS_INDEX = IV_Swinger.AMPS_INDEX
+VOLTS_INDEX = IV_Swinger.VOLTS_INDEX
+OHMS_INDEX = IV_Swinger.OHMS_INDEX
+WATTS_INDEX = IV_Swinger.WATTS_INDEX
+INFINITE_VAL = IV_Swinger.INFINITE_VAL
 
 # From Arduino SPI.h:
 SPI_CLOCK_DIV4 = 0x00
@@ -146,6 +152,8 @@ MAX_ASPECT = 8
 # Default calibration values
 V_CAL_DEFAULT = 1.0197
 I_CAL_DEFAULT = 1.1187
+V_BATT_DEFAULT = 0.0
+R_BATT_DEFAULT = 0.0
 # Default resistor values
 R1_DEFAULT = 150000.0   # R1 = 150k nominal
 R1_DEFAULT_BUG = 180000.0   # This was a bug
@@ -163,8 +171,10 @@ EEPROM_RG_OHMS_ADDR = 20
 EEPROM_SHUNT_UOHMS_ADDR = 24
 EEPROM_V_CAL_X1M_ADDR = 28
 EEPROM_I_CAL_X1M_ADDR = 32
+EEPROM_V_BATT_X1M_ADDR = 36
+EEPROM_R_BATT_X1M_ADDR = 40
 EEPROM_VALID_VALUE = "123456.7890"
-EEPROM_VALID_COUNT = 7  # increment if any added
+EEPROM_VALID_COUNT = 9  # increment if any added
 # Debug constants
 DEBUG_CONFIG = False
 
@@ -471,6 +481,16 @@ class Configuration(object):
         args = (section, 'current', CFG_FLOAT, self.ivs2.i_cal)
         self.ivs2.i_cal = self.apply_one(*args)
 
+        # Bias battery voltage
+        args = (section, 'bias battery voltage', CFG_FLOAT,
+                V_BATT_DEFAULT)
+        self.ivs2.v_batt = self.apply_one(*args)
+
+        # Bias battery resistance
+        args = (section, 'bias battery resistance', CFG_FLOAT,
+                R_BATT_DEFAULT)
+        self.ivs2.r_batt = self.apply_one(*args)
+
         # NOTE: The "old" values in the args values are used when the
         # .cfg file is missing values for a particular config
         # type. Since the resistors were not originally included in the
@@ -543,6 +563,14 @@ class Configuration(object):
         # ADC correction
         args = (section, 'correct adc', CFG_BOOLEAN, self.ivs2.correct_adc)
         self.ivs2.correct_adc = self.apply_one(*args)
+
+        # Noise reduction
+        args = (section, 'reduce noise', CFG_BOOLEAN, self.ivs2.reduce_noise)
+        self.ivs2.reduce_noise = self.apply_one(*args)
+
+        # Battery bias
+        args = (section, 'battery bias', CFG_BOOLEAN, self.ivs2.battery_bias)
+        self.ivs2.battery_bias = self.apply_one(*args)
 
     # -------------------------------------------------------------------------
     def apply_axes(self):
@@ -698,6 +726,8 @@ class Configuration(object):
         self.cfg.add_section(section)
         self.cfg_set(section, 'voltage', self.ivs2.v_cal)
         self.cfg_set(section, 'current', self.ivs2.i_cal)
+        self.cfg_set(section, 'bias battery voltage', self.ivs2.v_batt)
+        self.cfg_set(section, 'bias battery resistance', self.ivs2.r_batt)
         self.cfg_set(section, 'r1 ohms', self.ivs2.vdiv_r1)
         self.cfg_set(section, 'r2 ohms', self.ivs2.vdiv_r2)
         self.cfg_set(section, 'rf ohms', self.ivs2.amm_op_amp_rf)
@@ -715,6 +745,8 @@ class Configuration(object):
         self.cfg_set(section, 'line scale', self.ivs2.line_scale)
         self.cfg_set(section, 'point scale', self.ivs2.point_scale)
         self.cfg_set(section, 'correct adc', self.ivs2.correct_adc)
+        self.cfg_set(section, 'reduce noise', self.ivs2.reduce_noise)
+        self.cfg_set(section, 'battery bias', self.ivs2.battery_bias)
 
         # Arduino config
         section = "Arduino"
@@ -1164,6 +1196,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                                      (SHUNT_DEFAULT / 1000000.0))
         self._v_cal = V_CAL_DEFAULT
         self._i_cal = I_CAL_DEFAULT
+        self._v_batt = V_BATT_DEFAULT
+        self._r_batt = R_BATT_DEFAULT
         self._plot_title = None
         self._current_img = None
         self._x_pixels = 770  # Default GIF width (770x595)
@@ -1176,6 +1210,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._line_scale = LINE_SCALE_DEFAULT
         self._point_scale = POINT_SCALE_DEFAULT
         self._correct_adc = True
+        self._reduce_noise = True
+        self._battery_bias = False
         self._arduino_ver_major = -1
         self._arduino_ver_minor = -1
         self._arduino_ver_patch = -1
@@ -1283,6 +1319,26 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     @i_cal.setter
     def i_cal(self, value):
         self._i_cal = value
+
+    # ---------------------------------
+    @property
+    def v_batt(self):
+        """Property to get the bias battery voltage calibration value"""
+        return self._v_batt
+
+    @v_batt.setter
+    def v_batt(self, value):
+        self._v_batt = value
+
+    # ---------------------------------
+    @property
+    def r_batt(self):
+        """Property to get the bias battery resistance calibration value"""
+        return self._r_batt
+
+    @r_batt.setter
+    def r_batt(self, value):
+        self._r_batt = value
 
     # ---------------------------------
     @property
@@ -1546,6 +1602,32 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if value not in set([True, False]):
             raise ValueError("correct_adc must be boolean")
         self._correct_adc = value
+
+    # ---------------------------------
+    @property
+    def reduce_noise(self):
+        """Value of the reduce_noise flag
+        """
+        return self._reduce_noise
+
+    @reduce_noise.setter
+    def reduce_noise(self, value):
+        if value not in set([True, False]):
+            raise ValueError("reduce_noise must be boolean")
+        self._reduce_noise = value
+
+    # ---------------------------------
+    @property
+    def battery_bias(self):
+        """Value of the battery_bias flag
+        """
+        return self._battery_bias
+
+    @battery_bias.setter
+    def battery_bias(self, value):
+        if value not in set([True, False]):
+            raise ValueError("battery_bias must be boolean")
+        self._battery_bias = value
 
     # ---------------------------------
     @property
@@ -1858,7 +1940,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                              (str(EEPROM_V_CAL_X1M_ADDR) + " " +
                               str(int(self.v_cal * 1000000.0))),
                              (str(EEPROM_I_CAL_X1M_ADDR) + " " +
-                              str(int(self.i_cal * 1000000.0)))]
+                              str(int(self.i_cal * 1000000.0))),
+                             (str(EEPROM_V_BATT_X1M_ADDR) + " " +
+                              str(int(self.v_batt * 1000000.0))),
+                             (str(EEPROM_R_BATT_X1M_ADDR) + " " +
+                              str(int(self.r_batt * 1000000.0)))]
             for config_value in config_values:
                 rc = self.send_one_config_msg_to_arduino("WRITE_EEPROM",
                                                          config_value)
@@ -1951,6 +2037,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         unfiltered_adc_re_str = 'Unfiltered CH0:(\d+)\s+Unfiltered CH1:(\d+)'
         unfiltered_adc_re = re.compile(unfiltered_adc_re_str)
         for msg in received_msgs:
+            if msg.startswith('Polling for stable Isc timed out'):
+                return RC_ISC_TIMEOUT
             match = adc_re.search(msg)
             if match:
                 ch0_adc = int(match.group(1))
@@ -2135,6 +2223,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             self.v_cal = float(eeprom_value) / 1000000.0
         elif eeprom_addr == EEPROM_I_CAL_X1M_ADDR:
             self.i_cal = float(eeprom_value) / 1000000.0
+        elif eeprom_addr == EEPROM_V_BATT_X1M_ADDR:
+            self.v_batt = float(eeprom_value) / 1000000.0
+        elif eeprom_addr == EEPROM_R_BATT_X1M_ADDR:
+            self.r_batt = float(eeprom_value) / 1000000.0
         else:
             warn_str = ("WARNING: EEPROM value not " +
                         "supported by this version of the application: " +
@@ -2169,10 +2261,16 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 prev_adc1_corrected = ch1_adc_corrected
                 continue
 
-            # Combine points with same voltage (use average current)
-            if (ch0_adc_corrected == prev_adc0_corrected):
-                ch1_adc_corrected = (ch1_adc_corrected +
-                                     prev_adc1_corrected) / 2.0
+            # Combine points with same voltage
+            if ch0_adc_corrected == prev_adc0_corrected:
+                if pair_num == voc_pair_num:
+                    # For Voc point, use corrected current (which should
+                    # be zero)
+                    ch1_adc_corrected = ch1_adc_corrected
+                else:
+                    # For all others, use average current
+                    ch1_adc_corrected = (ch1_adc_corrected +
+                                         prev_adc1_corrected) / 2.0
                 del self.adc_pairs_corrected[-1]
             self.adc_pairs_corrected.append((ch0_adc_corrected,
                                              ch1_adc_corrected))
@@ -2180,61 +2278,82 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             prev_adc0_corrected = ch0_adc_corrected
             prev_adc1_corrected = ch1_adc_corrected
 
+        # Remove point 0 (which was extrapolated by the Arduino code) if
+        # the next point's CH0 value is more than 20% of the last CH0
+        # value.
+        second_ch0 = float(self.adc_pairs_corrected[1][0])
+        last_ch0 = float(self.adc_pairs_corrected[-1][0])
+        if (second_ch0 / last_ch0) > 0.20:
+            del self.adc_pairs_corrected[0]
+
         # Noise reduction
-        #
-        # Start with a large value for the rotation threshold and
-        # call the reduce_noise() method in a loop, reducing the
-        # threshold each time.
-        first_iter_rot_thresh = 30.0
-        last_iter_rot_thresh = 5.0
-        iterations = int(first_iter_rot_thresh / last_iter_rot_thresh)
-        for ii in xrange(iterations):
-            rot_thresh = first_iter_rot_thresh / (ii + 1)
-            self.reduce_noise(rot_thresh=rot_thresh)
+        if self.reduce_noise:
+            self.noise_reduction(starting_rot_thresh=10.0,
+                                 iterations=25,
+                                 thresh_divisor=2.0)
 
     # -------------------------------------------------------------------------
-    def reduce_noise(self, rot_thresh=5.0):
+    def noise_reduction(self, starting_rot_thresh=5.0, iterations=1,
+                        thresh_divisor=2.0):
         """Method to smooth out "bumps" in the curve. The trick is to
            disambiguate between deviations (bad) and inflections
-           (normal). For each point on the curve, the rotation angle
-           at that point is calculated. If this angle exceeds a
-           threshold, it is either a deviation or an inflection. It
-           is an inflection if the rotation angle relative to
-           several points away is actually larger than the rotation
-           angle relative to the neighbor points.  Inflections are
-           left alone. Deviations are corrected by replacing them
-           with a point interpolated (linearly) between its neighbors.
+           (normal). For each point on the curve, the rotation angle at
+           that point is calculated. If this angle exceeds a threshold,
+           it is either a deviation or an inflection. It is an
+           inflection if the rotation angle relative to several points
+           away is actually larger than the rotation angle relative to
+           the neighbor points.  Inflections are left alone. Deviations
+           are corrected by replacing them with a point interpolated
+           (linearly) between its neighbors. This algorithm may be
+           performed incrementally, starting with a large threshold and
+           then dividing that threshold by some amount each time - in
+           theory this should provide better results because the larger
+           deviations will be smoothed out first, so it is more clear
+           what is a deviation and what isn't.
         """
         num_points = len(self.adc_pairs_corrected)
-        # Calculate the distance (in points) of the "far" points for
-        # the inflection comparison.  It is 1/25 of the total number
-        # of points, but always at least 2.
-        dist = int(num_points / 25.0)
-        if dist < 2:
-            dist = 2
-        for point in xrange(num_points - 1):
-            # Rotation calculation
-            pairs_list = self.adc_pairs_corrected
-            rot_degrees = self.rotation_at_point(pairs_list, point)
-            if abs(rot_degrees) > rot_thresh:
-                deviation = True
-                if point > (dist - 1) and (point + dist) < num_points:
-                    long_rot_degrees = self.rotation_at_point(pairs_list,
-                                                              point,
-                                                              distance=dist)
-                    if ((long_rot_degrees > 0) and (rot_degrees > 0) and
-                            (long_rot_degrees > rot_degrees)):
-                        deviation = False
-                    if ((long_rot_degrees <= 0) and (rot_degrees < 0) and
-                            (long_rot_degrees < rot_degrees)):
-                        deviation = False
-                if deviation:
-                    prev_point = self.adc_pairs_corrected[point-1]
-                    next_point = self.adc_pairs_corrected[point+1]
-                    ch0_adc_corrected = (prev_point[0] + next_point[0]) / 2.0
-                    ch1_adc_corrected = (prev_point[1] + next_point[1]) / 2.0
-                    self.adc_pairs_corrected[point] = (ch0_adc_corrected,
-                                                       ch1_adc_corrected)
+        rot_thresh = starting_rot_thresh
+        for ii in xrange(25):
+            # Calculate the distance (in points) of the "far" points for
+            # the inflection comparison.  It is 1/25 of the total number
+            # of points, but always at least 2.
+            dist = int(num_points / 25.0)
+            if dist < 2:
+                dist = 2
+            for point in xrange(num_points - 1):
+                # Rotation calculation
+                pairs_list = self.adc_pairs_corrected
+                rot_degrees = self.rotation_at_point(pairs_list, point)
+                if abs(rot_degrees) > rot_thresh:
+                    deviation = True
+                    if point > (dist - 1) and (point + dist) < num_points:
+                        long_rot_degrees = self.rotation_at_point(pairs_list,
+                                                                  point,
+                                                                  dist)
+                        if ((long_rot_degrees > 0) and (rot_degrees > 0) and
+                                (long_rot_degrees > rot_degrees)):
+                            deviation = False
+                        if ((long_rot_degrees <= 0) and (rot_degrees < 0) and
+                                (long_rot_degrees < rot_degrees)):
+                            deviation = False
+                    if deviation:
+                        curr_point = pairs_list[point]
+                        prev_point = pairs_list[point-1]
+                        next_point = pairs_list[point+1]
+                        if point > 1:
+                            ch0_adc_corrected = (prev_point[0] +
+                                                 next_point[0]) / 2.0
+                        else:
+                            # Don't correct voltage of point 1.  Otherwise
+                            # it migrates toward the Isc point each
+                            # iteration, and that doesn't seem right since
+                            # the Isc point is extrapolated.
+                            ch0_adc_corrected = curr_point[0]
+                        ch1_adc_corrected = (prev_point[1] +
+                                             next_point[1]) / 2.0
+                        self.adc_pairs_corrected[point] = (ch0_adc_corrected,
+                                                           ch1_adc_corrected)
+            rot_thresh /= thresh_divisor
 
     # -------------------------------------------------------------------------
     def rotation_at_point(self, pairs_list, point, distance=1):
@@ -2251,7 +2370,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if pairs_list:
             i_scale = pairs_list[-1][0] / pairs_list[0][1]  # Voc/Isc
         else:
-            i_scale = IV_Swinger.INFINITE_VAL
+            i_scale = INFINITE_VAL
         i1 = pairs_list[point - distance][1]
         v1 = pairs_list[point - distance][0]
         i2 = pairs_list[point][1]
@@ -2259,11 +2378,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         i3 = pairs_list[point + distance][1]
         v3 = pairs_list[point + distance][0]
         if v2 == v1:
-            m12 = IV_Swinger.INFINITE_VAL
+            m12 = INFINITE_VAL
         else:
             m12 = i_scale * (i2 - i1) / (v2 - v1)
         if v3 == v2:
-            m23 = IV_Swinger.INFINITE_VAL
+            m23 = INFINITE_VAL
         else:
             m23 = i_scale * (i3 - i2) / (v3 - v2)
         rot_degrees = (math.degrees(math.atan(m12)) -
@@ -2287,11 +2406,39 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             if amps:
                 ohms = volts / amps
             else:
-                ohms = IV_Swinger.INFINITE_VAL
+                ohms = INFINITE_VAL
             self.data_points.append((amps, volts, ohms, watts))
-            output_line = ("V=%.3f, I=%.3f, P=%.3f, R=%.3f" %
+            output_line = ("V=%.6f, I=%.6f, P=%.6f, R=%.6f" %
                            (volts, amps, watts, ohms))
             self.logger.log(output_line)
+
+    # -------------------------------------------------------------------------
+    def apply_battery_bias(self):
+        """Method to subtract the battery bias from the data points
+        """
+        biased_data_points = []
+
+        for data_point in self.data_points:
+            volts = data_point[VOLTS_INDEX]
+            amps = data_point[AMPS_INDEX]
+            biased_volts = volts - (self.v_batt - (amps * self.r_batt))
+            if biased_volts < 0:
+                continue
+            else:
+                if amps:
+                    ohms = biased_volts / amps
+                else:
+                    ohms = INFINITE_VAL
+                watts = biased_volts * amps
+                biased_point = (amps, biased_volts, ohms, watts)
+                biased_data_points.append(biased_point)
+
+        # Extrapolate new Isc point
+        max_watt_point_number = (
+            self.get_max_watt_point_number(biased_data_points))
+        isc_point = self.extrapolate_isc(biased_data_points,
+                                         max_watt_point_number)
+        self.data_points = [isc_point] + biased_data_points
 
     # -------------------------------------------------------------------------
     def log_initial_debug_info(self):
@@ -2518,6 +2665,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
         # Convert the ADC values to volts, amps, watts, and ohms
         self.convert_adc_values()
+
+        # Apply battery bias, if enabled
+        if self.battery_bias:
+            self.apply_battery_bias()
 
         # Write CSV file
         self.write_csv_data_points_to_file(self.hdd_csv_data_point_filename,

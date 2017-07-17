@@ -2882,8 +2882,12 @@ class IV_Swinger(object):
         i1 = data_points[1][AMPS_INDEX]  # NONE data point
         v1 = data_points[1][VOLTS_INDEX]
 
-        i2 = data_points[2][AMPS_INDEX]  # HALF data point
-        v2 = data_points[2][VOLTS_INDEX]
+        if len(data_points) > 2:
+            i2 = data_points[2][AMPS_INDEX]  # HALF data point
+            v2 = data_points[2][VOLTS_INDEX]
+        else:
+            i2 = i1
+            v2 = v1
 
         if v2 != v1 and max_watt_point_number > 3:
             # Find y (aka I) intercept of line connecting first two
@@ -2935,7 +2939,7 @@ class IV_Swinger(object):
         isc_volts = 0
         isc_ohms = 0
         isc_watts = 0
-        self.logger.print_and_log("Isc Amps: %.6f" % (isc_amps))
+        self.logger.log("Isc Amps: %.6f" % (isc_amps))
 
         return (isc_amps, isc_volts, isc_ohms, isc_watts)
 
@@ -2958,11 +2962,11 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def write_csv_data_to_file(self, open_filehandle, volts,
                                amps, watts, ohms):
-        """Method to write the current voltage, current, watts, and ohms
-        values to an output file which the caller has opened for and has
-        passed the filehandle.
+        """Method to write the current voltage, current, watts, and ohms values
+        to an output file which the caller has opened and has passed the
+        filehandle.
         """
-        output_line = "%.3f,%.3f,%.3f,%.3f\n" % (volts, amps, watts, ohms)
+        output_line = "%.6f,%.6f,%.6f,%.6f\n" % (volts, amps, watts, ohms)
         open_filehandle.write(output_line)
 
     # -------------------------------------------------------------------------
@@ -2978,7 +2982,7 @@ class IV_Swinger(object):
 
             prev_vals = ""
             for data_point in data_points:
-                curr_vals = "%.3f %.3f %.3f\n" % (data_point[VOLTS_INDEX],
+                curr_vals = "%.6f %.6f %.6f\n" % (data_point[VOLTS_INDEX],
                                                   data_point[AMPS_INDEX],
                                                   data_point[WATTS_INDEX])
                 if curr_vals != prev_vals:
@@ -2997,7 +3001,7 @@ class IV_Swinger(object):
         then the other values are ignored and two blank lines are
         appended to the file.
         """
-        output_line = "%.3f %.3f %.3f\n" % (volts, amps, watts)
+        output_line = "%.6f %.6f %.6f\n" % (volts, amps, watts)
         if new_data_set:
             # two blank lines signify a new data set to plotter
             open_filehandle.write("\n")
@@ -3183,7 +3187,7 @@ class IV_Swinger(object):
         # Set annotate options
         (xytext_offset, bbox, arrowprops) = self.set_annotate_options()
 
-        # Plot and lable the Isc point(s)
+        # Plot and label the Isc point(s)
         self.plot_and_label_isc(isc_amps, xytext_offset, bbox, arrowprops)
 
         # Plot and label the MPP(s)
@@ -3349,10 +3353,20 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def set_x_ticks(self, max_x):
         """Method to set the plotter X-axis ticks"""
-        if max_x < 20:
+        if max_x < 1:
+            step = 0.05
+        elif max_x < 2:
+            step = 0.1
+        elif max_x < 4:
+            step = 0.2
+        elif max_x < 10:
+            step = 0.5
+        elif max_x < 20:
             step = 1.0
-        else:
+        elif max_x < 40:
             step = 2.0
+        else:
+            step = 4.0
         fontsize = self.ticklabel_fontsize * self.font_scale
         if self.use_gnuplot:
             fontsize *= self.gp_font_scale
@@ -3365,7 +3379,13 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def set_y_ticks(self, max_y):
         """Method to set the plotter Y-axis ticks"""
-        if max_y < 5:
+        if max_y < 0.5:
+            step = 0.05
+        elif max_y < 1:
+            step = 0.1
+        elif max_y < 2:
+            step = 0.2
+        elif max_y < 5:
             step = 0.5
         else:
             step = 1.0
