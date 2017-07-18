@@ -113,7 +113,7 @@ SKETCH_VER_LT = -1
 SKETCH_VER_EQ = 0
 SKETCH_VER_GT = 1
 SKETCH_VER_ERR = -2
-LATEST_SKETCH_VER = "1.1.0"
+LATEST_SKETCH_VER = "1.2.0"
 
 # From IV_Swinger
 PLOT_COLORS = IV_Swinger.PLOT_COLORS
@@ -2064,7 +2064,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """
         if self.arduino_sketch_ver_lt("1.1.0"):
             return RC_SUCCESS
-        rc = self.send_msg_to_arduino("Config: DUMP_EEPROM")
+        rc = self.send_msg_to_arduino("Config: DUMP_EEPROM ")
         if rc != RC_SUCCESS:
             return rc
         self.msg_from_arduino = "None"
