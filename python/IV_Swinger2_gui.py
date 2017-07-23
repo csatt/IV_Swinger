@@ -251,9 +251,9 @@ class GraphicalUserInterface(ttk.Frame):
         self.props = GraphicalUserInterfaceProps(self)
         self.get_version()
         self.set_grid()
-        self.start_to_right()
         self.config = Configuration(gui=self, ivs2=self.ivs2)
         self.config.get()
+        self.start_to_right()
         self.set_style()
         self.create_menu_bar()
         self.menu_bar.disable_calibration()
@@ -1317,8 +1317,8 @@ tab of Preferences
 
     # -------------------------------------------------------------------------
     def start_to_left(self):
-        # Causes app to open to the left of the screen (with 20 pixels
-        # left), aligned to top (5 pixel overscan compensation)
+        # Causes app to open to the left of the screen, aligned to top
+        # (5 pixel overscan compensation)
         self.root.geometry('+20+5')
 
     # -------------------------------------------------------------------------
@@ -2650,12 +2650,19 @@ class ResultsWizard(tk.Toplevel):
             # Set x_pixels to current value
             self.master.ivs2.x_pixels = self.master.get_curr_x_pixels()
 
-            # Get the title from the saved config
+            # Restore the saved config, then overwrite the Plotting
+            # section with current values. This preserves the
+            # calibration values, Arduino preferences, title, etc. since
+            # none of those should change on a batch update. There is a
+            # use case for using a batch update for calibration changes,
+            # but that is outweighed by the danger of unintentionally
+            # losing the calibration values at the time of the run. This
+            # is particularly true for the battery bias calibration.
             self.master.props.plot_title = None
             cfg_file = os.path.join(run_dir, APP_NAME + ".cfg")
             if os.path.exists(cfg_file):
                 self.master.config.cfg_filename = cfg_file
-                self.master.config.get_old_title(cfg_file)
+                self.master.config.merge_old_with_current_plotting(cfg_file)
                 self.master.props.plot_title = self.master.ivs2.plot_title
 
             # If Lock checkbutton is unchecked, unlock axes so scaling
@@ -4278,46 +4285,11 @@ CELL?  Click YES to perform the calibration, NO to cancel."""
                                                      msg_str,
                                                      default=tkmsg.YES)
         if self.ready_to_calibrate:
-            # Temporarily lower max_iv_points and increase
-            # isc_stable_adc
-            restore_max_iv_points = self.master.ivs2.max_iv_points
-            restore_isc_stable_adc = self.master.ivs2.isc_stable_adc
-            self.master.ivs2.max_iv_points = 80
-            self.master.ivs2.isc_stable_adc = 200
-            self.master.reestablish_arduino_comm()
             self.reestablish_arduino_comm_reqd = True
-
-            # Force ADC correction and noise reduction ON
-            restore_correct_adc = self.master.ivs2.correct_adc
-            restore_reduce_noise = self.master.ivs2.reduce_noise
-            self.master.ivs2.correct_adc = True
-            self.master.ivs2.reduce_noise = True
-
-            # Force battery bias OFF
-            restore_battery_bias = self.master.ivs2.battery_bias
-            self.master.ivs2.battery_bias = False
-
-            # Swing the IV curve
-            rc = self.master.ivs2.swing_iv_curve()
-
-            # Save config to output directory (this also overwrites the
-            # normal config file)
-            config = IV_Swinger2.Configuration(ivs2=self.master.ivs2)
-            config.populate()
-            config.add_axes_and_title()
-            config.save(self.master.ivs2.hdd_output_dir)
-
+            rc = self.master.ivs2.swing_battery_calibration_curve()
             # Restore config file
             self.master.props.suppress_cfg_file_copy = True
             self.master.save_config()
-
-            # Restore properties
-            self.master.ivs2.max_iv_points = restore_max_iv_points
-            self.master.ivs2.isc_stable_adc = restore_isc_stable_adc
-            self.master.ivs2.correct_adc = restore_correct_adc
-            self.master.ivs2.reduce_noise = restore_reduce_noise
-            self.master.ivs2.battery_bias = restore_battery_bias
-
             if rc == RC_SUCCESS:
                 # Display curve
                 self.master.display_img(self.master.ivs2.current_img)
@@ -4343,9 +4315,7 @@ the displayed curve:
                                                          default=tkmsg.YES)
                 if self.curve_looks_ok:
                     # Calculate bias values
-                    data_points = self.master.ivs2.data_points
-                    v_batt = data_points[-1][IV_Swinger2.VOLTS_INDEX]
-                    r_batt = round(self.calc_r_batt(), 4)
+                    r_batt, v_batt = self.master.ivs2.calculate_bias_values()
                     self.v_batt_value['text'] = "%.4f" % v_batt
                     self.r_batt_value['text'] = "%.4f" % r_batt
                     self.v_batt = v_batt
@@ -4357,54 +4327,6 @@ the displayed curve:
                 err_str = ("ERROR: Failed to swing curve for bias battery")
                 tkmsg.showinfo(message=err_str)
                 return
-
-    # -------------------------------------------------------------------------
-    def calc_r_batt(self):
-        """Empirical results show that there is a slight non-linearity of the
-           actual battery curve. This method finds a value for the
-           internal resistance of the battery that produces the smallest
-           net power error.
-        """
-        data_points = self.master.ivs2.data_points
-        # We will use the points from four past the MPP to four before the
-        # end
-        min_v_pt = self.master.ivs2.get_max_watt_point_number(data_points) + 4
-        max_v_pt = len(data_points) - 5
-        max_v = data_points[max_v_pt][IV_Swinger2.VOLTS_INDEX]
-        max_v_amps = data_points[max_v_pt][IV_Swinger2.AMPS_INDEX]
-        r_batt_list = []
-
-        for point_num, data_point in enumerate(data_points):
-            if point_num < min_v_pt or point_num >= max_v_pt:
-                continue
-            volts = data_point[IV_Swinger2.VOLTS_INDEX]
-            amps = data_point[IV_Swinger2.AMPS_INDEX]
-            if amps != max_v_amps:
-                r_batt = (max_v - volts) / (amps - max_v_amps)
-                r_batt_list.append(r_batt)
-
-        v_batt = data_points[-1][IV_Swinger2.VOLTS_INDEX]
-        min_power_err_sum = INFINITE_VAL
-        for r_batt in r_batt_list:
-            power_err_sum = 0.0
-            for point_num, data_point in enumerate(data_points):
-                if point_num < min_v_pt or point_num >= max_v_pt:
-                    continue
-                volts = data_point[IV_Swinger2.VOLTS_INDEX]
-                amps = data_point[IV_Swinger2.AMPS_INDEX]
-                if amps > 9.0:
-                    continue
-                expected_v = v_batt - (amps * r_batt)
-                power_err = (volts * amps - expected_v * amps)
-                power_err_sum += power_err
-            log_str = "r_batt:%.6f  total power error:%.6f" % (r_batt,
-                                                               power_err_sum)
-            self.master.ivs2.logger.log(log_str)
-            if abs(power_err_sum) < abs(min_power_err_sum):
-                best_r_batt = r_batt
-                min_power_err_sum = power_err_sum
-
-        return best_r_batt
 
 
 # Preferences dialog class

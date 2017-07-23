@@ -495,7 +495,15 @@ class CsvFileProcessor(object):
                                                   max_watt_point_number)
 
         # Extract the Isc and Voc values
-        isc_amps = data_points[0][IV_Swinger.AMPS_INDEX]
+        if data_points[0][IV_Swinger.VOLTS_INDEX] == 0.0:
+            # Normal case
+            isc_amps = data_points[0][IV_Swinger.AMPS_INDEX]
+        else:
+            # If the first data point does not have a voltage of zero,
+            # we don't know the Isc. Setting isc_amps to a negative
+            # number has the effect of not plotting the Isc point since
+            # the Y range starts at 0.
+            isc_amps = -1.0
         voc_volts = data_points[-1][IV_Swinger.VOLTS_INDEX]
 
         # Create an Interpolator object and call the appropriate

@@ -114,6 +114,7 @@ SKETCH_VER_EQ = 0
 SKETCH_VER_GT = 1
 SKETCH_VER_ERR = -2
 LATEST_SKETCH_VER = "1.2.0"
+MIN_PT1_TO_VOC_RATIO_FOR_ISC = 0.20
 
 # From IV_Swinger
 PLOT_COLORS = IV_Swinger.PLOT_COLORS
@@ -332,6 +333,48 @@ class Configuration(object):
             self.apply_title()
 
     # -------------------------------------------------------------------------
+    def merge_old_with_current_plotting(self, cfg_file):
+        """Method to read a config file from an existing run into the current
+           config, but discard its Plotting section values and replace
+           them with the values in the config at the time the method is
+           called. The associated properties are all updated based on
+           the merged config.
+        """
+        # Capture Plotting options from current config
+        section = 'Plotting'
+        x_pixels = self.cfg.get('General', 'x pixels')
+        plot_power = self.cfg.get(section, 'plot power')
+        fancy_labels = self.cfg.get(section, 'fancy labels')
+        linear = self.cfg.get(section, 'linear')
+        font_scale = self.cfg.get(section, 'font scale')
+        line_scale = self.cfg.get(section, 'line scale')
+        point_scale = self.cfg.get(section, 'point scale')
+        correct_adc = self.cfg.get(section, 'correct adc')
+        reduce_noise = self.cfg.get(section, 'reduce noise')
+        battery_bias = self.cfg.get(section, 'battery bias')
+        title = self.cfg.get(section, 'title')
+
+        # Read the old result's saved config
+        self.get_old_result(cfg_file)
+
+        # Overwrite the Plotting options with the captured values
+        section = 'Plotting'
+        self.cfg_set('General', 'x pixels', x_pixels)
+        self.cfg_set(section, 'plot power', plot_power)
+        self.cfg_set(section, 'fancy labels', fancy_labels)
+        self.cfg_set(section, 'linear', linear)
+        self.cfg_set(section, 'font scale', font_scale)
+        self.cfg_set(section, 'line scale', line_scale)
+        self.cfg_set(section, 'point scale', point_scale)
+        self.cfg_set(section, 'correct adc', correct_adc)
+        self.cfg_set(section, 'reduce noise', reduce_noise)
+        self.cfg_set(section, 'battery bias', battery_bias)
+        self.cfg_set(section, 'title', title)
+
+        # Apply plotting options to properties
+        self.apply_plotting()
+
+    # -------------------------------------------------------------------------
     def get_saved_title(self, cfg_file):
         """Method to get the title configuration from the specified .cfg file
         """
@@ -345,21 +388,6 @@ class Configuration(object):
             except ConfigParser.NoOptionError:
                 title = None
         return title
-
-    # -------------------------------------------------------------------------
-    def get_old_title(self, cfg_file):
-        """Method to get the title configuration from the specified .cfg file
-           and apply its value to the current config and its
-           associated property.
-        """
-        if DEBUG_CONFIG:
-            dbg_str = "get_old_title: Reading config from " + cfg_file
-            self.ivs2.logger.print_and_log(dbg_str)
-        title = self.get_saved_title(cfg_file)
-        # Update title in current config
-        self.cfg_set("Plotting", "title", title)
-        # Apply title config only
-        self.apply_title()
 
     # -------------------------------------------------------------------------
     def apply_one(self, section, option, config_type, old_prop_val):
@@ -1768,16 +1796,48 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     @property
     def v_adj(self):
         """Voltage adjustment value"""
-
-        # Compensate for (as-of-yet-not-understood) effect where the voltage
-        # of the final measured points is greater than Voc
+        # Compensate for (as-of-yet-not-understood) effect where the
+        # curve intersects the voltage axis at a value greater than Voc
         v_adj = 1.0
-        last_measured_adc = self.adc_pairs[-2][0]
-        last_measured_minus_offset = last_measured_adc - self._adc_ch0_offset
+
+        # Default assumption is that curve intercepts V axis at the
+        # same voltage as the final measured point
+        avg_v_intercept = self.adc_pairs[-2][0]
+
+        # Now look at the four preceding points
+        v_intercepts = []
+        for adc_pair_index in [-6, -5, -4, -3]:
+            # If the point's ADC CH1 (current) value is more than 10% of
+            # Isc, skip to next (unless it is the last one)
+            if (adc_pair_index < -3 and
+                    self.adc_pairs[adc_pair_index][1] >
+                    (self.adc_pairs[0][1] * 0.1)):
+                continue
+            # Calculate V-intercept using the line determined by this
+            # point and the final measured point
+            v1 = float(self.adc_pairs[adc_pair_index][0])
+            i1 = float(self.adc_pairs[adc_pair_index][1])
+            v2 = float(self.adc_pairs[-2][0])
+            i2 = float(self.adc_pairs[-2][1])
+            delta_v = v2 - v1
+            delta_i = i1 - i2
+            if delta_v < 0.0 or delta_i <= 0.0:
+                # Throw out points that decrease in voltage or do not
+                # decrease in current
+                continue
+            v_intercept = (i1 * delta_v / delta_i) + v1
+            if not v_intercepts or abs(v_intercept - v_intercepts[-1]) <= 5:
+                # Keep v_intercepts only if they are different by 5 or
+                # less from their precedessors.  This assumes that the
+                # earlier ones are more reliable due to their greater
+                # distance from the V axis.
+                v_intercepts.append(v_intercept)
+        if v_intercepts:
+            avg_v_intercept = sum(v_intercepts) / float(len(v_intercepts))
+        v_intercept_minus_offset = avg_v_intercept - self._adc_ch0_offset
         voc_adc_minus_offset = self.voc_adc - self._adc_ch0_offset
-        if last_measured_minus_offset > voc_adc_minus_offset:
-            v_adj = (float(voc_adc_minus_offset) /
-                     float(last_measured_minus_offset))
+        v_adj = (float(voc_adc_minus_offset) /
+                 float(v_intercept_minus_offset))
         return v_adj
 
     # ---------------------------------
@@ -2278,14 +2338,6 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             prev_adc0_corrected = ch0_adc_corrected
             prev_adc1_corrected = ch1_adc_corrected
 
-        # Remove point 0 (which was extrapolated by the Arduino code) if
-        # the next point's CH0 value is more than 20% of the last CH0
-        # value.
-        second_ch0 = float(self.adc_pairs_corrected[1][0])
-        last_ch0 = float(self.adc_pairs_corrected[-1][0])
-        if (second_ch0 / last_ch0) > 0.20:
-            del self.adc_pairs_corrected[0]
-
         # Noise reduction
         if self.reduce_noise:
             self.noise_reduction(starting_rot_thresh=10.0,
@@ -2625,6 +2677,108 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         return RC_SUCCESS
 
     # -------------------------------------------------------------------------
+    def swing_battery_calibration_curve(self):
+        """Method to swing an IV curve for calibrating the bias battery
+        """
+        # Temporarily set max_iv_points to 80 and isc_stable_adc to 200
+        restore_max_iv_points = self.max_iv_points
+        restore_isc_stable_adc = self.isc_stable_adc
+        self.max_iv_points = 80
+        self.isc_stable_adc = 200
+        self.arduino_ready = False
+        rc = self.reset_arduino()
+        if rc == RC_SUCCESS:
+            rc = self.wait_for_arduino_ready_and_ack()
+        if rc != RC_SUCCESS:
+            return rc
+
+        # Force ADC correction and noise reduction ON
+        restore_correct_adc = self.correct_adc
+        restore_reduce_noise = self.reduce_noise
+        self.correct_adc = True
+        self.reduce_noise = True
+
+        # Force battery bias OFF
+        restore_battery_bias = self.battery_bias
+        self.battery_bias = False
+
+        # Swing the IV curve
+        rc = self.swing_iv_curve()
+
+        # Save config to output directory (this also overwrites the
+        # normal config file)
+        config = Configuration(ivs2=self)
+        config.populate()
+        config.add_axes_and_title()
+        config.save(self.hdd_output_dir)
+
+        # Restore properties
+        self.max_iv_points = restore_max_iv_points
+        self.isc_stable_adc = restore_isc_stable_adc
+        self.correct_adc = restore_correct_adc
+        self.reduce_noise = restore_reduce_noise
+        self.battery_bias = restore_battery_bias
+
+        return rc
+
+    # -------------------------------------------------------------------------
+    def calculate_bias_values(self):
+        """Method to calculate the battery bias voltage and resistance
+        """
+        v_batt = self.data_points[-1][VOLTS_INDEX]
+        r_batt = round(self.calc_r_batt(), 4)
+
+        return r_batt, v_batt
+
+    # -------------------------------------------------------------------------
+    def calc_r_batt(self):
+        """Empirical results show that there is a slight non-linearity of the
+           actual battery curve. This method finds a value for the
+           internal resistance of the battery that produces the smallest
+           net power error.
+        """
+        data_points = self.data_points
+        # We will use the points from four past the MPP to four before the
+        # end
+        min_v_pt = self.get_max_watt_point_number(data_points) + 4
+        max_v_pt = len(data_points) - 5
+        max_v = data_points[max_v_pt][VOLTS_INDEX]
+        max_v_amps = data_points[max_v_pt][AMPS_INDEX]
+        r_batt_list = []
+
+        for point_num, data_point in enumerate(data_points):
+            if point_num < min_v_pt or point_num >= max_v_pt:
+                continue
+            volts = data_point[VOLTS_INDEX]
+            amps = data_point[AMPS_INDEX]
+            if amps != max_v_amps:
+                r_batt = (max_v - volts) / (amps - max_v_amps)
+                r_batt_list.append(r_batt)
+
+        v_batt = data_points[-1][VOLTS_INDEX]
+        min_power_err_sum = INFINITE_VAL
+        for r_batt in r_batt_list:
+            power_err_sum = 0.0
+            for point_num, data_point in enumerate(data_points):
+                if point_num < min_v_pt or point_num >= max_v_pt:
+                    continue
+                volts = data_point[VOLTS_INDEX]
+                amps = data_point[AMPS_INDEX]
+                if amps > 9.0:
+                    continue
+                expected_v = v_batt - (amps * r_batt)
+                power_err = (volts * amps - expected_v * amps)
+                power_err_sum += power_err
+            log_str = "r_batt:%.6f  total power error:%.6f" % (r_batt,
+                                                               power_err_sum)
+            self.logger.log(log_str)
+            if abs(power_err_sum) < abs(min_power_err_sum):
+                best_r_batt = r_batt
+                min_power_err_sum = power_err_sum
+
+        return best_r_batt
+
+    # -------------------------------------------------------------------------
     def get_csv_filenames(self, dir, date_time_str):
         """Method to derive the names of the CSV files (ADC pairs and data
         points) and set the corresponding instance variables.
@@ -2658,6 +2812,20 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         rc = self.adc_sanity_check()
         if rc != RC_SUCCESS:
             return rc
+
+        # Remove point 0 (the Isc point which was extrapolated by the
+        # Arduino code) if the next point's CH0 value is more than
+        # MIN_PT1_TO_VOC_RATIO_FOR_ISC of the Voc CH0 value.  We have to
+        # check that point 0's voltage is zero before doing this, since
+        # this method can be called again after this has already been
+        # done, and we don't want to remove any points other than the
+        # one with V=0.
+        pt0_ch0 = self.adc_pairs[0][0]
+        if pt0_ch0 <= self._adc_ch0_offset:
+            pt1_ch0 = float(self.adc_pairs[1][0])
+            voc_ch0 = float(self.adc_pairs[-1][0])
+            if (pt1_ch0 / voc_ch0) > MIN_PT1_TO_VOC_RATIO_FOR_ISC:
+                del self.adc_pairs[0]
 
         # Correct the ADC values to compensate for offset etc.
         if self.correct_adc:

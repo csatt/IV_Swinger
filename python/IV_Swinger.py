@@ -923,7 +923,7 @@ class Interpolator(object):
             mpp_power = 0
             points = self.linear_interpolated_curve
             for point in points:
-                if point[WATTS_INDEX] > mpp_power:
+                if point[WATTS_INDEX] >= mpp_power:
                     mpp_power = point[WATTS_INDEX]
                     mpp = point
 
@@ -940,7 +940,7 @@ class Interpolator(object):
             mpp_power = 0
             points = self.spline_interpolated_curve
             for point in points:
-                if point[WATTS_INDEX] > mpp_power:
+                if point[WATTS_INDEX] >= mpp_power:
                     mpp_power = point[WATTS_INDEX]
                     mpp = point
 
@@ -2879,8 +2879,12 @@ class IV_Swinger(object):
         """Method to extrapolate the Isc value from the first two
         measured data points.
         """
-        i1 = data_points[1][AMPS_INDEX]  # NONE data point
-        v1 = data_points[1][VOLTS_INDEX]
+        if len(data_points) > 1:
+            i1 = data_points[1][AMPS_INDEX]  # NONE data point
+            v1 = data_points[1][VOLTS_INDEX]
+        else:
+            i1 = 0
+            v1 = 0
 
         if len(data_points) > 2:
             i2 = data_points[2][AMPS_INDEX]  # HALF data point
@@ -3337,8 +3341,12 @@ class IV_Swinger(object):
         else:
             max_y = 0
             for amps in isc_amps + mpp_amps:
-                if amps * self.max_i_ratio > max_y:
-                    max_y = amps * self.max_i_ratio
+                # The isc_amps value is negative when we want to
+                # suppress plotting the Isc point. But we still need its
+                # magnitude to determine the max_y value, so we use
+                # abs().
+                if abs(amps) * self.max_i_ratio > max_y:
+                    max_y = abs(amps) * self.max_i_ratio
         if max_y > 0:
             self.plot_max_y = max_y
             if self.use_gnuplot:
