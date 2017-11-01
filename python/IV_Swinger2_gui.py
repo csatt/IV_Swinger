@@ -89,7 +89,6 @@
 #      PreferencesDialog() are more complex dialogs.
 #
 import datetime as dt
-import glob
 import os
 import re
 try:
@@ -125,6 +124,7 @@ RC_SERIAL_EXCEPTION = IV_Swinger2.RC_SERIAL_EXCEPTION
 RC_ZERO_VOC = IV_Swinger2.RC_ZERO_VOC
 RC_ZERO_ISC = IV_Swinger2.RC_ZERO_ISC
 RC_ISC_TIMEOUT = IV_Swinger2.RC_ISC_TIMEOUT
+RC_NO_POINTS = IV_Swinger2.RC_NO_POINTS
 CFG_STRING = IV_Swinger2.CFG_STRING
 CFG_FLOAT = IV_Swinger2.CFG_FLOAT
 CFG_INT = IV_Swinger2.CFG_INT
@@ -199,7 +199,11 @@ SPI_COMBO_VALS_INV = {v: k for k, v in SPI_COMBO_VALS.items()}
 FANCY_LABELS_DEFAULT = "Fancy"
 INTERPOLATION_TYPE_DEFAULT = "Linear"
 CORRECT_ADC_DEFAULT = "On"
+FIX_ISC_DEFAULT = "On"
+FIX_VOC_DEFAULT = "On"
+COMB_DUPV_PTS_DEFAULT = "On"
 REDUCE_NOISE_DEFAULT = "On"
+FIX_OVERSHOOT_DEFAULT = "On"
 BATTERY_BIAS_DEFAULT = "Off"
 # Debug constants
 DEBUG_MEMLEAK = False
@@ -214,9 +218,9 @@ def debug_memleak(str):
     """
     if DEBUG_MEMLEAK:
         date_time_str = IV_Swinger2.get_date_time_str()
-        print ("%s: Memory usage (%s): %s (kb)" %
-               (date_time_str, str,
-                resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
+        print ("{}: Memory usage ({}): {}"
+               .format(date_time_str, str,
+                       resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
 
 
 def get_app_dir():
@@ -224,7 +228,7 @@ def get_app_dir():
        located, regardless of whether it is a script or a frozen
        executable (e.g. built with pyinstaller).
     """
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         return os.path.dirname(sys.executable)
     elif __file__:
         return os.path.dirname(__file__)
@@ -272,20 +276,21 @@ class GraphicalUserInterface(ttk.Frame):
             with open(version_file, "r") as f:
                 lines = f.read().splitlines()
                 if len(lines) != 1:
-                    err_str = ("ERROR: " + VERSION_FILE + " has " +
-                               str(len(lines)) + " lines")
+                    err_str = ("ERROR: {} has {} lines"
+                               .format(VERSION_FILE, len(lines)))
                     self.ivs2.logger.print_and_log(err_str)
                     return
                 version = lines[0]
-                if len(version) == 0 or version[0] != 'v':
-                    err_str = ("ERROR: " + VERSION_FILE + " has invalid " +
-                               "version: " + version)
+                if len(version) == 0 or version[0] != "v":
+                    err_str = ("ERROR: {} has invalid version: {}"
+                               .format(VERSION_FILE, version))
                     self.ivs2.logger.print_and_log(err_str)
                     return
                 self.version = version
-                self.ivs2.logger.log("Application version: " + version)
+                log_msg = "Application version: {}".format(version)
+                self.ivs2.logger.log(log_msg)
         except IOError:
-            err_str = "ERROR: " + VERSION_FILE + " doesn't exist"
+            err_str = "ERROR: {} doesn't exist".format(VERSION_FILE)
             self.ivs2.logger.print_and_log(err_str)
 
     # -------------------------------------------------------------------------
@@ -316,10 +321,10 @@ class GraphicalUserInterface(ttk.Frame):
         self._loop_save_results = False
         self._loop_save_graphs = False
         self._suppress_cfg_file_copy = False
-        self._plot_title = None
         self._overlay_names = {}
         self._overlay_dir = None
         self._overlay_mode = False
+        self._redisplay_after_axes_unlock = True
 
     # -------------------------------------------------------------------------
     def get_adc_pairs_from_csv(self, adc_csv_file):
@@ -330,19 +335,18 @@ class GraphicalUserInterface(ttk.Frame):
         # Disable resizing, at least for now
         self.root.resizable(width=False, height=False)
         # No dotted line in menus
-        self.root.option_add('*tearOff', False)
+        self.root.option_add("*tearOff", False)
         # Add title and titlebar icon (Windows)
-        self.root.title('IV Swinger 2')
-        if sys.platform == 'win32' and os.path.exists(TITLEBAR_ICON):
-            self.root.tk.call('wm', 'iconbitmap', self.root._w,
-                              '-default', TITLEBAR_ICON)
+        self.root.title("IV Swinger 2")
+        if sys.platform == "win32" and os.path.exists(TITLEBAR_ICON):
+            self.root.tk.call("wm", "iconbitmap", self.root._w,
+                              "-default", TITLEBAR_ICON)
 
     # -------------------------------------------------------------------------
     def set_style(self):
         self.style = ttk.Style()
-        font = ("TkDefaultFont " +
-                str(max(int(round(self.ivs2.x_pixels / 43.0)), 19)) +
-                " bold italic")
+        font = ("TkDefaultFont {} bold italic"
+                .format(max(int(round(self.ivs2.x_pixels / 43.0)), 19)))
         self.style.configure("go_stop_button.TButton",
                              foreground="red",
                              padding=4,
@@ -426,14 +430,15 @@ class GraphicalUserInterface(ttk.Frame):
         if min_height is None:
             # Set the geometry to the offset from main window
             # determined above
-            dialog.geometry("+%d+%d" % (self.winfo_rootx()-left_offset,
-                                        self.winfo_rooty()+10))
+            dialog.geometry("+{}+{}".format(self.winfo_rootx()-left_offset,
+                                            self.winfo_rooty()+10))
         else:
             # Set the geometry to the initial (fixed) width, minimum
             # height, and offset from main window determined above
-            dialog.geometry("%dx%d+%d+%d" % (width, min_height,
-                                             self.winfo_rootx()-left_offset,
-                                             self.winfo_rooty()+10))
+            dialog.geometry("{}x{}+{}+{}"
+                            .format(width, min_height,
+                                    self.winfo_rootx()-left_offset,
+                                    self.winfo_rooty()+10))
 
         # Run update_idletasks to prevent momentary appearance of pre-resized
         # window
@@ -446,36 +451,36 @@ class GraphicalUserInterface(ttk.Frame):
         column = 1
         row = 1
         # Grid layout
-        self.grid_args['img_size_combo'] = {"column": column,
+        self.grid_args["img_size_combo"] = {"column": column,
                                             "row": row,
                                             "sticky": (W)}
-        self.grid_args['version_label'] = {"column": total_cols,
+        self.grid_args["version_label"] = {"column": total_cols,
                                            "row": row,
                                            "sticky": (E)}
         row += 1
-        self.grid_args['img_pane'] = {"column": column,
+        self.grid_args["img_pane"] = {"column": column,
                                       "row": row,
                                       "columnspan": total_cols}
         row += 1
-        self.grid_args['prefs_results_buttons'] = {"column": column,
+        self.grid_args["prefs_results_buttons"] = {"column": column,
                                                    "row": row,
                                                    "rowspan": 3}
         column += pad_cols
-        self.grid_args['axis_ranges_box'] = {"column": column,
+        self.grid_args["axis_ranges_box"] = {"column": column,
                                              "row": row,
                                              "rowspan": 3,
                                              "sticky": (W)}
         column += pad_cols
-        self.grid_args['go_button_box'] = {"column": column,
+        self.grid_args["go_button_box"] = {"column": column,
                                            "row": row,
                                            "rowspan": 3}
         column += pad_cols
-        self.grid_args['plot_power_cb'] = {"column": column,
+        self.grid_args["plot_power_cb"] = {"column": column,
                                            "row": row,
                                            "rowspan": 3}
         column += 1
         remaining_cols = total_cols - column + 1
-        self.grid_args['looping_controls_box'] = {"column": column,
+        self.grid_args["looping_controls_box"] = {"column": column,
                                                   "row": row,
                                                   "sticky": (S, W),
                                                   "columnspan": remaining_cols}
@@ -485,8 +490,8 @@ class GraphicalUserInterface(ttk.Frame):
         self.create_img_pane()
         self.create_prefs_results_button_box()
         self.create_go_button_box()
-        self.create_plot_power_cb()
         self.create_axis_ranges_box()
+        self.create_plot_power_cb()
         self.create_looping_controls()
 
     # -------------------------------------------------------------------------
@@ -495,30 +500,30 @@ class GraphicalUserInterface(ttk.Frame):
         """
         self.img_size_combo = ImgSizeCombo(master=self,
                                            textvariable=self.resolution_str)
-        aspect = "%sx%s" % (str(self.ivs2.plot_x_inches),
-                            str(self.ivs2.plot_y_inches))
+        aspect = "{}x{}".format(self.ivs2.plot_x_inches,
+                                self.ivs2.plot_y_inches)
         tt_text = ("Pull down to select desired display size or type in "
                    "desired size and hit Enter. Must be an aspect ratio of "
-                   "%s (height will be modified if not)" % aspect)
+                   "{} (height will be modified if not)".format(aspect))
         Tooltip(self.img_size_combo, text=tt_text, **TOP_TT_KWARGS)
-        self.img_size_combo.bind('<<ComboboxSelected>>', self.update_img_size)
-        self.img_size_combo.bind('<Return>', self.update_img_size)
-        self.img_size_combo.grid(**self.grid_args['img_size_combo'])
+        self.img_size_combo.bind("<<ComboboxSelected>>", self.update_img_size)
+        self.img_size_combo.bind("<Return>", self.update_img_size)
+        self.img_size_combo.grid(**self.grid_args["img_size_combo"])
 
     # -------------------------------------------------------------------------
     def create_version_label(self):
         """Method to create the version label
         """
-        version_text = "         Version: " + self.version
+        version_text = "         Version: {}".format(self.version)
         self.version_label = ttk.Label(master=self, text=version_text)
-        self.version_label.grid(**self.grid_args['version_label'])
+        self.version_label.grid(**self.grid_args["version_label"])
 
     # -------------------------------------------------------------------------
     def create_img_pane(self):
         """Method to create the image pane
         """
         self.img_pane = ImagePane(master=self)
-        self.img_pane.grid(**self.grid_args['img_pane'])
+        self.img_pane.grid(**self.grid_args["img_pane"])
 
     # -------------------------------------------------------------------------
     def create_prefs_results_button_box(self):
@@ -531,7 +536,7 @@ class GraphicalUserInterface(ttk.Frame):
         # Tooltip
         tt_text = "Open Preferences dialog"
         Tooltip(self.preferences_button, text=tt_text, **BOT_TT_KWARGS)
-        self.preferences_button.bind('<Button-1>', self.show_preferences)
+        self.preferences_button.bind("<Button-1>", self.show_preferences)
         self.preferences_button.pack()
 
         self.results_button = ttk.Button(master=self.prefs_results_bb,
@@ -541,10 +546,10 @@ class GraphicalUserInterface(ttk.Frame):
                    "the same plot, modify their title and appearance, copy "
                    "them to USB (or elsewhere), and more ...")
         Tooltip(self.results_button, text=tt_text, **BOT_TT_KWARGS)
-        self.results_button.bind('<Button-1>', self.results_actions)
+        self.results_button.bind("<Button-1>", self.results_actions)
         self.results_button.pack(pady=(8, 0))
 
-        self.prefs_results_bb.grid(**self.grid_args['prefs_results_buttons'])
+        self.prefs_results_bb.grid(**self.grid_args["prefs_results_buttons"])
 
     # -------------------------------------------------------------------------
     def recreate_prefs_results_button_box(self):
@@ -595,8 +600,8 @@ class GraphicalUserInterface(ttk.Frame):
                                        textvariable=self.v_range)
         self.i_range_entry = ttk.Entry(master=entries_box, width=9,
                                        textvariable=self.i_range)
-        self.v_range_entry.bind('<Return>', self.apply_new_ranges)
-        self.i_range_entry.bind('<Return>', self.apply_new_ranges)
+        self.v_range_entry.bind("<Return>", self.apply_new_ranges)
+        self.i_range_entry.bind("<Return>", self.apply_new_ranges)
         self.v_range_entry.pack()
         self.i_range_entry.pack()
         self.update_axis_ranges()
@@ -617,7 +622,7 @@ class GraphicalUserInterface(ttk.Frame):
         self.range_lock_cb.pack()
 
         # Place the whole thing in the main GUI
-        axis_ranges_box.grid(**self.grid_args['axis_ranges_box'])
+        axis_ranges_box.grid(**self.grid_args["axis_ranges_box"])
 
     # -------------------------------------------------------------------------
     def create_go_button_box(self):
@@ -631,7 +636,7 @@ class GraphicalUserInterface(ttk.Frame):
         # Go button
         self.go_button = GoStopButton(master=self.go_button_box)
         if not self.ivs2.arduino_ready:
-            self.go_button.state(['disabled'])
+            self.go_button.state(["disabled"])
         # Tooltip
         tt_text = ("Trigger an IV curve trace (if connected). If loop mode is "
                    "selected, this button changes to a STOP button and curve "
@@ -640,21 +645,21 @@ class GraphicalUserInterface(ttk.Frame):
 
         # Left-clicking go button and hitting Return or space bar do the
         # same thing
-        self.go_button.bind('<Button-1>', self.go_actions)
-        self.root.bind('<Return>', self.go_actions)
-        self.root.bind('<space>', self.go_actions)
+        self.go_button.bind("<Button-1>", self.go_actions)
+        self.root.bind("<Return>", self.go_actions)
+        self.root.bind("<space>", self.go_actions)
 
         # Status label
         self.go_button_status_label = ttk.Label(master=self.go_button_box)
         if not self.ivs2.arduino_ready:
-            self.go_button_status_label['text'] = "Not connected"
+            self.go_button_status_label["text"] = "Not connected"
 
         # Grid placement in enclosing box
         self.go_button.grid(column=0, row=0)
         self.go_button_status_label.grid(column=0, row=1)
 
         # Grid placement of box within main GUI
-        self.go_button_box.grid(**self.grid_args['go_button_box'])
+        self.go_button_box.grid(**self.grid_args["go_button_box"])
 
     # -------------------------------------------------------------------------
     def create_plot_power_cb(self):
@@ -665,22 +670,22 @@ class GraphicalUserInterface(ttk.Frame):
         # Tooltip
         tt_text = "Check to add the power curve to the plot"
         Tooltip(self.plot_power_cb, text=tt_text, **BOT_TT_KWARGS)
-        self.plot_power_cb.grid(**self.grid_args['plot_power_cb'])
+        self.plot_power_cb.grid(**self.grid_args["plot_power_cb"])
 
     # -------------------------------------------------------------------------
     def create_looping_controls(self):
         """Method to create the looping control widgets
         """
         grid_args = {}
-        grid_args['loop_mode_cb'] = {"column": 1,
+        grid_args["loop_mode_cb"] = {"column": 1,
                                      "row": 1,
                                      "sticky": (W),
                                      "columnspan": 2}
-        grid_args['loop_rate_box'] = {"column": 2,
+        grid_args["loop_rate_box"] = {"column": 2,
                                       "row": 2,
                                       "sticky": (W),
                                       "columnspan": 1}
-        grid_args['loop_save_box'] = {"column": 2,
+        grid_args["loop_save_box"] = {"column": 2,
                                       "row": 3,
                                       "sticky": (W),
                                       "columnspan": 1}
@@ -696,9 +701,9 @@ class GraphicalUserInterface(ttk.Frame):
                                           variable=self.loop_rate)
         loop_rate_pad.pack(side=LEFT)
         self.loop_rate_cb.pack(side=LEFT)
-        if self.config.cfg.getboolean('Looping', 'restore values'):
+        if self.config.cfg.getboolean("Looping", "restore values"):
             if self.props.loop_rate_limit:
-                self.loop_rate_cb.state(['selected'])
+                self.loop_rate_cb.state(["selected"])
                 self.loop_rate_cb.update_value_str()
         tt_text = "Check to limit repetition rate of looping"
         Tooltip(self.loop_rate_cb, text=tt_text, **BOT_TT_KWARGS)
@@ -711,10 +716,10 @@ class GraphicalUserInterface(ttk.Frame):
                                             variable=self.loop_save)
         loop_save_pad.pack(side=LEFT)
         self.loop_save_cb.pack(side=LEFT)
-        if (self.config.cfg.getboolean('Looping', 'restore values') and
-                self.config.cfg.getboolean('Looping', 'loop mode')):
+        if (self.config.cfg.getboolean("Looping", "restore values") and
+                self.config.cfg.getboolean("Looping", "loop mode")):
             if self.props.loop_save_results:
-                self.loop_save_cb.state(['selected'])
+                self.loop_save_cb.state(["selected"])
                 self.loop_save_cb.update_value_str()
         tt_text = "Check to save results while looping"
         Tooltip(self.loop_save_cb, text=tt_text, **BOT_TT_KWARGS)
@@ -730,19 +735,19 @@ class GraphicalUserInterface(ttk.Frame):
         Tooltip(self.loop_mode_cb, text=tt_text, **BOT_TT_KWARGS)
 
         # Grid placement within enclosing box
-        self.loop_mode_cb.grid(**grid_args['loop_mode_cb'])
-        loop_rate_box.grid(**grid_args['loop_rate_box'])
-        loop_save_box.grid(**grid_args['loop_save_box'])
+        self.loop_mode_cb.grid(**grid_args["loop_mode_cb"])
+        loop_rate_box.grid(**grid_args["loop_rate_box"])
+        loop_save_box.grid(**grid_args["loop_save_box"])
 
         # Grid placement within main GUI
-        looping_controls_box.grid(**self.grid_args['looping_controls_box'])
+        looping_controls_box.grid(**self.grid_args["looping_controls_box"])
 
     # -------------------------------------------------------------------------
     def update_plot_power_cb(self):
         """Method to set the plot_power StringVar to the correct value, based
            on the value in the config
         """
-        if self.config.cfg.getboolean('Plotting', 'plot power'):
+        if self.config.cfg.getboolean("Plotting", "plot power"):
             self.plot_power.set("Plot")
         else:
             self.plot_power.set("DontPlot")
@@ -755,11 +760,11 @@ class GraphicalUserInterface(ttk.Frame):
         axes_are_locked = self.ivs2.plot_lock_axis_ranges
         v_range_entry = "<auto>"
         i_range_entry = "<auto>"
-        self.v_range_entry.state(['disabled'])
-        self.i_range_entry.state(['disabled'])
+        self.v_range_entry.state(["disabled"])
+        self.i_range_entry.state(["disabled"])
         if axes_are_locked:
-            self.v_range_entry.state(['!disabled'])
-            self.i_range_entry.state(['!disabled'])
+            self.v_range_entry.state(["!disabled"])
+            self.i_range_entry.state(["!disabled"])
             if self.ivs2.plot_max_x is not None:
                 v_range_entry = str(self.ivs2.plot_max_x)
             if self.ivs2.plot_max_y is not None:
@@ -772,6 +777,20 @@ class GraphicalUserInterface(ttk.Frame):
         """Method to apply a new voltage or current range (max value on axis)
            when entered by the user
         """
+        # Replace config from saved config of displayed image
+        run_dir = self.ivs2.hdd_output_dir
+        config_dir = os.path.dirname(self.config.cfg_filename)
+        if run_dir is not None and run_dir != config_dir:
+            cfg_file = os.path.join(run_dir, "{}.cfg".format(APP_NAME))
+            if os.path.exists(cfg_file):
+                # Snapshot current config
+                original_cfg_file = self.config.cfg_filename
+                self.config.get_snapshot()
+                # Get config from run_dir
+                self.config.cfg_filename = cfg_file
+                self.config.get_old_result(cfg_file)
+
+        # Update IVS2 property
         try:
             self.ivs2.plot_max_x = float(self.v_range.get())
             self.ivs2.plot_max_y = float(self.i_range.get())
@@ -781,12 +800,23 @@ class GraphicalUserInterface(ttk.Frame):
             pass
         self.update_axis_ranges()
         self.update_idletasks()
+
         # Redisplay the image with the new settings (saves config)
         self.redisplay_img(reprocess_adc=False)
 
+        if (run_dir is not None and run_dir != config_dir and
+                os.path.exists(cfg_file)):
+            # Restore the config file from the snapshot
+            self.config.cfg_filename = original_cfg_file
+            self.config.save_snapshot()
+
+        # Unlock the axes
+        if self.axes_locked.get() == "Unlock":
+            self.unlock_axes()
+
     # -------------------------------------------------------------------------
     def attempt_arduino_handshake(self, write_eeprom=False):
-        """This method is a 'best-effort' attempt to reset the Arduino
+        """This method is a "best-effort" attempt to reset the Arduino
         and perform the initial handshake when the GUI comes up. If this
         succeeds, there will be no delay when the go button is pressed
         for the first time. If it fails, it might be because the IVS2
@@ -811,8 +841,8 @@ class GraphicalUserInterface(ttk.Frame):
             self.create_menu_bar()
 
         if self.ivs2.usb_port is not None:
-            self.go_button.state(['disabled'])
-            self.go_button_status_label['text'] = "Not connected"
+            self.go_button.state(["disabled"])
+            self.go_button_status_label["text"] = "Not connected"
             self.update_idletasks()
             # Reset Arduino
             rc = self.ivs2.reset_arduino()
@@ -820,15 +850,12 @@ class GraphicalUserInterface(ttk.Frame):
                 # Wait for Arduino ready message
                 rc = self.ivs2.wait_for_arduino_ready_and_ack(write_eeprom)
                 if rc == RC_SUCCESS:
-                    self.go_button.state(['!disabled'])
-                    self.go_button_status_label['text'] = "     Connected     "
+                    self.go_button.state(["!disabled"])
+                    self.go_button_status_label["text"] = "     Connected     "
                     self.after(1000,
                                lambda: self.clear_go_button_status_label())
                     self.check_arduino_sketch_version()
-                    cfg_usb = self.config.cfg.get('USB', 'port')
-                    if cfg_usb != self.ivs2.usb_port:
-                        self.config.cfg_set('USB', 'port', self.ivs2.usb_port)
-                        self.save_config()
+                    self.update_config_after_arduino_handshake()
                     return
 
         # If any of the above failed, try again in 1 second
@@ -836,7 +863,73 @@ class GraphicalUserInterface(ttk.Frame):
 
     # -------------------------------------------------------------------------
     def clear_go_button_status_label(self):
-        self.go_button_status_label['text'] = " " * 30
+        self.go_button_status_label["text"] = " " * 30
+
+    # -------------------------------------------------------------------------
+    def update_config_after_arduino_handshake(self):
+        """This method updates configuration values that can be changed as
+           side-effects of the Arduino handshake: namely the USB port
+           and the calibration values.
+
+        """
+        config_changed = False
+        # USB
+        section = "USB"
+        option = "port"
+        cfg_usb = self.config.cfg.get(section, option)
+        if cfg_usb != self.ivs2.usb_port:
+            self.config.cfg_set(section, option, self.ivs2.usb_port)
+            config_changed = True
+        # Calibration
+        section = "Calibration"
+        option = "r1 ohms"
+        cfg_vdiv_r1 = self.config.cfg.get(section, option)
+        if cfg_vdiv_r1 != self.ivs2.vdiv_r1:
+            self.config.cfg_set(section, option, self.ivs2.vdiv_r1)
+            config_changed = True
+        option = "r2 ohms"
+        cfg_vdiv_r2 = self.config.cfg.get(section, option)
+        if cfg_vdiv_r2 != self.ivs2.vdiv_r2:
+            self.config.cfg_set(section, option, self.ivs2.vdiv_r2)
+            config_changed = True
+        option = "rf ohms"
+        cfg_amm_op_amp_rf = self.config.cfg.get(section, option)
+        if cfg_amm_op_amp_rf != self.ivs2.amm_op_amp_rf:
+            self.config.cfg_set(section, option, self.ivs2.amm_op_amp_rf)
+            config_changed = True
+        option = "rg ohms"
+        cfg_amm_op_amp_rg = self.config.cfg.get(section, option)
+        if cfg_amm_op_amp_rg != self.ivs2.amm_op_amp_rg:
+            self.config.cfg_set(section, option, self.ivs2.amm_op_amp_rg)
+            config_changed = True
+        option = "shunt max volts"
+        cfg_amm_shunt_max_volts = self.config.cfg.get(section, option)
+        if cfg_amm_shunt_max_volts != self.ivs2.amm_shunt_max_volts:
+            self.config.cfg_set(section, option,
+                                self.ivs2.amm_shunt_max_volts)
+            config_changed = True
+        option = "voltage"
+        cfg_v_cal = self.config.cfg.get(section, option)
+        if cfg_v_cal != self.ivs2.v_cal:
+            self.config.cfg_set(section, option, self.ivs2.v_cal)
+            config_changed = True
+        option = "current"
+        cfg_i_cal = self.config.cfg.get(section, option)
+        if cfg_i_cal != self.ivs2.i_cal:
+            self.config.cfg_set(section, option, self.ivs2.i_cal)
+            config_changed = True
+        option = "bias battery voltage"
+        cfg_v_batt = self.config.cfg.get(section, option)
+        if cfg_v_batt != self.ivs2.v_batt:
+            self.config.cfg_set(section, option, self.ivs2.v_batt)
+            config_changed = True
+        option = "bias battery resistance"
+        cfg_r_batt = self.config.cfg.get(section, option)
+        if cfg_r_batt != self.ivs2.r_batt:
+            self.config.cfg_set(section, option, self.ivs2.r_batt)
+            config_changed = True
+        if config_changed:
+            self.save_config()
 
     # -------------------------------------------------------------------------
     def check_arduino_sketch_version(self):
@@ -849,7 +942,7 @@ class GraphicalUserInterface(ttk.Frame):
         res_str = self.resolution_str.get()
 
         # The first number in the input is x_pixels
-        res_re = re.compile('(\d+)')
+        res_re = re.compile("(\d+)")
         match = res_re.search(res_str)
         if match:
             # Use x_pixels, calculate y_pixels
@@ -857,14 +950,14 @@ class GraphicalUserInterface(ttk.Frame):
             y_pixels = int(round(x_pixels *
                                  self.ivs2.plot_y_inches /
                                  self.ivs2.plot_x_inches))
-            new_res_str = str(x_pixels) + "x" + str(y_pixels)
-            self.ivs2.logger.log("New resolution: " + new_res_str)
+            new_res_str = "{}x{}".format(x_pixels, y_pixels)
+            self.ivs2.logger.log("New resolution: {}".format(new_res_str))
             # Set the resolution string to the new value
             self.resolution_str.set(new_res_str)
             # Set the x_pixels property of the IVS2 object to the new value
             self.ivs2.x_pixels = x_pixels
             # Update config
-            self.config.cfg_set('General', 'x pixels', self.ivs2.x_pixels)
+            self.config.cfg_set("General", "x pixels", self.ivs2.x_pixels)
             # Update style and recreate go_button
             self.set_style()
             self.go_button.destroy()
@@ -879,8 +972,9 @@ class GraphicalUserInterface(ttk.Frame):
             y_pixels = int(round(x_pixels *
                                  self.ivs2.plot_y_inches /
                                  self.ivs2.plot_x_inches))
-            new_res_str = str(x_pixels) + "x" + str(y_pixels)
-            self.ivs2.logger.log("Keeping old resolution: " + new_res_str)
+            new_res_str = "{}x{}".format(x_pixels, y_pixels)
+            self.ivs2.logger.log("Keeping old resolution: {}"
+                                 .format(new_res_str))
             self.resolution_str.set(new_res_str)
         event.widget.selection_clear()  # remove annoying highlight
         event.widget.tk_focusNext().focus()  # move focus out so Return works
@@ -888,7 +982,7 @@ class GraphicalUserInterface(ttk.Frame):
     # -------------------------------------------------------------------------
     def get_curr_x_pixels(self):
         res_str = self.resolution_str.get()
-        res_re = re.compile('(\d+)')
+        res_re = re.compile("(\d+)")
         match = res_re.search(res_str)
         x_pixels = int(match.group(1))
         return x_pixels
@@ -913,18 +1007,19 @@ class GraphicalUserInterface(ttk.Frame):
             if reprocess_adc:
                 rc = self.ivs2.process_adc_values()
             if rc == RC_SUCCESS:
-                self.ivs2.plot_title = self.props.plot_title
                 self.plot_results()
                 if not self.props.suppress_cfg_file_copy:
                     self.config.add_axes_and_title()
                 self.display_img(self.ivs2.current_img)
+            elif rc == RC_NO_POINTS:
+                self.show_no_points_dialog()
             if remove_directory:
                 if self.ivs2.hdd_output_dir == os.getcwd():
                     os.chdir("..")
                 shutil.rmtree(self.ivs2.hdd_output_dir)
             else:
-                self.clean_up_files(self.ivs2.hdd_output_dir,
-                                    loop_mode=False)
+                self.ivs2.clean_up_files(self.ivs2.hdd_output_dir,
+                                         loop_mode=False)
         # Save the config
         self.save_config()
 
@@ -939,7 +1034,7 @@ class GraphicalUserInterface(ttk.Frame):
     # -------------------------------------------------------------------------
     def retry_if_pdf_permission_denied(self, func, *args):
         """Method to call another function (with its args) that may fail due to
-           a 'Permission denied' exception on a PDF file. If the
+           a "Permission denied" exception on a PDF file. If the
            exception is encountered, the user is prompted to close the
            file if they have it open in a viewer. Then the function is
            called again.
@@ -948,19 +1043,19 @@ class GraphicalUserInterface(ttk.Frame):
             func(*args)
         except IOError as e:
             if self.pdf_permission_denied(e):
-                err_str = ("({})".format(e) +
+                err_str = ("({})"
                            "\n\n"
                            "PDF could not be written. If you have it open in "
-                           "a viewer, close it BEFORE clicking OK.")
+                           "a viewer, close it BEFORE clicking OK.".format(e))
                 tkmsg.showinfo(message=err_str)
                 try:
                     func(*args)
                 except IOError as e:
                     if self.pdf_permission_denied(e):
-                        err_str = ("({})".format(e) +
+                        err_str = ("({})"
                                    "\n\n"
                                    "PDF still could not be written. "
-                                   "It will not be updated.")
+                                   "It will not be updated.".format(e))
                         tkmsg.showinfo(message=err_str)
 
     # -------------------------------------------------------------------------
@@ -998,14 +1093,14 @@ class GraphicalUserInterface(ttk.Frame):
 
     # -------------------------------------------------------------------------
     def results_actions(self, event=None):
-        if self.results_button.instate(['disabled']):
+        if self.results_button.instate(["disabled"]):
             # Mystery why this is necessary ...
             return
         self.results_wiz = ResultsWizard(self)
 
     # -------------------------------------------------------------------------
     def go_actions(self, event=None):
-        if self.go_button.instate(['disabled']):
+        if self.go_button.instate(["disabled"]):
             # Mystery why this is necessary ...
             return
 
@@ -1017,7 +1112,7 @@ class GraphicalUserInterface(ttk.Frame):
             return
 
         # Change button to "pressed" appearance
-        self.go_button.state(['pressed'])
+        self.go_button.state(["pressed"])
         self.update_idletasks()
 
         # Swing the IV curve, possibly looping
@@ -1029,9 +1124,11 @@ class GraphicalUserInterface(ttk.Frame):
         # Enable calibration
         if rc == RC_SUCCESS:
             self.menu_bar.enable_calibration()
+            self.menu_bar.enable_resistor_calibration()
+            self.menu_bar.enable_bias_calibration()
 
         # Restore button to "unpressed" appearance
-        self.go_button.state(['!pressed'])
+        self.go_button.state(["!pressed"])
 
     # -------------------------------------------------------------------------
     def reestablish_arduino_comm(self, write_eeprom=False):
@@ -1055,9 +1152,9 @@ class GraphicalUserInterface(ttk.Frame):
         self.swing_loop_id = None
         if loop_mode and first_loop:
             self.add_stop_button()
-            self.loop_mode_cb.state(['disabled'])
-            self.loop_rate_cb.state(['disabled'])
-            self.loop_save_cb.state(['disabled'])
+            self.loop_mode_cb.state(["disabled"])
+            self.loop_rate_cb.state(["disabled"])
+            self.loop_save_cb.state(["disabled"])
 
         # Allow copying the .cfg file to the run directory
         self.props.suppress_cfg_file_copy = False
@@ -1066,6 +1163,7 @@ class GraphicalUserInterface(ttk.Frame):
         if loop_mode and (not self.props.loop_save_results or
                           not self.props.loop_save_graphs):
             self.ivs2.generate_pdf = False
+        self.config.remove_axes_and_title()
         rc = self.ivs2.swing_iv_curve(loop_mode=loop_mode,
                                       first_loop=first_loop)
         self.config.add_axes_and_title()
@@ -1086,9 +1184,11 @@ class GraphicalUserInterface(ttk.Frame):
                 self.show_zero_isc_dialog()
             if rc == RC_ISC_TIMEOUT:
                 self.show_isc_timeout_dialog()
+            if rc == RC_NO_POINTS:
+                self.show_no_points_dialog()
             if loop_mode:
                 self.stop_actions(event=None)
-            self.clean_up_after_failure(self.ivs2.hdd_output_dir)
+            self.ivs2.clean_up_after_failure(self.ivs2.hdd_output_dir)
             return rc
 
         # Update the image pane with the new curve GIF
@@ -1111,7 +1211,9 @@ class GraphicalUserInterface(ttk.Frame):
         self.save_config()
 
         # Clean up files, depending on mode and options
-        self.clean_up_files(self.ivs2.hdd_output_dir, loop_mode)
+        self.ivs2.clean_up_files(self.ivs2.hdd_output_dir, loop_mode,
+                                 self.props.loop_save_results,
+                                 self.props.loop_save_graphs)
 
         return RC_SUCCESS
 
@@ -1127,60 +1229,6 @@ class GraphicalUserInterface(ttk.Frame):
         self.update_idletasks()
 
     # -------------------------------------------------------------------------
-    def clean_up_after_failure(self, dir):
-        """Method to remove the run directory after a failed run if it contains
-           fewer than two files (which would be the ADC CSV file and
-           the data points CSV file)
-        """
-        files = glob.glob(dir + '/*')
-        if len(files) < 2:
-            for f in files:
-                self.clean_up_file(f)
-            if dir == os.getcwd():
-                os.chdir("..")
-            os.rmdir(dir)
-            msg_str = "Removed " + dir
-            self.ivs2.logger.log(msg_str)
-
-    # -------------------------------------------------------------------------
-    def clean_up_files(self, dir, loop_mode=False):
-        # Return without doing anything if directory doesn't exist
-        if not os.path.exists(dir):
-            return
-
-        # Always remove the plt_ file(s)
-        plt_files = glob.glob(dir + '/plt_*')
-        for f in plt_files:
-            self.clean_up_file(f)
-
-        # Always remove the PNG file(s)
-        png_files = glob.glob(dir + '/*.png')
-        for f in png_files:
-            self.clean_up_file(f)
-
-        # Selectively remove other files in loop mode
-        if loop_mode:
-            if not self.props.loop_save_results:
-                # Remove all files in loop directory
-                loop_files = glob.glob(dir + '/*')
-                for f in loop_files:
-                    self.clean_up_file(f)
-                # Remove the (now empty) directory
-                if dir == os.getcwd():
-                    os.chdir("..")
-                os.rmdir(dir)
-
-            elif not self.props.loop_save_graphs:
-                # Remove GIF only
-                self.clean_up_file(self.ivs2.current_img)
-
-    # -------------------------------------------------------------------------
-    def clean_up_file(self, f):
-            os.remove(f)
-            msg_str = "Removed " + f
-            self.ivs2.logger.log(msg_str)
-
-    # -------------------------------------------------------------------------
     def add_stop_button(self):
         """This method creates the stop button. The stop button is only
         created when we're in loop mode. Its size and location are
@@ -1191,22 +1239,22 @@ class GraphicalUserInterface(ttk.Frame):
         removed.
 
         """
-        self.stop_button = GoStopButton(master=self.go_button_box, text='STOP')
-        self.stop_button['width'] = self.go_button['width']
+        self.stop_button = GoStopButton(master=self.go_button_box, text="STOP")
+        self.stop_button["width"] = self.go_button["width"]
         # Tooltip
         tt_text = "Press button to stop looping"
         Tooltip(self.stop_button, text=tt_text, **BOT_TT_KWARGS)
-        self.stop_button.bind('<Button-1>', self.stop_actions)
-        self.root.bind('<Return>', self.stop_actions)
-        self.root.bind('<space>', self.stop_actions)
+        self.stop_button.bind("<Button-1>", self.stop_actions)
+        self.root.bind("<Return>", self.stop_actions)
+        self.root.bind("<space>", self.stop_actions)
         self.stop_button.grid(column=0, row=0)
         self.update_idletasks()
 
     # -------------------------------------------------------------------------
     def stop_actions(self, event=None):
         # Restore normal bindings of return key and space bar
-        self.root.bind('<Return>', self.go_actions)
-        self.root.bind('<space>', self.go_actions)
+        self.root.bind("<Return>", self.go_actions)
+        self.root.bind("<space>", self.go_actions)
 
         # Cancel scheduled swing loop
         if self.swing_loop_id is not None:
@@ -1216,9 +1264,9 @@ class GraphicalUserInterface(ttk.Frame):
         self.stop_button.destroy()
 
         # Re-enable loop checkbuttons
-        self.loop_mode_cb.state(['!disabled'])
-        self.loop_rate_cb.state(['!disabled'])
-        self.loop_save_cb.state(['!disabled'])
+        self.loop_mode_cb.state(["!disabled"])
+        self.loop_rate_cb.state(["!disabled"])
+        self.loop_save_cb.state(["!disabled"])
 
     # -------------------------------------------------------------------------
     def show_baud_mismatch_dialog(self):
@@ -1295,41 +1343,61 @@ tab of Preferences
         tkmsg.showinfo(message=isc_timeout_str)
 
     # -------------------------------------------------------------------------
+    def show_no_points_dialog(self):
+        no_points_str = """
+ERROR: No points to display
+
+This could be a result of selecting "Battery bias" in Preferences when no
+bias was actually applied.
+"""
+        tkmsg.showinfo(message=no_points_str)
+
+    # -------------------------------------------------------------------------
     def start_on_top(self):
         # Causes app to open on top of existing windows
         self.root.lift()
-        self.root.attributes('-topmost', True)
-        self.root.after_idle(self.root.attributes, '-topmost', False)
+        self.root.attributes("-topmost", True)
+        self.root.after_idle(self.root.attributes, "-topmost", False)
 
     # -------------------------------------------------------------------------
     def start_centered(self):
         # Causes app to open centered (side-to-side) on screen, aligned
         # to top (5 pixel overscan compensation)
-        self.root.geometry('+%d+5' % ((self.root.winfo_screenwidth()/2) -
-                                      (self.ivs2.x_pixels/2)))
+        self.root.geometry("+{}+5".format((self.root.winfo_screenwidth()/2) -
+                                          (self.ivs2.x_pixels/2)))
 
     # -------------------------------------------------------------------------
     def start_to_right(self):
         # Causes app to open to the right of the screen (with 20 pixels
         # left), aligned to top (5 pixel overscan compensation)
-        self.root.geometry('+%d+5' % (self.root.winfo_screenwidth() -
-                                      self.ivs2.x_pixels - 20))
+        self.root.geometry("+{}+5".format(self.root.winfo_screenwidth() -
+                                          self.ivs2.x_pixels - 20))
 
     # -------------------------------------------------------------------------
     def start_to_left(self):
         # Causes app to open to the left of the screen, aligned to top
         # (5 pixel overscan compensation)
-        self.root.geometry('+20+5')
+        self.root.geometry("+20+5")
 
     # -------------------------------------------------------------------------
     def close_gui(self):
         # Clean up before closing
         if self.props.overlay_dir is not None:
-            self.clean_up_files(self.props.overlay_dir)
+            self.results_wiz.rm_overlay_if_unfinished()
+            self.ivs2.clean_up_files(self.props.overlay_dir)
         if self.ivs2.hdd_output_dir is not None:
-            self.clean_up_files(self.ivs2.hdd_output_dir)
+            self.ivs2.clean_up_files(self.ivs2.hdd_output_dir)
         IV_Swinger2.close_plots()
         self.root.destroy()
+
+    # -------------------------------------------------------------------------
+    def unlock_axes(self):
+        """Method to unlock the axes"""
+        self.ivs2.plot_lock_axis_ranges = False
+        self.ivs2.plot_max_x = None
+        self.ivs2.plot_max_y = None
+        self.range_lock_cb.update_axis_lock(None)
+        self.axes_locked.set("Unlock")
 
     # -------------------------------------------------------------------------
     def run(self):
@@ -1337,6 +1405,7 @@ tab of Preferences
         self.start_on_top()
         self.root.protocol("WM_DELETE_WINDOW", self.close_gui)
         self.root.mainloop()
+        self.config.log_cfg_diffs()
         self.ivs2.logger.terminate_log()
 
 
@@ -1345,7 +1414,7 @@ tab of Preferences
 class GraphicalUserInterfaceProps(object):
     """Class to hold the properties for the GraphicalUserInterface class.
        This is necessary because properties only work with new-style
-       classes (i.e. those derived from 'object')
+       classes (i.e. those derived from "object")
     """
 
     # Initializer
@@ -1444,17 +1513,6 @@ class GraphicalUserInterfaceProps(object):
 
     # ---------------------------------
     @property
-    def plot_title(self):
-        """Title of plot
-        """
-        return self.master._plot_title
-
-    @plot_title.setter
-    def plot_title(self, value):
-        self.master._plot_title = value
-
-    # ---------------------------------
-    @property
     def overlay_names(self):
         """Dict containing mapping of dts to name for overlay curves
         """
@@ -1488,6 +1546,20 @@ class GraphicalUserInterfaceProps(object):
             raise ValueError("overlay_mode must be boolean")
         self.master._overlay_mode = value
 
+    # ---------------------------------
+    @property
+    def redisplay_after_axes_unlock(self):
+        """True if the current image should be redisplayed after the axes are
+           unlocked
+        """
+        return self.master._redisplay_after_axes_unlock
+
+    @redisplay_after_axes_unlock.setter
+    def redisplay_after_axes_unlock(self, value):
+        if value not in set([True, False]):
+            raise ValueError("redisplay_after_axes_unlock must be boolean")
+        self.master._redisplay_after_axes_unlock = value
+
 
 # GUI Configuration class
 #
@@ -1518,35 +1590,35 @@ class Configuration(IV_Swinger2.Configuration):
         """Method to apply the Looping section options read from the
            .cfg file to the associated object properties
         """
-        section = 'Looping'
+        section = "Looping"
 
         # Restore values
-        args = (section, 'restore values', CFG_BOOLEAN,
+        args = (section, "restore values", CFG_BOOLEAN,
                 self.gui.props.restore_loop)
         self.gui.props.restore_loop = self.apply_one(*args)
 
         if self.gui.props.restore_loop:
             # Loop mode
-            args = (section, 'loop mode', CFG_BOOLEAN,
+            args = (section, "loop mode", CFG_BOOLEAN,
                     self.gui.props.loop_mode_active)
             self.gui.props.loop_mode_active = self.apply_one(*args)
 
             # Rate limit
-            args = (section, 'rate limit', CFG_BOOLEAN,
+            args = (section, "rate limit", CFG_BOOLEAN,
                     self.gui.props.loop_rate_limit)
             self.gui.props.loop_rate_limit = self.apply_one(*args)
 
             # Delay
-            args = (section, 'delay', CFG_INT, self.gui.props.loop_delay)
+            args = (section, "delay", CFG_INT, self.gui.props.loop_delay)
             self.gui.props.loop_delay = self.apply_one(*args)
 
             # Save results
-            args = (section, 'save results', CFG_BOOLEAN,
+            args = (section, "save results", CFG_BOOLEAN,
                     self.gui.props.loop_save_results)
             self.gui.props.loop_save_results = self.apply_one(*args)
 
             # Save graphs
-            args = (section, 'save graphs', CFG_BOOLEAN,
+            args = (section, "save graphs", CFG_BOOLEAN,
                     self.gui.props.loop_save_graphs)
             self.gui.props.loop_save_graphs = self.apply_one(*args)
 
@@ -1560,12 +1632,12 @@ class Configuration(IV_Swinger2.Configuration):
         # Add looping config
         section = "Looping"
         self.cfg.add_section(section)
-        self.cfg_set(section, 'restore values', self.gui.props.restore_loop)
-        self.cfg_set(section, 'loop mode', self.gui.props.loop_mode_active)
-        self.cfg_set(section, 'rate limit', self.gui.props.loop_rate_limit)
-        self.cfg_set(section, 'delay', self.gui.props.loop_delay)
-        self.cfg_set(section, 'save results', self.gui.props.loop_save_results)
-        self.cfg_set(section, 'save graphs', self.gui.props.loop_save_graphs)
+        self.cfg_set(section, "restore values", self.gui.props.restore_loop)
+        self.cfg_set(section, "loop mode", self.gui.props.loop_mode_active)
+        self.cfg_set(section, "rate limit", self.gui.props.loop_rate_limit)
+        self.cfg_set(section, "delay", self.gui.props.loop_delay)
+        self.cfg_set(section, "save results", self.gui.props.loop_save_results)
+        self.cfg_set(section, "save graphs", self.gui.props.loop_save_graphs)
 
     # -------------------------------------------------------------------------
     def get(self):
@@ -1590,22 +1662,22 @@ class ImgSizeCombo(ttk.Combobox):
         y_pixels = int(round(master.ivs2.x_pixels *
                              master.ivs2.plot_y_inches /
                              master.ivs2.plot_x_inches))
-        curr_size = (str(master.ivs2.x_pixels) + "x" + str(y_pixels))
+        curr_size = "{}x{}".format(master.ivs2.x_pixels, y_pixels)
         textvariable.set(curr_size)
-        self['values'] = ('550x425',
-                          '660x510',
-                          '770x595',
-                          '880x680',
-                          '990x765',
-                          '1100x850')
-        self['width'] = 10
+        self["values"] = ("550x425",
+                          "660x510",
+                          "770x595",
+                          "880x680",
+                          "990x765",
+                          "1100x850")
+        self["width"] = 10
 
 
 # Results wizard class
 #
 class ResultsWizard(tk.Toplevel):
     """Results wizard class. Unlike other dialogs that are extensions of
-       the generic Dialog class, this is NOT a 'modal window', so it
+       the generic Dialog class, this is NOT a "modal window", so it
        does not completely block access to the main window. This is so
        the user can still do things like changing preferences. However,
        certain actions are disallowed in the main window such as the Go
@@ -1647,9 +1719,11 @@ class ResultsWizard(tk.Toplevel):
         """Method to disable some of the functionality of the master while the
            wizard is running
         """
-        self.master.results_button.state(['disabled'])
-        self.master.go_button.state(['disabled'])
+        self.master.results_button.state(["disabled"])
+        self.master.go_button.state(["disabled"])
         self.master.menu_bar.disable_calibration()
+        self.master.menu_bar.disable_resistor_calibration()
+        self.master.menu_bar.disable_bias_calibration()
 
     # -------------------------------------------------------------------------
     def change_min_height(self, min_height):
@@ -1760,10 +1834,10 @@ class ResultsWizard(tk.Toplevel):
     def treeview(self, master):
         """Method to create the Treeview widget and its associated scrollbar"""
         self.treebox = ttk.Frame(master)
-        self.tree = ttk.Treeview(self.treebox, selectmode='extended')
+        self.tree = ttk.Treeview(self.treebox, selectmode="extended")
         self.treescroll = ttk.Scrollbar(self.treebox, command=self.tree.yview)
         self.tree.configure(yscroll=self.treescroll.set)
-        self.tree.bind('<<TreeviewSelect>>', self.select)
+        self.tree.bind("<<TreeviewSelect>>", self.select)
         self.populate_tree()
         tt_text = ("Click on path at the top to change. Shift-click and "
                    "Control-click can be used to select multiple runs "
@@ -1795,7 +1869,7 @@ class ResultsWizard(tk.Toplevel):
                 continue
 
             # First handle overlays
-            if subdir == 'overlays':
+            if subdir == "overlays":
                 self.populate_overlays(subdir)
 
             # Then filter out anything that isn't a directory in the
@@ -1804,8 +1878,8 @@ class ResultsWizard(tk.Toplevel):
                 self.populate_runs(subdir)
 
         # If there are no overlays or run directories, insert a dummy item
-        if not self.tree.exists('overlays') and not len(self.dates):
-            self.tree.insert('', 'end', 'err_msg', text='NO RUNS HERE')
+        if not self.tree.exists("overlays") and not len(self.dates):
+            self.tree.insert("", "end", "err_msg", text="NO RUNS HERE")
 
         # Configure a large height so it is never shorter than the
         # window
@@ -1813,8 +1887,8 @@ class ResultsWizard(tk.Toplevel):
 
         # Configure the column width to be large enough for a fairly
         # long path in the heading
-        self.tree.column('#0', width=WIZARD_TREE_WIDTH)
-        self.tree.heading('#0', text=self.results_dir,
+        self.tree.column("#0", width=WIZARD_TREE_WIDTH)
+        self.tree.heading("#0", text=self.results_dir,
                           command=self.change_folder)
         self.update_idletasks()
 
@@ -1824,7 +1898,7 @@ class ResultsWizard(tk.Toplevel):
         """
         # Add overlays parent to Treeview if it doesn't already exist
         if not self.tree.exists(subdir):
-            self.tree.insert('', 0, subdir, text="Overlays")
+            self.tree.insert("", 0, subdir, text="Overlays")
 
         # Get a list of the overlay subdirectories, newest first
         overlays = sorted(os.listdir(os.path.join(self.results_dir, subdir)),
@@ -1849,10 +1923,9 @@ class ResultsWizard(tk.Toplevel):
                 (xlated_date, xlated_time) = xlated
 
                 # Add to tree
-                iid = "overlay_" + overlay
-                text = ("Created on " + xlated_date + " at " +
-                        xlated_time)
-                self.tree.insert(subdir, 'end', iid, text=text)
+                iid = "overlay_{}".format(overlay)
+                text = "Created on {} at {}".format(xlated_date, xlated_time)
+                self.tree.insert(subdir, "end", iid, text=text)
 
     # -------------------------------------------------------------------------
     def populate_runs(self, subdir):
@@ -1861,12 +1934,12 @@ class ResultsWizard(tk.Toplevel):
         # Translate to human readable date and time
         xlated = IV_Swinger2.xlate_date_time_str(subdir)
         (xlated_date, xlated_time) = xlated
-        date = subdir.split('_')[0]
+        date = subdir.split("_")[0]
 
         # Add a date item (parent to time items) if it doesn't already
         # exist
         if not self.tree.exists(date):
-            self.tree.insert('', 'end', date, text=xlated_date)
+            self.tree.insert("", "end", date, text=xlated_date)
             # Add it to the list of all dates for the expand_all
             # and collapse_all methods
             self.dates.append(date)
@@ -1874,7 +1947,7 @@ class ResultsWizard(tk.Toplevel):
         # Get the title from the saved config
         title = None
         run_dir = self.get_run_dir(subdir)
-        cfg_file = os.path.join(run_dir, APP_NAME + ".cfg")
+        cfg_file = os.path.join(run_dir, "{}.cfg".format(APP_NAME))
         if os.path.exists(cfg_file):
             title = self.master.config.get_saved_title(cfg_file)
         else:
@@ -1882,11 +1955,12 @@ class ResultsWizard(tk.Toplevel):
         if title == "None" or title is None:
             title_str = ""
         else:
-            title_str = "   " + title
+            title_str = "   {}".format(title)
+            self.master.props.overlay_names[subdir] = title
 
         # Add child time item (iid is full date_time_str)
         text = xlated_time + title_str
-        self.tree.insert(date, 'end', subdir, text=text)
+        self.tree.insert(date, "end", subdir, text=text)
 
     # -------------------------------------------------------------------------
     def delete_all(self):
@@ -1925,9 +1999,9 @@ class ResultsWizard(tk.Toplevel):
            original configuration
         """
         self.master.focus_set()
-        self.master.results_button.state(['!disabled'])
+        self.master.results_button.state(["!disabled"])
         if self.master.ivs2.arduino_ready:
-            self.master.go_button.state(['!disabled'])
+            self.master.go_button.state(["!disabled"])
         self.master.config.cfg_filename = None  # property will restore
         self.master.config.get()
         self.master.update_plot_power_cb()
@@ -1935,16 +2009,7 @@ class ResultsWizard(tk.Toplevel):
         # the axes locked to the values from the last result that was
         # browsed. Otherwise unlock the axes.
         if self.master.axes_locked.get() == "Unlock":
-            self.unlock_axes()
-
-    # -------------------------------------------------------------------------
-    def unlock_axes(self):
-        """Method to unlock the axes"""
-        self.master.ivs2.plot_lock_axis_ranges = False
-        self.master.ivs2.plot_max_x = None
-        self.master.ivs2.plot_max_y = None
-        self.master.range_lock_cb.update_axis_lock(None)
-        self.master.axes_locked.set("Unlock")
+            self.master.unlock_axes()
 
     # -------------------------------------------------------------------------
     def select(self, event=None):
@@ -1957,7 +2022,7 @@ class ResultsWizard(tk.Toplevel):
         selection = selections[-1]
         if self.master.props.overlay_mode:
             self.overlay_runs(event=None)
-        elif selection.startswith('overlay_'):
+        elif selection.startswith("overlay_"):
             self.overlay_select_actions(selection)
         elif IV_Swinger2.is_date_time_str(selection):
             self.non_overlay_select_actions(selection)
@@ -1967,8 +2032,8 @@ class ResultsWizard(tk.Toplevel):
         """Method to display an existing overlay and perform related actions
         """
         dts = IV_Swinger2.extract_date_time_str(selection)
-        overlay_dir = os.path.join(self.results_dir, 'overlays', dts)
-        gif_leaf_name = ("overlaid_" + dts + ".gif")
+        overlay_dir = os.path.join(self.results_dir, "overlays", dts)
+        gif_leaf_name = "overlaid_{}.gif".format(dts)
         gif_full_path = os.path.join(overlay_dir, gif_leaf_name)
         if os.path.exists(gif_full_path):
             self.master.display_img(gif_full_path)
@@ -1993,14 +2058,12 @@ class ResultsWizard(tk.Toplevel):
         (csv_data_point_file,
          adc_csv_file,
          gif_file) = self.get_csv_and_gif_names(run_dir, selection)
-        if csv_data_point_file is None:
+        if csv_data_point_file is None and adc_csv_file is None:
             return
 
         # If GIF file exists, display it now
-        gif_exists = False
-        if os.path.exists(gif_file):
+        if gif_file is not None:
             self.master.display_img(gif_file)
-            gif_exists = True
 
         # Prepare IVS2 object for regeneration of plot with modified
         # options
@@ -2011,9 +2074,12 @@ class ResultsWizard(tk.Toplevel):
 
         # If GIF file doesn't exist, generate it from data point CSV
         # file and display it
-        if not gif_exists:
+        if gif_file is None:
             self.master.img_pane.splash_img_showing = False
-            self.master.redisplay_img(reprocess_adc=False)
+            if csv_data_point_file is None:
+                self.master.redisplay_img(reprocess_adc=True)
+            else:
+                self.master.redisplay_img(reprocess_adc=False)
 
     # -------------------------------------------------------------------------
     def get_run_dir(self, selection):
@@ -2022,7 +2088,7 @@ class ResultsWizard(tk.Toplevel):
         """
         run_dir = os.path.join(self.results_dir, selection)
         if not os.path.isdir(run_dir):
-            err_str = "ERROR: directory " + run_dir + " does not exist"
+            err_str = "ERROR: directory {} does not exist".format(run_dir)
             self.master.ivs2.logger.print_and_log(err_str)
             tkmsg.showinfo(message=err_str)
             return None
@@ -2032,28 +2098,32 @@ class ResultsWizard(tk.Toplevel):
     def get_csv_and_gif_names(self, run_dir, selection):
         """Method to determine the full paths to the two CSV files and the GIF
            file based on the run directory and the selection. Also
-           checks that the data point CSV file exists
+           checks that each file exists, and returns None if not
         """
         self.master.ivs2.get_csv_filenames(run_dir, selection)
         csv_data_point_file = self.master.ivs2.hdd_csv_data_point_filename
         adc_csv_file = self.master.ivs2.hdd_adc_pairs_csv_filename
-        gif_leaf_name = (self.master.ivs2.file_prefix + selection + ".gif")
+        gif_leaf_name = "{}{}.gif".format(self.master.ivs2.file_prefix,
+                                          selection)
         gif_file = os.path.join(run_dir, gif_leaf_name)
 
-        # Check that data point CSV file exists (others are optional)
+        # Check that data point CSV file exists
         if not os.path.exists(csv_data_point_file):
             # Check for IVS1 CSV file
             ivs1_csv_file = os.path.join(self.results_dir, selection,
-                                         "data_points_" + selection + ".csv")
+                                         "data_points_{}.csv"
+                                         .format(selection))
             if os.path.exists(ivs1_csv_file):
                 csv_data_point_file = ivs1_csv_file
                 self.master.ivs2.hdd_csv_data_point_filename = ivs1_csv_file
             else:
-                err_str = ("ERROR: file " + csv_data_point_file +
-                           " does not exist")
-                self.master.ivs2.logger.print_and_log(err_str)
-                tkmsg.showinfo(message=err_str)
-                return (None, None, None)
+                csv_data_point_file = None
+        # Check that the ADC CSV file exists
+        if not os.path.exists(adc_csv_file):
+            adc_csv_file = None
+        # Check that the GIF file exists
+        if not os.path.exists(gif_file):
+            gif_file = None
 
         return (csv_data_point_file, adc_csv_file, gif_file)
 
@@ -2064,7 +2134,7 @@ class ResultsWizard(tk.Toplevel):
         """
         self.master.ivs2.hdd_output_dir = run_dir
         self.master.ivs2.plot_title = None
-        if os.path.exists(adc_csv_file):
+        if adc_csv_file is not None and os.path.exists(adc_csv_file):
             adc_pairs = self.master.get_adc_pairs_from_csv(adc_csv_file)
             self.master.ivs2.adc_pairs = adc_pairs
         else:
@@ -2075,7 +2145,7 @@ class ResultsWizard(tk.Toplevel):
         """Method to read config file, if it exists, and update the config
         """
         self.master.props.suppress_cfg_file_copy = False
-        cfg_file = os.path.join(run_dir, APP_NAME + ".cfg")
+        cfg_file = os.path.join(run_dir, "{}.cfg".format(APP_NAME))
         if cfg_file == self.master.config.cfg_filename:
             return
         if os.path.exists(cfg_file):
@@ -2099,17 +2169,17 @@ class ResultsWizard(tk.Toplevel):
            heading)
         """
         options = {}
-        options['initialdir'] = self.results_dir
-        options['parent'] = self.master
-        options['title'] = 'Choose Folder'
-        if sys.platform == 'darwin':
-            options['message'] = options['title']
+        options["initialdir"] = self.results_dir
+        options["parent"] = self.master
+        options["title"] = "Choose Folder"
+        if sys.platform == "darwin":
+            options["message"] = options["title"]
         dir = tkFileDialog.askdirectory(**options)
         if len(dir):
             self.results_dir = dir
             self.delete_all()
             self.populate_tree()
-            if not self.tree.exists('overlays') and not len(self.dates):
+            if not self.tree.exists("overlays") and not len(self.dates):
                 # If there are no overlays or runs in the specified folder, but
                 # there is a subfolder named IV_Swinger2 or the parent
                 # directory is named IV_Swinger2, then assume the user meant to
@@ -2129,18 +2199,18 @@ class ResultsWizard(tk.Toplevel):
     # -------------------------------------------------------------------------
     def config_shortcut_button(self):
         """Method to configure the shortcut button normally"""
-        self.shortcut_button['text'] = "Make desktop shortcut"
-        self.shortcut_button['command'] = self.make_shortcut
+        self.shortcut_button["text"] = "Make desktop shortcut"
+        self.shortcut_button["command"] = self.make_shortcut
         tt_text = "Create a desktop shortcut to results folder"
         Tooltip(self.shortcut_button, text=tt_text,  **TOP_TT_KWARGS)
 
     # -------------------------------------------------------------------------
     def config_import_button(self):
         """Method to configure the shortcut button as the import button"""
-        self.shortcut_button['text'] = "Import"
-        self.shortcut_button['command'] = self.import_results
-        to_from = (self.master.ivs2.app_data_dir, self.results_dir)
-        tt_text = "Import results to %s from %s" % to_from
+        self.shortcut_button["text"] = "Import"
+        self.shortcut_button["command"] = self.import_results
+        tt_text = ("Import results to {} from {}"
+                   .format(self.master.ivs2.app_data_dir, self.results_dir))
         Tooltip(self.shortcut_button, text=tt_text,  **TOP_TT_KWARGS)
 
     # -------------------------------------------------------------------------
@@ -2150,7 +2220,7 @@ class ResultsWizard(tk.Toplevel):
         # Find path to Desktop
         desktop_path = os.path.expanduser(os.path.join("~", "Desktop"))
         if not os.path.exists(desktop_path):
-            err_str = "ERROR: " + desktop_path + " does not exist"
+            err_str = "ERROR: {} does not exist".format(desktop_path)
             tkmsg.showinfo(message=err_str)
 
         # Define shortcut name
@@ -2162,7 +2232,7 @@ class ResultsWizard(tk.Toplevel):
         FAILED = 3
         result = None
 
-        if sys.platform == 'win32':
+        if sys.platform == "win32":
             import win32com.client
             # For Windows, use win32com
             desktop_shortcut_path += ".lnk"
@@ -2198,14 +2268,16 @@ class ResultsWizard(tk.Toplevel):
                     result = FAILED
 
         if result == CREATED:
-            msg_str = "Shortcut created:\n" + desktop_shortcut_path
+            msg_str = "Shortcut created:\n  {}".format(desktop_shortcut_path)
         elif result == EXISTS_SAME:
             msg_str = "Shortcut already exists"
         elif result == EXISTS_DIFFERENT:
-            msg_str = ("ERROR: Shortcut\n" + desktop_shortcut_path +
-                       "\nalready exists, but its target is:\n" +
-                       curr_value + "\ninstead of:\n" +
-                       self.results_dir)
+            msg_str = ("ERROR: Shortcut\n  {}"
+                       "\nalready exists, but its target is:\n  {}"
+                       "\ninstead of:\n  {}"
+                       .format(desktop_shortcut_path,
+                               curr_value,
+                               self.results_dir))
         elif result == FAILED:
             msg_str = "ERROR: could not create shortcut"
         else:
@@ -2232,11 +2304,11 @@ class ResultsWizard(tk.Toplevel):
 
             # Get the list of overlays to import
             import_overlays = []
-            if self.tree.exists('overlays'):
-                for overlay in self.tree.get_children('overlays'):
+            if self.tree.exists("overlays"):
+                for overlay in self.tree.get_children("overlays"):
                     dts = IV_Swinger2.extract_date_time_str(overlay)
                     overlay_path = os.path.join(self.results_dir,
-                                                'overlays', dts)
+                                                "overlays", dts)
                     import_overlays.append(overlay_path)
 
         all_import = import_runs + import_overlays
@@ -2284,12 +2356,12 @@ class ResultsWizard(tk.Toplevel):
         """
         # Open a tkFileDialog to get user to choose a destination
         options = {}
-        options['parent'] = self.master
-        options['title'] = 'Choose Copy Destination'
-        if sys.platform == 'darwin':
-            options['message'] = options['title']
+        options["parent"] = self.master
+        options["title"] = "Choose Copy Destination"
+        if sys.platform == "darwin":
+            options["message"] = options["title"]
         self.copy_dest = tkFileDialog.askdirectory(**options)
-        if self.copy_dest is '':  # Cancel
+        if self.copy_dest is "":  # Cancel
             return RC_FAILURE
 
         # If leaf directory is named IV_Swinger2, assume the user meant
@@ -2299,7 +2371,7 @@ class ResultsWizard(tk.Toplevel):
 
         # Check that it is writeable
         if not os.access(self.copy_dest, os.W_OK | os.X_OK):
-            err_str = "ERROR: " + self.copy_dest + " is not writeable"
+            err_str = "ERROR: {} is not writeable".format(self.copy_dest)
             tkmsg.showinfo(message=err_str)
             return RC_FAILURE
 
@@ -2320,6 +2392,12 @@ class ResultsWizard(tk.Toplevel):
             tkmsg.showinfo(message="ERROR: no runs or overlays are selected")
             return
 
+        # Display error dialog and return if in overlay mode
+        if self.master.props.overlay_mode:
+            err_msg = "ERROR: cannot perform a delete in overlay mode"
+            tkmsg.showinfo(message=err_msg)
+            return
+
         all_selected = selected_runs + selected_overlays
 
         if self.ok_to_trash(len(selected_runs), len(selected_overlays)):
@@ -2336,11 +2414,11 @@ class ResultsWizard(tk.Toplevel):
         """
         msg_str = ""
         if num_selected_runs:
-            msg_str += "Send " + str(num_selected_runs)
-            msg_str += " runs to the trash?\n"
+            msg_str += ("Send {} runs to the trash?\n"
+                        .format(num_selected_runs))
         if num_selected_overlays:
-            msg_str += "Send " + str(num_selected_overlays)
-            msg_str += " overlays to the trash?\n"
+            msg_str += ("Send {} overlays to the trash?\n"
+                        .format(num_selected_overlays))
         granted = tkmsg.askyesno("OK to send to trash?", msg_str,
                                  default=tkmsg.NO)
         return granted
@@ -2359,6 +2437,12 @@ class ResultsWizard(tk.Toplevel):
         # Display error dialog and return if nothing is selected
         if not len(selected_runs) and not len(selected_overlays):
             tkmsg.showinfo(message="ERROR: no runs or overlays are selected")
+            return
+
+        # Display error dialog and return if in overlay mode
+        if self.master.props.overlay_mode:
+            err_msg = "ERROR: cannot perform a copy in overlay mode"
+            tkmsg.showinfo(message=err_msg)
             return
 
         # Get destination from user
@@ -2395,7 +2479,7 @@ class ResultsWizard(tk.Toplevel):
         # whole day groupings to the selected_runs list.
         for selection in selections:
             individual_run = IV_Swinger2.is_date_time_str(selection)
-            is_date_group = re.compile('^(\d{6})$').search(selection)
+            is_date_group = re.compile("^(\d{6})$").search(selection)
             if individual_run:
                 selected_runs.append(os.path.join(self.results_dir, selection))
             elif (include_whole_days and is_date_group and not
@@ -2422,18 +2506,18 @@ class ResultsWizard(tk.Toplevel):
             # Add all of the overlays if the whole groups is selected,
             # but not if the last selection is an individual overlay
             # (DWIM)
-            if (selection == 'overlays' and
-                    not selections[-1].startswith('overlay_')):
+            if (selection == "overlays" and
+                    not selections[-1].startswith("overlay_")):
                 for child in self.tree.get_children(selection):
                     # Add all the overlays to the list
                     dts = IV_Swinger2.extract_date_time_str(child)
                     selected_overlays.append(os.path.join(self.results_dir,
-                                                          'overlays', dts))
+                                                          "overlays", dts))
             # Add individual overlay
-            if selection.startswith('overlay_'):
+            if selection.startswith("overlay_"):
                 dts = IV_Swinger2.extract_date_time_str(selection)
                 selected_overlays.append(os.path.join(self.results_dir,
-                                                      'overlays', dts))
+                                                      "overlays", dts))
 
         return selected_overlays
 
@@ -2456,14 +2540,14 @@ class ResultsWizard(tk.Toplevel):
         if len(existing_dest_dirs):
             if len(existing_dest_dirs) > 10:
                 # If more than 10 found, just prompt with the count found
-                msg_str = (str(len(existing_dest_dirs)) +
-                           " folders to be copied exist in " +
-                           os.path.join(self.copy_dest, APP_NAME) + "\n")
+                msg_str = ("{} folders to be copied exist in {}\n"
+                           .format(len(existing_dest_dirs),
+                                   os.path.join(self.copy_dest, APP_NAME)))
             else:
                 # If 1-10 found, prompt with the list of names
                 msg_str = "The following destination folder(s) exist(s):\n"
                 for dest_dir in existing_dest_dirs:
-                    msg_str += "  " + dest_dir + "\n"
+                    msg_str += "  {}\n".format(dest_dir)
             msg_str += "\nOverwrite all?"
             overwrite = tkmsg.askyesno("Overwrite all?", msg_str,
                                        default=tkmsg.NO)
@@ -2475,7 +2559,7 @@ class ResultsWizard(tk.Toplevel):
         overwriting or not, based on input parameter. Returns number of
         runs copied.
         """
-        num_copied = {'overlays': 0, 'runs': 0}
+        num_copied = {"overlays": 0, "runs": 0}
         for src_dir in src_dirs:
             dest_dir = self.get_dest_dir(src_dir)
             if os.path.exists(dest_dir):
@@ -2483,24 +2567,23 @@ class ResultsWizard(tk.Toplevel):
                     try:
                         shutil.rmtree(dest_dir)
                     except (IOError, OSError, shutil.Error) as e:
-                        err_str = ("ERROR: removing " + dest_dir +
-                                   "({})".format(e))
+                        err_str = ("ERROR: removing {} ({})"
+                                   .format(dest_dir, e))
                         tkmsg.showinfo(message=err_str)
                         continue
                 else:
                     continue
             try:
                 shutil.copytree(src_dir, dest_dir)
-                if os.path.basename(os.path.dirname(src_dir)) == 'overlays':
-                    num_copied['overlays'] += 1
+                if os.path.basename(os.path.dirname(src_dir)) == "overlays":
+                    num_copied["overlays"] += 1
                 else:
-                    num_copied['runs'] += 1
-                self.master.ivs2.logger.log("Copied " + src_dir +
-                                            " to " + dest_dir)
+                    num_copied["runs"] += 1
+                self.master.ivs2.logger.log("Copied {} to {}"
+                                            .format(src_dir, dest_dir))
             except (IOError, OSError, shutil.Error) as e:
-                err_str = ("ERROR: error copying " + src_dir +
-                           " to " + dest_dir + "\n" +
-                           "({})".format(e))
+                err_str = ("ERROR: error copying {} to {}\n({})"
+                           .format(src_dir, dest_dir, e))
                 tkmsg.showinfo(message=err_str)
 
         return num_copied
@@ -2510,9 +2593,9 @@ class ResultsWizard(tk.Toplevel):
         """Method to derive the destination directory name from the source
         directory name
         """
-        if os.path.basename(os.path.dirname(src_dir)) == 'overlays':
+        if os.path.basename(os.path.dirname(src_dir)) == "overlays":
             dest_dir = os.path.join(self.copy_dest, APP_NAME,
-                                    'overlays', os.path.basename(src_dir))
+                                    "overlays", os.path.basename(src_dir))
         else:
             dest_dir = os.path.join(self.copy_dest, APP_NAME,
                                     os.path.basename(src_dir))
@@ -2523,10 +2606,13 @@ class ResultsWizard(tk.Toplevel):
         """Method to display a message dialog with a count of how many runs
         were copied
         """
-        msg_str = 'Copied:\n'
-        msg_str += "   " + str(num_copied['overlays']) + " overlays\n"
-        msg_str += "   " + str(num_copied['runs']) + " runs\n"
-        msg_str += "to " + os.path.join(self.copy_dest, APP_NAME) + "\n"
+        msg_str = ("Copied:\n"
+                   "   {} overlays\n"
+                   "   {} runs\n"
+                   "to {}\n"
+                   .format(num_copied["overlays"],
+                           num_copied["runs"],
+                           os.path.join(self.copy_dest, APP_NAME)))
         tkmsg.showinfo(message=msg_str)
 
     # -------------------------------------------------------------------------
@@ -2534,13 +2620,16 @@ class ResultsWizard(tk.Toplevel):
         """Method to change the title of the selected run or of the current
            overlay
         """
-        prompt_str = "Enter new title"
         if self.master.props.overlay_mode:
-            run_str = str(len(self.overlaid_runs)) + " Runs"
-            init_val = "IV Swinger Plot for " + run_str
+            prompt_title_str = "Change overlay title"
+            prompt_str = "Enter new overlay title"
+            init_val = ("IV Swinger Plot for {} Runs"
+                        .format(len(self.overlaid_runs)))
         else:
-            # Display error dialog and return if any overlays are selected
+            prompt_title_str = "Change run title"
+            prompt_str = "Enter new run title"
             selected_overlays = self.get_selected_overlays()
+            # Display error dialog and return if any overlays are selected
             if len(selected_overlays):
                 tkmsg.showinfo(message=("ERROR: cannot change title on "
                                         "completed overlays"))
@@ -2550,7 +2639,7 @@ class ResultsWizard(tk.Toplevel):
                 dts = IV_Swinger2.extract_date_time_str(sel_runs[0])
                 date_time = self.date_at_time_from_dts(dts)
                 if (self.master.ivs2.plot_title is None):
-                    init_val = "IV Swinger Plot for " + date_time
+                    init_val = "IV Swinger Plot for {}".format(date_time)
                 else:
                     init_val = self.master.ivs2.plot_title
             elif len(sel_runs) > 1:
@@ -2562,7 +2651,7 @@ class ResultsWizard(tk.Toplevel):
                 err_str = ("ERROR: No run selected")
                 tkmsg.showinfo(message=err_str)
                 return
-        new_title = tksd.askstring(title="Change title",
+        new_title = tksd.askstring(title=prompt_title_str,
                                    prompt=prompt_str,
                                    initialvalue=init_val)
         if new_title:
@@ -2570,10 +2659,17 @@ class ResultsWizard(tk.Toplevel):
                 self.overlay_title = new_title
                 self.plot_overlay_and_display()
             else:
-                self.master.props.plot_title = new_title
+                time = self.tree.item(dts)["text"][:8]
+                if new_title == "None":
+                    new_title = None
+                    text = time
+                    self.tree.item(dts, text=text)
+                else:
+                    text = "{}   {}".format(time, new_title)
+                    self.tree.item(dts, text=text)
+                self.master.ivs2.plot_title = new_title
+                self.master.props.overlay_names[dts] = new_title
                 self.master.redisplay_img(reprocess_adc=False)
-                text = self.tree.item(dts)['text'][:8] + "   " + new_title
-                self.tree.item(dts, text=text)
 
     # -------------------------------------------------------------------------
     def view_pdf(self, event=None):
@@ -2586,7 +2682,7 @@ class ResultsWizard(tk.Toplevel):
         img = self.master.img_file
         if img is not None and os.path.exists(img):
             (file, ext) = os.path.splitext(img)
-            pdf = file + ".pdf"
+            pdf = "{}.pdf".format(file)
             if self.master.props.overlay_mode:
                 # In overlay mode, the PDF is only generated when the Finished
                 # button is pressed, so we have to generate it "on demand" when
@@ -2619,6 +2715,12 @@ class ResultsWizard(tk.Toplevel):
             tkmsg.showinfo(message="ERROR: overlays cannot be updated")
             return
 
+        # Display error dialog and return if in overlay mode
+        if self.master.props.overlay_mode:
+            err_msg = "ERROR: cannot perform an update in overlay mode"
+            tkmsg.showinfo(message=err_msg)
+            return
+
         # Get the selected run(s) from the Treeview (sorted from
         # oldest to newest). Display error dialog and return if no
         # runs are selected
@@ -2630,14 +2732,14 @@ class ResultsWizard(tk.Toplevel):
         # Hack: invisible progress bar (length=0). For some reason, this solves
         # the (Mac-only) problem of the images not getting displayed during the
         # update
-        if sys.platform == 'darwin':
+        if sys.platform == "darwin":
             pb = ProgressBar(master=self, length=0, maximum=len(selected_runs))
 
         # Loop through runs, regenerating/redisplaying
         for run_dir in selected_runs:
             selection = os.path.basename(run_dir)
 
-            # Get names of CSV and GIF files
+            # Get names of CSV files
             (csv_data_point_file,
              adc_csv_file, _) = self.get_csv_and_gif_names(run_dir, selection)
             if csv_data_point_file is None and adc_csv_file is None:
@@ -2658,18 +2760,19 @@ class ResultsWizard(tk.Toplevel):
             # but that is outweighed by the danger of unintentionally
             # losing the calibration values at the time of the run. This
             # is particularly true for the battery bias calibration.
-            self.master.props.plot_title = None
-            cfg_file = os.path.join(run_dir, APP_NAME + ".cfg")
+            cfg_file = os.path.join(run_dir, "{}.cfg".format(APP_NAME))
             if os.path.exists(cfg_file):
                 self.master.config.cfg_filename = cfg_file
                 self.master.config.merge_old_with_current_plotting(cfg_file)
-                self.master.props.plot_title = self.master.ivs2.plot_title
 
             # If Lock checkbutton is unchecked, unlock axes so scaling
             # is automatic - otherwise, all updates will use the
             # current lock values
             if self.master.axes_locked.get() == "Unlock":
-                self.unlock_axes()
+                self.master.unlock_axes()
+            else:
+                self.master.ivs2.plot_max_x = float(self.master.v_range.get())
+                self.master.ivs2.plot_max_y = float(self.master.i_range.get())
 
             # Redisplay the image with the current options. This
             # regenerates the image files, and while not necessary to
@@ -2681,7 +2784,7 @@ class ResultsWizard(tk.Toplevel):
             self.update_idletasks()
 
         # Destroy dummy progress bar
-        if sys.platform == 'darwin':
+        if sys.platform == "darwin":
             pb.destroy()
 
         # Display done message if multiple runs selected
@@ -2700,9 +2803,8 @@ class ResultsWizard(tk.Toplevel):
         # Check for too many selected
         max_overlays = len(IV_Swinger2.PLOT_COLORS)
         if len(self.overlaid_runs) > max_overlays:
-            err_str = ("ERROR: Maximum of " + str(max_overlays) +
-                       " overlays supported (" + str(len(self.overlaid_runs)) +
-                       " requested)")
+            err_str = ("ERROR: Maximum of {} overlays supported ({} requested)"
+                       .format(max_overlays, len(self.overlaid_runs)))
             tkmsg.showinfo(message=err_str)
             return RC_FAILURE
 
@@ -2787,8 +2889,8 @@ class ResultsWizard(tk.Toplevel):
         """
         overlay_dir = self.master.props.overlay_dir
         overlay = IV_Swinger2.extract_date_time_str(overlay_dir)
-        self.overlay_iid = "overlay_" + overlay
-        parent = 'overlays'
+        self.overlay_iid = "overlay_{}".format(overlay)
+        parent = "overlays"
 
         # If the iid already exists in the tree, nothing to do
         if self.tree.exists(self.overlay_iid):
@@ -2796,7 +2898,7 @@ class ResultsWizard(tk.Toplevel):
 
         # Add overlays parent to Treeview if it doesn't already exist
         if not self.tree.exists(parent):
-            self.tree.insert('', 0, parent, text="Overlays")
+            self.tree.insert("", 0, parent, text="Overlays")
 
         # Translate to human readable date and time
         xlated = IV_Swinger2.xlate_date_time_str(overlay)
@@ -2804,8 +2906,7 @@ class ResultsWizard(tk.Toplevel):
 
         # Add to tree at the beginning of the parent (since order is
         # newest first)
-        text = ("Created on " + xlated_date + " at " +
-                xlated_time)
+        text = "Created on {} at {}".format(xlated_date, xlated_time)
         self.tree.insert(parent, 0, self.overlay_iid, text=text)
 
     # -------------------------------------------------------------------------
@@ -2813,7 +2914,7 @@ class ResultsWizard(tk.Toplevel):
         """Method to add the overlay mode widgets to the dialog
         """
         self.overlay_widget_box = ttk.Frame(self.body, borderwidth=5,
-                                            relief='ridge')
+                                            relief="ridge")
         self.overlay_widget_label = ttk.Label(master=self.overlay_widget_box,
                                               text="Overlay Runs:")
         self.overlay_widget_cb_box = ttk.Frame(self.overlay_widget_box)
@@ -2939,7 +3040,7 @@ class ResultsWizard(tk.Toplevel):
         self.overlay_widget_treeview = ttk.Treeview(self.overlay_widget_box,
                                                     columns=("label"),
                                                     displaycolumns=("label"),
-                                                    selectmode='browse')
+                                                    selectmode="browse")
         # Set treeview height to accomodate the maximum number of
         # overlays
         max_overlays = len(IV_Swinger2.PLOT_COLORS)
@@ -2950,11 +3051,11 @@ class ResultsWizard(tk.Toplevel):
         # headings.
         col0_text = "Date/Time"
         col1_text = "Name (2-click to change)"
-        self.overlay_widget_treeview.column('#0', width=WIZARD_TREE_WIDTH/2)
-        self.overlay_widget_treeview.heading('#0', text=col0_text,
+        self.overlay_widget_treeview.column("#0", width=WIZARD_TREE_WIDTH/2)
+        self.overlay_widget_treeview.heading("#0", text=col0_text,
                                              command=self.chron_sort_overlays)
-        self.overlay_widget_treeview.column('#1', width=WIZARD_TREE_WIDTH/2)
-        self.overlay_widget_treeview.heading('#1', text=col1_text,
+        self.overlay_widget_treeview.column("#1", width=WIZARD_TREE_WIDTH/2)
+        self.overlay_widget_treeview.heading("#1", text=col1_text,
                                              command=self.overlay_tv_col1_help)
 
         # Register callbacks for drag-and-drop reordering
@@ -2987,15 +3088,16 @@ class ResultsWizard(tk.Toplevel):
         """
         self.sort_overlaid_runs(chron=True)
         self.populate_overlay_treeview(self.overlaid_runs)
-        self.overlay_runs(event=None)
+        self.reorder_selected_csv_files()
+        self.plot_overlay_and_display()
 
     # -------------------------------------------------------------------------
     def overlay_tv_col1_help(self, event=None):
         """Method to display a help dialog if the column 1 heading (Name) is
            clicked.
         """
-        help_str = "Double-click items below to rename.\n"
-        help_str += "Drag items to change order."
+        help_str = ("Double-click items below to rename.\n"
+                    "Drag items to change order.")
         tkmsg.showinfo(message=help_str)
 
     # -------------------------------------------------------------------------
@@ -3013,7 +3115,7 @@ class ResultsWizard(tk.Toplevel):
                 name = self.master.props.overlay_names[dts]
             else:
                 name = date_time
-            self.overlay_widget_treeview.insert('', 'end', dts,
+            self.overlay_widget_treeview.insert("", "end", dts,
                                                 text=date_time,
                                                 values=[name])
         self.overlays_reordered = False
@@ -3024,7 +3126,7 @@ class ResultsWizard(tk.Toplevel):
            170110_190017 to 01/10/17@19:00:17
         """
         (date, time) = IV_Swinger2.xlate_date_time_str(dts)
-        return(date + "@" + time)
+        return("{}@{}".format(date, time))
 
     # -------------------------------------------------------------------------
     def grab_overlay_curve(self, event=None):
@@ -3043,7 +3145,7 @@ class ResultsWizard(tk.Toplevel):
         tv = event.widget
         moveto = tv.index(tv.identify_row(event.y))
         try:
-            tv.move(tv.selection()[0], '', moveto)
+            tv.move(tv.selection()[0], "", moveto)
             self.overlays_reordered = True
         except IndexError:
             # Spurious error - ignore
@@ -3073,7 +3175,7 @@ class ResultsWizard(tk.Toplevel):
             return
 
         # Open dialog to add or change name
-        prompt_str = "Enter name for " + date_time + " curve"
+        prompt_str = "Enter name for {} curve".format(date_time)
         if dts in self.master.props.overlay_names:
             init_val = self.master.props.overlay_names[dts]
         else:
@@ -3150,7 +3252,7 @@ class ResultsWizard(tk.Toplevel):
         # Make the "overlays" group visible and the new overlay visible
         # and selected
         if self.overlay_iid is not None:
-            self.tree.see('overlays')
+            self.tree.see("overlays")
             self.tree.see(self.overlay_iid)
             self.tree.selection_add(self.overlay_iid)
 
@@ -3165,17 +3267,16 @@ class ResultsWizard(tk.Toplevel):
             if not os.path.exists(self.master.props.overlay_dir):
                 return True
             # Remove directory if it doesn't contain overlaid PDF
-            overlay_pdf = ("overlaid_" +
-                           os.path.basename(self.master.props.overlay_dir) +
-                           ".pdf")
+            dts = os.path.basename(self.master.props.overlay_dir)
+            overlay_pdf = "overlaid_{}.pdf".format(dts)
             if overlay_pdf not in os.listdir(self.master.props.overlay_dir):
                 if self.master.props.overlay_dir == os.getcwd():
                     os.chdir("..")
                 shutil.rmtree(self.master.props.overlay_dir)
                 return True
             # Clean up the directory
-            self.master.clean_up_files(self.master.props.overlay_dir,
-                                       loop_mode=False)
+            self.master.ivs2.clean_up_files(self.master.props.overlay_dir,
+                                            loop_mode=False)
         return False
 
     # -------------------------------------------------------------------------
@@ -3187,19 +3288,20 @@ class ResultsWizard(tk.Toplevel):
             dts = IV_Swinger2.extract_date_time_str(csv_dir)
             csv_files_found = 0
             for file in os.listdir(csv_dir):
-                if (file.endswith(dts + '.csv') and
-                        not file.startswith('adc_pairs') and
-                        not file.startswith('unfiltered_adc_pairs')):
+                if (file.endswith("{}.csv".format(dts)) and
+                        not file.startswith("adc_pairs") and
+                        not file.startswith("unfiltered_adc_pairs")):
                     csv_file_full_path = os.path.join(csv_dir, file)
                     self.selected_csv_files.append(csv_file_full_path)
                     csv_files_found += 1
             if not csv_files_found:
-                err_str = "ERROR: no data point CSV file found in " + csv_dir
+                err_str = ("ERROR: no data point CSV file found in {}"
+                           .format(csv_dir))
                 tkmsg.showinfo(message=err_str)
                 return RC_FAILURE
             elif csv_files_found > 1:
-                err_str = ("ERROR: multiple data point CSV files found in " +
-                           csv_dir)
+                err_str = ("ERROR: multiple data point CSV files found in {}"
+                           .format(csv_dir))
                 tkmsg.showinfo(message=err_str)
                 return RC_FAILURE
 
@@ -3276,18 +3378,17 @@ class ResultsWizard(tk.Toplevel):
         """Method to generate the list of overlay curve names
         """
         self.ivp.curve_names = []
-        if len(self.master.props.overlay_names):
-            curves = self.overlay_widget_treeview.get_children()
-            for dts in curves:
-                if dts in self.master.props.overlay_names:
-                    # Name is user-specified
-                    name = self.master.props.overlay_names[dts]
-                    self.ivp.curve_names.append(name)
-                else:
-                    # Default name: date@time
-                    date_time = self.date_at_time_from_dts(dts)
-                    self.ivp.curve_names.append(date_time)
-        else:
+        curves = self.overlay_widget_treeview.get_children()
+        for dts in curves:
+            if dts in self.master.props.overlay_names:
+                # Name is user-specified
+                name = self.master.props.overlay_names[dts]
+                self.ivp.curve_names.append(name)
+            else:
+                # Default name: date@time
+                date_time = self.date_at_time_from_dts(dts)
+                self.ivp.curve_names.append(date_time)
+        if len(self.ivp.curve_names) == 0:
             self.ivp.curve_names = None
 
 
@@ -3301,7 +3402,7 @@ class ProgressBar(tk.Toplevel):
                  maximum=None):
         tk.Toplevel.__init__(self, master=master)
         self.p = ttk.Progressbar(self, orient=orient, length=length,
-                                 maximum=maximum, mode='determinate')
+                                 maximum=maximum, mode="determinate")
         self.p.pack()
 
 
@@ -3313,7 +3414,7 @@ class MenuBar(tk.Menu):
     # Initializer
     def __init__(self, master=None):
         tk.Menu.__init__(self, master=master)
-        self.win_sys = self.master.root.tk.call('tk', 'windowingsystem')
+        self.win_sys = self.master.root.tk.call("tk", "windowingsystem")
         self.menubar = tk.Menu(self.master)
         self.selected_port = tk.StringVar()
         self.selected_port.set(self.master.ivs2.usb_port)
@@ -3323,19 +3424,19 @@ class MenuBar(tk.Menu):
         self.create_calibrate_menu()
         self.create_window_menu()
         self.create_help_menu()
-        self.master.root['menu'] = self.menubar
+        self.master.root["menu"] = self.menubar
         self.calibration_disabled = True
 
     # -------------------------------------------------------------------------
     def create_about_menu(self):
-        if self.win_sys == 'aqua':  # Mac
-            self.about_menu = tk.Menu(self.menubar, name='apple')
+        if self.win_sys == "aqua":  # Mac
+            self.about_menu = tk.Menu(self.menubar, name="apple")
             self.menubar.add_cascade(menu=self.about_menu)
-            self.master.root.createcommand('tk::mac::ShowPreferences',
+            self.master.root.createcommand("tk::mac::ShowPreferences",
                                            self.master.show_preferences)
         else:
             self.about_menu = tk.Menu(self.menubar)
-            self.menubar.add_cascade(menu=self.about_menu, label='About')
+            self.menubar.add_cascade(menu=self.about_menu, label="About")
         self.about_menu.add_command(label="About IV Swinger 2",
                                     command=self.show_about_dialog)
         self.about_menu.add_separator()
@@ -3343,7 +3444,7 @@ class MenuBar(tk.Menu):
     # -------------------------------------------------------------------------
     def create_file_menu(self):
         self.file_menu = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.file_menu, label='File')
+        self.menubar.add_cascade(menu=self.file_menu, label="File")
         self.file_menu.add_command(label="View Log File",
                                    command=self.view_log_file)
         self.file_menu.add_command(label="View Config File",
@@ -3352,9 +3453,9 @@ class MenuBar(tk.Menu):
     # -------------------------------------------------------------------------
     def create_usb_port_menu(self):
         self.usb_port_menu = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.usb_port_menu, label='USB Port')
+        self.menubar.add_cascade(menu=self.usb_port_menu, label="USB Port")
         for serial_port_full_str in self.master.ivs2.serial_ports:
-            serial_port = str(serial_port_full_str).split(' ')[0]
+            serial_port = str(serial_port_full_str).split(" ")[0]
             self.usb_port_menu.add_radiobutton(label=serial_port_full_str,
                                                variable=self.selected_port,
                                                value=serial_port,
@@ -3363,15 +3464,15 @@ class MenuBar(tk.Menu):
     # -------------------------------------------------------------------------
     def create_calibrate_menu(self):
         self.calibrate_menu = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.calibrate_menu, label='Calibrate')
+        self.menubar.add_cascade(menu=self.calibrate_menu, label="Calibrate")
         self.calibrate_menu.add_command(label="Voltage Calibration",
                                         command=self.get_v_cal_value)
         self.calibrate_menu.add_command(label="Current Calibration",
                                         command=self.get_i_cal_value)
-        self.calibrate_menu.add_command(label="Bias Battery",
-                                        command=self.get_battery_bias)
         self.calibrate_menu.add_command(label="Resistors",
                                         command=self.get_resistor_values)
+        self.calibrate_menu.add_command(label="Bias Battery",
+                                        command=self.get_battery_bias)
         self.calibrate_menu.add_command(label="Calibration Help",
                                         command=self.show_calibration_help)
 
@@ -3390,29 +3491,49 @@ class MenuBar(tk.Menu):
         self.calibration_disabled = False
 
     # -------------------------------------------------------------------------
+    def disable_resistor_calibration(self):
+        kwargs = {"state": "disabled"}
+        self.calibrate_menu.entryconfig("Resistors", **kwargs)
+
+    # -------------------------------------------------------------------------
+    def enable_resistor_calibration(self):
+        kwargs = {"state": "normal"}
+        self.calibrate_menu.entryconfig("Resistors", **kwargs)
+
+    # -------------------------------------------------------------------------
+    def disable_bias_calibration(self):
+        kwargs = {"state": "disabled"}
+        self.calibrate_menu.entryconfig("Bias Battery", **kwargs)
+
+    # -------------------------------------------------------------------------
+    def enable_bias_calibration(self):
+        kwargs = {"state": "normal"}
+        self.calibrate_menu.entryconfig("Bias Battery", **kwargs)
+
+    # -------------------------------------------------------------------------
     def create_window_menu(self):
-        if self.win_sys == 'aqua':  # Mac
-            self.window_menu = tk.Menu(self.menubar, name='window')
-            self.menubar.add_cascade(menu=self.window_menu, label='Window')
+        if self.win_sys == "aqua":  # Mac
+            self.window_menu = tk.Menu(self.menubar, name="window")
+            self.menubar.add_cascade(menu=self.window_menu, label="Window")
         else:
             pass
 
     # -------------------------------------------------------------------------
     def create_help_menu(self):
-        if self.win_sys == 'aqua':  # Mac
-            self.help_menu = tk.Menu(self.menubar, name='help')
-            self.menubar.add_cascade(menu=self.help_menu, label='Help')
-            self.master.root.createcommand('tk::mac::ShowHelp',
+        if self.win_sys == "aqua":  # Mac
+            self.help_menu = tk.Menu(self.menubar, name="help")
+            self.menubar.add_cascade(menu=self.help_menu, label="Help")
+            self.master.root.createcommand("tk::mac::ShowHelp",
                                            self.show_help)
         else:
             self.help_menu = tk.Menu(self.menubar)
-            self.menubar.add_cascade(menu=self.help_menu, label='Help')
+            self.menubar.add_cascade(menu=self.help_menu, label="Help")
             self.help_menu.add_command(label="IV Swinger 2 Help",
                                        command=self.show_help)
 
     # -------------------------------------------------------------------------
     def show_about_dialog(self):
-        version_str = "Version: " + self.master.version + "\n\n"
+        version_str = "Version: {}\n\n".format(self.master.version)
         about_str = """
 IV Swinger and IV Swinger 2 are open
 source hardware and software projects
@@ -3438,20 +3559,21 @@ Copyright (C) 2017  Chris Satterlee
         sketch_ver = self.master.ivs2.arduino_sketch_ver
         sketch_ver_str = ""
         if sketch_ver != "Unknown":
-            sketch_ver_str = "Arduino sketch version: " + sketch_ver + "\n\n"
+            sketch_ver_str = ("Arduino sketch version: {}\n\n"
+                              .format(sketch_ver))
         tkmsg.showinfo(message=version_str+sketch_ver_str+about_str)
 
     # -------------------------------------------------------------------------
     def view_log_file(self):
         (dir, file) = os.path.split(self.master.ivs2.logger.log_file_name)
         options = {}
-        options['defaultextension'] = '.txt'
-        options['initialdir'] = dir
-        options['initialfile'] = file
-        options['parent'] = self.master
-        options['title'] = 'Choose log file'
-        if sys.platform == 'darwin':
-            options['message'] = options['title']
+        options["defaultextension"] = ".txt"
+        options["initialdir"] = dir
+        options["initialfile"] = file
+        options["parent"] = self.master
+        options["title"] = "Choose log file"
+        if sys.platform == "darwin":
+            options["message"] = options["title"]
         log_file = tkFileDialog.askopenfilename(**options)
         IV_Swinger2.sys_view_file(log_file)
 
@@ -3465,7 +3587,7 @@ Copyright (C) 2017  Chris Satterlee
         self.master.ivs2.arduino_ready = False
         self.master.attempt_arduino_handshake()
         if self.master.ivs2.arduino_ready:
-            self.master.config.cfg_set('USB', 'port',
+            self.master.config.cfg_set("USB", "port",
                                        self.master.ivs2.usb_port)
             self.master.save_config()
 
@@ -3480,7 +3602,7 @@ Copyright (C) 2017  Chris Satterlee
         if new_voc:
             new_v_cal = self.master.ivs2.v_cal * (new_voc / curr_voc)
             self.master.ivs2.v_cal = new_v_cal
-            self.master.config.cfg_set('Calibration', 'voltage', new_v_cal)
+            self.master.config.cfg_set("Calibration", "voltage", new_v_cal)
             # Update value in EEPROM
             self.update_values_in_eeprom()
             # Redisplay the image with the new settings (saves config)
@@ -3497,7 +3619,7 @@ Copyright (C) 2017  Chris Satterlee
         if new_isc:
             new_i_cal = self.master.ivs2.i_cal * (new_isc / curr_isc)
             self.master.ivs2.i_cal = new_i_cal
-            self.master.config.cfg_set('Calibration', 'current', new_i_cal)
+            self.master.config.cfg_set("Calibration", "current", new_i_cal)
             # Update value in EEPROM
             self.update_values_in_eeprom()
             # Redisplay the image with the new settings (saves config)
@@ -3535,7 +3657,7 @@ this version of the Arduino software. Please upgrade.
 # http://effbot.org/tkinterbook/tkinter-dialog-windows.htm)
 #
 class Dialog(tk.Toplevel):
-    """Toplevel class used for dialogs. This is a so-called 'modal window'.
+    """Toplevel class used for dialogs. This is a so-called "modal window".
     This means that when it comes up, access to the main window is
     disabled until this window is closed. Focus is directed to this
     window when it opens, and is returned to the main window when it is
@@ -3552,7 +3674,7 @@ class Dialog(tk.Toplevel):
                  has_cancel_button=True, return_ok=False, ok_label="OK",
                  resizable=False):
         tk.Toplevel.__init__(self, master=master)
-        self.win_sys = self.master.tk.call('tk', 'windowingsystem')
+        self.win_sys = self.master.tk.call("tk", "windowingsystem")
         self.has_ok_button = has_ok_button
         self.has_cancel_button = has_cancel_button
         self.return_ok = return_ok
@@ -3603,7 +3725,7 @@ class Dialog(tk.Toplevel):
 
         # Layout
         box.grid(column=0, row=1, sticky=(E))
-        if sys.platform == 'win32':  # Windows
+        if sys.platform == "win32":  # Windows
             ok_col = 0
             cancel_col = 1
         else:  # Mac, other
@@ -3724,15 +3846,15 @@ the preferences revert to those that were in effect before it was opened.
 """
         font = HELP_DIALOG_FONT
         self.text = ScrolledText(master, height=30, borderwidth=10)
-        self.text.tag_configure('body_tag', font=font)
-        self.text.tag_configure('heading_tag', font=font, underline=True)
-        self.text.insert('end', help_text_intro, ('body_tag'))
-        self.text.insert('end', help_heading_1, ('heading_tag'))
-        self.text.insert('end', help_text_1, ('body_tag'))
-        self.text.insert('end', help_heading_2, ('heading_tag'))
-        self.text.insert('end', help_text_2, ('body_tag'))
-        self.text.insert('end', help_heading_3, ('heading_tag'))
-        self.text.insert('end', help_text_3, ('body_tag'))
+        self.text.tag_configure("body_tag", font=font)
+        self.text.tag_configure("heading_tag", font=font, underline=True)
+        self.text.insert("end", help_text_intro, ("body_tag"))
+        self.text.insert("end", help_heading_1, ("heading_tag"))
+        self.text.insert("end", help_text_1, ("body_tag"))
+        self.text.insert("end", help_heading_2, ("heading_tag"))
+        self.text.insert("end", help_text_2, ("body_tag"))
+        self.text.insert("end", help_heading_3, ("heading_tag"))
+        self.text.insert("end", help_text_3, ("body_tag"))
         self.text.grid()
 
 
@@ -3808,17 +3930,26 @@ Resistors:"""
   Swinger 2 (i.e. one that is configured for higher or lower voltages and
   currents).
 """
+        bias_battery_heading = """
+Bias Battery:"""
+        help_text_5 = """
+  This calibration is used only for the cell version of IV Swinger 2
+  which sometimes requires a bias battery in series with the PV cell.
+  More help is available with this option is selected.
+"""
         font = HELP_DIALOG_FONT
         self.text = ScrolledText(master, height=30, borderwidth=10)
-        self.text.tag_configure('body_tag', font=font)
-        self.text.tag_configure('heading_tag', font=font, underline=True)
-        self.text.insert('end', help_text_1, ('body_tag'))
-        self.text.insert('end', voltage_heading, ('heading_tag'))
-        self.text.insert('end', help_text_2, ('body_tag'))
-        self.text.insert('end', current_heading, ('heading_tag'))
-        self.text.insert('end', help_text_3, ('body_tag'))
-        self.text.insert('end', resistors_heading, ('heading_tag'))
-        self.text.insert('end', help_text_4, ('body_tag'))
+        self.text.tag_configure("body_tag", font=font)
+        self.text.tag_configure("heading_tag", font=font, underline=True)
+        self.text.insert("end", help_text_1, ("body_tag"))
+        self.text.insert("end", voltage_heading, ("heading_tag"))
+        self.text.insert("end", help_text_2, ("body_tag"))
+        self.text.insert("end", current_heading, ("heading_tag"))
+        self.text.insert("end", help_text_3, ("body_tag"))
+        self.text.insert("end", resistors_heading, ("heading_tag"))
+        self.text.insert("end", help_text_4, ("body_tag"))
+        self.text.insert("end", bias_battery_heading, ("heading_tag"))
+        self.text.insert("end", help_text_5, ("body_tag"))
         self.text.grid()
 
 
@@ -3842,11 +3973,10 @@ class DownlevelArduinoSketchDialog(Dialog):
 The Arduino software ("sketch") on the IV Swinger 2 hardware that is currently
 connected is not the most current version.
 """
-        text_2 = ("\n    Version detected: " +
-                  self.master.ivs2.arduino_sketch_ver)
-        text_3 = ("\n     Current version: " +
-                  LATEST_SKETCH_VER + "\n")
-
+        text_2 = ("\n    Version detected: {}"
+                  .format(self.master.ivs2.arduino_sketch_ver))
+        text_3 = ("\n     Current version: {}\n"
+                  .format(LATEST_SKETCH_VER))
         text_4 = """
 You may continue with the older version, but it is recommended that you update
 at your earliest convenience.
@@ -3865,8 +3995,8 @@ Here is the procedure:
 
       - Use your browser to go to:
 """
-        text_5 = ("\n          " + "https://raw.githubusercontent.com/" +
-                  "csatt/IV_Swinger/master/Arduino/IV_Swinger2/" +
+        text_5 = ("\n          https://raw.githubusercontent.com/"
+                  "csatt/IV_Swinger/master/Arduino/IV_Swinger2/"
                   "IV_Swinger2.ino")
         text_6 = """
 
@@ -3887,15 +4017,15 @@ Here is the procedure:
 """
         font = HELP_DIALOG_FONT
         self.text = ScrolledText(master, width=95, height=30, borderwidth=10)
-        self.text.tag_configure('heading_tag', font=font, underline=True)
-        self.text.tag_configure('body_tag', font=font)
-        self.text.insert('end', heading_text, ('heading_tag'))
-        self.text.insert('end', text_1, ('body_tag'))
-        self.text.insert('end', text_2, ('body_tag'))
-        self.text.insert('end', text_3, ('body_tag'))
-        self.text.insert('end', text_4, ('body_tag'))
-        self.text.insert('end', text_5, ('body_tag'))
-        self.text.insert('end', text_6, ('body_tag'))
+        self.text.tag_configure("heading_tag", font=font, underline=True)
+        self.text.tag_configure("body_tag", font=font)
+        self.text.insert("end", heading_text, ("heading_tag"))
+        self.text.insert("end", text_1, ("body_tag"))
+        self.text.insert("end", text_2, ("body_tag"))
+        self.text.insert("end", text_3, ("body_tag"))
+        self.text.insert("end", text_4, ("body_tag"))
+        self.text.insert("end", text_5, ("body_tag"))
+        self.text.insert("end", text_6, ("body_tag"))
         self.text.grid()
 
 
@@ -3912,7 +4042,7 @@ class ResistorValuesDialog(Dialog):
         self.rf_str = tk.StringVar()
         self.rg_str = tk.StringVar()
         self.shunt_str = tk.StringVar()
-        title = APP_NAME + " Resistor Values"
+        title = "{} Resistor Values".format(APP_NAME)
         Dialog.__init__(self, master=master, title=title)
 
     # -------------------------------------------------------------------------
@@ -3924,7 +4054,7 @@ class ResistorValuesDialog(Dialog):
         r1_entry = ttk.Entry(master=frame,
                              width=8,
                              textvariable=self.r1_str)
-        r1_ohms = self.master.config.cfg.getfloat('Calibration', 'r1 ohms')
+        r1_ohms = self.master.config.cfg.getfloat("Calibration", "r1 ohms")
         self.r1_str.set(r1_ohms)
 
         # Add label and entry box to select R2 resistance
@@ -3932,7 +4062,7 @@ class ResistorValuesDialog(Dialog):
         r2_entry = ttk.Entry(master=frame,
                              width=8,
                              textvariable=self.r2_str)
-        r2_ohms = self.master.config.cfg.getfloat('Calibration', 'r2 ohms')
+        r2_ohms = self.master.config.cfg.getfloat("Calibration", "r2 ohms")
         self.r2_str.set(r2_ohms)
 
         # Add label and entry box to select Rf resistance
@@ -3940,7 +4070,7 @@ class ResistorValuesDialog(Dialog):
         rf_entry = ttk.Entry(master=frame,
                              width=8,
                              textvariable=self.rf_str)
-        rf_ohms = self.master.config.cfg.getfloat('Calibration', 'rf ohms')
+        rf_ohms = self.master.config.cfg.getfloat("Calibration", "rf ohms")
         self.rf_str.set(rf_ohms)
 
         # Add label and entry box to select Rg resistance
@@ -3948,7 +4078,7 @@ class ResistorValuesDialog(Dialog):
         rg_entry = ttk.Entry(master=frame,
                              width=8,
                              textvariable=self.rg_str)
-        rg_ohms = self.master.config.cfg.getfloat('Calibration', 'rg ohms')
+        rg_ohms = self.master.config.cfg.getfloat("Calibration", "rg ohms")
         self.rg_str.set(rg_ohms)
 
         # Add label and entry box to select Shunt resistance
@@ -3956,8 +4086,8 @@ class ResistorValuesDialog(Dialog):
         shunt_entry = ttk.Entry(master=frame,
                                 width=8,
                                 textvariable=self.shunt_str)
-        shunt_max_volts = self.master.config.cfg.getfloat('Calibration',
-                                                          'shunt max volts')
+        shunt_max_volts = self.master.config.cfg.getfloat("Calibration",
+                                                          "shunt max volts")
         shunt_uohms = ((shunt_max_volts /
                         self.master.ivs2.amm_shunt_max_amps) * 1000000.0)
         self.shunt_str.set(shunt_uohms)
@@ -4010,12 +4140,12 @@ class ResistorValuesDialog(Dialog):
         self.master.config.get_snapshot()
 
         # Snapshot properties
-        self.snapshot_values['vdiv_r1'] = self.master.ivs2.vdiv_r1
-        self.snapshot_values['vdiv_r2'] = self.master.ivs2.vdiv_r2
-        self.snapshot_values['amm_op_amp_rf'] = self.master.ivs2.amm_op_amp_rf
-        self.snapshot_values['amm_op_amp_rg'] = self.master.ivs2.amm_op_amp_rg
+        self.snapshot_values["vdiv_r1"] = self.master.ivs2.vdiv_r1
+        self.snapshot_values["vdiv_r2"] = self.master.ivs2.vdiv_r2
+        self.snapshot_values["amm_op_amp_rf"] = self.master.ivs2.amm_op_amp_rf
+        self.snapshot_values["amm_op_amp_rg"] = self.master.ivs2.amm_op_amp_rg
         amm_shunt_max_volts = self.master.ivs2.amm_shunt_max_volts
-        self.snapshot_values['amm_shunt_max_volts'] = amm_shunt_max_volts
+        self.snapshot_values["amm_shunt_max_volts"] = amm_shunt_max_volts
 
     # -------------------------------------------------------------------------
     def validate(self):
@@ -4060,11 +4190,11 @@ class ResistorValuesDialog(Dialog):
         self.master.config.get()
 
         # Restore properties
-        self.master.ivs2.vdiv_r1 = self.snapshot_values['vdiv_r1']
-        self.master.ivs2.vdiv_r2 = self.snapshot_values['vdiv_r2']
-        self.master.ivs2.amm_op_amp_rf = self.snapshot_values['amm_op_amp_rf']
-        self.master.ivs2.amm_op_amp_rg = self.snapshot_values['amm_op_amp_rg']
-        amm_shunt_max_volts = self.snapshot_values['amm_shunt_max_volts']
+        self.master.ivs2.vdiv_r1 = self.snapshot_values["vdiv_r1"]
+        self.master.ivs2.vdiv_r2 = self.snapshot_values["vdiv_r2"]
+        self.master.ivs2.amm_op_amp_rf = self.snapshot_values["amm_op_amp_rf"]
+        self.master.ivs2.amm_op_amp_rg = self.snapshot_values["amm_op_amp_rg"]
+        amm_shunt_max_volts = self.snapshot_values["amm_shunt_max_volts"]
         self.master.ivs2.amm_shunt_max_volts = amm_shunt_max_volts
 
     # -------------------------------------------------------------------------
@@ -4136,7 +4266,7 @@ class BiasBatteryDialog(Dialog):
     """
     # Initializer
     def __init__(self, master=None):
-        title = APP_NAME + "Bias Battery"
+        title = "{} Bias Battery".format(APP_NAME)
         section = "Calibration"
         option = "bias battery voltage"
         self.v_batt = master.config.cfg.getfloat(section, option)
@@ -4152,10 +4282,24 @@ class BiasBatteryDialog(Dialog):
         frame = ttk.Frame(master)
 
         desc_text = """
-This calibration is used only for the cell version of IV Swinger 2,
-which sometimes requires a bias battery in series with the PV cell.  To
-perform the calibration, connect the battery to the IV Swinger 2 WITHOUT
-THE PV CELL and click on the "Calibrate" button below."""
+This calibration is used only for the cell version of IV Swinger 2
+which sometimes requires a bias battery in series with the PV cell.
+
+IMPORTANT: The following current and voltage calibrations MUST be performed
+BEFORE performing this bias battery calibration:
+
+  1) With bias battery and PV cell in series:
+     - Turn battery bias mode OFF (Preferences)
+     - Swing curve
+     - Perform current calibration using DMM (see Calibration Help)
+
+  2) With BATTERY ONLY:
+     - Keep battery bias mode OFF (Preferences)
+     - Swing curve
+     - Perform voltage calibration using DMM (see Calibration Help)
+
+At this point the bias battery calibration can be performed (still with the
+BATTERY ONLY) connected by clicking on the "Calibrate" button below."""
 
         # Add label with description text
         desc_label = ttk.Label(master=frame, text=desc_text)
@@ -4180,8 +4324,8 @@ THE PV CELL and click on the "Calibrate" button below."""
             v_batt_str = "No bias"
             r_batt_str = "No bias"
         else:
-            v_batt_str = "%.4f" % self.v_batt
-            r_batt_str = "%.4f" % self.r_batt
+            v_batt_str = "{:.4f}".format(self.v_batt)
+            r_batt_str = "{:.4f}".format(self.r_batt)
         self.v_batt_value = ttk.Label(master=values_box, text=v_batt_str)
         self.r_batt_value = ttk.Label(master=values_box, text=r_batt_str)
 
@@ -4213,8 +4357,8 @@ THE PV CELL and click on the "Calibrate" button below."""
         # Snapshot properties
         v_batt = self.master.ivs2.v_batt
         r_batt = self.master.ivs2.r_batt
-        self.snapshot_values['bias battery voltage'] = v_batt
-        self.snapshot_values['bias battery resistance'] = r_batt
+        self.snapshot_values["bias battery voltage"] = v_batt
+        self.snapshot_values["bias battery resistance"] = r_batt
 
     # -------------------------------------------------------------------------
     def revert(self):
@@ -4226,8 +4370,8 @@ THE PV CELL and click on the "Calibrate" button below."""
         self.master.config.get()
 
         # Restore properties
-        snap_v_batt = self.snapshot_values['bias battery voltage']
-        snap_r_batt = self.snapshot_values['bias battery resistance']
+        snap_v_batt = self.snapshot_values["bias battery voltage"]
+        snap_r_batt = self.snapshot_values["bias battery resistance"]
         self.master.ivs2.v_batt = snap_v_batt
         self.master.ivs2.r_batt = snap_r_batt
 
@@ -4316,13 +4460,14 @@ the displayed curve:
                 if self.curve_looks_ok:
                     # Calculate bias values
                     r_batt, v_batt = self.master.ivs2.calculate_bias_values()
-                    self.v_batt_value['text'] = "%.4f" % v_batt
-                    self.r_batt_value['text'] = "%.4f" % r_batt
+                    self.v_batt_value["text"] = "{:.4f}".format(v_batt)
+                    self.r_batt_value["text"] = "{:.4f}".format(r_batt)
                     self.v_batt = v_batt
                     self.r_batt = r_batt
 
                 # Clean up
-                self.master.clean_up_files(self.master.ivs2.hdd_output_dir)
+                output_dir = self.master.ivs2.hdd_output_dir
+                self.master.ivs2.clean_up_files(output_dir)
             else:
                 err_str = ("ERROR: Failed to swing curve for bias battery")
                 tkmsg.showinfo(message=err_str)
@@ -4345,7 +4490,11 @@ class PreferencesDialog(Dialog):
         self.line_scale = tk.StringVar()
         self.point_scale = tk.StringVar()
         self.correct_adc = tk.StringVar()
+        self.fix_isc = tk.StringVar()
+        self.fix_voc = tk.StringVar()
+        self.comb_dupv_pts = tk.StringVar()
         self.reduce_noise = tk.StringVar()
+        self.fix_overshoot = tk.StringVar()
         self.battery_bias = tk.StringVar()
         self.spi_clk_str = tk.StringVar()
         self.max_iv_points_str = tk.StringVar()
@@ -4356,7 +4505,7 @@ class PreferencesDialog(Dialog):
         self.aspect_height_str = tk.StringVar()
         self.aspect_width_str = tk.StringVar()
         self.plot_props = PlottingProps(ivs2=master.ivs2)
-        title = APP_NAME + " Preferences"
+        title = "{} Preferences".format(APP_NAME)
         Dialog.__init__(self, master=master, title=title)
 
     # -------------------------------------------------------------------------
@@ -4367,9 +4516,9 @@ class PreferencesDialog(Dialog):
         self.plotting_tab = ttk.Frame(self.nb)
         self.looping_tab = ttk.Frame(self.nb)
         self.arduino_tab = ttk.Frame(self.nb)
-        self.nb.add(self.plotting_tab, text='Plotting')
-        self.nb.add(self.looping_tab, text='Looping')
-        self.nb.add(self.arduino_tab, text='Arduino')
+        self.nb.add(self.plotting_tab, text="Plotting")
+        self.nb.add(self.looping_tab, text="Looping")
+        self.nb.add(self.arduino_tab, text="Arduino")
         self.populate_plotting_tab()
         self.populate_looping_tab()
         self.populate_arduino_tab()
@@ -4380,11 +4529,11 @@ class PreferencesDialog(Dialog):
         """Add widgets to the Plotting tab"""
         section = "Plotting"
         self.font_scale.set(self.master.config.cfg.getfloat(section,
-                                                            'font scale'))
+                                                            "font scale"))
         self.line_scale.set(self.master.config.cfg.getfloat(section,
-                                                            'line scale'))
+                                                            "line scale"))
         self.point_scale.set(self.master.config.cfg.getfloat(section,
-                                                             'point scale'))
+                                                             "point scale"))
         # Add container box for widgets
         plotting_widget_box = ttk.Frame(master=self.plotting_tab, padding=20)
 
@@ -4403,7 +4552,7 @@ class PreferencesDialog(Dialog):
                                     command=self.immediate_apply,
                                     value="Spline")
         self.interpolation_type.set("Spline")
-        if self.master.config.cfg.getboolean(section, 'linear'):
+        if self.master.config.cfg.getboolean(section, "linear"):
             self.interpolation_type.set("Linear")
 
         # Add radio buttons to choose whether Isc, MPP, and Voc labels
@@ -4421,7 +4570,7 @@ class PreferencesDialog(Dialog):
                                    command=self.immediate_apply,
                                    value="Fancy")
         self.fancy_labels.set("Plain")
-        if self.master.config.cfg.getboolean(section, 'fancy labels'):
+        if self.master.config.cfg.getboolean(section, "fancy labels"):
             self.fancy_labels.set("Fancy")
 
         # Add scale slider and entry box for font scale. They both use
@@ -4438,11 +4587,11 @@ class PreferencesDialog(Dialog):
                                       to=2.0,
                                       variable=self.font_scale,
                                       command=self.round_font_scale)
-        font_scale_slider.bind('<ButtonRelease-1>', self.immediate_apply)
+        font_scale_slider.bind("<ButtonRelease-1>", self.immediate_apply)
         font_scale_entry = ttk.Entry(master=plotting_widget_box,
                                      width=8,
                                      textvariable=self.font_scale)
-        font_scale_entry.bind('<Return>', self.immediate_apply)
+        font_scale_entry.bind("<Return>", self.immediate_apply)
 
         # Same for line scale
         line_scale_label = ttk.Label(master=plotting_widget_box,
@@ -4454,11 +4603,11 @@ class PreferencesDialog(Dialog):
                                       to=5.0,
                                       variable=self.line_scale,
                                       command=self.round_line_scale)
-        line_scale_slider.bind('<ButtonRelease-1>', self.immediate_apply)
+        line_scale_slider.bind("<ButtonRelease-1>", self.immediate_apply)
         line_scale_entry = ttk.Entry(master=plotting_widget_box,
                                      width=8,
                                      textvariable=self.line_scale)
-        line_scale_entry.bind('<Return>', self.immediate_apply)
+        line_scale_entry.bind("<Return>", self.immediate_apply)
 
         # Same for point scale
         point_scale_label = ttk.Label(master=plotting_widget_box,
@@ -4470,11 +4619,11 @@ class PreferencesDialog(Dialog):
                                        to=4.0,
                                        variable=self.point_scale,
                                        command=self.round_point_scale)
-        point_scale_slider.bind('<ButtonRelease-1>', self.immediate_apply)
+        point_scale_slider.bind("<ButtonRelease-1>", self.immediate_apply)
         point_scale_entry = ttk.Entry(master=plotting_widget_box,
                                       width=8,
                                       textvariable=self.point_scale)
-        point_scale_entry.bind('<Return>', self.immediate_apply)
+        point_scale_entry.bind("<Return>", self.immediate_apply)
 
         # Add radio buttons to choose whether ADC values should be
         # corrected or not
@@ -4485,19 +4634,76 @@ class PreferencesDialog(Dialog):
                                              variable=self.correct_adc,
                                              command=self.immediate_apply,
                                              value="Off")
-        correct_adc_on_rb = ttk.Radiobutton(master=plotting_widget_box,
+        correct_adc_on_box = ttk.Frame(master=plotting_widget_box, padding=0)
+        correct_adc_on_rb = ttk.Radiobutton(master=correct_adc_on_box,
                                             text="On",
                                             variable=self.correct_adc,
                                             command=self.immediate_apply,
                                             value="On")
+        correct_adc_label2 = ttk.Label(master=correct_adc_on_box,
+                                       text="   (Off overrides next 5)")
+        correct_adc_on_rb.pack(side=LEFT)
+        correct_adc_label2.pack(side=LEFT)
         self.correct_adc.set("Off")
-        if self.master.config.cfg.getboolean(section, 'correct adc'):
+        if self.master.config.cfg.getboolean(section, "correct adc"):
             self.correct_adc.set("On")
+
+        # Add radio buttons to choose whether to apply fixes to the Isc point
+        fix_isc_label = ttk.Label(master=plotting_widget_box,
+                                  text="    Fix Isc point:")
+        fix_isc_off_rb = ttk.Radiobutton(master=plotting_widget_box,
+                                         text="Off",
+                                         variable=self.fix_isc,
+                                         command=self.immediate_apply,
+                                         value="Off")
+        fix_isc_on_rb = ttk.Radiobutton(master=plotting_widget_box,
+                                        text="On",
+                                        variable=self.fix_isc,
+                                        command=self.immediate_apply,
+                                        value="On")
+        self.fix_isc.set("Off")
+        if self.master.config.cfg.getboolean(section, "fix isc"):
+            self.fix_isc.set("On")
+
+        # Add radio buttons to choose whether to apply fixes to the Voc point
+        fix_voc_label = ttk.Label(master=plotting_widget_box,
+                                  text="    Fix Voc point:")
+        fix_voc_off_rb = ttk.Radiobutton(master=plotting_widget_box,
+                                         text="Off",
+                                         variable=self.fix_voc,
+                                         command=self.immediate_apply,
+                                         value="Off")
+        fix_voc_on_rb = ttk.Radiobutton(master=plotting_widget_box,
+                                        text="On",
+                                        variable=self.fix_voc,
+                                        command=self.immediate_apply,
+                                        value="On")
+        self.fix_voc.set("Off")
+        if self.master.config.cfg.getboolean(section, "fix voc"):
+            self.fix_voc.set("On")
+
+        # Add radio buttons to choose whether to combine consecutive
+        # points with the same voltage
+        comb_dupv_pts_label = ttk.Label(master=plotting_widget_box,
+                                        text="    Combine =V points:")
+        comb_dupv_pts_off_rb = ttk.Radiobutton(master=plotting_widget_box,
+                                               text="Off",
+                                               variable=self.comb_dupv_pts,
+                                               command=self.immediate_apply,
+                                               value="Off")
+        comb_dupv_pts_on_rb = ttk.Radiobutton(master=plotting_widget_box,
+                                              text="On",
+                                              variable=self.comb_dupv_pts,
+                                              command=self.immediate_apply,
+                                              value="On")
+        self.comb_dupv_pts.set("Off")
+        if self.master.config.cfg.getboolean(section, "combine dupv points"):
+            self.comb_dupv_pts.set("On")
 
         # Add radio buttons to choose whether noise reduction algorithm
         # should be applied or not
         reduce_noise_label = ttk.Label(master=plotting_widget_box,
-                                       text="ADC noise reduction:")
+                                       text="    Reduce noise:")
         reduce_noise_off_rb = ttk.Radiobutton(master=plotting_widget_box,
                                               text="Off",
                                               variable=self.reduce_noise,
@@ -4509,8 +4715,26 @@ class PreferencesDialog(Dialog):
                                              command=self.immediate_apply,
                                              value="On")
         self.reduce_noise.set("Off")
-        if self.master.config.cfg.getboolean(section, 'reduce noise'):
+        if self.master.config.cfg.getboolean(section, "reduce noise"):
             self.reduce_noise.set("On")
+
+        # Add radio buttons to choose whether to correct for the Voc
+        # overshoot
+        fix_overshoot_label = ttk.Label(master=plotting_widget_box,
+                                        text="    Fix overshoot:")
+        fix_overshoot_off_rb = ttk.Radiobutton(master=plotting_widget_box,
+                                               text="Off",
+                                               variable=self.fix_overshoot,
+                                               command=self.immediate_apply,
+                                               value="Off")
+        fix_overshoot_on_rb = ttk.Radiobutton(master=plotting_widget_box,
+                                              text="On",
+                                              variable=self.fix_overshoot,
+                                              command=self.immediate_apply,
+                                              value="On")
+        self.fix_overshoot.set("Off")
+        if self.master.config.cfg.getboolean(section, "fix overshoot"):
+            self.fix_overshoot.set("On")
 
         # Add radio buttons to choose whether a battery bias should be
         # applied or not
@@ -4527,7 +4751,7 @@ class PreferencesDialog(Dialog):
                                              command=self.immediate_apply,
                                              value="On")
         self.battery_bias.set("Off")
-        if self.master.config.cfg.getboolean(section, 'battery bias'):
+        if self.master.config.cfg.getboolean(section, "battery bias"):
             self.battery_bias.set("On")
 
         # Add Restore Defaults button in its own container box
@@ -4565,28 +4789,44 @@ class PreferencesDialog(Dialog):
         point_scale_label.grid(column=0, row=row, sticky=W, pady=pady)
         point_scale_entry.grid(column=1, row=row, sticky=W, pady=pady)
         point_scale_slider.grid(column=2, row=row, sticky=W, pady=pady)
-        # Suppress displaying ADC correction, noise reduction and
-        # battery bias widgets if the adc_pairs property is not
-        # populated (unless we're still at the splash screen)
+        # Suppress displaying ADC correction and battery bias widgets if
+        # the adc_pairs property is not populated (unless we're still at
+        # the splash screen)
         if (self.master.ivs2.adc_pairs is not None or
                 self.master.img_pane.splash_img_showing):
-            row = 5
+            row += 1
             correct_adc_label.grid(column=0, row=row, sticky=W, pady=pady)
             correct_adc_off_rb.grid(column=1, row=row, sticky=W, pady=pady)
-            correct_adc_on_rb.grid(column=2, row=row, sticky=W, pady=pady)
-            row = 6
+            correct_adc_on_box.grid(column=2, row=row, sticky=W, pady=pady)
+            row += 1
+            fix_isc_label.grid(column=0, row=row, sticky=W, pady=pady)
+            fix_isc_off_rb.grid(column=1, row=row, sticky=W, pady=pady)
+            fix_isc_on_rb.grid(column=2, row=row, sticky=W, pady=pady)
+            row += 1
+            fix_voc_label.grid(column=0, row=row, sticky=W, pady=pady)
+            fix_voc_off_rb.grid(column=1, row=row, sticky=W, pady=pady)
+            fix_voc_on_rb.grid(column=2, row=row, sticky=W, pady=pady)
+            row += 1
+            comb_dupv_pts_label.grid(column=0, row=row, sticky=W, pady=pady)
+            comb_dupv_pts_off_rb.grid(column=1, row=row, sticky=W, pady=pady)
+            comb_dupv_pts_on_rb.grid(column=2, row=row, sticky=W, pady=pady)
+            row += 1
             reduce_noise_label.grid(column=0, row=row, sticky=W, pady=pady)
             reduce_noise_off_rb.grid(column=1, row=row, sticky=W, pady=pady)
             reduce_noise_on_rb.grid(column=2, row=row, sticky=W, pady=pady)
-            row = 7
+            row += 1
+            fix_overshoot_label.grid(column=0, row=row, sticky=W, pady=pady)
+            fix_overshoot_off_rb.grid(column=1, row=row, sticky=W, pady=pady)
+            fix_overshoot_on_rb.grid(column=2, row=row, sticky=W, pady=pady)
+            row += 1
             battery_bias_label.grid(column=0, row=row, sticky=W, pady=pady)
             battery_bias_off_rb.grid(column=1, row=row, sticky=W, pady=pady)
             battery_bias_on_rb.grid(column=2, row=row, sticky=W, pady=pady)
-        row = 8
+        row += 1
         plotting_help_box.grid(column=0, row=row, sticky=W, pady=pady,
                                columnspan=2)
         plotting_help.grid(column=0, row=0, sticky=W)
-        plotting_restore_box.grid(column=2, row=row, sticky=W, columnspan=2)
+        plotting_restore_box.grid(column=1, row=row, sticky=E)
         plotting_restore.grid(column=0, row=0, sticky=W)
 
     # -------------------------------------------------------------------------
@@ -4598,7 +4838,11 @@ class PreferencesDialog(Dialog):
         self.line_scale.set(str(LINE_SCALE_DEFAULT))
         self.point_scale.set(str(POINT_SCALE_DEFAULT))
         self.correct_adc.set(str(CORRECT_ADC_DEFAULT))
+        self.fix_isc.set(str(FIX_ISC_DEFAULT))
+        self.fix_voc.set(str(FIX_VOC_DEFAULT))
+        self.comb_dupv_pts.set(str(COMB_DUPV_PTS_DEFAULT))
         self.reduce_noise.set(str(REDUCE_NOISE_DEFAULT))
+        self.fix_overshoot.set(str(FIX_OVERSHOOT_DEFAULT))
         self.battery_bias.set(str(BATTERY_BIAS_DEFAULT))
         self.immediate_apply()
 
@@ -4623,9 +4867,9 @@ class PreferencesDialog(Dialog):
                                              offvalue="Disabled")
 
         # If the config contains a Looping section, use invoke the
-        # checkbutton if 'restore values' is True
+        # checkbutton if "restore values" is True
         if self.master.config.cfg.has_section("Looping"):
-            if self.master.config.cfg.getboolean('Looping', 'restore values'):
+            if self.master.config.cfg.getboolean("Looping", "restore values"):
                 restore_looping_cb.invoke()
 
         # Add Help button in its own container box
@@ -4666,11 +4910,11 @@ class PreferencesDialog(Dialog):
         max_iv_entry = ttk.Entry(master=arduino_widget_box,
                                  width=8,
                                  textvariable=self.max_iv_points_str)
-        label_txt = ("(< " + str(MAX_IV_POINTS_MAX + 1) + ")")
+        label_txt = "(< {})".format(MAX_IV_POINTS_MAX + 1)
         max_iv_constraint_label = ttk.Label(master=arduino_widget_box,
                                             text=label_txt)
-        max_iv_points = self.master.config.cfg.getint('Arduino',
-                                                      'max iv points')
+        max_iv_points = self.master.config.cfg.getint("Arduino",
+                                                      "max iv points")
         self.max_iv_points_str.set(max_iv_points)
 
         # Add label and entry box to select minimum Isc ADC
@@ -4679,10 +4923,10 @@ class PreferencesDialog(Dialog):
         min_isc_adc_entry = ttk.Entry(master=arduino_widget_box,
                                       width=8,
                                       textvariable=self.min_isc_adc_str)
-        label_txt = ("(< " + str(ADC_MAX + 1) + ")")
+        label_txt = "(< {})".format(ADC_MAX + 1)
         min_isc_adc_constraint_label = ttk.Label(master=arduino_widget_box,
                                                  text=label_txt)
-        min_isc_adc = self.master.config.cfg.getint('Arduino', 'min isc adc')
+        min_isc_adc = self.master.config.cfg.getint("Arduino", "min isc adc")
         self.min_isc_adc_str.set(min_isc_adc)
 
         # Add label and entry box to select maximum Isc polling loops
@@ -4691,10 +4935,10 @@ class PreferencesDialog(Dialog):
         max_isc_poll_entry = ttk.Entry(master=arduino_widget_box,
                                        width=8,
                                        textvariable=self.max_isc_poll_str)
-        label_txt = ("(< " + str(ARDUINO_MAX_INT + 1) + ")")
+        label_txt = "(< {})".format(ARDUINO_MAX_INT + 1)
         max_isc_poll_constraint_label = ttk.Label(master=arduino_widget_box,
                                                   text=label_txt)
-        max_isc_poll = self.master.config.cfg.getint('Arduino', 'max isc poll')
+        max_isc_poll = self.master.config.cfg.getint("Arduino", "max isc poll")
         self.max_isc_poll_str.set(max_isc_poll)
 
         # Add label and entry box to select Isc stable ADC
@@ -4703,11 +4947,11 @@ class PreferencesDialog(Dialog):
         isc_stable_adc_entry = ttk.Entry(master=arduino_widget_box,
                                          width=8,
                                          textvariable=self.isc_stable_adc_str)
-        label_txt = ("(< " + str(ADC_MAX + 1) + ")")
+        label_txt = "(< {})".format(ADC_MAX + 1)
         isc_stable_constraint_label = ttk.Label(master=arduino_widget_box,
                                                 text=label_txt)
-        isc_stable_adc = self.master.config.cfg.getint('Arduino',
-                                                       'isc stable adc')
+        isc_stable_adc = self.master.config.cfg.getint("Arduino",
+                                                       "isc stable adc")
         self.isc_stable_adc_str.set(isc_stable_adc)
 
         # Add label and entry box to select max discards
@@ -4716,10 +4960,10 @@ class PreferencesDialog(Dialog):
         max_discards_entry = ttk.Entry(master=arduino_widget_box,
                                        width=8,
                                        textvariable=self.max_discards_str)
-        label_txt = ("(< " + str(ARDUINO_MAX_INT + 1) + ")")
+        label_txt = "(< {})".format(ARDUINO_MAX_INT + 1)
         max_discards_constraint_label = ttk.Label(master=arduino_widget_box,
                                                   text=label_txt)
-        max_discards = self.master.config.cfg.getint('Arduino', 'max discards')
+        max_discards = self.master.config.cfg.getint("Arduino", "max discards")
         self.max_discards_str.set(max_discards)
 
         # Add label and entry box to select aspect height
@@ -4728,11 +4972,11 @@ class PreferencesDialog(Dialog):
         aspect_height_entry = ttk.Entry(master=arduino_widget_box,
                                         width=8,
                                         textvariable=self.aspect_height_str)
-        label_txt = ("(< " + str(MAX_ASPECT + 1) + ")")
+        label_txt = "(< {})".format(MAX_ASPECT + 1)
         aspect_height_constraint_label = ttk.Label(master=arduino_widget_box,
                                                    text=label_txt)
-        aspect_height = self.master.config.cfg.getint('Arduino',
-                                                      'aspect height')
+        aspect_height = self.master.config.cfg.getint("Arduino",
+                                                      "aspect height")
         self.aspect_height_str.set(aspect_height)
 
         # Add label and entry box to select aspect width
@@ -4741,10 +4985,10 @@ class PreferencesDialog(Dialog):
         aspect_width_entry = ttk.Entry(master=arduino_widget_box,
                                        width=8,
                                        textvariable=self.aspect_width_str)
-        label_txt = ("(< " + str(MAX_ASPECT + 1) + ")")
+        label_txt = "(< {})".format(MAX_ASPECT + 1)
         aspect_width_constraint_label = ttk.Label(master=arduino_widget_box,
                                                   text=label_txt)
-        aspect_width = self.master.config.cfg.getint('Arduino', 'aspect width')
+        aspect_width = self.master.config.cfg.getint("Arduino", "aspect width")
         self.aspect_width_str.set(aspect_width)
 
         # Add Restore Defaults button in its own container box
@@ -4868,14 +5112,18 @@ class PreferencesDialog(Dialog):
         self.master.config.get_snapshot()
 
         # Snapshot properties
-        self.snapshot_values['linear'] = self.master.ivs2.linear
-        self.snapshot_values['fancy_labels'] = self.master.ivs2.fancy_labels
-        self.snapshot_values['font_scale'] = self.master.ivs2.font_scale
-        self.snapshot_values['line_scale'] = self.master.ivs2.line_scale
-        self.snapshot_values['point_scale'] = self.master.ivs2.point_scale
-        self.snapshot_values['correct_adc'] = self.master.ivs2.correct_adc
-        self.snapshot_values['reduce_noise'] = self.master.ivs2.reduce_noise
-        self.snapshot_values['battery_bias'] = self.master.ivs2.battery_bias
+        self.snapshot_values["linear"] = self.master.ivs2.linear
+        self.snapshot_values["fancy_labels"] = self.master.ivs2.fancy_labels
+        self.snapshot_values["font_scale"] = self.master.ivs2.font_scale
+        self.snapshot_values["line_scale"] = self.master.ivs2.line_scale
+        self.snapshot_values["point_scale"] = self.master.ivs2.point_scale
+        self.snapshot_values["correct_adc"] = self.master.ivs2.correct_adc
+        self.snapshot_values["fix_isc"] = self.master.ivs2.fix_isc
+        self.snapshot_values["fix_voc"] = self.master.ivs2.fix_voc
+        self.snapshot_values["comb_dupv_pts"] = self.master.ivs2.comb_dupv_pts
+        self.snapshot_values["reduce_noise"] = self.master.ivs2.reduce_noise
+        self.snapshot_values["fix_overshoot"] = self.master.ivs2.fix_overshoot
+        self.snapshot_values["battery_bias"] = self.master.ivs2.battery_bias
 
     # -------------------------------------------------------------------------
     def validate(self):
@@ -4911,26 +5159,26 @@ class PreferencesDialog(Dialog):
             err_str += "\n  All fields must be integers"
         else:
             if max_iv_points > MAX_IV_POINTS_MAX:
-                err_str += ("\n  Max IV points must be no more than " +
-                            str(MAX_IV_POINTS_MAX))
+                err_str += ("\n  Max IV points must be no more than {}"
+                            .format(MAX_IV_POINTS_MAX))
             if min_isc_adc > ADC_MAX:
-                err_str += ("\n  Min Isc ADC must be no more than " +
-                            str(ADC_MAX))
+                err_str += ("\n  Min Isc ADC must be no more than {}"
+                            .format(ADC_MAX))
             if max_isc_poll > ARDUINO_MAX_INT:
-                err_str += ("\n  Max Isc poll must be no more than " +
-                            str(ARDUINO_MAX_INT))
+                err_str += ("\n  Max Isc poll must be no more than {}"
+                            .format(ARDUINO_MAX_INT))
             if isc_stable_adc > ADC_MAX:
-                err_str += ("\n  Isc stable ADC must be no more than " +
-                            str(ADC_MAX))
+                err_str += ("\n  Isc stable ADC must be no more than {}"
+                            .format(ADC_MAX))
             if max_discards > ARDUINO_MAX_INT:
-                err_str += ("\n  Max discards must be no more than " +
-                            str(ARDUINO_MAX_INT))
+                err_str += ("\n  Max discards must be no more than {}"
+                            .format(ARDUINO_MAX_INT))
             if aspect_height > MAX_ASPECT:
-                err_str += ("\n  Aspect height must be no more than " +
-                            str(MAX_ASPECT))
+                err_str += ("\n  Aspect height must be no more than {}"
+                            .format(MAX_ASPECT))
             if aspect_width > MAX_ASPECT:
-                err_str += ("\n  Aspect width must be no more than " +
-                            str(MAX_ASPECT))
+                err_str += ("\n  Aspect width must be no more than {}"
+                            .format(MAX_ASPECT))
         if len(err_str) > len("ERROR:"):
             self.show_arduino_error_dialog(err_str)
             return False
@@ -4951,18 +5199,24 @@ class PreferencesDialog(Dialog):
         self.master.config.get()
 
         # Restore properties
-        self.master.ivs2.linear = self.snapshot_values['linear']
-        self.master.ivs2.fancy_labels = self.snapshot_values['fancy_labels']
-        self.master.ivs2.font_scale = self.snapshot_values['font_scale']
-        self.master.ivs2.line_scale = self.snapshot_values['line_scale']
-        self.master.ivs2.point_scale = self.snapshot_values['point_scale']
-        self.master.ivs2.correct_adc = self.snapshot_values['correct_adc']
-        self.master.ivs2.reduce_noise = self.snapshot_values['reduce_noise']
-        self.master.ivs2.battery_bias = self.snapshot_values['battery_bias']
+        self.master.ivs2.linear = self.snapshot_values["linear"]
+        self.master.ivs2.fancy_labels = self.snapshot_values["fancy_labels"]
+        self.master.ivs2.font_scale = self.snapshot_values["font_scale"]
+        self.master.ivs2.line_scale = self.snapshot_values["line_scale"]
+        self.master.ivs2.point_scale = self.snapshot_values["point_scale"]
+        self.master.ivs2.correct_adc = self.snapshot_values["correct_adc"]
+        self.master.ivs2.fix_isc = self.snapshot_values["fix_isc"]
+        self.master.ivs2.fix_voc = self.snapshot_values["fix_voc"]
+        self.master.ivs2.comb_dupv_pts = self.snapshot_values["comb_dupv_pts"]
+        self.master.ivs2.reduce_noise = self.snapshot_values["reduce_noise"]
+        self.master.ivs2.fix_overshoot = self.snapshot_values["fix_overshoot"]
+        self.master.ivs2.battery_bias = self.snapshot_values["battery_bias"]
 
         # Redisplay image if anything changed (saves config)
         if self.plot_props.prop_vals_changed():
             reprocess_adc = self.plot_props.adc_prop_changed()
+            if self.plot_props.battery_bias_prop_changed():
+                self.master.unlock_axes()
             self.master.redisplay_img(reprocess_adc=reprocess_adc)
             self.plot_props.update_prop_vals()
 
@@ -4985,40 +5239,59 @@ class PreferencesDialog(Dialog):
         section = "Plotting"
         # Line type
         linear = (self.interpolation_type.get() == "Linear")
-        self.master.config.cfg_set(section, 'linear', linear)
+        self.master.config.cfg_set(section, "linear", linear)
         self.master.ivs2.linear = linear
         # Label type
         fancy_labels = (self.fancy_labels.get() == "Fancy")
-        self.master.config.cfg_set(section, 'fancy labels', fancy_labels)
+        self.master.config.cfg_set(section, "fancy labels", fancy_labels)
         self.master.ivs2.fancy_labels = fancy_labels
         # Font scale
         font_scale = float(self.font_scale.get())
-        self.master.config.cfg_set(section, 'font scale', font_scale)
+        self.master.config.cfg_set(section, "font scale", font_scale)
         self.master.ivs2.font_scale = font_scale
         # Line scale
         line_scale = float(self.line_scale.get())
-        self.master.config.cfg_set(section, 'line scale', line_scale)
+        self.master.config.cfg_set(section, "line scale", line_scale)
         self.master.ivs2.line_scale = line_scale
         # Point scale
         point_scale = float(self.point_scale.get())
-        self.master.config.cfg_set(section, 'point scale', point_scale)
+        self.master.config.cfg_set(section, "point scale", point_scale)
         self.master.ivs2.point_scale = point_scale
         # Correct ADC
         correct_adc = (self.correct_adc.get() == "On")
-        self.master.config.cfg_set(section, 'correct adc', correct_adc)
+        self.master.config.cfg_set(section, "correct adc", correct_adc)
         self.master.ivs2.correct_adc = correct_adc
+        # Fix Isc point
+        fix_isc = (self.fix_isc.get() == "On")
+        self.master.config.cfg_set(section, "fix isc", fix_isc)
+        self.master.ivs2.fix_isc = fix_isc
+        # Fix Voc point
+        fix_voc = (self.fix_voc.get() == "On")
+        self.master.config.cfg_set(section, "fix voc", fix_voc)
+        self.master.ivs2.fix_voc = fix_voc
+        # Combine =V points
+        comb_dupv_pts = (self.comb_dupv_pts.get() == "On")
+        self.master.config.cfg_set(section, "combine dupv points",
+                                   comb_dupv_pts)
+        self.master.ivs2.comb_dupv_pts = comb_dupv_pts
         # Reduce noise
         reduce_noise = (self.reduce_noise.get() == "On")
-        self.master.config.cfg_set(section, 'reduce noise', reduce_noise)
+        self.master.config.cfg_set(section, "reduce noise", reduce_noise)
         self.master.ivs2.reduce_noise = reduce_noise
+        # Fix overshoot
+        fix_overshoot = (self.fix_overshoot.get() == "On")
+        self.master.config.cfg_set(section, "fix overshoot", fix_overshoot)
+        self.master.ivs2.fix_overshoot = fix_overshoot
         # Battery bias
         battery_bias = (self.battery_bias.get() == "On")
-        self.master.config.cfg_set(section, 'battery bias', battery_bias)
+        self.master.config.cfg_set(section, "battery bias", battery_bias)
         self.master.ivs2.battery_bias = battery_bias
 
         # Redisplay image if anything changed (saves config)
         if self.plot_props.prop_vals_changed():
             reprocess_adc = self.plot_props.adc_prop_changed()
+            if self.plot_props.battery_bias_prop_changed():
+                self.master.unlock_axes()
             self.master.redisplay_img(reprocess_adc=reprocess_adc)
             self.plot_props.update_prop_vals()
 
@@ -5108,38 +5381,57 @@ class PlottingProps(object):
     def update_prop_vals(self):
         """Capture current values of properties"""
         # Capture current properties
-        self.prop_vals['linear'] = self.ivs2.linear
-        self.prop_vals['fancy_labels'] = self.ivs2.fancy_labels
-        self.prop_vals['font_scale'] = self.ivs2.font_scale
-        self.prop_vals['line_scale'] = self.ivs2.line_scale
-        self.prop_vals['point_scale'] = self.ivs2.point_scale
-        self.prop_vals['correct_adc'] = self.ivs2.correct_adc
-        self.prop_vals['reduce_noise'] = self.ivs2.reduce_noise
-        self.prop_vals['battery_bias'] = self.ivs2.battery_bias
+        self.prop_vals["linear"] = self.ivs2.linear
+        self.prop_vals["fancy_labels"] = self.ivs2.fancy_labels
+        self.prop_vals["font_scale"] = self.ivs2.font_scale
+        self.prop_vals["line_scale"] = self.ivs2.line_scale
+        self.prop_vals["point_scale"] = self.ivs2.point_scale
+        self.prop_vals["correct_adc"] = self.ivs2.correct_adc
+        self.prop_vals["fix_isc"] = self.ivs2.fix_isc
+        self.prop_vals["fix_voc"] = self.ivs2.fix_voc
+        self.prop_vals["comb_dupv_pts"] = self.ivs2.comb_dupv_pts
+        self.prop_vals["reduce_noise"] = self.ivs2.reduce_noise
+        self.prop_vals["fix_overshoot"] = self.ivs2.fix_overshoot
+        self.prop_vals["battery_bias"] = self.ivs2.battery_bias
 
     # -------------------------------------------------------------------------
     def prop_vals_changed(self):
         """Compare current values of properties with previously captured values
            to see if anything has changed
         """
-        return ((self.prop_vals['linear'] != self.ivs2.linear) or
-                (self.prop_vals['fancy_labels'] != self.ivs2.fancy_labels) or
-                (self.prop_vals['font_scale'] != self.ivs2.font_scale) or
-                (self.prop_vals['line_scale'] != self.ivs2.line_scale) or
-                (self.prop_vals['point_scale'] != self.ivs2.point_scale) or
-                (self.prop_vals['correct_adc'] != self.ivs2.correct_adc) or
-                (self.prop_vals['reduce_noise'] != self.ivs2.reduce_noise) or
-                (self.prop_vals['battery_bias'] != self.ivs2.battery_bias))
+        return ((self.prop_vals["linear"] != self.ivs2.linear) or
+                (self.prop_vals["fancy_labels"] != self.ivs2.fancy_labels) or
+                (self.prop_vals["font_scale"] != self.ivs2.font_scale) or
+                (self.prop_vals["line_scale"] != self.ivs2.line_scale) or
+                (self.prop_vals["point_scale"] != self.ivs2.point_scale) or
+                (self.prop_vals["correct_adc"] != self.ivs2.correct_adc) or
+                (self.prop_vals["fix_isc"] != self.ivs2.fix_isc) or
+                (self.prop_vals["fix_voc"] != self.ivs2.fix_voc) or
+                (self.prop_vals["comb_dupv_pts"] != self.ivs2.comb_dupv_pts) or
+                (self.prop_vals["reduce_noise"] != self.ivs2.reduce_noise) or
+                (self.prop_vals["fix_overshoot"] != self.ivs2.fix_overshoot) or
+                (self.prop_vals["battery_bias"] != self.ivs2.battery_bias))
 
     # -------------------------------------------------------------------------
     def adc_prop_changed(self):
-        """Compare current value of correct_adc, reduce_noise and battery_bias
-           properties with previously captured values to see if any have
-           changed
+        """Compare current values of correct_adc, fix_isc, fix_voc, comb_dupv_pts,
+           reduce_noise, fix_overshoot and battery_bias properties with
+           previously captured values to see if any have changed
         """
-        return ((self.prop_vals['correct_adc'] != self.ivs2.correct_adc) or
-                (self.prop_vals['reduce_noise'] != self.ivs2.reduce_noise) or
-                (self.prop_vals['battery_bias'] != self.ivs2.battery_bias))
+        return ((self.prop_vals["correct_adc"] != self.ivs2.correct_adc) or
+                (self.prop_vals["fix_isc"] != self.ivs2.fix_isc) or
+                (self.prop_vals["fix_voc"] != self.ivs2.fix_voc) or
+                (self.prop_vals["comb_dupv_pts"] != self.ivs2.comb_dupv_pts) or
+                (self.prop_vals["reduce_noise"] != self.ivs2.reduce_noise) or
+                (self.prop_vals["fix_overshoot"] != self.ivs2.fix_overshoot) or
+                (self.prop_vals["battery_bias"] != self.ivs2.battery_bias))
+
+    # -------------------------------------------------------------------------
+    def battery_bias_prop_changed(self):
+        """Compare current value of battery_bias property with previously
+           captured value to see if it has changed
+        """
+        return self.prop_vals["battery_bias"] != self.ivs2.battery_bias
 
 
 # Plotting help dialog class
@@ -5194,11 +5486,44 @@ ADC correction:
   regardless of this setting. Also note that the current and voltage
   calibration settings are used regardless of this setting.
 
-ADC noise reduction:
-  This control is specific to the noise reduction component of the ADC
-  correction.  If ADC correction is enabled, noise reduction may be enabled and
-  disabled with this control.  If ADC correction is not enabled, this control
-  has no effect.
+  The next five options are relevant only if the "ADC correction" option
+  is "On", and provide independent control of each of the correction
+  actions.
+
+  Fix Isc point:
+    If "ADC correction" is "On", this controls whether the first point of the
+    curve should be modified (or even removed in some cases). This point is the
+    Arduino code's attempt at approximating the Isc point, but its simplistic
+    algorithm often gets it wrong. When this control is "On", the Isc point is
+    removed if the first measured point after it has a voltage value more than
+    20% of the Voc voltage value (in which case implying that we know Isc is
+    misleading). Otherwise, it is extrapolated from the beginning of the curve
+    using a more sophisticated algorithm than the Arduino code uses.
+
+  Fix Voc point:
+    If "ADC correction" is "On", this controls whether the last point of the
+    curve should be modified. The Arduino code records the actual ADC values
+    for both channels. Due to noise, however, the value on the channel
+    measuring current is usually not zero. This correction simply zeros out
+    that value.
+
+  Combine =V points:
+    If "ADC correction" is "On", this controls whether consecutive points that
+    have equal ADC values on the voltage channel will be combined to a single
+    point using the average of the ADC values on the current channel for those
+    points.
+
+  Reduce noise:
+    If "ADC correction" is "On", this controls whether the noise reduction
+    algorithm is applied.
+
+  Fix overshoot:
+    If "ADC correction" is "On", this controls whether the curve is corrected
+    to fix the (not-yet-well-understood) phemomenon where the tail of the IV
+    curve overshoots the voltage that was measured when the circuit was
+    actually open, before charging the capacitor. The voltage of all points is
+    scaled such that the tail of the curve hits the I=0 point at the measured
+    Voc voltage.
 
 Battery bias:
   The cell version of IV Swinger 2 may require a bias battery to be placed in
@@ -5210,9 +5535,9 @@ Battery bias:
 """
         font = HELP_DIALOG_FONT
         self.text = ScrolledText(master, height=30, borderwidth=10)
-        self.text.tag_configure('body_tag', font=font)
-        self.text.tag_configure('heading_tag', font=font, underline=True)
-        self.text.insert('end', help_text_1, ('body_tag'))
+        self.text.tag_configure("body_tag", font=font)
+        self.text.tag_configure("heading_tag", font=font, underline=True)
+        self.text.insert("end", help_text_1, ("body_tag"))
         self.text.grid()
 
 
@@ -5225,17 +5550,17 @@ class SpiClkCombo(ttk.Combobox):
     def __init__(self, master=None, gui=None, textvariable=None):
         ttk.Combobox.__init__(self, master=master, textvariable=textvariable)
         self.gui = gui
-        spi_clk_div = self.gui.config.cfg.getint('Arduino', 'spi clock div')
+        spi_clk_div = self.gui.config.cfg.getint("Arduino", "spi clock div")
         textvariable.set(SPI_COMBO_VALS[spi_clk_div])
-        self['values'] = (SPI_COMBO_VALS[SPI_CLOCK_DIV2],
+        self["values"] = (SPI_COMBO_VALS[SPI_CLOCK_DIV2],
                           SPI_COMBO_VALS[SPI_CLOCK_DIV4],
                           SPI_COMBO_VALS[SPI_CLOCK_DIV8],
                           SPI_COMBO_VALS[SPI_CLOCK_DIV16],
                           SPI_COMBO_VALS[SPI_CLOCK_DIV32],
                           SPI_COMBO_VALS[SPI_CLOCK_DIV64],
                           SPI_COMBO_VALS[SPI_CLOCK_DIV128])
-        self.state(['readonly'])
-        self['width'] = 13
+        self.state(["readonly"])
+        self["width"] = 13
 
 
 # Looping help dialog class
@@ -5262,9 +5587,9 @@ closed and restored the next time it is opened.
 """
         font = HELP_DIALOG_FONT
         self.text = ScrolledText(master, height=15, borderwidth=10)
-        self.text.tag_configure('body_tag', font=font)
-        self.text.tag_configure('heading_tag', font=font, underline=True)
-        self.text.insert('end', help_text_1, ('body_tag'))
+        self.text.tag_configure("body_tag", font=font)
+        self.text.tag_configure("heading_tag", font=font, underline=True)
+        self.text.insert("end", help_text_1, ("body_tag"))
         self.text.grid()
 
 
@@ -5326,9 +5651,9 @@ Aspect width:
 """
         font = HELP_DIALOG_FONT
         self.text = ScrolledText(master, height=30, borderwidth=10)
-        self.text.tag_configure('body_tag', font=font)
-        self.text.tag_configure('heading_tag', font=font, underline=True)
-        self.text.insert('end', help_text_1, ('body_tag'))
+        self.text.tag_configure("body_tag", font=font)
+        self.text.tag_configure("heading_tag", font=font, underline=True)
+        self.text.insert("end", help_text_1, ("body_tag"))
         self.text.grid()
 
 
@@ -5361,9 +5686,10 @@ Control-click are useful).
         help_heading_2 = """
 Naming:"""
         help_text_2 = """
-By default, the curves are named for the date and time they were captured,
-e.g. "01/10/17@13:58:12".  This name can be changed by double-clicking it in
-the "Overlay Runs" pane. The new name will remain associated with that run only
+By default the curves inherit their titles from the Results Wizard tree view
+pane or are named for the date and time they were captured if they are
+untitled.  This name can be changed on the overlay by double-clicking it in the
+"Overlay Runs" pane. The new name will remain associated with that run only
 until the application is closed.
 """
         help_heading_3 = """
@@ -5382,12 +5708,15 @@ By default, the Isc, MPP, and Voc points are only labeled for the curve at the
 top of the list. There are checkbuttons to enable labeling these points on all
 curves. For the MPPs, there is another checkbutton to display only the power
 (and not the V x I values). There is no support for designating specific curves
-for labeling.
+for labeling. When all Isc points are labeled, the labels are ordered from left
+to right (leftmost label is for curve at the top of the list, rightmost label
+is for the curve at the bottom of the list). MPP and Voc labels are ordered
+from top to bottom, matching the list order.
 """
         help_heading_5 = """
 Finishing:"""
         help_text_5 = """
-When the "Finished" button is pressed the overlay is finalized. The "Overlay
+When the "Finished" button is pressed, the overlay is finalized. The "Overlay
 Runs" pane closes and the new overlay is added to the "Overlays" group in the
 main Results Wizard tree view pane. The "Copy" button may then be used to copy
 the overlay PDF (and GIF) to a USB drive or elsewhere. Note that once an
@@ -5396,19 +5725,19 @@ an overlay after it is finalized.
 """
         font = HELP_DIALOG_FONT
         self.text = ScrolledText(master, height=30, borderwidth=10)
-        self.text.tag_configure('body_tag', font=font)
-        self.text.tag_configure('heading_tag', font=font, underline=True)
-        self.text.insert('end', help_text_intro, ('body_tag'))
-        self.text.insert('end', help_heading_1, ('heading_tag'))
-        self.text.insert('end', help_text_1, ('body_tag'))
-        self.text.insert('end', help_heading_2, ('heading_tag'))
-        self.text.insert('end', help_text_2, ('body_tag'))
-        self.text.insert('end', help_heading_3, ('heading_tag'))
-        self.text.insert('end', help_text_3, ('body_tag'))
-        self.text.insert('end', help_heading_4, ('heading_tag'))
-        self.text.insert('end', help_text_4, ('body_tag'))
-        self.text.insert('end', help_heading_5, ('heading_tag'))
-        self.text.insert('end', help_text_5, ('body_tag'))
+        self.text.tag_configure("body_tag", font=font)
+        self.text.tag_configure("heading_tag", font=font, underline=True)
+        self.text.insert("end", help_text_intro, ("body_tag"))
+        self.text.insert("end", help_heading_1, ("heading_tag"))
+        self.text.insert("end", help_text_1, ("body_tag"))
+        self.text.insert("end", help_heading_2, ("heading_tag"))
+        self.text.insert("end", help_text_2, ("body_tag"))
+        self.text.insert("end", help_heading_3, ("heading_tag"))
+        self.text.insert("end", help_text_3, ("body_tag"))
+        self.text.insert("end", help_heading_4, ("heading_tag"))
+        self.text.insert("end", help_text_4, ("body_tag"))
+        self.text.insert("end", help_heading_5, ("heading_tag"))
+        self.text.insert("end", help_text_5, ("body_tag"))
         self.text.grid()
 
 
@@ -5437,7 +5766,7 @@ class ImagePane(ttk.Label):
         splash_img = os.path.join(get_app_dir(), SPLASH_IMG)
         img = Image.open(splash_img).resize((x_pixels, y_pixels))
         self.current_img = ImageTk.PhotoImage(img)
-        self['image'] = self.current_img
+        self["image"] = self.current_img
         self.image = self.current_img
         self.splash_img_showing = True
 
@@ -5450,10 +5779,10 @@ class GoStopButton(ttk.Button):
     # Initializer
     def __init__(self, master=None, text=None):
         ttk.Button.__init__(self, master=master)
-        self['text'] = "Swing!"
+        self["text"] = "Swing!"
         if text is not None:
-            self['text'] = text
-        self['style'] = "go_stop_button.TButton"
+            self["text"] = text
+        self["style"] = "go_stop_button.TButton"
 
 
 # Plot power checkbutton class
@@ -5463,25 +5792,48 @@ class PlotPower(ttk.Checkbutton):
 
     # Initializer
     def __init__(self, master=None, variable=None):
-        ttk.Checkbutton.__init__(self, master=master, text='Plot Power',
+        ttk.Checkbutton.__init__(self, master=master, text="Plot Power",
                                  command=self.update_plot_power,
                                  variable=variable,
                                  onvalue="Plot", offvalue="DontPlot")
         self.plot_power = variable
-        if self.master.config.cfg.getboolean('Plotting', 'plot power'):
+        if self.master.config.cfg.getboolean("Plotting", "plot power"):
             self.invoke()
 
     # -------------------------------------------------------------------------
     def update_plot_power(self, event=None):
+        # Replace config from saved config of displayed image
+        run_dir = self.master.ivs2.hdd_output_dir
+        config_dir = os.path.dirname(self.master.config.cfg_filename)
+        if run_dir is not None and run_dir != config_dir:
+            cfg_file = os.path.join(run_dir, "{}.cfg".format(APP_NAME))
+            if os.path.exists(cfg_file):
+                # Snapshot current config
+                original_cfg_file = self.master.config.cfg_filename
+                self.master.config.get_snapshot()
+                # Get config from run_dir
+                self.master.config.cfg_filename = cfg_file
+                self.master.config.get_old_result(cfg_file)
+
         # Update IVS2 property
         self.master.ivs2.plot_power = (self.plot_power.get() == "Plot")
 
-        # Save values to config
-        self.master.config.cfg_set('Plotting', 'plot power',
+        # Update the "plot power" config option
+        self.master.config.cfg_set("Plotting", "plot power",
                                    self.master.ivs2.plot_power)
 
         # Redisplay the image (with power plotted) - saves config
         self.master.redisplay_img(reprocess_adc=False)
+
+        # Restore the config file from the snapshot
+        if (run_dir is not None and run_dir != config_dir and
+                os.path.exists(cfg_file)):
+            self.master.config.cfg_filename = original_cfg_file
+            self.master.config.save_snapshot()
+
+        # Unlock the axes
+        if self.master.axes_locked.get() == "Unlock":
+            self.master.unlock_axes()
 
 
 # Lock axes checkbutton class
@@ -5491,7 +5843,7 @@ class LockAxes(ttk.Checkbutton):
 
     # Initializer
     def __init__(self, master=None, gui=None, variable=None, ivs2=None):
-        ttk.Checkbutton.__init__(self, master=master, text='Lock',
+        ttk.Checkbutton.__init__(self, master=master, text="Lock",
                                  command=self.update_axis_lock,
                                  variable=variable,
                                  onvalue="Lock", offvalue="Unlock")
@@ -5505,6 +5857,10 @@ class LockAxes(ttk.Checkbutton):
         self.gui.ivs2.plot_lock_axis_ranges = axes_are_locked
         # Update values in range boxes
         self.gui.update_axis_ranges()
+        # (Optionally) redisplay the image with the new settings (saves
+        # config)
+        if self.gui.props.redisplay_after_axes_unlock:
+            self.gui.redisplay_img(reprocess_adc=False)
 
 
 # Loop mode checkbutton class
@@ -5515,7 +5871,7 @@ class LoopMode(ttk.Checkbutton):
     # Initializer
     def __init__(self, master=None, gui=None, variable=None,
                  rate_limit=None, save_results=None, lock_axes=None):
-        ttk.Checkbutton.__init__(self, master=master, text='Loop Mode',
+        ttk.Checkbutton.__init__(self, master=master, text="Loop Mode",
                                  command=self.update_loop_mode,
                                  variable=variable,
                                  onvalue="On", offvalue="Off")
@@ -5525,8 +5881,8 @@ class LoopMode(ttk.Checkbutton):
         self.save_results = save_results
         self.lock_axes = lock_axes
         self.axes_already_locked = False
-        if (self.gui.config.cfg.getboolean('Looping', 'restore values') and
-                self.gui.config.cfg.getboolean('Looping', 'loop mode')):
+        if (self.gui.config.cfg.getboolean("Looping", "restore values") and
+                self.gui.config.cfg.getboolean("Looping", "loop mode")):
             self.invoke()
 
     # -------------------------------------------------------------------------
@@ -5534,9 +5890,9 @@ class LoopMode(ttk.Checkbutton):
         if self.loop_mode.get() == "On":
             self.gui.loop_mode.set("On")
             self.gui.props.loop_mode_active = True
-            self.rate_limit.state(['!disabled'])
-            self.save_results.state(['!disabled'])
-            if self.lock_axes.instate(['selected']):
+            self.rate_limit.state(["!disabled"])
+            self.save_results.state(["!disabled"])
+            if self.lock_axes.instate(["selected"]):
                 self.axes_already_locked = True
             else:
                 self.axes_already_locked = False
@@ -5545,19 +5901,22 @@ class LoopMode(ttk.Checkbutton):
                 # the loop
                 self.gui.ivs2.plot_max_x = None
                 self.gui.ivs2.plot_max_y = None
-            self.lock_axes.state(['disabled'])
+            self.lock_axes.state(["disabled"])
         else:
             self.gui.loop_mode.set("Off")
             self.gui.props.loop_mode_active = False
-            self.rate_limit.state(['disabled'])
-            self.save_results.state(['disabled'])
-            self.lock_axes.state(['!disabled'])
+            self.rate_limit.state(["disabled"])
+            self.save_results.state(["disabled"])
+            self.lock_axes.state(["!disabled"])
             if not self.axes_already_locked:
+                self.gui.props.redisplay_after_axes_unlock = False
                 self.lock_axes.invoke()  # Unlock axes
+                self.gui.props.redisplay_after_axes_unlock = True
 
         # Save values to config
-        self.gui.config.cfg_set('Looping', 'loop mode',
+        self.gui.config.cfg_set("Looping", "loop mode",
                                 self.gui.props.loop_mode_active)
+        self.gui.props.suppress_cfg_file_copy = True
         self.gui.save_config()
 
 
@@ -5568,14 +5927,14 @@ class LoopRateLimit(ttk.Checkbutton):
 
     # Initializer
     def __init__(self, master=None, gui=None, variable=None):
-        ttk.Checkbutton.__init__(self, master=master, text='Rate Limit',
+        ttk.Checkbutton.__init__(self, master=master, text="Rate Limit",
                                  command=self.update_loop_rate_limit,
                                  variable=variable,
                                  onvalue="On", offvalue="Off")
         self.gui = gui
         self.loop_rate_limit = variable
         self.value_label_obj = None
-        self.state(['disabled'])
+        self.state(["disabled"])
 
     # -------------------------------------------------------------------------
     def update_loop_rate_limit(self, event=None):
@@ -5594,20 +5953,20 @@ class LoopRateLimit(ttk.Checkbutton):
             else:
                 self.gui.props.loop_rate_limit = False
                 self.gui.props.loop_delay = 0
-                self.state(['!selected'])
+                self.state(["!selected"])
         else:
             self.gui.props.loop_rate_limit = False
 
         # Save values to config
-        self.gui.config.cfg_set('Looping', 'rate limit',
+        self.gui.config.cfg_set("Looping", "rate limit",
                                 self.gui.props.loop_rate_limit)
-        self.gui.config.cfg_set('Looping', 'delay',
+        self.gui.config.cfg_set("Looping", "delay",
                                 self.gui.props.loop_delay)
         self.gui.save_config()
 
     # -------------------------------------------------------------------------
     def update_value_str(self):
-        value_str = "= " + str(self.gui.props.loop_delay) + "s"
+        value_str = "= {}s".format(self.gui.props.loop_delay)
         self.value_label_obj = ttk.Label(self.master, text=value_str)
         self.value_label_obj.pack(side=LEFT)
 
@@ -5619,14 +5978,14 @@ class LoopSaveResults(ttk.Checkbutton):
 
     # Initializer
     def __init__(self, master=None, gui=None, variable=None):
-        ttk.Checkbutton.__init__(self, master=master, text='Save Results',
+        ttk.Checkbutton.__init__(self, master=master, text="Save Results",
                                  command=self.update_loop_save_results,
                                  variable=variable,
                                  onvalue="On", offvalue="Off")
         self.gui = gui
         self.loop_save_results = variable
         self.value_label_obj = None
-        self.state(['disabled'])
+        self.state(["disabled"])
 
     # -------------------------------------------------------------------------
     def update_loop_save_results(self, event=None):
@@ -5643,12 +6002,12 @@ class LoopSaveResults(ttk.Checkbutton):
             self.update_value_str()
         else:
             self.gui.props.loop_save_results = False
-            self.configure(text='Save Results')
+            self.configure(text="Save Results")
 
         # Save values to config
-        self.gui.config.cfg_set('Looping', 'save results',
+        self.gui.config.cfg_set("Looping", "save results",
                                 self.gui.props.loop_save_results)
-        self.gui.config.cfg_set('Looping', 'save graphs',
+        self.gui.config.cfg_set("Looping", "save graphs",
                                 self.gui.props.loop_save_graphs)
         self.gui.save_config()
 
@@ -5672,5 +6031,5 @@ def main():
 
 
 # Boilerplate main() call
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -72,6 +72,8 @@
 #
 import argparse
 import ConfigParser
+import difflib
+import glob
 import io
 import math
 import os
@@ -83,6 +85,7 @@ import subprocess
 import sys
 import time
 from PIL import Image
+from inspect import currentframe, getframeinfo
 try:
     # Mac only
     from AppKit import NSSearchPathForDirectoriesInDomains as get_mac_dir
@@ -105,6 +108,7 @@ RC_SERIAL_EXCEPTION = -4
 RC_ZERO_VOC = -5
 RC_ZERO_ISC = -6
 RC_ISC_TIMEOUT = -7
+RC_NO_POINTS = -8
 CFG_STRING = 0
 CFG_FLOAT = 1
 CFG_INT = 2
@@ -113,7 +117,7 @@ SKETCH_VER_LT = -1
 SKETCH_VER_EQ = 0
 SKETCH_VER_GT = 1
 SKETCH_VER_ERR = -2
-LATEST_SKETCH_VER = "1.2.0"
+LATEST_SKETCH_VER = "1.3.0"
 MIN_PT1_TO_VOC_RATIO_FOR_ISC = 0.20
 
 # From IV_Swinger
@@ -139,7 +143,7 @@ POINT_SCALE_DEFAULT = 1.0
 # Default Arduino config
 SPI_CLK_DEFAULT = SPI_CLOCK_DIV8
 MAX_IV_POINTS_DEFAULT = 140
-MIN_ISC_ADC_DEFAULT = 10
+MIN_ISC_ADC_DEFAULT = 100
 MAX_ISC_POLL_DEFAULT = 5000
 ISC_STABLE_DEFAULT = 5
 MAX_DISCARDS_DEFAULT = 300
@@ -210,15 +214,24 @@ def sys_view_file(file):
        whatever is normally used to view PDFs (Acrobat reader,
        Preview, etc.)
     """
-    if sys.platform == 'darwin':
+    if sys.platform == "darwin":
         # Mac
-        subprocess.call(('open', file))
-    elif sys.platform == 'win32':
+        subprocess.call(("open", file))
+    elif sys.platform == "win32":
         # Windows
         os.startfile(file)
     else:
         # Linux
-        subprocess.call(('xdg-open', file))
+        subprocess.call(("xdg-open", file))
+
+
+def gen_dbg_str(str):
+    cf = currentframe()
+    fi = getframeinfo(cf)
+    dbg_str = "DEBUG({}, line {}): {}".format(fi.filename,
+                                              cf.f_back.f_lineno,
+                                              str)
+    return dbg_str
 
 
 #################
@@ -241,6 +254,8 @@ class Configuration(object):
         self.cfg = ConfigParser.SafeConfigParser()
         self.cfg_snapshot = ConfigParser.SafeConfigParser()
         self._cfg_filename = None
+        self._starting_cfg_filename = None
+        self.save_starting_cfg_file()
 
     # ---------------------------------
     @property
@@ -250,7 +265,7 @@ class Configuration(object):
         """
         if self._cfg_filename is None:
             self._cfg_filename = os.path.join(self.ivs2.app_data_dir,
-                                              APP_NAME + ".cfg")
+                                              "{}.cfg".format(APP_NAME))
         return self._cfg_filename
 
     @cfg_filename.setter
@@ -258,6 +273,48 @@ class Configuration(object):
         if value is not None and not os.path.isabs(value):
             raise ValueError("cfg_filename must be an absolute path")
         self._cfg_filename = value
+
+    # ---------------------------------
+    @property
+    def starting_cfg_filename(self):
+        """Name of file (full path) that contains preferences and other
+           configuration options
+        """
+        if self._starting_cfg_filename is None:
+            self._starting_cfg_filename = os.path.join(self.ivs2.app_data_dir,
+                                                       "{}_starting.cfg"
+                                                       .format(APP_NAME))
+        return self._starting_cfg_filename
+
+    @starting_cfg_filename.setter
+    def starting_cfg_filename(self, value):
+        if value is not None and not os.path.isabs(value):
+            raise ValueError("starting_cfg_filename must be an absolute path")
+        self._starting_cfg_filename = value
+
+    # -------------------------------------------------------------------------
+    def save_starting_cfg_file(self):
+        """Method to save the starting config file. Mostly a debug feature,
+           but not dependent on DEBUG_CONFIG.
+        """
+        if os.path.exists(self.cfg_filename):
+            shutil.copyfile(self.cfg_filename, self.starting_cfg_filename)
+        else:
+            if os.path.exists(self.starting_cfg_filename):
+                os.remove(self.starting_cfg_filename)
+            # Create an empty file
+            open(self.starting_cfg_filename, "a").close()
+
+    # -------------------------------------------------------------------------
+    def log_cfg_diffs(self):
+        """Method to log the differences between the starting config file
+           and the current config file.
+        """
+        diff = difflib.ndiff(open(self.starting_cfg_filename).readlines(),
+                             open(self.cfg_filename).readlines())
+        heading_str = "Config file diffs\n                 -----------------\n"
+        log_str = "{}{}".format(heading_str, "".join(diff))
+        self.ivs2.logger.log(log_str)
 
     # -------------------------------------------------------------------------
     def cfg_set(self, section, option, value):
@@ -268,12 +325,15 @@ class Configuration(object):
         self.cfg.set(section, option, str(value))
 
     # -------------------------------------------------------------------------
-    def cfg_dump(self):
+    def cfg_dump(self, dump_header=None):
+        if dump_header is not None:
+            self.ivs2.logger.print_and_log("DUMP: {}".format(dump_header))
         for section in self.cfg.sections():
             self.ivs2.logger.print_and_log(section)
             for option in self.cfg.options(section):
-                err_str = " " + option + "=" + self.cfg.get(section, option)
-                self.ivs2.logger.print_and_log(err_str)
+                dump_str = " {}={}".format(option,
+                                           self.cfg.get(section, option))
+                self.ivs2.logger.print_and_log(dump_str)
 
     # -------------------------------------------------------------------------
     def get(self):
@@ -282,11 +342,13 @@ class Configuration(object):
            associated properties
         """
         if DEBUG_CONFIG:
-            dbg_str = ("get: Reading config from " + self.cfg_filename)
+            dbg_str = "get: Reading config from {}".format(self.cfg_filename)
             self.ivs2.logger.print_and_log(dbg_str)
         try:
             with open(self.cfg_filename, "r") as cfg_fp:
                 self.cfg.readfp(cfg_fp)
+                if DEBUG_CONFIG:
+                    self.cfg_dump()
         except IOError:
             # File doesn't exist
             self.ivs2.find_arduino_port()
@@ -302,8 +364,8 @@ class Configuration(object):
            from the .cfg file and store them in the snapshot config
         """
         if DEBUG_CONFIG:
-            dbg_str = ("get_snapshot: Reading config from " +
-                       self.cfg_filename)
+            dbg_str = ("get_snapshot: Reading config "
+                       "from {}".format(self.cfg_filename))
             self.ivs2.logger.print_and_log(dbg_str)
         self.cfg_snapshot = ConfigParser.SafeConfigParser()
         with open(self.cfg_filename, "r") as cfg_fp:
@@ -318,7 +380,8 @@ class Configuration(object):
            and Arduino configurations.
         """
         if DEBUG_CONFIG:
-            dbg_str = "get_old_result: Reading config from " + cfg_file
+            dbg_str = ("get_old_result: Reading config "
+                       "from {}".format(cfg_file))
             self.ivs2.logger.print_and_log(dbg_str)
         with open(cfg_file, "r") as cfg_fp:
             # Blow away old config and create new one
@@ -331,6 +394,8 @@ class Configuration(object):
             self.apply_plotting()
             self.apply_axes()
             self.apply_title()
+        if DEBUG_CONFIG:
+            self.cfg_dump("at exit of get_old_result")
 
     # -------------------------------------------------------------------------
     def merge_old_with_current_plotting(self, cfg_file):
@@ -341,35 +406,42 @@ class Configuration(object):
            the merged config.
         """
         # Capture Plotting options from current config
-        section = 'Plotting'
-        x_pixels = self.cfg.get('General', 'x pixels')
-        plot_power = self.cfg.get(section, 'plot power')
-        fancy_labels = self.cfg.get(section, 'fancy labels')
-        linear = self.cfg.get(section, 'linear')
-        font_scale = self.cfg.get(section, 'font scale')
-        line_scale = self.cfg.get(section, 'line scale')
-        point_scale = self.cfg.get(section, 'point scale')
-        correct_adc = self.cfg.get(section, 'correct adc')
-        reduce_noise = self.cfg.get(section, 'reduce noise')
-        battery_bias = self.cfg.get(section, 'battery bias')
-        title = self.cfg.get(section, 'title')
+        section = "Plotting"
+        x_pixels = self.cfg.get("General", "x pixels")
+        plot_power = self.cfg.get(section, "plot power")
+        fancy_labels = self.cfg.get(section, "fancy labels")
+        linear = self.cfg.get(section, "linear")
+        font_scale = self.cfg.get(section, "font scale")
+        line_scale = self.cfg.get(section, "line scale")
+        point_scale = self.cfg.get(section, "point scale")
+        correct_adc = self.cfg.get(section, "correct adc")
+        fix_isc = self.cfg.get(section, "fix isc")
+        fix_voc = self.cfg.get(section, "fix voc")
+        comb_dupv_pts = self.cfg.get(section, "combine dupv points")
+        reduce_noise = self.cfg.get(section, "reduce noise")
+        fix_overshoot = self.cfg.get(section, "fix overshoot")
+        # Note that battery bias is -not- included, so a batch update
+        # that includes a mix of runs with and without a bias battery
+        # won't get messed up
 
         # Read the old result's saved config
         self.get_old_result(cfg_file)
 
         # Overwrite the Plotting options with the captured values
-        section = 'Plotting'
-        self.cfg_set('General', 'x pixels', x_pixels)
-        self.cfg_set(section, 'plot power', plot_power)
-        self.cfg_set(section, 'fancy labels', fancy_labels)
-        self.cfg_set(section, 'linear', linear)
-        self.cfg_set(section, 'font scale', font_scale)
-        self.cfg_set(section, 'line scale', line_scale)
-        self.cfg_set(section, 'point scale', point_scale)
-        self.cfg_set(section, 'correct adc', correct_adc)
-        self.cfg_set(section, 'reduce noise', reduce_noise)
-        self.cfg_set(section, 'battery bias', battery_bias)
-        self.cfg_set(section, 'title', title)
+        section = "Plotting"
+        self.cfg_set("General", "x pixels", x_pixels)
+        self.cfg_set(section, "plot power", plot_power)
+        self.cfg_set(section, "fancy labels", fancy_labels)
+        self.cfg_set(section, "linear", linear)
+        self.cfg_set(section, "font scale", font_scale)
+        self.cfg_set(section, "line scale", line_scale)
+        self.cfg_set(section, "point scale", point_scale)
+        self.cfg_set(section, "correct adc", correct_adc)
+        self.cfg_set(section, "fix isc", fix_isc)
+        self.cfg_set(section, "fix voc", fix_voc)
+        self.cfg_set(section, "combine dupv points", comb_dupv_pts)
+        self.cfg_set(section, "reduce noise", reduce_noise)
+        self.cfg_set(section, "fix overshoot", fix_overshoot)
 
         # Apply plotting options to properties
         self.apply_plotting()
@@ -399,7 +471,7 @@ class Configuration(object):
            found in the .cfg file, but it is not of the correct type,
            then the old value is added to the config.
         """
-        full_name = section + " " + option
+        full_name = "{} {}".format(section, option)
         try:
             if config_type == CFG_FLOAT:
                 cfg_value = self.cfg.getfloat(section, option)
@@ -418,12 +490,12 @@ class Configuration(object):
             else:
                 return old_prop_val
         except ConfigParser.NoOptionError:
-            err_str = full_name + " not found in cfg file"
+            err_str = "{} not found in cfg file".format(full_name)
             self.ivs2.logger.print_and_log(err_str)
             self.cfg_set(section, option, old_prop_val)
             return old_prop_val
         except ValueError:
-            err_str = full_name + " invalid in cfg file"
+            err_str = "{} invalid in cfg file".format(full_name)
             self.ivs2.logger.print_and_log(err_str)
             self.cfg_set(section, option, old_prop_val)
             return old_prop_val
@@ -453,10 +525,10 @@ class Configuration(object):
         """Method to apply the General section options read from the
            .cfg file to the associated object properties
         """
-        section = 'General'
+        section = "General"
 
         # X pixels
-        args = (section, 'x pixels', CFG_INT, self.ivs2.x_pixels)
+        args = (section, "x pixels", CFG_INT, self.ivs2.x_pixels)
         self.ivs2.x_pixels = self.apply_one(*args)
 
     # -------------------------------------------------------------------------
@@ -464,15 +536,15 @@ class Configuration(object):
         """Method to apply the USB section options read from the .cfg
            file to the associated object properties
         """
-        section = 'USB'
+        section = "USB"
 
         # Port
-        option = 'port'
-        full_name = section + " " + option
+        option = "port"
+        full_name = "{} {}".format(section, option)
         try:
             cfg_value = self.cfg.get(section, option)
         except ConfigParser.NoOptionError:
-            err_str = full_name + " not found in cfg file"
+            err_str = "{} not found in cfg file".format(full_name)
             self.ivs2.logger.print_and_log(err_str)
             self.ivs2.find_arduino_port()
             self.cfg_set(section, option, self.ivs2.usb_port)
@@ -486,12 +558,12 @@ class Configuration(object):
                 self.ivs2.usb_port = cfg_value
             else:
                 if cfg_value != "None":
-                    err_str = full_name + " in cfg file not attached"
+                    err_str = "{} in cfg file not attached".format(full_name)
                     self.ivs2.logger.print_and_log(err_str)
                 self.ivs2.find_arduino_port()
                 self.cfg_set(section, option, self.ivs2.usb_port)
         # Baud
-        args = (section, 'baud', CFG_INT, self.ivs2.usb_baud)
+        args = (section, "baud", CFG_INT, self.ivs2.usb_baud)
         self.ivs2.usb_baud = self.apply_one(*args)
 
     # -------------------------------------------------------------------------
@@ -499,23 +571,23 @@ class Configuration(object):
         """Method to apply the Calibration section options read from the
            .cfg file to the associated object properties
         """
-        section = 'Calibration'
+        section = "Calibration"
 
         # Voltage
-        args = (section, 'voltage', CFG_FLOAT, self.ivs2.v_cal)
+        args = (section, "voltage", CFG_FLOAT, self.ivs2.v_cal)
         self.ivs2.v_cal = self.apply_one(*args)
 
         # Current
-        args = (section, 'current', CFG_FLOAT, self.ivs2.i_cal)
+        args = (section, "current", CFG_FLOAT, self.ivs2.i_cal)
         self.ivs2.i_cal = self.apply_one(*args)
 
         # Bias battery voltage
-        args = (section, 'bias battery voltage', CFG_FLOAT,
+        args = (section, "bias battery voltage", CFG_FLOAT,
                 V_BATT_DEFAULT)
         self.ivs2.v_batt = self.apply_one(*args)
 
         # Bias battery resistance
-        args = (section, 'bias battery resistance', CFG_FLOAT,
+        args = (section, "bias battery resistance", CFG_FLOAT,
                 R_BATT_DEFAULT)
         self.ivs2.r_batt = self.apply_one(*args)
 
@@ -531,19 +603,19 @@ class Configuration(object):
         # are updated (for example to plot power).
 
         # Resistor R1
-        args = (section, 'r1 ohms', CFG_FLOAT, R1_DEFAULT_BUG)
+        args = (section, "r1 ohms", CFG_FLOAT, R1_DEFAULT_BUG)
         self.ivs2.vdiv_r1 = self.apply_one(*args)
 
         # Resistor R2
-        args = (section, 'r2 ohms', CFG_FLOAT, R2_DEFAULT)
+        args = (section, "r2 ohms", CFG_FLOAT, R2_DEFAULT)
         self.ivs2.vdiv_r2 = self.apply_one(*args)
 
         # Resistor Rf
-        args = (section, 'rf ohms', CFG_FLOAT, RF_DEFAULT)
+        args = (section, "rf ohms", CFG_FLOAT, RF_DEFAULT)
         self.ivs2.amm_op_amp_rf = self.apply_one(*args)
 
         # Resistor Rg
-        args = (section, 'rg ohms', CFG_FLOAT, RG_DEFAULT)
+        args = (section, "rg ohms", CFG_FLOAT, RG_DEFAULT)
         self.ivs2.amm_op_amp_rg = self.apply_one(*args)
 
         # Shunt resistor
@@ -552,7 +624,7 @@ class Configuration(object):
         # max volts and max amps.  It's resistance is max_volts/max_amps.  The
         # max_amps value is hardcoded to 10A, so we just keep the value of
         # max_volts in the config.
-        args = (section, 'shunt max volts', CFG_FLOAT,
+        args = (section, "shunt max volts", CFG_FLOAT,
                 (self.ivs2.amm_shunt_max_amps *
                  (SHUNT_DEFAULT / 1000000.0)))
         self.ivs2.amm_shunt_max_volts = self.apply_one(*args)
@@ -562,42 +634,60 @@ class Configuration(object):
         """Method to apply the Plotting section options read from the
            .cfg file to the associated object properties
         """
-        section = 'Plotting'
+        section = "Plotting"
 
         # Plot power
-        args = (section, 'plot power', CFG_BOOLEAN, self.ivs2.plot_power)
+        args = (section, "plot power", CFG_BOOLEAN, self.ivs2.plot_power)
         self.ivs2.plot_power = self.apply_one(*args)
 
         # Fancy labels
-        args = (section, 'fancy labels', CFG_BOOLEAN, self.ivs2.fancy_labels)
+        args = (section, "fancy labels", CFG_BOOLEAN, self.ivs2.fancy_labels)
         self.ivs2.fancy_labels = self.apply_one(*args)
 
         # Interpolation
-        args = (section, 'linear', CFG_BOOLEAN, self.ivs2.linear)
+        args = (section, "linear", CFG_BOOLEAN, self.ivs2.linear)
         self.ivs2.linear = self.apply_one(*args)
 
         # Font scale
-        args = (section, 'font scale', CFG_FLOAT, self.ivs2.font_scale)
+        args = (section, "font scale", CFG_FLOAT, self.ivs2.font_scale)
         self.ivs2.font_scale = self.apply_one(*args)
 
         # Line scale
-        args = (section, 'line scale', CFG_FLOAT, self.ivs2.line_scale)
+        args = (section, "line scale", CFG_FLOAT, self.ivs2.line_scale)
         self.ivs2.line_scale = self.apply_one(*args)
 
         # Point scale
-        args = (section, 'point scale', CFG_FLOAT, self.ivs2.point_scale)
+        args = (section, "point scale", CFG_FLOAT, self.ivs2.point_scale)
         self.ivs2.point_scale = self.apply_one(*args)
 
         # ADC correction
-        args = (section, 'correct adc', CFG_BOOLEAN, self.ivs2.correct_adc)
+        args = (section, "correct adc", CFG_BOOLEAN, self.ivs2.correct_adc)
         self.ivs2.correct_adc = self.apply_one(*args)
 
+        # Fix Isc
+        args = (section, "fix isc", CFG_BOOLEAN, self.ivs2.fix_isc)
+        self.ivs2.fix_isc = self.apply_one(*args)
+
+        # Fix Voc
+        args = (section, "fix voc", CFG_BOOLEAN, self.ivs2.fix_voc)
+        self.ivs2.fix_voc = self.apply_one(*args)
+
+        # Combine =V points
+        args = (section, "combine dupv points", CFG_BOOLEAN,
+                self.ivs2.comb_dupv_pts)
+        self.ivs2.comb_dupv_pts = self.apply_one(*args)
+
         # Noise reduction
-        args = (section, 'reduce noise', CFG_BOOLEAN, self.ivs2.reduce_noise)
+        args = (section, "reduce noise", CFG_BOOLEAN, self.ivs2.reduce_noise)
         self.ivs2.reduce_noise = self.apply_one(*args)
 
+        # Fix overshoot
+        args = (section, "fix overshoot", CFG_BOOLEAN,
+                self.ivs2.fix_overshoot)
+        self.ivs2.fix_overshoot = self.apply_one(*args)
+
         # Battery bias
-        args = (section, 'battery bias', CFG_BOOLEAN, self.ivs2.battery_bias)
+        args = (section, "battery bias", CFG_BOOLEAN, self.ivs2.battery_bias)
         self.ivs2.battery_bias = self.apply_one(*args)
 
     # -------------------------------------------------------------------------
@@ -606,14 +696,14 @@ class Configuration(object):
            options read from the .cfg file to the associated object
            properties
         """
-        section = 'Plotting'
+        section = "Plotting"
 
         # Max x
-        args = (section, 'plot max x', CFG_FLOAT, self.ivs2.plot_max_x)
+        args = (section, "plot max x", CFG_FLOAT, self.ivs2.plot_max_x)
         self.ivs2.plot_max_x = self.apply_one(*args)
 
         # Max y
-        args = (section, 'plot max y', CFG_FLOAT, self.ivs2.plot_max_y)
+        args = (section, "plot max y", CFG_FLOAT, self.ivs2.plot_max_y)
         self.ivs2.plot_max_y = self.apply_one(*args)
 
         # Set the axis lock property so the values are used when the
@@ -625,8 +715,8 @@ class Configuration(object):
         """Method to apply the Plotting section "title" option read from the
            .cfg file to the associated object property
         """
-        section = 'Plotting'
-        args = (section, 'title', CFG_STRING, self.ivs2.plot_title)
+        section = "Plotting"
+        args = (section, "title", CFG_STRING, self.ivs2.plot_title)
         self.ivs2.plot_title = self.apply_one(*args)
 
     # -------------------------------------------------------------------------
@@ -634,38 +724,38 @@ class Configuration(object):
         """Method to apply the Arduino section options read from the
            .cfg file to the associated object properties
         """
-        section = 'Arduino'
+        section = "Arduino"
 
         # SPI clock divider
-        args = (section, 'spi clock div', CFG_INT, self.ivs2.spi_clk_div)
+        args = (section, "spi clock div", CFG_INT, self.ivs2.spi_clk_div)
         self.ivs2.spi_clk_div = self.apply_one(*args)
 
         # Max IV points
-        args = (section, 'max iv points', CFG_INT, self.ivs2.max_iv_points)
+        args = (section, "max iv points", CFG_INT, self.ivs2.max_iv_points)
         self.ivs2.max_iv_points = self.apply_one(*args)
 
         # Min Isc ADC
-        args = (section, 'min isc adc', CFG_INT, self.ivs2.min_isc_adc)
+        args = (section, "min isc adc", CFG_INT, self.ivs2.min_isc_adc)
         self.ivs2.min_isc_adc = self.apply_one(*args)
 
         # Max Isc poll
-        args = (section, 'max isc poll', CFG_INT, self.ivs2.max_isc_poll)
+        args = (section, "max isc poll", CFG_INT, self.ivs2.max_isc_poll)
         self.ivs2.max_isc_poll = self.apply_one(*args)
 
         # Isc stable ADC
-        args = (section, 'isc stable adc', CFG_INT, self.ivs2.isc_stable_adc)
+        args = (section, "isc stable adc", CFG_INT, self.ivs2.isc_stable_adc)
         self.ivs2.isc_stable_adc = self.apply_one(*args)
 
         # Max discards
-        args = (section, 'max discards', CFG_INT, self.ivs2.max_discards)
+        args = (section, "max discards", CFG_INT, self.ivs2.max_discards)
         self.ivs2.max_discards = self.apply_one(*args)
 
         # Aspect height
-        args = (section, 'aspect height', CFG_INT, self.ivs2.aspect_height)
+        args = (section, "aspect height", CFG_INT, self.ivs2.aspect_height)
         self.ivs2.aspect_height = self.apply_one(*args)
 
         # Aspect width
-        args = (section, 'aspect width', CFG_INT, self.ivs2.aspect_width)
+        args = (section, "aspect width", CFG_INT, self.ivs2.aspect_width)
         self.ivs2.aspect_width = self.apply_one(*args)
 
     # -------------------------------------------------------------------------
@@ -674,9 +764,9 @@ class Configuration(object):
            .cfg file
         """
         if DEBUG_CONFIG:
-            dbg_str = ("save: Writing config to " +
-                       self.cfg_filename)
+            dbg_str = "save: Writing config to {}".format(self.cfg_filename)
             self.ivs2.logger.print_and_log(dbg_str)
+            self.cfg_dump()
         # Attempt to open the file for writing
         try:
             with open(self.cfg_filename, "wb") as cfg_fp:
@@ -699,8 +789,8 @@ class Configuration(object):
            .cfg file from the snapshot copy
         """
         if DEBUG_CONFIG:
-            dbg_str = ("save_snapshot: Writing snapshot config to " +
-                       self.cfg_filename)
+            dbg_str = ("save_snapshot: Writing snapshot config "
+                       "to {}".format(self.cfg_filename))
             self.ivs2.logger.print_and_log(dbg_str)
         # Attempt to open the file for writing
         try:
@@ -720,14 +810,13 @@ class Configuration(object):
             # pointing to the specified directory
             return
         if DEBUG_CONFIG:
-            dbg_str = ("copy_file: Copying config from " +
-                       self.cfg_filename + " to " + dir)
+            dbg_str = ("copy_file: Copying config from {}"
+                       " to {}".format(self.cfg_filename, dir))
             self.ivs2.logger.print_and_log(dbg_str)
         try:
             shutil.copy(self.cfg_filename, dir)
         except shutil.Error as e:
-            err_str = "Couldn't copy config file to " + dir
-            err_str += " ({})".format(e)
+            err_str = "Couldn't copy config file to {} ({})".format(dir, e)
             self.ivs2.logger.print_and_log(err_str)
 
     # -------------------------------------------------------------------------
@@ -741,58 +830,75 @@ class Configuration(object):
         # General config
         section = "General"
         self.cfg.add_section(section)
-        self.cfg_set(section, 'x pixels', self.ivs2.x_pixels)
+        self.cfg_set(section, "x pixels", self.ivs2.x_pixels)
 
         # USB port config
         section = "USB"
         self.cfg.add_section(section)
-        self.cfg_set(section, 'port', self.ivs2.usb_port)
-        self.cfg_set(section, 'baud', self.ivs2.usb_baud)
+        self.cfg_set(section, "port", self.ivs2.usb_port)
+        self.cfg_set(section, "baud", self.ivs2.usb_baud)
 
         # Calibration
         section = "Calibration"
         self.cfg.add_section(section)
-        self.cfg_set(section, 'voltage', self.ivs2.v_cal)
-        self.cfg_set(section, 'current', self.ivs2.i_cal)
-        self.cfg_set(section, 'bias battery voltage', self.ivs2.v_batt)
-        self.cfg_set(section, 'bias battery resistance', self.ivs2.r_batt)
-        self.cfg_set(section, 'r1 ohms', self.ivs2.vdiv_r1)
-        self.cfg_set(section, 'r2 ohms', self.ivs2.vdiv_r2)
-        self.cfg_set(section, 'rf ohms', self.ivs2.amm_op_amp_rf)
-        self.cfg_set(section, 'rg ohms', self.ivs2.amm_op_amp_rg)
-        self.cfg_set(section, 'shunt max volts',
+        self.cfg_set(section, "voltage", self.ivs2.v_cal)
+        self.cfg_set(section, "current", self.ivs2.i_cal)
+        self.cfg_set(section, "bias battery voltage", self.ivs2.v_batt)
+        self.cfg_set(section, "bias battery resistance", self.ivs2.r_batt)
+        self.cfg_set(section, "r1 ohms", self.ivs2.vdiv_r1)
+        self.cfg_set(section, "r2 ohms", self.ivs2.vdiv_r2)
+        self.cfg_set(section, "rf ohms", self.ivs2.amm_op_amp_rf)
+        self.cfg_set(section, "rg ohms", self.ivs2.amm_op_amp_rg)
+        self.cfg_set(section, "shunt max volts",
                      self.ivs2.amm_shunt_max_volts)
 
         # Plotting config
         section = "Plotting"
         self.cfg.add_section(section)
-        self.cfg_set(section, 'plot power', self.ivs2.plot_power)
-        self.cfg_set(section, 'fancy labels', self.ivs2.fancy_labels)
-        self.cfg_set(section, 'linear', self.ivs2.linear)
-        self.cfg_set(section, 'font scale', self.ivs2.font_scale)
-        self.cfg_set(section, 'line scale', self.ivs2.line_scale)
-        self.cfg_set(section, 'point scale', self.ivs2.point_scale)
-        self.cfg_set(section, 'correct adc', self.ivs2.correct_adc)
-        self.cfg_set(section, 'reduce noise', self.ivs2.reduce_noise)
-        self.cfg_set(section, 'battery bias', self.ivs2.battery_bias)
+        self.cfg_set(section, "plot power", self.ivs2.plot_power)
+        self.cfg_set(section, "fancy labels", self.ivs2.fancy_labels)
+        self.cfg_set(section, "linear", self.ivs2.linear)
+        self.cfg_set(section, "font scale", self.ivs2.font_scale)
+        self.cfg_set(section, "line scale", self.ivs2.line_scale)
+        self.cfg_set(section, "point scale", self.ivs2.point_scale)
+        self.cfg_set(section, "correct adc", self.ivs2.correct_adc)
+        self.cfg_set(section, "fix isc", self.ivs2.fix_isc)
+        self.cfg_set(section, "fix voc", self.ivs2.fix_voc)
+        self.cfg_set(section, "combine dupv points", self.ivs2.comb_dupv_pts)
+        self.cfg_set(section, "reduce noise", self.ivs2.reduce_noise)
+        self.cfg_set(section, "fix overshoot", self.ivs2.fix_overshoot)
+        self.cfg_set(section, "battery bias", self.ivs2.battery_bias)
 
         # Arduino config
         section = "Arduino"
         self.cfg.add_section(section)
-        self.cfg_set(section, 'spi clock div', self.ivs2.spi_clk_div)
-        self.cfg_set(section, 'max iv points', self.ivs2.max_iv_points)
-        self.cfg_set(section, 'min isc adc', self.ivs2.min_isc_adc)
-        self.cfg_set(section, 'max isc poll', self.ivs2.max_isc_poll)
-        self.cfg_set(section, 'isc stable adc', self.ivs2.isc_stable_adc)
-        self.cfg_set(section, 'max discards', self.ivs2.max_discards)
-        self.cfg_set(section, 'aspect height', self.ivs2.aspect_height)
-        self.cfg_set(section, 'aspect width', self.ivs2.aspect_width)
+        self.cfg_set(section, "spi clock div", self.ivs2.spi_clk_div)
+        self.cfg_set(section, "max iv points", self.ivs2.max_iv_points)
+        self.cfg_set(section, "min isc adc", self.ivs2.min_isc_adc)
+        self.cfg_set(section, "max isc poll", self.ivs2.max_isc_poll)
+        self.cfg_set(section, "isc stable adc", self.ivs2.isc_stable_adc)
+        self.cfg_set(section, "max discards", self.ivs2.max_discards)
+        self.cfg_set(section, "aspect height", self.ivs2.aspect_height)
+        self.cfg_set(section, "aspect width", self.ivs2.aspect_width)
 
     # -------------------------------------------------------------------------
     def add_axes_and_title(self):
-        self.cfg_set("Plotting", 'plot max x', self.ivs2.plot_max_x)
-        self.cfg_set("Plotting", 'plot max y', self.ivs2.plot_max_y)
-        self.cfg_set("Plotting", 'title', self.ivs2.plot_title)
+        self.cfg_set("Plotting", "plot max x", self.ivs2.plot_max_x)
+        self.cfg_set("Plotting", "plot max y", self.ivs2.plot_max_y)
+        self.cfg_set("Plotting", "title", self.ivs2.plot_title)
+
+    # -------------------------------------------------------------------------
+    def remove_axes_and_title(self):
+        if not self.ivs2.plot_lock_axis_ranges:
+            if (self.cfg.has_option("Plotting", "plot max x")):
+                self.cfg.remove_option("Plotting", "plot max x")
+                self.ivs2.plot_max_x = None
+            if (self.cfg.has_option("Plotting", "plot max y")):
+                self.cfg.remove_option("Plotting", "plot max y")
+                self.ivs2.plot_max_y = None
+        if (self.cfg.has_option("Plotting", "title")):
+            self.cfg.remove_option("Plotting", "title")
+            self.ivs2.plot_title = None
 
 
 # The (extended) PrintAndLog class
@@ -835,6 +941,8 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         self._font_scale = 1.0
         self._line_scale = 1.0
         self._point_scale = 1.0
+        self._v_sat = None
+        self._i_sat = None
         self._logger = None
         self._ivsp_ivse = None
 
@@ -1068,6 +1176,28 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
 
     # ---------------------------------
     @property
+    def v_sat(self):
+        """Value of the saturation voltage
+        """
+        return self._v_sat
+
+    @v_sat.setter
+    def v_sat(self, value):
+        self._v_sat = value
+
+    # ---------------------------------
+    @property
+    def i_sat(self):
+        """Value of the saturation current
+        """
+        return self._i_sat
+
+    @i_sat.setter
+    def i_sat(self, value):
+        self._i_sat = value
+
+    # ---------------------------------
+    @property
     def logger(self):
         """Logger object"""
         return self._logger
@@ -1091,7 +1221,8 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         """Method to set argparse args to default values"""
 
         self.args.name = self.curve_names
-        self.args.overlay_name = "overlaid_" + os.path.basename(self.plot_dir)
+        self.args.overlay_name = ("overlaid_{}"
+                                  .format(os.path.basename(self.plot_dir)))
         self.args.title = self.title
         self.args.fancy_labels = self.fancy_labels
         self.args.interactive = False
@@ -1144,7 +1275,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         ivs.plot_graphs(self.args, csvp)
         png_file = ivs.plt_img_filename
         (file, ext) = os.path.splitext(png_file)
-        gif_file = file + ".gif"
+        gif_file = "{}.gif".format(file)
         im = Image.open(png_file)
         im.save(gif_file)
         self.current_img = gif_file
@@ -1166,6 +1297,8 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         self.ivsp_ivse = IV_Swinger_plotter.IV_Swinger_extended()
         self.set_ivs_properties(self.args, self.ivsp_ivse)
         self.ivsp_ivse.logger = self.logger
+        self.ivsp_ivse.v_sat = self.v_sat
+        self.ivsp_ivse.i_sat = self.i_sat
 
         # Process all CSV files
         self.csv_proc = IV_Swinger_plotter.CsvFileProcessor(self.args,
@@ -1212,6 +1345,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._adc_pairs_corrected = []
         self._adc_ch0_offset = 0
         self._adc_ch1_offset = 0
+        self._voltage_saturated = False
+        self._current_saturated = False
         self._adc_range = 4096.0
         self._msg_timer_timeout = 50
         self._vdiv_r1 = R1_DEFAULT
@@ -1238,7 +1373,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._line_scale = LINE_SCALE_DEFAULT
         self._point_scale = POINT_SCALE_DEFAULT
         self._correct_adc = True
+        self._fix_isc = True
+        self._fix_voc = True
+        self._comb_dupv_pts = True
         self._reduce_noise = True
+        self._fix_overshoot = True
         self._battery_bias = False
         self._arduino_ver_major = -1
         self._arduino_ver_minor = -1
@@ -1377,20 +1516,21 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            instantiation.
         """
         if self._app_data_dir is None:
-            if sys.platform == 'darwin':
+            if sys.platform == "darwin":
                 # Mac
                 self._app_data_dir = os.path.join(get_mac_dir(mac_app_sup_dir,
                                                               mac_domain_mask,
                                                               True)[0],
                                                   APP_NAME)
-            elif sys.platform == 'win32':
+            elif sys.platform == "win32":
                 # Windows
-                self._app_data_dir = os.path.join(os.environ['APPDATA'],
+                self._app_data_dir = os.path.join(os.environ["APPDATA"],
                                                   APP_NAME)
             else:
                 # Linux
-                self._app_data_dir = os.path.expanduser(os.path.join("~", "." +
-                                                                     APP_NAME))
+                leaf_dir = ".{}".format(APP_NAME)
+                self._app_data_dir = os.path.expanduser(os.path.join("~",
+                                                                     leaf_dir))
         return self._app_data_dir
 
     @app_data_dir.setter
@@ -1441,7 +1581,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     @property
     def logs_dir(self):
         """ Directory on where log files are written"""
-        logs_dir = self.app_data_dir + "/logs"
+        logs_dir = "{}/logs".format(self.app_data_dir)
         return logs_dir
 
     # ---------------------------------
@@ -1633,6 +1773,45 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     # ---------------------------------
     @property
+    def fix_isc(self):
+        """Value of the fix_isc flag
+        """
+        return self._fix_isc
+
+    @fix_isc.setter
+    def fix_isc(self, value):
+        if value not in set([True, False]):
+            raise ValueError("fix_isc must be boolean")
+        self._fix_isc = value
+
+    # ---------------------------------
+    @property
+    def fix_voc(self):
+        """Value of the fix_voc flag
+        """
+        return self._fix_voc
+
+    @fix_voc.setter
+    def fix_voc(self, value):
+        if value not in set([True, False]):
+            raise ValueError("fix_voc must be boolean")
+        self._fix_voc = value
+
+    # ---------------------------------
+    @property
+    def comb_dupv_pts(self):
+        """Value of the comb_dupv_pts flag
+        """
+        return self._comb_dupv_pts
+
+    @comb_dupv_pts.setter
+    def comb_dupv_pts(self, value):
+        if value not in set([True, False]):
+            raise ValueError("comb_dupv_pts must be boolean")
+        self._comb_dupv_pts = value
+
+    # ---------------------------------
+    @property
     def reduce_noise(self):
         """Value of the reduce_noise flag
         """
@@ -1643,6 +1822,19 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if value not in set([True, False]):
             raise ValueError("reduce_noise must be boolean")
         self._reduce_noise = value
+
+    # ---------------------------------
+    @property
+    def fix_overshoot(self):
+        """Value of the fix_overshoot flag
+        """
+        return self._fix_overshoot
+
+    @fix_overshoot.setter
+    def fix_overshoot(self, value):
+        if value not in set([True, False]):
+            raise ValueError("fix_overshoot must be boolean")
+        self._fix_overshoot = value
 
     # ---------------------------------
     @property
@@ -1755,22 +1947,6 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     # ---------------------------------
     @property
-    def voc_adc(self):
-        """Property to get the ADC voltage value at the Voc point"""
-        # The last (Voc) CH0 value is the Voc voltage ADC reading
-        voc_adc = self.adc_pairs[-1][0]
-        return voc_adc
-
-    # ---------------------------------
-    @property
-    def isc_adc(self):
-        """Property to get the ADC current value at the Isc point"""
-        # The first CH1 value is the Isc current ADC reading
-        isc_adc = self.adc_pairs[0][1]
-        return isc_adc
-
-    # ---------------------------------
-    @property
     def vdiv_ratio(self):
         """Voltage divider ratio"""
         vdiv_ratio = self.vdiv_r2 / (self.vdiv_r1 + self.vdiv_r2)
@@ -1794,60 +1970,27 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     # ---------------------------------
     @property
-    def v_adj(self):
-        """Voltage adjustment value"""
-        # Compensate for (as-of-yet-not-understood) effect where the
-        # curve intersects the voltage axis at a value greater than Voc
-        v_adj = 1.0
+    def v_sat(self):
+        """Saturation voltage"""
+        v_sat = ADC_MAX * self.v_mult
+        return v_sat
 
-        # Default assumption is that curve intercepts V axis at the
-        # same voltage as the final measured point
-        avg_v_intercept = self.adc_pairs[-2][0]
-
-        # Now look at the four preceding points
-        v_intercepts = []
-        for adc_pair_index in [-6, -5, -4, -3]:
-            # If the point's ADC CH1 (current) value is more than 10% of
-            # Isc, skip to next (unless it is the last one)
-            if (adc_pair_index < -3 and
-                    self.adc_pairs[adc_pair_index][1] >
-                    (self.adc_pairs[0][1] * 0.1)):
-                continue
-            # Calculate V-intercept using the line determined by this
-            # point and the final measured point
-            v1 = float(self.adc_pairs[adc_pair_index][0])
-            i1 = float(self.adc_pairs[adc_pair_index][1])
-            v2 = float(self.adc_pairs[-2][0])
-            i2 = float(self.adc_pairs[-2][1])
-            delta_v = v2 - v1
-            delta_i = i1 - i2
-            if delta_v < 0.0 or delta_i <= 0.0:
-                # Throw out points that decrease in voltage or do not
-                # decrease in current
-                continue
-            v_intercept = (i1 * delta_v / delta_i) + v1
-            if not v_intercepts or abs(v_intercept - v_intercepts[-1]) <= 5:
-                # Keep v_intercepts only if they are different by 5 or
-                # less from their precedessors.  This assumes that the
-                # earlier ones are more reliable due to their greater
-                # distance from the V axis.
-                v_intercepts.append(v_intercept)
-        if v_intercepts:
-            avg_v_intercept = sum(v_intercepts) / float(len(v_intercepts))
-        v_intercept_minus_offset = avg_v_intercept - self._adc_ch0_offset
-        voc_adc_minus_offset = self.voc_adc - self._adc_ch0_offset
-        v_adj = (float(voc_adc_minus_offset) /
-                 float(v_intercept_minus_offset))
-        return v_adj
+    # ---------------------------------
+    @property
+    def i_sat(self):
+        """Saturation current"""
+        i_sat = ADC_MAX * self.i_mult
+        return i_sat
 
     # ---------------------------------
     @property
     def arduino_sketch_ver(self):
         """Arduino sketch version"""
         if self._arduino_ver_major > -1:
-            return "%d.%d.%d" % (self._arduino_ver_major,
-                                 self._arduino_ver_minor,
-                                 self._arduino_ver_patch)
+            ver_str = "{}.{}.{}".format(self._arduino_ver_major,
+                                        self._arduino_ver_minor,
+                                        self._arduino_ver_patch)
+            return ver_str
         else:
             return "Unknown"
 
@@ -1857,7 +2000,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """PDF file name"""
         dts = extract_date_time_str(self.hdd_output_dir)
         pdf_filename = os.path.join(self.hdd_output_dir,
-                                    self.file_prefix + dts + ".pdf")
+                                    "{}{}.pdf".format(self.file_prefix, dts))
         return pdf_filename
 
     # -------------------------------------------------------------------------
@@ -1880,7 +2023,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if self.usb_port is None:
             for serial_port in self.serial_ports:
                 if "uino" in str(serial_port):
-                    self.usb_port = str(serial_port).split(' ')[0]
+                    self.usb_port = str(serial_port).split(" ")[0]
                     break
 
     # -------------------------------------------------------------------------
@@ -1925,13 +2068,13 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             if rc != RC_SUCCESS:
                 return rc
             rc = self.receive_msg_from_arduino()
-        if rc == RC_SUCCESS and self.msg_from_arduino == unicode('Ready\n'):
+        if rc == RC_SUCCESS and self.msg_from_arduino == unicode("Ready\n"):
             self.arduino_ready = True
         elif rc != RC_SUCCESS:
             return rc
         else:
-            err_str = ("ERROR: Malformed Arduino ready message: " +
-                       self.msg_from_arduino)
+            err_str = ("ERROR: Malformed Arduino ready message: {}"
+                       .format(self.msg_from_arduino))
             self.logger.print_and_log(err_str)
             return RC_FAILURE
 
@@ -1945,6 +2088,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         rc = self.request_eeprom_dump()
         if rc != RC_SUCCESS:
             return rc
+
         # Special case: EEPROM has never been written (and therefore no values
         # are returned).  We want to write it with the current values rather
         # than waiting for a calibration.
@@ -1982,29 +2126,29 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 return rc
 
         if write_eeprom and self.arduino_sketch_ver_ge("1.1.0"):
-            config_values = [(str(EEPROM_VALID_ADDR) + " " +
-                              EEPROM_VALID_VALUE),
-                             (str(EEPROM_VALID_COUNT_ADDR) + " " +
-                              str(EEPROM_VALID_COUNT)),
-                             (str(EEPROM_R1_OHMS_ADDR) + " " +
-                              str(int(self.vdiv_r1))),
-                             (str(EEPROM_R2_OHMS_ADDR) + " " +
-                              str(int(self.vdiv_r2))),
-                             (str(EEPROM_RF_OHMS_ADDR) + " " +
-                              str(int(self.amm_op_amp_rf))),
-                             (str(EEPROM_RG_OHMS_ADDR) + " " +
-                              str(int(self.amm_op_amp_rg))),
-                             (str(EEPROM_SHUNT_UOHMS_ADDR) + " " +
-                              str(int(self.amm_shunt_resistance *
-                                      1000000.0))),
-                             (str(EEPROM_V_CAL_X1M_ADDR) + " " +
-                              str(int(self.v_cal * 1000000.0))),
-                             (str(EEPROM_I_CAL_X1M_ADDR) + " " +
-                              str(int(self.i_cal * 1000000.0))),
-                             (str(EEPROM_V_BATT_X1M_ADDR) + " " +
-                              str(int(self.v_batt * 1000000.0))),
-                             (str(EEPROM_R_BATT_X1M_ADDR) + " " +
-                              str(int(self.r_batt * 1000000.0)))]
+            config_values = [("{} {}".format(EEPROM_VALID_ADDR,
+                                             EEPROM_VALID_VALUE)),
+                             ("{} {}".format(EEPROM_VALID_COUNT_ADDR,
+                                             EEPROM_VALID_COUNT)),
+                             ("{} {}".format(EEPROM_R1_OHMS_ADDR,
+                                             int(self.vdiv_r1))),
+                             ("{} {}".format(EEPROM_R2_OHMS_ADDR,
+                                             int(self.vdiv_r2))),
+                             ("{} {}".format(EEPROM_RF_OHMS_ADDR,
+                                             int(self.amm_op_amp_rf))),
+                             ("{} {}".format(EEPROM_RG_OHMS_ADDR,
+                                             int(self.amm_op_amp_rg))),
+                             ("{} {}".format(EEPROM_SHUNT_UOHMS_ADDR,
+                                             int(self.amm_shunt_resistance *
+                                                 1000000.0))),
+                             ("{} {}".format(EEPROM_V_CAL_X1M_ADDR,
+                                             int(self.v_cal * 1000000.0))),
+                             ("{} {}".format(EEPROM_I_CAL_X1M_ADDR,
+                                             int(self.i_cal * 1000000.0))),
+                             ("{} {}".format(EEPROM_V_BATT_X1M_ADDR,
+                                             int(self.v_batt * 1000000.0))),
+                             ("{} {}".format(EEPROM_R_BATT_X1M_ADDR,
+                                             int(self.r_batt * 1000000.0)))]
             for config_value in config_values:
                 rc = self.send_one_config_msg_to_arduino("WRITE_EEPROM",
                                                          config_value)
@@ -2017,12 +2161,12 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def send_one_config_msg_to_arduino(self, config_type, config_value):
         """Method to send one config message to the Arduino, waiting for the
         reply"""
-        rc = self.send_msg_to_arduino("Config: " + config_type +
-                                      " " + str(config_value))
+        msg_str = "Config: {} {}".format(config_type, config_value)
+        rc = self.send_msg_to_arduino(msg_str)
         if rc != RC_SUCCESS:
             return rc
         self.msg_from_arduino = "None"
-        while self.msg_from_arduino != unicode('Config processed\n'):
+        while self.msg_from_arduino != unicode("Config processed\n"):
             rc = self.receive_msg_from_arduino()
             if rc != RC_SUCCESS:
                 return rc
@@ -2037,13 +2181,13 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             MAX_MSG_LEN_TO_ARDUINO = 30
         else:
             MAX_MSG_LEN_TO_ARDUINO = 35
-        if len(msg + "\n") > MAX_MSG_LEN_TO_ARDUINO:
-            err_str = "ERROR: Message to Arduino is too long: " + msg
+        if len("{}\n".format(msg)) > MAX_MSG_LEN_TO_ARDUINO:
+            err_str = "ERROR: Message to Arduino is too long: {}".format(msg)
             self.logger.print_and_log(err_str)
             return RC_FAILURE
 
         try:
-            self._sio.write(unicode(msg + "\n"))
+            self._sio.write(unicode("{}\n".format(msg)))
         except (serial.SerialException) as e:
             self.logger.print_and_log("send_msg_to_arduino: ({})".format(e))
             return RC_SERIAL_EXCEPTION
@@ -2059,8 +2203,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             try:
                 self.msg_from_arduino = self._sio.readline()
             except (serial.SerialException) as e:
-                err_str = "receive_msg_from_arduino: ({})"
-                self.logger.print_and_log(err_str.format(e))
+                err_str = "receive_msg_from_arduino: ({})".format(e)
+                self.logger.print_and_log(err_str)
                 return RC_SERIAL_EXCEPTION
             except UnicodeDecodeError:
                 return RC_BAUD_MISMATCH
@@ -2084,7 +2228,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             rc = self.receive_msg_from_arduino()
             if rc == RC_SUCCESS:
                 received_msgs.append(self.msg_from_arduino)
-                if self.msg_from_arduino == unicode('Output complete\n'):
+                if self.msg_from_arduino == unicode("Output complete\n"):
                     break
             else:
                 return rc
@@ -2093,12 +2237,12 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         # pairs
         self.adc_pairs = []
         self.unfiltered_adc_pairs = []
-        adc_re = re.compile('CH0:(\d+)\s+CH1:(\d+)')
-        unfiltered_adc_re_str = 'Unfiltered CH0:(\d+)\s+Unfiltered CH1:(\d+)'
+        adc_re = re.compile("CH0:(\d+)\s+CH1:(\d+)")
+        unfiltered_adc_re_str = "Unfiltered CH0:(\d+)\s+Unfiltered CH1:(\d+)"
         unfiltered_adc_re = re.compile(unfiltered_adc_re_str)
         for msg in received_msgs:
-            if msg.startswith('Polling for stable Isc timed out'):
-                return RC_ISC_TIMEOUT
+            if msg.startswith("Polling for stable Isc timed out"):
+                rc = RC_ISC_TIMEOUT
             match = adc_re.search(msg)
             if match:
                 ch0_adc = int(match.group(1))
@@ -2110,16 +2254,17 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 ch1_adc = int(unfiltered_match.group(2))
                 self.unfiltered_adc_pairs.append((ch0_adc, ch1_adc))
 
-        return RC_SUCCESS
+        return rc
 
     # -------------------------------------------------------------------------
     def log_msg_from_arduino(self, msg):
         """Method to log a message from the Arduino"""
-        self.logger.log("Arduino: " + msg.rstrip())
+        log_msg = "Arduino: {}".format(msg.rstrip())
+        self.logger.log(log_msg)
 
     # -------------------------------------------------------------------------
     def request_eeprom_dump(self):
-        """Method to send a DUMP_EEPROM 'config' message to the Arduino and
+        """Method to send a DUMP_EEPROM "config" message to the Arduino and
            capture the values returned
         """
         if self.arduino_sketch_ver_lt("1.1.0"):
@@ -2128,7 +2273,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if rc != RC_SUCCESS:
             return rc
         self.msg_from_arduino = "None"
-        while self.msg_from_arduino != unicode('Config processed\n'):
+        while self.msg_from_arduino != unicode("Config processed\n"):
             rc = self.receive_msg_from_arduino()
             if rc != RC_SUCCESS:
                 return rc
@@ -2145,14 +2290,14 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """Method to extract the version number of the Arduino sketch from the
            message containing it
         """
-        sketch_ver_re = re.compile('sketch version (\d+)\.(\d+)\.(\d+)')
+        sketch_ver_re = re.compile("sketch version (\d+)\.(\d+)\.(\d+)")
         match = sketch_ver_re.search(msg)
         if match:
             self._arduino_ver_major = int(match.group(1))
             self._arduino_ver_minor = int(match.group(2))
             self._arduino_ver_patch = int(match.group(3))
         else:
-            err_str = "ERROR: Bad Arduino version message: " + msg
+            err_str = "ERROR: Bad Arduino version message: {}".format(msg)
             self.logger.print_and_log(err_str)
             return RC_FAILURE
 
@@ -2166,7 +2311,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
               SKETCH_VER_EQ: if sketch version is equal
               SKETCH_VER_GT: if sketch version is greater
         """
-        test_ver_re = re.compile('(\d+)\.(\d+)\.(\d+)')
+        test_ver_re = re.compile("(\d+)\.(\d+)\.(\d+)")
         match = test_ver_re.search(test_version)
         if match:
             test_ver_major = int(match.group(1))
@@ -2186,7 +2331,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             else:
                 return SKETCH_VER_GT
         else:
-            err_str = "ERROR: Bad test version: " + test_version
+            err_str = "ERROR: Bad test version: {}".format(test_version)
             self.logger.print_and_log(err_str)
             return SKETCH_VER_ERR
 
@@ -2245,28 +2390,28 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # -------------------------------------------------------------------------
     def process_eeprom_value(self):
         """Method to process one EEPROM value returned by the Arduino"""
-        eeprom_re = re.compile('EEPROM addr: (\d+)\s+value: (\d+\.\d+)')
+        eeprom_re = re.compile("EEPROM addr: (\d+)\s+value: (\d+\.\d+)")
         match = eeprom_re.search(self.msg_from_arduino)
         if match:
             eeprom_addr = int(match.group(1))
             eeprom_value = match.group(2)
         else:
-            err_str = ("ERROR: Bad EEPROM value message: " +
-                       self.msg_from_arduino)
+            err_str = ("ERROR: Bad EEPROM value message: {}"
+                       .format(self.msg_from_arduino))
             self.logger.print_and_log(err_str)
             return RC_FAILURE
 
         if eeprom_addr == EEPROM_VALID_ADDR:
             if eeprom_value != EEPROM_VALID_VALUE:
-                err_str = ("ERROR: Bad EEPROM valid value: " +
-                           self.msg_from_arduino)
+                err_str = ("ERROR: Bad EEPROM valid value: {}"
+                           .format(self.msg_from_arduino))
                 self.logger.print_and_log(err_str)
                 return RC_FAILURE
         elif eeprom_addr == EEPROM_VALID_COUNT_ADDR:
             if int(float(eeprom_value)) > EEPROM_VALID_COUNT:
-                warn_str = ("WARNING: EEPROM contains more values than " +
-                            "supported by this version of the application: " +
-                            self.msg_from_arduino)
+                warn_str = ("WARNING: EEPROM contains more values than "
+                            "supported by this version of the application: {}"
+                            .format(self.msg_from_arduino))
                 self.logger.print_and_log(warn_str)
         elif eeprom_addr == EEPROM_R1_OHMS_ADDR:
             self.vdiv_r1 = float(eeprom_value)
@@ -2288,65 +2433,194 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         elif eeprom_addr == EEPROM_R_BATT_X1M_ADDR:
             self.r_batt = float(eeprom_value) / 1000000.0
         else:
-            warn_str = ("WARNING: EEPROM value not " +
-                        "supported by this version of the application: " +
-                        self.msg_from_arduino)
+            warn_str = ("WARNING: EEPROM value not "
+                        "supported by this version of the application: {}"
+                        .format(self.msg_from_arduino))
             self.logger.print_and_log(warn_str)
 
         return RC_SUCCESS
 
     # -------------------------------------------------------------------------
-    def correct_adc_values(self):
+    def correct_adc_values(self, adc_pairs):
         """Method to remove errors from the ADC values. This consists of the
-        following corrections:
-           - Adjust voltages to compensate for offset and Voc shift
-           - Combine points with same voltage (use average current)
-           - Apply a noise reduction algorithm
+           following corrections:
+             - Combine points with same voltage (use average current)
+             - Zero out the current value for the Voc point
+             - Remove the Isc point if it is not reliable
+             - Replace the Isc point with a better extrapolation than the
+               Arduino code was capable of
+             - Apply a noise reduction algorithm
+             - Adjust ADC values voltages to compensate for Voc shift
+           Each of the above is configurable.
         """
         self.logger.log("Correcting ADC values:")
-        self.adc_pairs_corrected = []
-        voc_pair_num = (len(self.adc_pairs) - 1)  # last one is Voc
-        v_adj = self.v_adj
-        self.logger.log("  v_adj = " + str(v_adj))
-        for pair_num, adc_pair in enumerate(self.adc_pairs):
-            # Adjust voltages to compensate for offset and Voc shift
-            if pair_num == voc_pair_num:
-                v_adj = 1.0
-            ch0_adc_corrected = (adc_pair[0] - self._adc_ch0_offset) * v_adj
-            ch1_adc_corrected = adc_pair[1] - self._adc_ch1_offset
-            if pair_num == 0:
-                self.adc_pairs_corrected.append((ch0_adc_corrected,
-                                                 ch1_adc_corrected))
-                prev_adc0_corrected = ch0_adc_corrected
-                prev_adc1_corrected = ch1_adc_corrected
-                continue
 
-            # Combine points with same voltage
-            if ch0_adc_corrected == prev_adc0_corrected:
-                if pair_num == voc_pair_num:
-                    # For Voc point, use corrected current (which should
-                    # be zero)
-                    ch1_adc_corrected = ch1_adc_corrected
-                else:
-                    # For all others, use average current
-                    ch1_adc_corrected = (ch1_adc_corrected +
-                                         prev_adc1_corrected) / 2.0
-                del self.adc_pairs_corrected[-1]
-            self.adc_pairs_corrected.append((ch0_adc_corrected,
-                                             ch1_adc_corrected))
+        # Combine points with the same voltage (use average current)
+        if self.comb_dupv_pts:
+            adc_pairs_corrected = self.combine_dup_voltages(adc_pairs)
+        else:
+            adc_pairs_corrected = adc_pairs[:]
 
-            prev_adc0_corrected = ch0_adc_corrected
-            prev_adc1_corrected = ch1_adc_corrected
+        # Fix Voc
+        if self.fix_voc:
+            # Zero out the CH1 value for the Voc point so it is in line
+            # with the tail of the curve and so the curve will reach the
+            # axis
+            adc_pairs_corrected[-1] = (adc_pairs_corrected[-1][0], 0.0)
+
+        # Remove Isc point in some cases
+        if self.fix_isc and not self.battery_bias:
+            # Remove point 0 (the Isc point which was extrapolated by the
+            # Arduino code) if the next point's CH0 value is more than
+            # MIN_PT1_TO_VOC_RATIO_FOR_ISC of the Voc CH0 value.  We have to
+            # check that point 0's voltage is zero before doing this, since
+            # this method can be called again after this has already been
+            # done, and we don't want to remove any points other than the
+            # one with V=0.
+            suppress_isc_point = False
+            pt0_ch0 = adc_pairs_corrected[0][0]
+            if pt0_ch0 <= self._adc_ch0_offset:
+                pt1_ch0 = float(adc_pairs_corrected[1][0])
+                voc_ch0 = float(adc_pairs_corrected[-1][0])
+                if (pt1_ch0 / voc_ch0) > MIN_PT1_TO_VOC_RATIO_FOR_ISC:
+                    del adc_pairs_corrected[0]
+                    suppress_isc_point = True
 
         # Noise reduction
         if self.reduce_noise:
-            self.noise_reduction(starting_rot_thresh=10.0,
-                                 iterations=25,
-                                 thresh_divisor=2.0)
+            if (self.fix_isc and not self.battery_bias and
+                    not suppress_isc_point):
+                # Replace CH1 (current) value of Isc point with CH1
+                # value of first measured point
+                isc_ch1 = adc_pairs_corrected[1][1]
+                adc_pairs_corrected[0] = (0.0, isc_ch1)
+            adc_pairs_for_nr = adc_pairs_corrected[:-1]  # exclude Voc
+            adc_pairs_nr = self.noise_reduction(adc_pairs_for_nr,
+                                                starting_rot_thresh=10.0,
+                                                iterations=25,
+                                                thresh_divisor=2.0)
+            # Tack Voc point back on
+            adc_pairs_corrected = adc_pairs_nr + [adc_pairs_corrected[-1]]
+
+        # Fix Isc
+        if self.fix_isc and not self.battery_bias:
+            # Replace Isc point (again) with a better extrapolation
+            if not suppress_isc_point:
+                isc_ch1 = self.create_new_isc_point(adc_pairs_corrected)
+                adc_pairs_corrected[0] = (0.0, isc_ch1)
+
+        # Adjust voltages to compensate for overshoot
+        if self.fix_overshoot:
+            v_adj = self.v_adj(adc_pairs_corrected)
+            log_msg = "  v_adj = {}".format(v_adj)
+            self.logger.log(log_msg)
+            adc_pairs_wo_overshoot = []
+            voc_pair_num = len(adc_pairs_corrected) - 1  # last one is Voc
+            for pair_num, adc_pair in enumerate(adc_pairs_corrected):
+                if pair_num == voc_pair_num:
+                    v_adj = 1.0
+                ch0_adc_wo_overshoot = adc_pair[0] * v_adj
+                ch1_adc_wo_overshoot = adc_pair[1]
+                adc_pairs_wo_overshoot.append((ch0_adc_wo_overshoot,
+                                               ch1_adc_wo_overshoot))
+            adc_pairs_corrected = adc_pairs_wo_overshoot[:]
+
+        return adc_pairs_corrected
 
     # -------------------------------------------------------------------------
-    def noise_reduction(self, starting_rot_thresh=5.0, iterations=1,
-                        thresh_divisor=2.0):
+    def combine_dup_voltages(self, adc_pairs):
+        """Method to combine consecutive points with duplicate voltages (CH0
+           values) to a single point with the average of their current
+           (CH1) values
+        """
+        non_dup_adc_pairs = []
+        ch1_sum = 0
+        ch0_count = 0
+        last_pair_num = len(adc_pairs) - 1
+        for pair_num, adc_pair in enumerate(adc_pairs):
+            ch0_adc = adc_pair[0]
+            ch1_adc = adc_pair[1]
+            # If the CH0 value is the same as that of the next point,
+            # don't add the point to the new list; just accumulate the
+            # CH1 value and increment the count to calculate the
+            # average later.
+            if (pair_num < last_pair_num and
+                    ch0_adc == adc_pairs[pair_num+1][0]):
+                # Add CH1 value to the CH1 sum and increment the
+                # CH0 count for the average calculation.
+                ch1_sum += ch1_adc
+                ch0_count += 1
+            else:
+                if ch0_count > 0:
+                    # This is the last point in a sequence with
+                    # duplicate CH0 values, so calculate the average CH1
+                    # value and append the single point to the list
+                    avg_ch1_adc = float(ch1_sum + ch1_adc) / (ch0_count + 1)
+                    non_dup_adc_pairs.append((ch0_adc, avg_ch1_adc))
+                    # Reset the sum and count variables
+                    ch1_sum = 0
+                    ch0_count = 0
+                else:
+                    non_dup_adc_pairs.append((ch0_adc, ch1_adc))
+
+        return non_dup_adc_pairs
+
+    # -------------------------------------------------------------------------
+    def v_adj(self, adc_pairs):
+        """Method to determine the voltage adjustment value"""
+        # Compensate for (as-of-yet-not-understood) effect where the
+        # curve intersects the voltage axis at a value greater than Voc
+
+        # Initialize v_adj to 1.0 (no adjustment) and just return that
+        # now if there are fewer than two points
+        v_adj = 1.0
+        if len(adc_pairs) < 2:
+            return v_adj
+
+        # Default assumption is that the extrapolated curve intercepts
+        # the V axis at the same voltage as the final measured point
+        avg_v_intercept = adc_pairs[-2][0]
+
+        # Now look at the four preceding points
+        v_intercepts = []
+        for adc_pair_index in [-6, -5, -4, -3]:
+            if len(adc_pairs) + adc_pair_index < 0:
+                continue
+            # If the point's ADC CH1 (current) value is more than 20% of
+            # Isc, skip to next (unless it is the last one)
+            if (adc_pair_index < -3 and
+                    adc_pairs[adc_pair_index][1] >
+                    (adc_pairs[0][1] * 0.2)):
+                continue
+            # Calculate V-intercept using the line determined by this
+            # point and the final measured point
+            v1 = float(adc_pairs[adc_pair_index][0])
+            i1 = float(adc_pairs[adc_pair_index][1])
+            v2 = float(adc_pairs[-2][0])
+            i2 = float(adc_pairs[-2][1])
+            delta_v = v2 - v1
+            delta_i = i1 - i2
+            if delta_v < 0.0 or delta_i <= 0.0:
+                # Throw out points that decrease in voltage or do not
+                # decrease in current
+                continue
+            v_intercept = (i1 * delta_v / delta_i) + v1
+            if not v_intercepts or abs(v_intercept - v_intercepts[-1]) <= 5:
+                # Keep v_intercepts only if they are different by 5 or
+                # less from their precedessors.  This assumes that the
+                # earlier ones are more reliable due to their greater
+                # distance from the V axis.
+                v_intercepts.append(v_intercept)
+        if v_intercepts:
+            avg_v_intercept = sum(v_intercepts) / float(len(v_intercepts))
+        voc_adc = adc_pairs[-1][0]
+        if avg_v_intercept:
+            v_adj = float(voc_adc) / float(avg_v_intercept)
+        return v_adj
+
+    # -------------------------------------------------------------------------
+    def noise_reduction(self, adc_pairs, starting_rot_thresh=5.0,
+                        iterations=1, thresh_divisor=2.0):
         """Method to smooth out "bumps" in the curve. The trick is to
            disambiguate between deviations (bad) and inflections
            (normal). For each point on the curve, the rotation angle at
@@ -2363,9 +2637,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            deviations will be smoothed out first, so it is more clear
            what is a deviation and what isn't.
         """
-        num_points = len(self.adc_pairs_corrected)
+        adc_pairs_nr = adc_pairs[:]
+        num_points = len(adc_pairs)
         rot_thresh = starting_rot_thresh
-        for ii in xrange(25):
+        for ii in xrange(iterations):
             # Calculate the distance (in points) of the "far" points for
             # the inflection comparison.  It is 1/25 of the total number
             # of points, but always at least 2.
@@ -2374,11 +2649,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 dist = 2
             for point in xrange(num_points - 1):
                 # Rotation calculation
-                pairs_list = self.adc_pairs_corrected
+                pairs_list = adc_pairs_nr
                 rot_degrees = self.rotation_at_point(pairs_list, point)
                 if abs(rot_degrees) > rot_thresh:
                     deviation = True
-                    if point > (dist - 1) and (point + dist) < num_points:
+                    if point >= dist and point < (num_points - dist):
                         long_rot_degrees = self.rotation_at_point(pairs_list,
                                                                   point,
                                                                   dist)
@@ -2403,12 +2678,14 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                             ch0_adc_corrected = curr_point[0]
                         ch1_adc_corrected = (prev_point[1] +
                                              next_point[1]) / 2.0
-                        self.adc_pairs_corrected[point] = (ch0_adc_corrected,
-                                                           ch1_adc_corrected)
+                        adc_pairs_nr[point] = (ch0_adc_corrected,
+                                               ch1_adc_corrected)
             rot_thresh /= thresh_divisor
 
+        return adc_pairs_nr
+
     # -------------------------------------------------------------------------
-    def rotation_at_point(self, pairs_list, point, distance=1):
+    def rotation_at_point(self, adc_pairs, point, distance=1):
         """Method to calculate the angular rotation at a point on the
            curve. The list of points and the point number of
            interest are passed in.  By default, the angle is
@@ -2419,22 +2696,38 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """
         if point == 0:
             return 0.0
-        if pairs_list:
-            i_scale = pairs_list[-1][0] / pairs_list[0][1]  # Voc/Isc
+        if adc_pairs:
+            i_scale = (float(adc_pairs[-1][0]) /
+                       float(adc_pairs[0][1]))  # Voc/Isc
         else:
             i_scale = INFINITE_VAL
-        i1 = pairs_list[point - distance][1]
-        v1 = pairs_list[point - distance][0]
-        i2 = pairs_list[point][1]
-        v2 = pairs_list[point][0]
-        i3 = pairs_list[point + distance][1]
-        v3 = pairs_list[point + distance][0]
+        if distance < point:
+            pt1 = point - distance
+        else:
+            pt1 = 0
+        pt2 = point
+        if point + distance < len(adc_pairs):
+            pt3 = point + distance
+        else:
+            pt3 = len(adc_pairs) - 1
+        i1 = adc_pairs[pt1][1]
+        v1 = adc_pairs[pt1][0]
+        i2 = adc_pairs[pt2][1]
+        v2 = adc_pairs[pt2][0]
+        i3 = adc_pairs[pt3][1]
+        v3 = adc_pairs[pt3][0]
         if v2 == v1:
-            m12 = INFINITE_VAL
+            if i2 > i1:
+                m12 = INFINITE_VAL
+            else:
+                m12 = -(INFINITE_VAL)
         else:
             m12 = i_scale * (i2 - i1) / (v2 - v1)
         if v3 == v2:
-            m23 = INFINITE_VAL
+            if i2 > i1:
+                m23 = INFINITE_VAL
+            else:
+                m23 = -(INFINITE_VAL)
         else:
             m23 = i_scale * (i3 - i2) / (v3 - v2)
         rot_degrees = (math.degrees(math.atan(m12)) -
@@ -2442,15 +2735,155 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         return rot_degrees
 
     # -------------------------------------------------------------------------
-    def convert_adc_values(self):
+    def create_new_isc_point(self, adc_pairs, replace=True):
+        """Method to replace the Isc point with a new "better" one or to
+           generate a new one without removing any of the current
+           points.  The algorithm starts by analyzing the ADC values
+           looking for where the curve begins to deflect downward.  It
+           then uses the points before that to determine where the curve
+           should intersect with the vertical axis.  If replace=True,
+           the first existing point is not used by the algorithm since
+           it will be replaced by the new value.  If replace=False, the
+           first point is used by the algorithm since the new point will
+           precede it.
+        """
+        # First determine where the curve begins to deflect
+        if replace:
+            deflect_begin = self.find_first_downward_deflection(adc_pairs[1:])
+        else:
+            deflect_begin = self.find_first_downward_deflection(adc_pairs)
+        pt2 = (deflect_begin / 2) + 1
+        max_pt1 = (pt2 / 2) + 1
+        if max_pt1 == pt2:
+            max_pt1 -= 1
+        v2 = float(adc_pairs[pt2][0])
+        i2 = float(adc_pairs[pt2][1])
+        if replace:
+            first_pt1 = 1
+        else:
+            first_pt1 = 0
+        new_isc_ch1_vals = []
+        for pt1_num, pt1_adc_pair in enumerate(adc_pairs[first_pt1:max_pt1+1]):
+            v1 = float(pt1_adc_pair[0])
+            i1 = float(pt1_adc_pair[1])
+            if v1 != v2:
+                m = (i2 - i1)/(v2 - v1)
+            else:
+                if i2 > i1:
+                    m = INFINITE_VAL
+                else:
+                    m = -(INFINITE_VAL)
+            new_isc_ch1_val = i1 - (m * v1)
+            new_isc_ch1_vals.append(new_isc_ch1_val)
+            if pt1_num > first_pt1 + 15:
+                break
+        if len(new_isc_ch1_vals):
+            total_increase = 0
+            total_decrease = 0
+            prev_new_isc_ch1_val = 0
+            for pair_num, new_isc_ch1_val in enumerate(new_isc_ch1_vals):
+                if pair_num > 0:
+                    if new_isc_ch1_val > prev_new_isc_ch1_val:
+                        increase = new_isc_ch1_val - prev_new_isc_ch1_val
+                        total_increase += increase
+                    else:
+                        decrease = prev_new_isc_ch1_val - new_isc_ch1_val
+                        total_decrease += decrease
+                prev_new_isc_ch1_val = new_isc_ch1_val
+            if total_increase > 0 and total_decrease > 0:
+                # Use average if there is a mix of increases and
+                # decreases in the extrapolated Isc values
+                return sum(new_isc_ch1_vals) / float(len(new_isc_ch1_vals))
+            elif total_increase > 0:
+                # If the values are all increasing, then subtract the
+                # average increase from the first value.  This is the
+                # case where the curve is inflecting downward from the
+                # start and continues to do so.
+                avg_increase = total_increase / float(len(new_isc_ch1_vals))
+                return new_isc_ch1_vals[0] - avg_increase
+            else:
+                # If the values are all decreasing, then add the average
+                # decrease to the first value.  This is the case where
+                # the curve is inflecting upward from the start and
+                # continues to do so.
+                avg_decrease = total_decrease / float(len(new_isc_ch1_vals))
+                return new_isc_ch1_vals[0] + avg_decrease
+        else:
+            # Just return the existing Isc value if extrapolation was
+            # not performed (because the first deflection was too close
+            # to the beginning of the curve).
+            return adc_pairs[0][1]
+
+    # -------------------------------------------------------------------------
+    def find_first_downward_deflection(self, adc_pairs):
+        """Method to find the point where the curve starts to deflect downward
+        """
+        # This borrows from the noise reduction algorithm, where the
+        # angle of inflection is determined for a given point by
+        # calculating the angle between it and points several points
+        # away on either side. The start of the downward deflection is
+        # determined to be the first point whose inflection angle is
+        # greater than or equal to 1/15 the maximum inflection angle.
+        num_points = len(adc_pairs)
+        dist = int(num_points / 25.0)
+        if dist < 2:
+            dist = 2
+        retry = 20
+        while retry > 0:
+            retry -= 1
+            lrd_list = []
+            max_long_rot_degrees = -999.0
+            prev_long_rot_degrees = -999.0
+            deflect_begin = 0
+            reduced_rotation_count = 0
+            if dist == 2:
+                retry = -1
+            for point in xrange(dist, num_points - 1 - dist):
+                long_rot_degrees = self.rotation_at_point(adc_pairs,
+                                                          point,
+                                                          dist)
+                if long_rot_degrees < prev_long_rot_degrees:
+                    reduced_rotation_count += 1
+                else:
+                    reduced_rotation_count = 0
+                if (long_rot_degrees > 2.0 and
+                        long_rot_degrees > max_long_rot_degrees):
+                    max_long_rot_degrees = long_rot_degrees
+                    max_long_rot_point = point
+                elif max_long_rot_degrees > 0.0 and reduced_rotation_count > 2:
+                    # If we've captured a max rotation but now we're
+                    # seeing a trend toward a reduced rotation (three
+                    # points in a row), we've passed the first
+                    # deflection, and need to bail out.  This only
+                    # applies to curves that have multiple downward
+                    # deflections.  The purpose is that we never want to
+                    # use the second (or third ..)  deflection.
+                    break
+                lrd_list.append(long_rot_degrees)
+                prev_long_rot_degrees = long_rot_degrees
+            deflect_begin_found = False
+            for point in xrange(max_long_rot_point/2, len(lrd_list) - 1):
+                if lrd_list[point] >= max_long_rot_degrees / 15.0:
+                    deflect_begin = point
+                    if deflect_begin >= 3 * dist or dist == 2:
+                        deflect_begin_found = True
+                        retry = -1
+                    break
+            if not deflect_begin_found:
+                dist -= 1
+        if retry == 0:
+            err_str = ("{} find_first_downward_deflection retried too many "
+                       "times".format(os.path.basename(self.hdd_output_dir)))
+            self.logger.print_and_log(err_str)
+
+        return deflect_begin
+
+    # -------------------------------------------------------------------------
+    def convert_adc_values(self, adc_pairs):
         """Method to convert the ADC values to voltage, current, power,
            and resistance tuples and fill the data_points structure
         """
-
         self.data_points = []
-        adc_pairs = self.adc_pairs
-        if self.correct_adc:
-            adc_pairs = self.adc_pairs_corrected
         for pair_num, adc_pair in enumerate(adc_pairs):
             volts = adc_pair[0] * self.v_mult
             amps = adc_pair[1] * self.i_mult
@@ -2460,49 +2893,47 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             else:
                 ohms = INFINITE_VAL
             self.data_points.append((amps, volts, ohms, watts))
-            output_line = ("V=%.6f, I=%.6f, P=%.6f, R=%.6f" %
-                           (volts, amps, watts, ohms))
+            output_line = ("V={:.6f}, I={:.6f}, P={:.6f}, R={:.6f}"
+                           .format(volts, amps, watts, ohms))
             self.logger.log(output_line)
 
     # -------------------------------------------------------------------------
-    def apply_battery_bias(self):
+    def apply_battery_bias(self, adc_pairs):
         """Method to subtract the battery bias from the data points
         """
-        biased_data_points = []
-
-        for data_point in self.data_points:
-            volts = data_point[VOLTS_INDEX]
-            amps = data_point[AMPS_INDEX]
+        biased_adc_pairs = []
+        for adc_pair in adc_pairs:
+            ch0_adc = adc_pair[0]
+            ch1_adc = adc_pair[1]
+            volts = ch0_adc * self.v_mult
+            amps = ch1_adc * self.i_mult
             biased_volts = volts - (self.v_batt - (amps * self.r_batt))
-            if biased_volts < 0:
+            biased_ch0_adc = biased_volts / self.v_mult
+            if biased_ch0_adc < 0:
                 continue
             else:
-                if amps:
-                    ohms = biased_volts / amps
-                else:
-                    ohms = INFINITE_VAL
-                watts = biased_volts * amps
-                biased_point = (amps, biased_volts, ohms, watts)
-                biased_data_points.append(biased_point)
+                biased_adc_pairs.append((biased_ch0_adc, ch1_adc))
 
-        # Extrapolate new Isc point
-        max_watt_point_number = (
-            self.get_max_watt_point_number(biased_data_points))
-        isc_point = self.extrapolate_isc(biased_data_points,
-                                         max_watt_point_number)
-        self.data_points = [isc_point] + biased_data_points
+        if biased_adc_pairs:
+            # Generate a new Isc point
+            isc_ch1 = self.create_new_isc_point(biased_adc_pairs,
+                                                replace=False)
+            new_point = (0.0, isc_ch1)
+            biased_adc_pairs = [new_point] + biased_adc_pairs
+
+        return biased_adc_pairs
 
     # -------------------------------------------------------------------------
     def log_initial_debug_info(self):
         """Method to write pre-run debug info to the log file"""
 
-        self.logger.log("app_data_dir = " + self.app_data_dir)
-        self.logger.log("log_file_name = " + self.logger.log_file_name)
-        self.logger.log("adc_inc = " + str(self.adc_inc))
-        self.logger.log("vdiv_ratio = " + str(self.vdiv_ratio))
-        self.logger.log("v_mult = " + str(self.v_mult))
-        self.logger.log("amm_op_amp_gain = " + str(self.amm_op_amp_gain))
-        self.logger.log("i_mult = " + str(self.i_mult))
+        self.logger.log("app_data_dir = {}".format(self.app_data_dir))
+        self.logger.log("log_file_name = {}".format(self.logger.log_file_name))
+        self.logger.log("adc_inc = {}".format(self.adc_inc))
+        self.logger.log("vdiv_ratio = {}".format(self.vdiv_ratio))
+        self.logger.log("v_mult = {}".format(self.v_mult))
+        self.logger.log("amm_op_amp_gain = {}".format(self.amm_op_amp_gain))
+        self.logger.log("i_mult = {}".format(self.i_mult))
 
     # -------------------------------------------------------------------------
     def create_hdd_output_dir(self, date_time_str):
@@ -2529,9 +2960,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             f.write("CH0 (voltage), CH1 (current)\n")
             # Write ADC pairs
             for adc_pair in adc_pairs:
-                f.write("%d,%d\n" % (adc_pair[0], adc_pair[1]))
+                csv_str = "{},{}\n".format(adc_pair[0], adc_pair[1])
+                f.write(csv_str)
 
-        self.logger.log("Raw ADC values written to " + filename)
+        self.logger.log("Raw ADC values written to {}".format(filename))
 
     # -------------------------------------------------------------------------
     def read_adc_pairs_from_csv_file(self, filename):
@@ -2545,54 +2977,70 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                     if ii == 0:
                         expected_first_line = "CH0 (voltage), CH1 (current)"
                         if line != expected_first_line:
-                            err_str = ("ERROR: first line of ADC CSV is not " +
-                                       expected_first_line)
+                            err_str = ("ERROR: first line of ADC CSV is not {}"
+                                       .format(expected_first_line))
                             self.ivs2.logger.print_and_log(err_str)
                             return []
                     else:
-                        adc_pair = map(float, line.split(","))
+                        adc_pair = map(int, line.split(","))
                         if len(adc_pair) != 2:
-                            err_str = ("ERROR: CSV line %d is not in "
-                                       "expected CH0, CH1 "
-                                       "format" % (ii + 1))
+                            err_str = ("ERROR: CSV line {} is not in "
+                                       "expected CH0, CH1 format"
+                                       .format(ii + 1))
                             self.ivs2.logger.print_and_log(err_str)
                             return []
                         adc_tuple = (adc_pair[0], adc_pair[1])
                         adc_pairs.append(adc_tuple)
         except (IOError):
-            print "Cannot open " + filename
+            print "Cannot open {}".format(filename)
             return []
 
         return adc_pairs
 
     # -------------------------------------------------------------------------
-    def get_adc_offsets(self):
-        """Method to determine the "zero" value of the ADC for each
-        channel
+    def get_adc_offsets(self, adc_pairs):
+        """Method to determine the minimum value of the ADC for each channel.
+           This previously was treated as the "zero" value for the
+           channel, and all other values were modified to subtract this
+           value.  Now this is thought to be the "noise floor" of the
+           channel, which just means that it is the lowest value that
+           the channel can measure, and values above it should not be
+           adjusted.
+
+           Also in this method we check if any of the measured ADC
+           values is the maximum (saturated) value and set a flag if so.
         """
-        # Normally The last (Voc) CH1 value is the offset, or "zero"
-        # value (assumed to apply to both channels since we don't ever
-        # see the "zero" value on CH0). However, occasionally a lower
-        # value shows up, in which case we want to use that.
-        self._adc_ch0_offset = self.adc_pairs[-1][1]
-        self._adc_ch1_offset = self.adc_pairs[-1][1]
-        for adc_pair in self.adc_pairs:
+        # Normally the last (Voc) CH1 value is the offset value (assumed
+        # to apply to both channels since we don't ever see the "zero"
+        # value on CH0). However, occasionally a lower value shows up,
+        # in which case we want to use that.
+        self._adc_ch0_offset = adc_pairs[-1][1]
+        self._adc_ch1_offset = adc_pairs[-1][1]
+        self._voltage_saturated = False
+        self._current_saturated = False
+        for adc_pair in adc_pairs:
             if adc_pair[0] < self._adc_ch0_offset:
                 self._adc_ch0_offset = adc_pair[0]
+            if adc_pair[0] == ADC_MAX:
+                self._voltage_saturated = True
             if adc_pair[1] < self._adc_ch1_offset:
                 self._adc_ch1_offset = adc_pair[1]
+            if adc_pair[1] == ADC_MAX:
+                self._current_saturated = True
 
     # -------------------------------------------------------------------------
-    def adc_sanity_check(self):
+    def adc_sanity_check(self, adc_pairs):
         """Method to do basic sanity checks on the ADC values
         """
+        voc_adc = adc_pairs[-1][0]
+        isc_adc = adc_pairs[0][1]
         # Check for Voc = 0V
-        if self.voc_adc - self._adc_ch0_offset == 0:
+        if voc_adc - self._adc_ch0_offset == 0:
             self.logger.log("Voc is zero volts")
             return RC_ZERO_VOC
 
         # Check for Isc = 0A
-        if self.isc_adc - self._adc_ch1_offset == 0:
+        if isc_adc - self._adc_ch1_offset == 0:
             self.logger.log("Isc is zero amps")
             return RC_ZERO_ISC
 
@@ -2625,8 +3073,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
         # Write info to the log file
         self.logger.log("================== Swing! ==========================")
-        self.logger.log("Loop mode: " + str(loop_mode))
-        self.logger.log("Output directory: " + self.hdd_output_dir)
+        self.logger.log("Loop mode: {}".format(loop_mode))
+        self.logger.log("Output directory: {}".format(self.hdd_output_dir))
 
         # Get the name of the CSV files
         self.get_csv_filenames(self.hdd_output_dir, date_time_str)
@@ -2653,8 +3101,6 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         # Receive ADC data from Arduino and store in adc_pairs property
         # (list of tuples)
         rc = self.receive_data_from_arduino()
-        if rc != RC_SUCCESS:
-            return rc
 
         # Write ADC pairs to CSV file
         self.write_adc_pairs_to_csv_file(self.hdd_adc_pairs_csv_filename,
@@ -2665,6 +3111,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             unfiltered_adc_csv = self.hdd_unfiltered_adc_pairs_csv_filename
             self.write_adc_pairs_to_csv_file(unfiltered_adc_csv,
                                              self.unfiltered_adc_pairs)
+
+        # Return if receive_data_from_arduino() failed
+        if rc != RC_SUCCESS:
+            return rc
 
         # Process ADC values
         rc = self.process_adc_values()
@@ -2769,8 +3219,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 expected_v = v_batt - (amps * r_batt)
                 power_err = (volts * amps - expected_v * amps)
                 power_err_sum += power_err
-            log_str = "r_batt:%.6f  total power error:%.6f" % (r_batt,
-                                                               power_err_sum)
+            log_str = ("r_batt:{:.6f}  total power error:{:.6f}"
+                       .format(r_batt, power_err_sum))
             self.logger.log(log_str)
             if abs(power_err_sum) < abs(min_power_err_sum):
                 best_r_batt = r_batt
@@ -2784,10 +3234,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         points) and set the corresponding instance variables.
         """
         # Create the leaf file names
-        adc_pairs_csv_leaf_name = "adc_pairs_" + date_time_str + ".csv"
-        unfiltered_adc_pairs_csv_leaf_name = ("unfiltered_adc_pairs_" +
-                                              date_time_str + ".csv")
-        csv_data_pt_leaf_name = self.file_prefix + date_time_str + ".csv"
+        adc_pairs_csv_leaf_name = "adc_pairs_{}.csv".format(date_time_str)
+        unfiltered_adc_pairs_csv_leaf_name = ("unfiltered_adc_pairs_{}.csv"
+                                              .format(date_time_str))
+        csv_data_pt_leaf_name = ("{}{}.csv".format(self.file_prefix,
+                                                   date_time_str))
 
         # Get the full-path names of the HDD output files
         unfiltered_adc_csv = os.path.join(dir,
@@ -2800,43 +3251,34 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     # -------------------------------------------------------------------------
     def process_adc_values(self):
-        """Method to process the ADC values from the Arduino, i.e. write
-        them to a CSV file, determine the offset values, perform sanity
-        checks, convert the values to volts, amps, watts, and ohms; and
-        write those values to a CSV file
+        """Method to process the ADC values from the Arduino, i.e. determine
+           the offset values, perform sanity checks, apply
+           corrections, and convert the values to volts, amps, watts,
+           and ohms; and write those values to a CSV file
         """
         # Determine ADC offset values
-        self.get_adc_offsets()
+        self.get_adc_offsets(self.adc_pairs)
 
         # Sanity check ADC values
-        rc = self.adc_sanity_check()
+        rc = self.adc_sanity_check(self.adc_pairs)
         if rc != RC_SUCCESS:
             return rc
 
-        # Remove point 0 (the Isc point which was extrapolated by the
-        # Arduino code) if the next point's CH0 value is more than
-        # MIN_PT1_TO_VOC_RATIO_FOR_ISC of the Voc CH0 value.  We have to
-        # check that point 0's voltage is zero before doing this, since
-        # this method can be called again after this has already been
-        # done, and we don't want to remove any points other than the
-        # one with V=0.
-        pt0_ch0 = self.adc_pairs[0][0]
-        if pt0_ch0 <= self._adc_ch0_offset:
-            pt1_ch0 = float(self.adc_pairs[1][0])
-            voc_ch0 = float(self.adc_pairs[-1][0])
-            if (pt1_ch0 / voc_ch0) > MIN_PT1_TO_VOC_RATIO_FOR_ISC:
-                del self.adc_pairs[0]
-
-        # Correct the ADC values to compensate for offset etc.
+        # Correct the ADC values to reduce noise, etc.
         if self.correct_adc:
-            self.correct_adc_values()
-
-        # Convert the ADC values to volts, amps, watts, and ohms
-        self.convert_adc_values()
+            self.adc_pairs_corrected = self.correct_adc_values(self.adc_pairs)
+        else:
+            self.adc_pairs_corrected = self.adc_pairs
 
         # Apply battery bias, if enabled
         if self.battery_bias:
-            self.apply_battery_bias()
+            adc_pairs = self.adc_pairs_corrected
+            self.adc_pairs_corrected = self.apply_battery_bias(adc_pairs)
+            if not self.adc_pairs_corrected:
+                return RC_NO_POINTS
+
+        # Convert the ADC values to volts, amps, watts, and ohms
+        self.convert_adc_values(self.adc_pairs_corrected)
 
         # Write CSV file
         self.write_csv_data_points_to_file(self.hdd_csv_data_point_filename,
@@ -2859,6 +3301,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self.ivp.font_scale = self.font_scale
         self.ivp.line_scale = self.line_scale
         self.ivp.point_scale = self.point_scale
+        if self._voltage_saturated:
+            self.ivp.v_sat = self.v_sat
+        if self._current_saturated:
+            self.ivp.i_sat = self.i_sat
         if self.plot_lock_axis_ranges:
             self.ivp.max_x = self.plot_max_x
             self.ivp.max_y = self.plot_max_y
@@ -2879,11 +3325,66 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             os.makedirs(self.logs_dir)
 
         # Create the logger
+        leaf_name = "log_{}.txt".format(date_time_str)
         IV_Swinger.PrintAndLog.log_file_name = os.path.join(self.logs_dir,
-                                                            ("log_" +
-                                                             date_time_str +
-                                                             ".txt"))
+                                                            leaf_name)
         self.logger = PrintAndLog()
+
+    # -------------------------------------------------------------------------
+    def clean_up_after_failure(self, dir):
+        """Method to remove the run directory after a failed run if it contains
+           fewer than two files (which would be the ADC CSV file and
+           the data points CSV file)
+        """
+        files = glob.glob("{}/*".format(dir))
+        if len(files) < 2:
+            for f in files:
+                self.clean_up_file(f)
+            if dir == os.getcwd():
+                os.chdir("..")
+            os.rmdir(dir)
+            msg_str = "Removed {}".format(dir)
+            self.logger.log(msg_str)
+
+    # -------------------------------------------------------------------------
+    def clean_up_files(self, dir, loop_mode=False,
+                       loop_save_results=False,
+                       loop_save_graphs=False):
+        # Return without doing anything if directory doesn't exist
+        if not os.path.exists(dir):
+            return
+
+        # Always remove the plt_ file(s)
+        plt_files = glob.glob("{}/plt_*".format(dir))
+        for f in plt_files:
+            self.clean_up_file(f)
+
+        # Always remove the PNG file(s)
+        png_files = glob.glob("{}/*.png".format(dir))
+        for f in png_files:
+            self.clean_up_file(f)
+
+        # Selectively remove other files in loop mode
+        if loop_mode:
+            if not loop_save_results:
+                # Remove all files in loop directory
+                loop_files = glob.glob("{}/*".format(dir))
+                for f in loop_files:
+                    self.clean_up_file(f)
+                # Remove the (now empty) directory
+                if dir == os.getcwd():
+                    os.chdir("..")
+                os.rmdir(dir)
+
+            elif not loop_save_graphs:
+                # Remove GIF only
+                self.clean_up_file(self.current_img)
+
+    # -------------------------------------------------------------------------
+    def clean_up_file(self, f):
+            os.remove(f)
+            msg_str = "Removed {}".format(f)
+            self.logger.log(msg_str)
 
 
 ############
@@ -2909,31 +3410,66 @@ def main():
     config.get()
     config.get_snapshot()
 
+    # Override IVS2 properties / config options
+    ivs2.isc_stable_adc = 120
+    config.cfg_set("Arduino", "isc stable adc", ivs2.isc_stable_adc)
+
     # Log the initial debug stuff
     ivs2.log_initial_debug_info()
 
     # Swing the curve
-    ivs2.swing_iv_curve()
+    rc = ivs2.swing_iv_curve()
 
-    # Update the config
-    config.populate()
-    config.add_axes_and_title()
+    if rc == RC_SUCCESS:
+        # Update the config
+        config.populate()
+        config.add_axes_and_title()
 
-    # Save the config and copy it to the output directory
-    config.save(ivs2.hdd_output_dir)
+        # Save the config and copy it to the output directory
+        config.save(ivs2.hdd_output_dir)
 
-    # Restore the master config file from the snapshot
-    config.save_snapshot()  # restore original
+        # Restore the master config file from the snapshot
+        config.save_snapshot()  # restore original
 
-    # Print message and close the log file
-    ivs2.logger.print_and_log("  Results in: " + ivs2.hdd_output_dir)
-    ivs2.logger.terminate_log()
+        # Print message and close the log file
+        msg_str = "  Results in: {}".format(ivs2.hdd_output_dir)
+        ivs2.logger.print_and_log(msg_str)
+        ivs2.logger.terminate_log()
 
-    # Open the PDF
-    if os.path.exists(ivs2.pdf_filename):
-        sys_view_file(ivs2.pdf_filename)
+        # Open the PDF
+        if os.path.exists(ivs2.pdf_filename):
+            sys_view_file(ivs2.pdf_filename)
+
+        # Clean up files
+        ivs2.clean_up_files(ivs2.hdd_output_dir)
+    else:
+        # Log error
+        fail_str = "swing_iv_curve() FAILED: "
+        if rc == RC_BAUD_MISMATCH:
+            ivs2.logger.print_and_log("{}{}".format(fail_str,
+                                                    "baud mismatch"))
+        if rc == RC_TIMEOUT:
+            ivs2.logger.print_and_log("{}{}".format(fail_str,
+                                                    "message timeout"))
+        if rc == RC_SERIAL_EXCEPTION:
+            ivs2.logger.print_and_log("{}{}".format(fail_str,
+                                                    "serial exception"))
+        if rc == RC_ZERO_VOC:
+            ivs2.logger.print_and_log("{}{}".format(fail_str,
+                                                    "Voc is 0 volts"))
+        if rc == RC_ZERO_ISC:
+            ivs2.logger.print_and_log("{}{}".format(fail_str,
+                                                    "Isc is 0 amps"))
+        if rc == RC_ISC_TIMEOUT:
+            ivs2.logger.print_and_log("{}{}".format(fail_str,
+                                                    "Isc stable timeout"))
+        if rc == RC_NO_POINTS:
+            ivs2.logger.print_and_log("{}{}".format(fail_str,
+                                                    "no points"))
+        # Clean up
+        ivs2.clean_up_after_failure(ivs2.hdd_output_dir)
 
 
 # Boilerplate main() call
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

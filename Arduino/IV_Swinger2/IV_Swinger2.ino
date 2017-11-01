@@ -119,7 +119,7 @@
 #define _impl_CASSERT_LINE(predicate, line) \
     typedef char _impl_PASTE(assertion_failed_on_line_,line)[2*!!(predicate)-1];
 
-#define VERSION "1.2.0"        // Version of this Arduino sketch
+#define VERSION "1.3.0"        // Version of this Arduino sketch
 #define FALSE 0                // Boolean false value
 #define TRUE 1                 // Boolean true value
 #define MAX_UINT (1<<16)-1     // Max unsigned integer
@@ -143,10 +143,11 @@
 #define MAX_IV_MEAS 1000000    // Max number of I/V measurements (inc discards)
 #define CH1_1ST_WEIGHT 5       // Amount to weigh 1st CH1 value in avg calc
 #define CH1_2ND_WEIGHT 3       // Amount to weigh 2nd CH1 value in avg calc
-#define MIN_ISC_ADC 10         // Minimum ADC count for Isc
+#define MIN_ISC_ADC 100        // Minimum ADC count for Isc
 #define MAX_ISC_POLL 5000      // Max loops to wait for Isc to stabilize
 #define ISC_STABLE_ADC 5       // Stable Isc changes less than this
 #define MAX_DISCARDS 300       // Maximum consecutive discarded points
+#define MIN_VOC_ADC 10         // Minimum value for Voc ADC value
 #define ASPECT_HEIGHT 2        // Height of graph's aspect ratio (max 8)
 #define ASPECT_WIDTH 3         // Width of graph's aspect ratio (max 8)
 #define TOTAL_WEIGHT (CH1_1ST_WEIGHT + CH1_2ND_WEIGHT)
@@ -190,7 +191,8 @@ void setup()
   Serial.print(F("IV Swinger2 sketch version "));
   Serial.println(F(VERSION));
 
-  // Tell host that we're ready, and wait for acknowledgement
+  // Tell host that we're ready, and wait for config messages and
+  // acknowledgement
   host_ready = FALSE;
   while (!host_ready) {
     Serial.println(F("Ready"));
@@ -214,21 +216,23 @@ void loop()
   boolean poll_timeout = FALSE;
   char incoming_msg[MAX_MSG_LEN];
   int ii;
-  int adc_ch0_delta, adc_ch1_delta;
+  int adc_ch0_delta, adc_ch1_delta, adc_ch1_prev_delta;
   int manhattan_distance, min_manhattan_distance;
   int pt_num = 1;   // counts points actually recorded
   int isc_poll_loops = 0;
   int num_discarded_pts = 0;
   int i_scale, v_scale;
   int adc_ch0_vals[MAX_IV_POINTS], adc_ch1_vals[MAX_IV_POINTS];
-  int isc_adc, voc_adc, adc_offset;
+  int isc_adc, voc_adc;
+  int adc_noise_floor, min_adc_noise_floor, max_adc_noise_floor;
+  int done_ch1_adc;
   int adc_ch0_val_prev_prev, adc_ch0_val_prev, adc_ch0_val;
   int adc_ch1_val_prev_prev, adc_ch1_val_prev, adc_ch1_val;
   unsigned long num_meas = 1; // counts IV measurements taken
   long start_usecs, elapsed_usecs;
   float usecs_per_iv_pair;
 #ifdef CAPTURE_UNFILTERED
-#define MAX_UNFILTERED_POINTS 100
+#define MAX_UNFILTERED_POINTS (400 - MAX_IV_POINTS)
   boolean capture_unfiltered = FALSE;
   int unfiltered_index = 0;
   int unfiltered_adc_ch0_vals[MAX_UNFILTERED_POINTS];
@@ -244,25 +248,62 @@ void loop()
     }
   }
 
-  // Get Voc ADC value
+  // Get Voc ADC value and CH1 ADC noise floor
   voc_adc = 0;
-  for (ii = 0; ii < 20; ii++) {
+  adc_noise_floor = ADC_MAX;
+  min_adc_noise_floor = ADC_MAX;
+  max_adc_noise_floor = 0;
+  for (ii = 0; ii < 400; ii++) {
     adc_ch0_val = read_adc(VOLTAGE_CH);  // Read CH0 (voltage)
+    adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
+    // The Voc ADC value is the highest CH0 value seen
     if (adc_ch0_val > voc_adc) {
       voc_adc = adc_ch0_val;
     }
-  }
-
-  // Get "zero" level for current channel (CH1). This is presumed to be
-  // the same for both channels since we can't measure it for CH0.
-  adc_offset = ADC_MAX;
-  for (ii = 0; ii < 20; ii++) {
-    adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
-    if (adc_ch1_val < adc_offset) {
-      adc_offset = adc_ch1_val;
+    // The ADC noise floor is the value read from the ADC when it
+    // "should" be zero.  At this point, we know that the actual current
+    // is zero because the circuit is open, so whatever value is read on
+    // CH1 is the noise floor value.  IVS2 implementations that are
+    // targeted for low power PV cells need a very high gain
+    // amplification of the voltage across the shunt resistor, which
+    // results in a very high noise floor that has been observed to
+    // cycle up and down.  Here we identify the top and bottom values of
+    // that cycling.
+    if (adc_ch1_val < min_adc_noise_floor) {
+      min_adc_noise_floor = adc_ch1_val;
+    }
+    if (adc_ch1_val > max_adc_noise_floor) {
+      max_adc_noise_floor = adc_ch1_val;
     }
   }
-  min_isc_adc += adc_offset; // Increase minimum Isc ADC value by offset
+  if (max_adc_noise_floor - min_adc_noise_floor > 10) {
+    // If the noise floor is cycling by more than 10 ADC units, we
+    // attempt to catch it at a point that is near the bottom
+    for (ii = 0; ii < 400; ii++) {
+      adc_ch0_val = read_adc(VOLTAGE_CH);  // Read CH0 (voltage)
+      adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
+#ifdef CAPTURE_UNFILTERED
+      if (unfiltered_index < MAX_UNFILTERED_POINTS) {
+        unfiltered_adc_ch1_vals[unfiltered_index] = adc_ch1_val;
+        unfiltered_adc_ch0_vals[unfiltered_index++] = adc_ch0_val;
+      }
+#endif
+      if (adc_ch1_val <= min_adc_noise_floor + 5) {
+        break;
+      }
+    }
+  }
+  adc_noise_floor = min_adc_noise_floor;
+  // Increase minimum Isc ADC value by noise floor
+  min_isc_adc += adc_noise_floor;
+
+  // Determine the CH1 ADC value that indicates the curve has reached
+  // its tail.  This value is twice the noise floor value, or 20;
+  // whichever is greater.
+  done_ch1_adc = adc_noise_floor << 1;
+  if (done_ch1_adc < 20) {
+    done_ch1_adc = 20;
+  }
 
   // Activate relay
   digitalWrite(RELAY_PIN, RELAY_ACTIVE);
@@ -270,12 +311,21 @@ void loop()
   // Wait until three consecutive measurements:
   //   - have current greater than min_isc_adc
   //   - have increasing or equal voltage
+  //   - have decreasing or equal voltage
   //   - have a current difference less than or equal to isc_stable_adc
   adc_ch0_val_prev_prev = ADC_MAX;
   adc_ch0_val_prev = ADC_MAX;
   adc_ch1_val_prev_prev = 0;
   adc_ch1_val_prev = 0;
-  poll_timeout = TRUE;
+  if (voc_adc < MIN_VOC_ADC) {
+    // If the Voc ADC value is lower than MIN_VOC_ADC we assume that it
+    // is actually zero (not connected) and we force it to zero and skip
+    // the Isc polling
+    max_isc_poll = 0;
+    voc_adc = 0;
+  } else {
+    poll_timeout = TRUE;
+  }
   for (ii = 0; ii < max_isc_poll; ii++) {
     adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
     adc_ch0_val = read_adc(VOLTAGE_CH);  // Read CH0 (voltage)
@@ -287,16 +337,24 @@ void loop()
       capture_unfiltered = TRUE;
     }
 #endif
+    isc_poll_loops = ii + 1;
     // Nested ifs should be faster than &&
     if (adc_ch1_val > min_isc_adc) {
+      // Current is greater than min_isc_adc
       if (adc_ch0_val >= adc_ch0_val_prev) {
         if (adc_ch0_val_prev >= adc_ch0_val_prev_prev) {
-          if (abs(adc_ch1_val_prev - adc_ch1_val) <= isc_stable_adc) {
-            if (abs(adc_ch1_val_prev_prev -
-                    adc_ch1_val_prev) <= isc_stable_adc) {
-              poll_timeout = FALSE;
-              isc_poll_loops = ii + 1;
-              break;
+          // Voltage is increasing or equal
+          if ((adc_ch1_val <= adc_ch1_val_prev) ||
+              (adc_ch1_val_prev <= adc_ch1_val_prev_prev)) {
+            // Current is decreasing or equal
+            if (abs(adc_ch1_val_prev - adc_ch1_val) <= isc_stable_adc) {
+              if (abs(adc_ch1_val_prev_prev -
+                      adc_ch1_val_prev) <= isc_stable_adc) {
+                // Current differences are less than or equal to
+                // isc_stable_adc
+                poll_timeout = FALSE;
+                break;
+              }
             }
           }
         }
@@ -377,18 +435,25 @@ void loop()
                                 adc_ch1_val * CH1_2ND_WEIGHT +
                                 AVG_WEIGHT) / TOTAL_WEIGHT;
     }
-    adc_ch1_val_prev = adc_ch1_val;
     //--------------------- CH0: voltage -----------------
     adc_ch0_vals[pt_num] = adc_ch0_val;
-    adc_ch0_val_prev = adc_ch0_val;
     //------------------------ Deltas  -------------------
     adc_ch0_delta = adc_ch0_val - adc_ch0_vals[pt_num-1];
+    adc_ch0_val_prev = adc_ch0_val;
     adc_ch1_delta = adc_ch1_vals[pt_num-1] - adc_ch1_val;
+    adc_ch1_prev_delta = adc_ch1_val_prev - adc_ch1_val;
+    adc_ch1_val_prev = adc_ch1_val;
     //---------------------- Done check  -----------------
     // Check if we've reached the tail of the curve.
-    if (adc_ch1_val < (adc_offset << 2)) {
-      // Current is very close to zero (less than 4x the offset value),
-      // so we're done.
+    if (adc_ch1_val < done_ch1_adc) {
+      // Current is very close to zero so we're PROBABLY done
+      if (adc_ch1_prev_delta < 3) {
+        // But only if the current delta is very small
+        break;
+      }
+    }
+    // We're also done if Isc polling timed out
+    if (poll_timeout) {
       break;
     }
     //--------------- Voltage decrease check -------------
@@ -446,9 +511,11 @@ void loop()
 
   // Report results on serial port
   //
+  // CH1 ADC noise floor
+  Serial.print(F("CH1 ADC noise floor:"));
+  Serial.println(adc_noise_floor);
   // Isc point
-  Serial.print(F("Isc CH0:"));
-  Serial.print(adc_offset);
+  Serial.print(F("Isc CH0:0"));
   Serial.print(F(" CH1:"));
   Serial.println(isc_adc);
   // Middle points
@@ -463,7 +530,7 @@ void loop()
   Serial.print(F("Voc CH0:"));
   Serial.print(voc_adc);
   Serial.print(F(" CH1:"));
-  Serial.println(adc_offset);
+  Serial.println(adc_noise_floor);
 #ifdef CAPTURE_UNFILTERED
   for (ii = 0; ii < unfiltered_index; ii++) {
     Serial.print(ii);

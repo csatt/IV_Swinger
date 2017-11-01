@@ -184,9 +184,9 @@ class CommandLineProcessor(object):
         if self._args is None:
             # Parse command line args
             parser = argparse.ArgumentParser()
-            parser.add_argument("-p", "--plot_power", action='store_true',
+            parser.add_argument("-p", "--plot_power", action="store_true",
                                 help="Plot power with IV curve")
-            parser.add_argument("-o", "--overlay", action='store_true',
+            parser.add_argument("-o", "--overlay", action="store_true",
                                 help=("Plot all IV curves on a single graph: "
                                       "overlaid<.pdf|.gif|.png>"))
             parser.add_argument("-t", "--title", type=str,
@@ -221,42 +221,42 @@ class CommandLineProcessor(object):
             parser.add_argument("-ls", "--line_scale", type=float, default=1.0,
                                 help=("Scale plot line by specified "
                                       "amount (no scaling = 1.0)"))
-            parser.add_argument("-n", "--name", type=str, action='append',
+            parser.add_argument("-n", "--name", type=str, action="append",
                                 help=("Curve name(s) - can be used multiple "
                                       "times with --overlay"))
             parser.add_argument("-on", "--overlay_name", type=str,
                                 default="overlaid",
                                 help=("Name (without extension) for overlay "
                                       "file"))
-            parser.add_argument("-g", "--gif", action='store_true',
+            parser.add_argument("-g", "--gif", action="store_true",
                                 help="Generate GIF(s) instead of PDF(s)")
-            parser.add_argument("-pn", "--png", action='store_true',
+            parser.add_argument("-pn", "--png", action="store_true",
                                 help="Generate PNG(s) instead of PDF(s)")
-            parser.add_argument("-li", "--label_all_iscs", action='store_true',
+            parser.add_argument("-li", "--label_all_iscs", action="store_true",
                                 help="Label all Isc points (with --overlay)")
-            parser.add_argument("-lv", "--label_all_vocs", action='store_true',
+            parser.add_argument("-lv", "--label_all_vocs", action="store_true",
                                 help="Label all Voc points (with --overlay)")
-            parser.add_argument("-lm", "--label_all_mpps", action='store_true',
+            parser.add_argument("-lm", "--label_all_mpps", action="store_true",
                                 help="Label all MPPs (with --overlay)")
-            parser.add_argument("-mw", "--mpp_watts_only", action='store_true',
+            parser.add_argument("-mw", "--mpp_watts_only", action="store_true",
                                 help="Label MPP(s) with watts only")
-            parser.add_argument("-fl", "--fancy_labels", action='store_true',
+            parser.add_argument("-fl", "--fancy_labels", action="store_true",
                                 help=("Label Isc, Voc and MPP with "
                                       "fancy labels"))
-            parser.add_argument("-l", "--linear", action='store_true',
+            parser.add_argument("-l", "--linear", action="store_true",
                                 help="Use linear interpolation")
-            parser.add_argument("--use_gnuplot", action='store_true',
+            parser.add_argument("--use_gnuplot", action="store_true",
                                 help=("Use gnuplot instead of pyplot. Not "
                                       "recommended since many of the other "
                                       "options are not supported with "
                                       "gnuplot"))
-            parser.add_argument("--interactive", action='store_true',
+            parser.add_argument("--interactive", action="store_true",
                                 help=("View output in interactive mode"))
-            parser.add_argument("--recalc_isc", action='store_true',
+            parser.add_argument("--recalc_isc", action="store_true",
                                 help=("Recalculate Isc using the overridden "
                                       "extrapolate_isc method"))
-            parser.add_argument("csv_files_or_dirs", metavar='CSV file or dir',
-                                type=str, nargs='+')
+            parser.add_argument("csv_files_or_dirs", metavar="CSV file or dir",
+                                type=str, nargs="+")
 
             self._args = parser.parse_args()
 
@@ -277,7 +277,8 @@ class CommandLineProcessor(object):
                             self._csv_files.append(full_path_filename)
                         break
                 else:
-                    print "ERROR: %s is neither a file nor a directory" % arg
+                    print ("ERROR: {} is neither a file nor a directory"
+                           .format(arg))
                     exit(-1)
 
         return self._csv_files
@@ -305,17 +306,17 @@ class CsvParser(object):
                         if ii == 0:
                             expected_first_line = "Volts, Amps, Watts, Ohms"
                             if line != expected_first_line:
-                                err_str = ("ERROR: first line of CSV is not " +
-                                           expected_first_line)
+                                err_str = ("ERROR: first line of CSV is not {}"
+                                           .format(expected_first_line))
                                 PrintAndOrLog.print_and_log_msg(self.logger,
                                                                 err_str)
                                 exit(-1)
                         else:
                             vipr_list = map(float, line.split(","))
                             if len(vipr_list) != 4:
-                                err_str = ("ERROR: CSV line %d is not in "
+                                err_str = ("ERROR: CSV line {} is not in "
                                            "expected V,I,P,R "
-                                           "format" % (ii + 1))
+                                           "format".format(ii + 1))
                                 PrintAndOrLog.print_and_log_msg(self.logger,
                                                                 err_str)
                                 exit(-1)
@@ -324,7 +325,7 @@ class CsvParser(object):
                                           vipr_list[3], vipr_list[2])
                             self._data_points.append(ivrp_tuple)
             except (IOError):
-                print "Cannot open " + self.csv_filename
+                print "Cannot open {}".format(self.csv_filename)
                 exit(-1)
 
         return self._data_points
@@ -415,7 +416,7 @@ class IV_Swinger_extended(IV_Swinger.IV_Swinger):
                                    csv_proc.plt_mpp_amps,
                                    csv_proc.plt_mpp_volts,
                                    self.use_spline_interpolation)
-            msg_str = "Generated: " + self.plt_img_filename
+            msg_str = "Generated: {}".format(self.plt_img_filename)
             PrintAndOrLog.print_or_log_msg(self.logger, msg_str)
 
         else:
@@ -437,7 +438,7 @@ class IV_Swinger_extended(IV_Swinger.IV_Swinger):
                                        [mpp_amps],
                                        [mpp_volts],
                                        self.use_spline_interpolation)
-                msg_str = "Generated: " + self.plt_img_filename
+                msg_str = "Generated: {}".format(self.plt_img_filename)
                 PrintAndOrLog.print_or_log_msg(self.logger, msg_str)
 
 
@@ -472,7 +473,7 @@ class CsvFileProcessor(object):
     def proc_one_csv_file(self, csv_filename):
         """Method to process a single CSV file"""
 
-        msg_str = "Processing: " + csv_filename
+        msg_str = "Processing: {}".format(csv_filename)
         self.print_or_log_msg(msg_str)
 
         # Create a CSV parser object and get the data points
@@ -494,16 +495,17 @@ class CsvFileProcessor(object):
             data_points[0] = ivse.extrapolate_isc(data_points,
                                                   max_watt_point_number)
 
-        # Extract the Isc and Voc values
-        if data_points[0][IV_Swinger.VOLTS_INDEX] == 0.0:
-            # Normal case
-            isc_amps = data_points[0][IV_Swinger.AMPS_INDEX]
-        else:
+        # Extract the Isc value
+        isc_amps = data_points[0][IV_Swinger.AMPS_INDEX]
+        if data_points[0][IV_Swinger.VOLTS_INDEX] > 0.0:
             # If the first data point does not have a voltage of zero,
-            # we don't know the Isc. Setting isc_amps to a negative
-            # number has the effect of not plotting the Isc point since
-            # the Y range starts at 0.
-            isc_amps = -1.0
+            # we don't know the Isc. Negating isc_amps has the effect of
+            # not plotting the Isc point since the Y range starts at 0.
+            # But its magnitude is maintained so the set_y_range method
+            # can determine the appropriate max_y value.
+            isc_amps = 0.0 - isc_amps
+
+        # Extract the Voc value
         voc_volts = data_points[-1][IV_Swinger.VOLTS_INDEX]
 
         # Create an Interpolator object and call the appropriate
@@ -523,7 +525,7 @@ class CsvFileProcessor(object):
         # Write the original and interpolated data points to the plotter
         # data file
         fn_wo_suffix = os.path.splitext(os.path.basename(csv_filename))[0]
-        plt_data_point_filename = ("plt_" + fn_wo_suffix)
+        plt_data_point_filename = ("plt_{}".format(fn_wo_suffix))
         if os.path.isfile(plt_data_point_filename):
             os.remove(plt_data_point_filename)
         ivse.write_plt_data_points_to_file(plt_data_point_filename,
@@ -645,9 +647,8 @@ class IV_Swinger_plotter(object):
         """
         if ivs_extended.names is not None:
             assert len(ivs_extended.names) == len(csv_files), \
-                ("ERROR: " + str(len(ivs_extended.names)) +
-                 " names specified for " + str(len(csv_files)) +
-                 " curves")
+                ("ERROR: {} names specified for {} curves"
+                 .format(len(ivs_extended.names), len(csv_files)))
 
     def run(self):
         """Main method to run the IV Swinger plotter"""
@@ -682,5 +683,5 @@ def main():
 
 
 # Boilerplate main() call
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

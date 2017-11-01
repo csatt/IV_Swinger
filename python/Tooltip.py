@@ -81,7 +81,7 @@ class Tooltip:
 
     def show(self):
         def tip_pos_calculator(widget, label,
-                               tip_delta=(10, 5), pad=(5, 3, 5, 3)):
+                               tip_delta=(70, 5), pad=(5, 3, 5, 3)):
 
             w = widget
 
@@ -158,7 +158,7 @@ class Tooltip:
 
         x, y = tip_pos_calculator(widget, label)
 
-        self.tw.wm_geometry("+%d+%d" % (x, y))
+        self.tw.wm_geometry("+{}+{}".format(x, y))
 
     def hide(self):
         tw = self.tw
