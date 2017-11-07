@@ -260,7 +260,6 @@ class GraphicalUserInterface(ttk.Frame):
         self.start_to_right()
         self.set_style()
         self.create_menu_bar()
-        self.menu_bar.disable_calibration()
         self.create_widgets()
         self.ivs2.log_initial_debug_info()
 
@@ -856,6 +855,7 @@ class GraphicalUserInterface(ttk.Frame):
                                lambda: self.clear_go_button_status_label())
                     self.check_arduino_sketch_version()
                     self.update_config_after_arduino_handshake()
+                    self.menu_bar.enable_resistor_calibration()
                     return
 
         # If any of the above failed, try again in 1 second
@@ -1124,7 +1124,6 @@ class GraphicalUserInterface(ttk.Frame):
         # Enable calibration
         if rc == RC_SUCCESS:
             self.menu_bar.enable_calibration()
-            self.menu_bar.enable_resistor_calibration()
             self.menu_bar.enable_bias_calibration()
 
         # Restore button to "unpressed" appearance
@@ -1722,7 +1721,6 @@ class ResultsWizard(tk.Toplevel):
         self.master.results_button.state(["disabled"])
         self.master.go_button.state(["disabled"])
         self.master.menu_bar.disable_calibration()
-        self.master.menu_bar.disable_resistor_calibration()
         self.master.menu_bar.disable_bias_calibration()
 
     # -------------------------------------------------------------------------
@@ -3425,7 +3423,6 @@ class MenuBar(tk.Menu):
         self.create_window_menu()
         self.create_help_menu()
         self.master.root["menu"] = self.menubar
-        self.calibration_disabled = True
 
     # -------------------------------------------------------------------------
     def create_about_menu(self):
@@ -3475,12 +3472,14 @@ class MenuBar(tk.Menu):
                                         command=self.get_battery_bias)
         self.calibrate_menu.add_command(label="Calibration Help",
                                         command=self.show_calibration_help)
+        self.disable_calibration()
 
     # -------------------------------------------------------------------------
     def disable_calibration(self):
         kwargs = {"state": "disabled"}
         self.calibrate_menu.entryconfig("Voltage Calibration", **kwargs)
         self.calibrate_menu.entryconfig("Current Calibration", **kwargs)
+        self.calibrate_menu.entryconfig("Resistors", **kwargs)
         self.calibration_disabled = True
 
     # -------------------------------------------------------------------------
@@ -3488,6 +3487,7 @@ class MenuBar(tk.Menu):
         kwargs = {"state": "normal"}
         self.calibrate_menu.entryconfig("Voltage Calibration", **kwargs)
         self.calibrate_menu.entryconfig("Current Calibration", **kwargs)
+        self.calibrate_menu.entryconfig("Resistors", **kwargs)
         self.calibration_disabled = False
 
     # -------------------------------------------------------------------------
@@ -3935,7 +3935,7 @@ Bias Battery:"""
         help_text_5 = """
   This calibration is used only for the cell version of IV Swinger 2
   which sometimes requires a bias battery in series with the PV cell.
-  More help is available with this option is selected.
+  More help is available when this option is selected.
 """
         font = HELP_DIALOG_FONT
         self.text = ScrolledText(master, height=30, borderwidth=10)
