@@ -119,7 +119,7 @@
 #define _impl_CASSERT_LINE(predicate, line) \
     typedef char _impl_PASTE(assertion_failed_on_line_,line)[2*!!(predicate)-1];
 
-#define VERSION "1.3.0"        // Version of this Arduino sketch
+#define VERSION "1.3.1"        // Version of this Arduino sketch
 #define FALSE 0                // Boolean false value
 #define TRUE 1                 // Boolean true value
 #define MAX_UINT (1<<16)-1     // Max unsigned integer
@@ -214,6 +214,7 @@ void loop()
   boolean go_msg_received;
   boolean update_prev_ch1 = FALSE;
   boolean poll_timeout = FALSE;
+  boolean skip_isc_poll = FALSE;
   char incoming_msg[MAX_MSG_LEN];
   int ii;
   int adc_ch0_delta, adc_ch1_delta, adc_ch1_prev_delta;
@@ -321,12 +322,15 @@ void loop()
     // If the Voc ADC value is lower than MIN_VOC_ADC we assume that it
     // is actually zero (not connected) and we force it to zero and skip
     // the Isc polling
-    max_isc_poll = 0;
+    skip_isc_poll = TRUE;
     voc_adc = 0;
   } else {
+    skip_isc_poll = FALSE;
     poll_timeout = TRUE;
   }
   for (ii = 0; ii < max_isc_poll; ii++) {
+    if (skip_isc_poll)
+      break;
     adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
     adc_ch0_val = read_adc(VOLTAGE_CH);  // Read CH0 (voltage)
 #ifdef CAPTURE_UNFILTERED
