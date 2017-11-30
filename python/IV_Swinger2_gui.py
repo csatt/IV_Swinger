@@ -104,6 +104,7 @@ import Tkinter as tk
 import tkFileDialog
 import tkMessageBox as tkmsg
 import tkSimpleDialog as tksd
+import traceback
 from ScrolledText import ScrolledText as ScrolledText
 from Tkconstants import N, S, E, W, LEFT, HORIZONTAL, Y, BOTH
 from PIL import Image, ImageTk
@@ -264,6 +265,25 @@ class GraphicalUserInterface(ttk.Frame):
         self.ivs2.log_initial_debug_info()
 
     # -------------------------------------------------------------------------
+    def report_callback_exception(self, *args):
+        """Override the parent class's method of the same name. This method is
+           called whenever there is an exception in the code run by the
+           mainloop() - i.e. everything. Without this override, the
+           exception is printed to stderr, but doesn't crash the
+           program. That makes it completely silent when the program is
+           started from an icon. We at least need it to get logged, and
+           also to inform the user.
+        """
+        self.ivs2.logger.print_and_log("Unexpected error: {}"
+                                       .format(sys.exc_info()[0]))
+        self.ivs2.logger.print_and_log(traceback.format_exc())
+        exception_msg = """
+An internal error has occurred.  Please send
+the log file to csatt1@gmail.com.  Thank you!
+"""
+        tkmsg.showerror('Exception', exception_msg)
+
+    # -------------------------------------------------------------------------
     def memory_monitor(self):
         debug_memleak("memory_monitor")
         self.after(1000, lambda: self.memory_monitor())
@@ -331,6 +351,8 @@ class GraphicalUserInterface(ttk.Frame):
 
     # -------------------------------------------------------------------------
     def set_root_options(self):
+        # Override tkinter's report_callback_exception method
+        self.root.report_callback_exception = self.report_callback_exception
         # Disable resizing, at least for now
         self.root.resizable(width=False, height=False)
         # No dotted line in menus
@@ -1047,7 +1069,7 @@ class GraphicalUserInterface(ttk.Frame):
                            "\n\n"
                            "PDF could not be written. If you have it open in "
                            "a viewer, close it BEFORE clicking OK.".format(e))
-                tkmsg.showinfo(message=err_str)
+                tkmsg.showerror(message=err_str)
                 try:
                     func(*args)
                 except IOError as e:
@@ -1056,7 +1078,7 @@ class GraphicalUserInterface(ttk.Frame):
                                    "\n\n"
                                    "PDF still could not be written. "
                                    "It will not be updated.".format(e))
-                        tkmsg.showinfo(message=err_str)
+                        tkmsg.showerror(message=err_str)
 
     # -------------------------------------------------------------------------
     def pdf_permission_denied(self, e):
@@ -1278,7 +1300,7 @@ mismatch. The baud rate is hardcoded in
 the Arduino sketch, and this must match
 the rate specified in Preferences.
 """
-        tkmsg.showinfo(message=baud_mismatch_str)
+        tkmsg.showerror(message=baud_mismatch_str)
 
     # -------------------------------------------------------------------------
     def show_timeout_dialog(self):
@@ -1293,7 +1315,7 @@ Arduino is lit.
 Check that the correct port is selected
 on the "USB Port" menu.
 """
-        tkmsg.showinfo(message=timeout_str)
+        tkmsg.showerror(message=timeout_str)
 
     # -------------------------------------------------------------------------
     def show_serial_exception_dialog(self):
@@ -1308,7 +1330,7 @@ Arduino is lit.
 Check that the correct port is selected
 on the "USB Port" menu.
 """
-        tkmsg.showinfo(message=serial_exception_str)
+        tkmsg.showerror(message=serial_exception_str)
 
     # -------------------------------------------------------------------------
     def show_zero_voc_dialog(self):
@@ -1318,7 +1340,7 @@ ERROR: Voc is zero volts
 Check that the IV Swinger 2 is connected
 properly to the PV module
 """
-        tkmsg.showinfo(message=zero_voc_str)
+        tkmsg.showerror(message=zero_voc_str)
 
     # -------------------------------------------------------------------------
     def show_zero_isc_dialog(self):
@@ -1328,7 +1350,7 @@ ERROR: Isc is zero amps
 Check that the IV Swinger 2 is connected
 properly to the PV module
 """
-        tkmsg.showinfo(message=zero_isc_str)
+        tkmsg.showerror(message=zero_isc_str)
 
     # -------------------------------------------------------------------------
     def show_isc_timeout_dialog(self):
@@ -1339,7 +1361,7 @@ The "Isc stable ADC" value may need to be
 increased to a larger value on the Arduino
 tab of Preferences
 """
-        tkmsg.showinfo(message=isc_timeout_str)
+        tkmsg.showerror(message=isc_timeout_str)
 
     # -------------------------------------------------------------------------
     def show_no_points_dialog(self):
@@ -1349,7 +1371,7 @@ ERROR: No points to display
 This could be a result of selecting "Battery bias" in Preferences when no
 bias was actually applied.
 """
-        tkmsg.showinfo(message=no_points_str)
+        tkmsg.showerror(message=no_points_str)
 
     # -------------------------------------------------------------------------
     def start_on_top(self):
@@ -2007,7 +2029,9 @@ class ResultsWizard(tk.Toplevel):
         # the axes locked to the values from the last result that was
         # browsed. Otherwise unlock the axes.
         if self.master.axes_locked.get() == "Unlock":
+            self.master.props.redisplay_after_axes_unlock = False
             self.master.unlock_axes()
+            self.master.props.redisplay_after_axes_unlock = True
 
     # -------------------------------------------------------------------------
     def select(self, event=None):
@@ -2088,7 +2112,7 @@ class ResultsWizard(tk.Toplevel):
         if not os.path.isdir(run_dir):
             err_str = "ERROR: directory {} does not exist".format(run_dir)
             self.master.ivs2.logger.print_and_log(err_str)
-            tkmsg.showinfo(message=err_str)
+            tkmsg.showerror(message=err_str)
             return None
         return run_dir
 
@@ -2219,7 +2243,7 @@ class ResultsWizard(tk.Toplevel):
         desktop_path = os.path.expanduser(os.path.join("~", "Desktop"))
         if not os.path.exists(desktop_path):
             err_str = "ERROR: {} does not exist".format(desktop_path)
-            tkmsg.showinfo(message=err_str)
+            tkmsg.showerror(message=err_str)
 
         # Define shortcut name
         desktop_shortcut_path = os.path.join(desktop_path, "IV_Swinger2")
@@ -2280,7 +2304,7 @@ class ResultsWizard(tk.Toplevel):
             msg_str = "ERROR: could not create shortcut"
         else:
             msg_str = "ERROR: Programming bug"
-        tkmsg.showinfo(message=msg_str)
+        tkmsg.showerror(message=msg_str)
 
     # -------------------------------------------------------------------------
     def import_results(self, event=None):
@@ -2370,7 +2394,7 @@ class ResultsWizard(tk.Toplevel):
         # Check that it is writeable
         if not os.access(self.copy_dest, os.W_OK | os.X_OK):
             err_str = "ERROR: {} is not writeable".format(self.copy_dest)
-            tkmsg.showinfo(message=err_str)
+            tkmsg.showerror(message=err_str)
             return RC_FAILURE
 
         return RC_SUCCESS
@@ -2387,13 +2411,13 @@ class ResultsWizard(tk.Toplevel):
 
         # Display error dialog and return if nothing is selected
         if not len(selected_runs) and not len(selected_overlays):
-            tkmsg.showinfo(message="ERROR: no runs or overlays are selected")
+            tkmsg.showerror(message="ERROR: no runs or overlays are selected")
             return
 
         # Display error dialog and return if in overlay mode
         if self.master.props.overlay_mode:
             err_msg = "ERROR: cannot perform a delete in overlay mode"
-            tkmsg.showinfo(message=err_msg)
+            tkmsg.showerror(message=err_msg)
             return
 
         all_selected = selected_runs + selected_overlays
@@ -2401,7 +2425,13 @@ class ResultsWizard(tk.Toplevel):
         if self.ok_to_trash(len(selected_runs), len(selected_overlays)):
             # Send selected runs and overlays to trash
             for selected in all_selected:
-                send2trash(selected)
+                try:
+                    send2trash(selected)
+                except OSError:
+                    err_str = ("WARNING: Couldn't send {} to trash"
+                               .format(selected))
+                    self.master.ivs2.logger.print_and_log(err_str)
+
             # Delete them from the treeview
             self.tree.delete(*self.tree.selection())
 
@@ -2434,13 +2464,13 @@ class ResultsWizard(tk.Toplevel):
 
         # Display error dialog and return if nothing is selected
         if not len(selected_runs) and not len(selected_overlays):
-            tkmsg.showinfo(message="ERROR: no runs or overlays are selected")
+            tkmsg.showerror(message="ERROR: no runs or overlays are selected")
             return
 
         # Display error dialog and return if in overlay mode
         if self.master.props.overlay_mode:
             err_msg = "ERROR: cannot perform a copy in overlay mode"
-            tkmsg.showinfo(message=err_msg)
+            tkmsg.showerror(message=err_msg)
             return
 
         # Get destination from user
@@ -2567,7 +2597,7 @@ class ResultsWizard(tk.Toplevel):
                     except (IOError, OSError, shutil.Error) as e:
                         err_str = ("ERROR: removing {} ({})"
                                    .format(dest_dir, e))
-                        tkmsg.showinfo(message=err_str)
+                        tkmsg.showerror(message=err_str)
                         continue
                 else:
                     continue
@@ -2582,7 +2612,7 @@ class ResultsWizard(tk.Toplevel):
             except (IOError, OSError, shutil.Error) as e:
                 err_str = ("ERROR: error copying {} to {}\n({})"
                            .format(src_dir, dest_dir, e))
-                tkmsg.showinfo(message=err_str)
+                tkmsg.showerror(message=err_str)
 
         return num_copied
 
@@ -2611,7 +2641,7 @@ class ResultsWizard(tk.Toplevel):
                    .format(num_copied["overlays"],
                            num_copied["runs"],
                            os.path.join(self.copy_dest, APP_NAME)))
-        tkmsg.showinfo(message=msg_str)
+        tkmsg.showerror(message=msg_str)
 
     # -------------------------------------------------------------------------
     def change_title(self, event=None):
@@ -2629,8 +2659,8 @@ class ResultsWizard(tk.Toplevel):
             selected_overlays = self.get_selected_overlays()
             # Display error dialog and return if any overlays are selected
             if len(selected_overlays):
-                tkmsg.showinfo(message=("ERROR: cannot change title on "
-                                        "completed overlays"))
+                tkmsg.showerror(message=("ERROR: cannot change title on "
+                                         "completed overlays"))
                 return
             sel_runs = self.get_selected_runs(include_whole_days=False)
             if len(sel_runs) == 1:
@@ -2643,11 +2673,11 @@ class ResultsWizard(tk.Toplevel):
             elif len(sel_runs) > 1:
                 err_str = ("ERROR: Title can only be changed on one run "
                            "at a time")
-                tkmsg.showinfo(message=err_str)
+                tkmsg.showerror(message=err_str)
                 return
             else:
                 err_str = ("ERROR: No run selected")
-                tkmsg.showinfo(message=err_str)
+                tkmsg.showerror(message=err_str)
                 return
         new_title = tksd.askstring(title=prompt_title_str,
                                    prompt=prompt_str,
@@ -2690,7 +2720,7 @@ class ResultsWizard(tk.Toplevel):
                 IV_Swinger2.sys_view_file(pdf)
                 return
         err_str = ("ERROR: No PDF to display")
-        tkmsg.showinfo(message=err_str)
+        tkmsg.showerror(message=err_str)
 
     # -------------------------------------------------------------------------
     def plot_graphs_to_pdf(self):
@@ -2710,13 +2740,13 @@ class ResultsWizard(tk.Toplevel):
         # Display error dialog and return if any overlays are selected
         selected_overlays = self.get_selected_overlays()
         if len(selected_overlays):
-            tkmsg.showinfo(message="ERROR: overlays cannot be updated")
+            tkmsg.showerror(message="ERROR: overlays cannot be updated")
             return
 
         # Display error dialog and return if in overlay mode
         if self.master.props.overlay_mode:
             err_msg = "ERROR: cannot perform an update in overlay mode"
-            tkmsg.showinfo(message=err_msg)
+            tkmsg.showerror(message=err_msg)
             return
 
         # Get the selected run(s) from the Treeview (sorted from
@@ -2724,7 +2754,7 @@ class ResultsWizard(tk.Toplevel):
         # runs are selected
         selected_runs = sorted(self.get_selected_runs())
         if not len(selected_runs):
-            tkmsg.showinfo(message="ERROR: no runs are selected")
+            tkmsg.showerror(message="ERROR: no runs are selected")
             return
 
         # Hack: invisible progress bar (length=0). For some reason, this solves
@@ -2803,13 +2833,13 @@ class ResultsWizard(tk.Toplevel):
         if len(self.overlaid_runs) > max_overlays:
             err_str = ("ERROR: Maximum of {} overlays supported ({} requested)"
                        .format(max_overlays, len(self.overlaid_runs)))
-            tkmsg.showinfo(message=err_str)
+            tkmsg.showerror(message=err_str)
             return RC_FAILURE
 
         # Check for none selected
         if not self.master.props.overlay_mode and not len(self.overlaid_runs):
             info_str = ("Select at least one run to begin an overlay")
-            tkmsg.showinfo(message=info_str)
+            tkmsg.showerror(message=info_str)
             return RC_FAILURE
 
         # Enter overlay mode (if not already in it)
@@ -3295,12 +3325,12 @@ class ResultsWizard(tk.Toplevel):
             if not csv_files_found:
                 err_str = ("ERROR: no data point CSV file found in {}"
                            .format(csv_dir))
-                tkmsg.showinfo(message=err_str)
+                tkmsg.showerror(message=err_str)
                 return RC_FAILURE
             elif csv_files_found > 1:
                 err_str = ("ERROR: multiple data point CSV files found in {}"
                            .format(csv_dir))
-                tkmsg.showinfo(message=err_str)
+                tkmsg.showerror(message=err_str)
                 return RC_FAILURE
 
         return RC_SUCCESS
@@ -3632,7 +3662,7 @@ Copyright (C) 2017  Chris Satterlee
 WARNING: Calibration values cannot be stored on the IV Swinger 2 hardware with
 this version of the Arduino software. Please upgrade.
 """
-            tkmsg.showinfo(message=warning_str)
+            tkmsg.showwarning(message=warning_str)
         else:
             self.master.reestablish_arduino_comm(write_eeprom=True)
 
@@ -3897,26 +3927,32 @@ Voltage calibration:"""
         current_heading = """
 Current calibration (a bit trickier):"""
         help_text_3 = """
-  1. Move the red DMM lead to the "A" DMM input and set it to measure DC
+This must be done on a very clear day, preferably near noon - otherwise the Isc
+value fluctuates too much. You need one additional piece of equipment: a
+standard 15A single-pole light switch with a short wire connected to each
+screw.
+
+  1. Connect the red DMM lead to the "A" DMM input and set it to measure DC
      current
   2. Disconnect the PV+ lead from the red (+) IV Swinger 2 binding post
   3. Connect the DMM in series between the PV+ lead and the red (+) IV Swinger
      2 binding post
-  4. Shade the PV module as much as possible (to prevent arcing)
-  5. Short the red (+) IV Swinger 2 binding post to the black (-) binding post
-     using a banana plug shorting bar or short banana plug jumper cable
-  6. Unshade the PV module
-  7. Note the DMM value
-  8. Shade the PV module
-  9. Remove the shorting bar/jumper
- 10. Unshade the PV module
- 11. Swing an IV curve
- 12. Enter the DMM value in the Current Calibration dialog and hit OK
+  4. With the light switch in the OFF position, connect one wire to each
+     binding post
+  5. Swing an IV curve
+  6. Flip the light switch ON - this will short the binding posts to each
+     other
+  7. Note the DMM value - if it is fluctuating by more than a few mA, wait for
+     a better day to calibrate
+  8. Flip the light switch OFF
+  9. Enter the noted DMM value in the Current Calibration dialog and hit OK
 
   The curve will be regenerated with Isc calibrated to this value, and future
-  curves will be generated using the new calibration. Steps 7-11 must be
-  performed quickly and in steady sunlight so that the Isc is not changing
-  between the DMM measurement and the IV swing. Repeat to confirm/adjust.
+  curves will be generated using the new calibration. Repeat steps 5 - 9 to
+  confirm/adjust.
+
+  Note that the light switch will eventually be damaged by this procedure due
+  to arcing (the 15A rating is for AC, not DC).
 """
         resistors_heading = """
 Resistors:"""
@@ -4178,7 +4214,7 @@ class ResistorValuesDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def show_resistor_error_dialog(self, err_str):
-        tkmsg.showinfo(message=err_str)
+        tkmsg.showerror(message=err_str)
 
     # -------------------------------------------------------------------------
     def revert(self):
@@ -4418,7 +4454,7 @@ BATTERY ONLY) connected by clicking on the "Calibrate" button below."""
         """
         if not self.master.ivs2.arduino_ready:
             err_str = ("ERROR: The IV Swinger 2 is not connected.")
-            tkmsg.showinfo(message=err_str)
+            tkmsg.showerror(message=err_str)
             return
         if not self.ready_to_calibrate:
             title_str = "Ready to calibrate bias battery?"
@@ -4470,7 +4506,7 @@ the displayed curve:
                 self.master.ivs2.clean_up_files(output_dir)
             else:
                 err_str = ("ERROR: Failed to swing curve for bias battery")
-                tkmsg.showinfo(message=err_str)
+                tkmsg.showerror(message=err_str)
                 return
 
 
@@ -5187,7 +5223,7 @@ class PreferencesDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def show_arduino_error_dialog(self, err_str):
-        tkmsg.showinfo(message=err_str)
+        tkmsg.showerror(message=err_str)
 
     # -------------------------------------------------------------------------
     def revert(self):
