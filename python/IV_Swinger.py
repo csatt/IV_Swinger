@@ -3381,6 +3381,18 @@ class IV_Swinger(object):
         else:
             max_x = 0
             for volts in voc_volts:
+                # Round volts
+                if volts >= 10.0:
+                    # First divide by two and round to 3 s.f.
+                    volts_div2 = round(volts/2.0, 1)
+                    # Then round that to 2 s.f. and double
+                    volts = round(volts_div2, 0) * 2.0
+                elif volts >= 1.0:
+                    volts_div2 = round(volts/2.0, 2)
+                    volts = round(volts_div2, 1) * 2.0
+                else:
+                    volts_div2 = round(volts/2.0, 3)
+                    volts = round(volts_div2, 2) * 2.0
                 if volts * self.max_v_ratio > max_x:
                     max_x = volts * self.max_v_ratio
         if max_x > 0:
@@ -3404,6 +3416,18 @@ class IV_Swinger(object):
         else:
             max_y = 0
             for amps in isc_amps + mpp_amps:
+                # Round amps
+                if amps >= 10.0:
+                    # First divide by five and round to 3 s.f.
+                    amps_div5 = round(amps/5.0, 1)
+                    # Then round that to 2 s.f. and multiply by five
+                    amps = round(amps_div5, 0) * 5.0
+                elif amps >= 1.0:
+                    amps_div5 = round(amps/5.0, 2)
+                    amps = round(amps_div5, 1) * 5.0
+                else:
+                    amps_div5 = round(amps/5.0, 3)
+                    amps = round(amps_div5, 2) * 5.0
                 # The isc_amps value is negative when we want to
                 # suppress plotting the Isc point. But we still need its
                 # magnitude to determine the max_y value, so we use
@@ -3428,13 +3452,13 @@ class IV_Swinger(object):
             step = 0.05
         elif max_x < 2:
             step = 0.1
-        elif max_x < 4:
+        elif max_x < 4.5:
             step = 0.2
-        elif max_x < 10:
+        elif max_x < 9:
             step = 0.5
-        elif max_x < 20:
+        elif max_x < 18:
             step = 1.0
-        elif max_x < 40:
+        elif max_x < 36:
             step = 2.0
         else:
             step = 4.0
