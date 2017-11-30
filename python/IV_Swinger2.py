@@ -2750,12 +2750,18 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         # First determine where the curve begins to deflect
         if replace:
             deflect_begin = self.find_first_downward_deflection(adc_pairs[1:])
+            deflect_begin += 1
         else:
             deflect_begin = self.find_first_downward_deflection(adc_pairs)
+        if deflect_begin < 2:
+            # Force to minimum of 2 so extrapolation is always possible
+            deflect_begin = 2
         pt2 = (deflect_begin / 2) + 1
         max_pt1 = (pt2 / 2) + 1
         if max_pt1 == pt2:
             max_pt1 -= 1
+        if pt2 > len(adc_pairs) - 1:
+            return adc_pairs[0][1]
         v2 = float(adc_pairs[pt2][0])
         i2 = float(adc_pairs[pt2][1])
         if replace:
@@ -2810,8 +2816,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 return new_isc_ch1_vals[0] + avg_decrease
         else:
             # Just return the existing Isc value if extrapolation was
-            # not performed (because the first deflection was too close
-            # to the beginning of the curve).
+            # not performed (shouldn't ever get here now).
             return adc_pairs[0][1]
 
     # -------------------------------------------------------------------------
@@ -2838,6 +2843,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             reduced_rotation_count = 0
             if dist == 2:
                 retry = -1
+            for point in xrange(dist):
+                lrd_list.append(-999.0)
             for point in xrange(dist, num_points - 1 - dist):
                 long_rot_degrees = self.rotation_at_point(adc_pairs,
                                                           point,
@@ -2857,18 +2864,19 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                     # deflection, and need to bail out.  This only
                     # applies to curves that have multiple downward
                     # deflections.  The purpose is that we never want to
-                    # use the second (or third ..)  deflection.
+                    # use the second (or third ..) deflection.
                     break
                 lrd_list.append(long_rot_degrees)
                 prev_long_rot_degrees = long_rot_degrees
             deflect_begin_found = False
-            for point in xrange(max_long_rot_point/2, len(lrd_list) - 1):
-                if lrd_list[point] >= max_long_rot_degrees / 15.0:
-                    deflect_begin = point
-                    if deflect_begin >= 3 * dist or dist == 2:
-                        deflect_begin_found = True
-                        retry = -1
-                    break
+            if max_long_rot_degrees > 0.0:
+                for point in xrange(max_long_rot_point/2, len(lrd_list) - 1):
+                    if lrd_list[point] >= max_long_rot_degrees / 15.0:
+                        deflect_begin = point
+                        if deflect_begin >= 3 * dist or dist == 2:
+                            deflect_begin_found = True
+                            retry = -1
+                        break
             if not deflect_begin_found:
                 dist -= 1
         if retry == 0:
@@ -2914,7 +2922,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             else:
                 biased_adc_pairs.append((biased_ch0_adc, ch1_adc))
 
-        if biased_adc_pairs:
+        if len(biased_adc_pairs) > 1:
             # Generate a new Isc point
             isc_ch1 = self.create_new_isc_point(biased_adc_pairs,
                                                 replace=False)
@@ -3274,7 +3282,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if self.battery_bias:
             adc_pairs = self.adc_pairs_corrected
             self.adc_pairs_corrected = self.apply_battery_bias(adc_pairs)
-            if not self.adc_pairs_corrected:
+            if len(self.adc_pairs_corrected) < 2:
                 return RC_NO_POINTS
 
         # Convert the ADC values to volts, amps, watts, and ohms
