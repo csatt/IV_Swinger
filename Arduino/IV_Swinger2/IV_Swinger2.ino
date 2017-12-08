@@ -119,7 +119,7 @@
 #define _impl_CASSERT_LINE(predicate, line) \
     typedef char _impl_PASTE(assertion_failed_on_line_,line)[2*!!(predicate)-1];
 
-#define VERSION "1.3.1"        // Version of this Arduino sketch
+#define VERSION "1.3.2"        // Version of this Arduino sketch
 #define FALSE 0                // Boolean false value
 #define TRUE 1                 // Boolean true value
 #define MAX_UINT (1<<16)-1     // Max unsigned integer
@@ -407,7 +407,7 @@ void loop()
   // measurement, so the first one that does satisfy the requirement may
   // have overshot the minimum by nearly a factor of 2:1 in the worst
   // case.
-  min_manhattan_distance = ((isc_adc * i_scale) +
+  min_manhattan_distance = (unsigned int) ((isc_adc * i_scale) +
                             (voc_adc * v_scale)) / (max_iv_points - 2);
 
   // Proceed to read remaining points on IV curve. Compensate for the
@@ -554,6 +554,8 @@ void loop()
   Serial.println(i_scale);
   Serial.print(F("v_scale: "));
   Serial.println(v_scale);
+  Serial.print(F("min_manhattan_distance: "));
+  Serial.println(min_manhattan_distance);
   Serial.print(F("Elapsed usecs: "));
   Serial.println(elapsed_usecs);
   usecs_per_iv_pair = (float) elapsed_usecs / num_meas;
