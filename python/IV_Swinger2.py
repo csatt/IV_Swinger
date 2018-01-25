@@ -157,8 +157,6 @@ MAX_ASPECT = 8
 # Default calibration values
 V_CAL_DEFAULT = 1.0197
 I_CAL_DEFAULT = 1.1187
-V_BATT_DEFAULT = 0.0
-R_BATT_DEFAULT = 0.0
 # Default resistor values
 R1_DEFAULT = 150000.0   # R1 = 150k nominal
 R1_DEFAULT_BUG = 180000.0   # This was a bug
@@ -176,8 +174,8 @@ EEPROM_RG_OHMS_ADDR = 20
 EEPROM_SHUNT_UOHMS_ADDR = 24
 EEPROM_V_CAL_X1M_ADDR = 28
 EEPROM_I_CAL_X1M_ADDR = 32
-EEPROM_V_BATT_X1M_ADDR = 36
-EEPROM_R_BATT_X1M_ADDR = 40
+EEPROM_V_BATT_X1M_ADDR = 36  # Obsolete
+EEPROM_R_BATT_X1M_ADDR = 40  # Obsolete
 EEPROM_VALID_VALUE = "123456.7890"
 EEPROM_VALID_COUNT = 9  # increment if any added
 # Debug constants
@@ -581,16 +579,6 @@ class Configuration(object):
         args = (section, "current", CFG_FLOAT, self.ivs2.i_cal)
         self.ivs2.i_cal = self.apply_one(*args)
 
-        # Bias battery voltage
-        args = (section, "bias battery voltage", CFG_FLOAT,
-                V_BATT_DEFAULT)
-        self.ivs2.v_batt = self.apply_one(*args)
-
-        # Bias battery resistance
-        args = (section, "bias battery resistance", CFG_FLOAT,
-                R_BATT_DEFAULT)
-        self.ivs2.r_batt = self.apply_one(*args)
-
         # NOTE: The "old" values in the args values are used when the
         # .cfg file is missing values for a particular config
         # type. Since the resistors were not originally included in the
@@ -843,8 +831,6 @@ class Configuration(object):
         self.cfg.add_section(section)
         self.cfg_set(section, "voltage", self.ivs2.v_cal)
         self.cfg_set(section, "current", self.ivs2.i_cal)
-        self.cfg_set(section, "bias battery voltage", self.ivs2.v_batt)
-        self.cfg_set(section, "bias battery resistance", self.ivs2.r_batt)
         self.cfg_set(section, "r1 ohms", self.ivs2.vdiv_r1)
         self.cfg_set(section, "r2 ohms", self.ivs2.vdiv_r2)
         self.cfg_set(section, "rf ohms", self.ivs2.amm_op_amp_rf)
@@ -1359,8 +1345,6 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                                      (SHUNT_DEFAULT / 1000000.0))
         self._v_cal = V_CAL_DEFAULT
         self._i_cal = I_CAL_DEFAULT
-        self._v_batt = V_BATT_DEFAULT
-        self._r_batt = R_BATT_DEFAULT
         self._plot_title = None
         self._current_img = None
         self._x_pixels = 770  # Default GIF width (770x595)
@@ -1486,26 +1470,6 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     @i_cal.setter
     def i_cal(self, value):
         self._i_cal = value
-
-    # ---------------------------------
-    @property
-    def v_batt(self):
-        """Property to get the bias battery voltage calibration value"""
-        return self._v_batt
-
-    @v_batt.setter
-    def v_batt(self, value):
-        self._v_batt = value
-
-    # ---------------------------------
-    @property
-    def r_batt(self):
-        """Property to get the bias battery resistance calibration value"""
-        return self._r_batt
-
-    @r_batt.setter
-    def r_batt(self, value):
-        self._r_batt = value
 
     # ---------------------------------
     @property
@@ -2144,11 +2108,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                              ("{} {}".format(EEPROM_V_CAL_X1M_ADDR,
                                              int(self.v_cal * 1000000.0))),
                              ("{} {}".format(EEPROM_I_CAL_X1M_ADDR,
-                                             int(self.i_cal * 1000000.0))),
-                             ("{} {}".format(EEPROM_V_BATT_X1M_ADDR,
-                                             int(self.v_batt * 1000000.0))),
-                             ("{} {}".format(EEPROM_R_BATT_X1M_ADDR,
-                                             int(self.r_batt * 1000000.0)))]
+                                             int(self.i_cal * 1000000.0)))]
             for config_value in config_values:
                 rc = self.send_one_config_msg_to_arduino("WRITE_EEPROM",
                                                          config_value)
@@ -2429,9 +2389,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         elif eeprom_addr == EEPROM_I_CAL_X1M_ADDR:
             self.i_cal = float(eeprom_value) / 1000000.0
         elif eeprom_addr == EEPROM_V_BATT_X1M_ADDR:
-            self.v_batt = float(eeprom_value) / 1000000.0
+            pass  # obsolete
         elif eeprom_addr == EEPROM_R_BATT_X1M_ADDR:
-            self.r_batt = float(eeprom_value) / 1000000.0
+            pass  # obsolete
         else:
             warn_str = ("WARNING: EEPROM value not "
                         "supported by this version of the application: {}"
@@ -2441,7 +2401,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         return RC_SUCCESS
 
     # -------------------------------------------------------------------------
-    def correct_adc_values(self, adc_pairs):
+    def correct_adc_values(self, adc_pairs, comb_dupv_pts, fix_voc, fix_isc,
+                           reduce_noise, fix_overshoot, battery_bias):
         """Method to remove errors from the ADC values. This consists of the
            following corrections:
              - Combine points with same voltage (use average current)
@@ -2456,20 +2417,20 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self.logger.log("Correcting ADC values:")
 
         # Combine points with the same voltage (use average current)
-        if self.comb_dupv_pts:
+        if comb_dupv_pts:
             adc_pairs_corrected = self.combine_dup_voltages(adc_pairs)
         else:
             adc_pairs_corrected = adc_pairs[:]
 
         # Fix Voc
-        if self.fix_voc:
+        if fix_voc:
             # Zero out the CH1 value for the Voc point so it is in line
             # with the tail of the curve and so the curve will reach the
             # axis
             adc_pairs_corrected[-1] = (adc_pairs_corrected[-1][0], 0.0)
 
         # Remove Isc point in some cases
-        if self.fix_isc and not self.battery_bias:
+        if fix_isc and not self.battery_bias:
             # Remove point 0 (the Isc point which was extrapolated by the
             # Arduino code) if the next point's CH0 value is more than
             # MIN_PT1_TO_VOC_RATIO_FOR_ISC of the Voc CH0 value.  We have to
@@ -2487,8 +2448,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                     suppress_isc_point = True
 
         # Noise reduction
-        if self.reduce_noise:
-            if (self.fix_isc and not self.battery_bias and
+        if reduce_noise:
+            if (fix_isc and not self.battery_bias and
                     not suppress_isc_point):
                 # Replace CH1 (current) value of Isc point with CH1
                 # value of first measured point
@@ -2503,14 +2464,14 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             adc_pairs_corrected = adc_pairs_nr + [adc_pairs_corrected[-1]]
 
         # Fix Isc
-        if self.fix_isc and not self.battery_bias:
+        if fix_isc and not self.battery_bias:
             # Replace Isc point (again) with a better extrapolation
             if not suppress_isc_point:
                 isc_ch1 = self.create_new_isc_point(adc_pairs_corrected)
                 adc_pairs_corrected[0] = (0.0, isc_ch1)
 
         # Adjust voltages to compensate for overshoot
-        if self.fix_overshoot:
+        if fix_overshoot:
             v_adj = self.v_adj(adc_pairs_corrected)
             log_msg = "  v_adj = {}".format(v_adj)
             self.logger.log(log_msg)
@@ -2906,30 +2867,191 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             self.logger.log(output_line)
 
     # -------------------------------------------------------------------------
-    def apply_battery_bias(self, adc_pairs):
-        """Method to subtract the battery bias from the data points
+    def gen_corrected_adc_csv(self, adc_pairs, comb_dupv_pts, fix_voc, fix_isc,
+                              reduce_noise, fix_overshoot, battery_bias,
+                              corr_adc_csv_file):
+        """Method to take raw ADC values and generate a CSV file with the
+           selected corrections.
         """
+        # Apply corrections
+        adc_pairs_corrected = self.correct_adc_values(adc_pairs,
+                                                      comb_dupv_pts,
+                                                      fix_voc,
+                                                      fix_isc,
+                                                      reduce_noise,
+                                                      fix_overshoot,
+                                                      battery_bias)
+
+        # Write corrected ADC values to output CSV file
+        self.write_adc_pairs_to_csv_file(corr_adc_csv_file,
+                                         adc_pairs_corrected)
+
+    # -------------------------------------------------------------------------
+    def gen_bias_batt_adc_csv(self):
+        """Method to generate bias battery CSV file. This method is called
+           immediately after the bias battery calibration curve has
+           been swung. The generated CSV file has the ADC corrections
+           (e.g. noise reduction) applied.
+        """
+        uncorr_adc_csv_file = self.hdd_adc_pairs_csv_filename
+        raw_adc_pairs = self.read_adc_pairs_from_csv_file(uncorr_adc_csv_file)
+        bias_batt_csv_file = uncorr_adc_csv_file.replace("adc_pairs",
+                                                         "bias_batt_adc_pairs")
+        kwargs = {"adc_pairs": raw_adc_pairs,
+                  "comb_dupv_pts": True,
+                  "fix_voc": True,
+                  "fix_isc": True,
+                  "reduce_noise": True,
+                  "fix_overshoot": True,
+                  "battery_bias": False,
+                  "corr_adc_csv_file": bias_batt_csv_file}
+        self.gen_corrected_adc_csv(**kwargs)
+
+        return bias_batt_csv_file
+
+    # -------------------------------------------------------------------------
+    def apply_battery_bias(self, adc_pairs):
+        """Method to subtract the battery bias from the measured points. The
+           IV curve for the bias battery is nearly linear, but not
+           quite. Previous versions of the software assumed it was
+           linear, and used only the open circuit voltage (v_batt) and
+           internal resistance (r_batt) to calculate the voltage bias
+           for each measured point. This produced poor results. Now
+           the entire battery IV curve is saved when a bias battery
+           calibration is performed. The voltage bias is calculated
+           for a given point by finding the two points on the bias
+           battery curve that have the closest current measurement to
+           the given point and interpolating between them to find the
+           exact voltage bias amount. Note that this is all done in
+           the ADC domain, i.e. before ADC values are converted to
+           volts and amps.
+        """
+        # Get the CSV file with the corrected ADC values for the bias
+        # battery IV curve
+        bias_battery_csv = self.get_bias_batt_csv()
+        if bias_battery_csv is None:
+            # If the CSV file is not found, just return the unbiased
+            # ADC pairs
+            return adc_pairs
+
+        # Parse the ADC pairs from the bias battery CSV file
+        batt_adc_pairs = self.read_adc_pairs_from_csv_file(bias_battery_csv)
+
+        # Process each ADC pair in the input list
         biased_adc_pairs = []
+        last_negv_point = None
         for adc_pair in adc_pairs:
-            ch0_adc = adc_pair[0]
-            ch1_adc = adc_pair[1]
-            volts = ch0_adc * self.v_mult
-            amps = ch1_adc * self.i_mult
-            biased_volts = volts - (self.v_batt - (amps * self.r_batt))
-            biased_ch0_adc = biased_volts / self.v_mult
+            ch0_adc = adc_pair[0]  # voltage value
+            ch1_adc = adc_pair[1]  # current value
+            prev_batt_ch0_adc = None
+            prev_batt_ch1_adc = None
+
+            # Search the bias battery ADC pairs
+            for batt_adc_pair in batt_adc_pairs:
+                batt_ch0_adc = batt_adc_pair[0]
+                batt_ch1_adc = batt_adc_pair[1]
+
+                # Stop when the battery ADC pair has a smaller current
+                # than the given point
+                if batt_ch1_adc < ch1_adc:
+                    # Use interpolation between this battery ADC pair
+                    # and its predecessor to find the voltage value on
+                    # the battery curve that corresponds to the
+                    # current of the given point; this is the bias
+                    interp_batt_ch1_adc = prev_batt_ch1_adc - ch1_adc
+                    interp_batt_ch0_adc = (interp_batt_ch1_adc *
+                                           (batt_ch0_adc - prev_batt_ch0_adc) /
+                                           (prev_batt_ch1_adc - batt_ch1_adc))
+                    ch0_bias = prev_batt_ch0_adc + interp_batt_ch0_adc
+                    break
+                prev_batt_ch0_adc = batt_ch0_adc
+                prev_batt_ch1_adc = batt_ch1_adc
+
+            # Special case: Voc point. No interpolation here - the
+            # bias is simply the battery Voc (CH0 of last pair)
+            if ch1_adc == 0:
+                ch0_bias = batt_adc_pairs[-1][0]
+
+            # Subtract bias amount from voltage (CH0)
+            biased_ch0_adc = ch0_adc - ch0_bias
+
+            # If biased value is negative, throw the point away.
+            # Otherwise, append it to the output list
             if biased_ch0_adc < 0:
+                # Actually, keep track of the last negative voltage
+                # point so we can interpolate the Isc point
+                last_negv_point = (biased_ch0_adc, ch1_adc)
                 continue
             else:
                 biased_adc_pairs.append((biased_ch0_adc, ch1_adc))
 
-        if len(biased_adc_pairs) > 1:
-            # Generate a new Isc point
-            isc_ch1 = self.create_new_isc_point(biased_adc_pairs,
-                                                replace=False)
+        # Some points of the biased curve were discarded because they
+        # had a negative voltage.  The first non-discarded point has a
+        # positive voltage.  We need to fabricate a new Isc point at
+        # zero voltage.  This is done by interpolating between the last
+        # discarded point (v0,i0) and the first non-discarded point
+        # (v1,i1).
+        if len(biased_adc_pairs) > 1 and last_negv_point is not None:
+            v0 = last_negv_point[0]
+            i0 = last_negv_point[1]
+            v1 = biased_adc_pairs[0][0]
+            i1 = biased_adc_pairs[0][1]
+            isc_ch1 = i1 + ((v1 * (i0 - i1)) / (-v0 + v1))
             new_point = (0.0, isc_ch1)
             biased_adc_pairs = [new_point] + biased_adc_pairs
 
         return biased_adc_pairs
+
+    # -------------------------------------------------------------------------
+    def get_bias_batt_csv(self):
+        """Method to find the bias battery CSV file
+        """
+        bias_battery_csv = None
+        glob_pattern = "{}/bias_batt_adc_pairs*.csv"
+        # Find the bias battery CSV file. If one exists in the run
+        # directory, use that.  Otherwise, copy the one from the parent
+        # directory to the run directory and then use it.
+        dir = self.hdd_output_dir
+        bb_files = glob.glob(glob_pattern.format(dir))
+        bb_file_count = 0
+        for f in bb_files:
+            bias_battery_csv = f
+            bb_file_count += 1
+        if bb_file_count > 1:
+            err_str = ("ERROR: There are multiple "
+                       "bias_batt_adc_pairs*.csv files in {}".format(dir))
+            self.logger.print_and_log(err_str)
+        elif bb_file_count == 0:
+            dir = os.path.dirname(self.hdd_output_dir)
+            bb_files = glob.glob(glob_pattern.format(dir))
+            for f in bb_files:
+                bias_battery_csv = f
+                bb_file_count += 1
+            if bb_file_count > 1:
+                err_str = ("ERROR: There are multiple "
+                           "bias_batt_adc_pairs*.csv files in {}".format(dir))
+                self.logger.print_and_log(err_str)
+            elif bb_file_count == 0:
+                err_str = ("ERROR: There is no "
+                           "bias_batt_adc_pairs*.csv file in {}".format(dir))
+                self.logger.print_and_log(err_str)
+            else:
+                # Copy to run directory
+                shutil.copy(bias_battery_csv, self.hdd_output_dir)
+                # Recursive call will now find file in run dir
+                bias_battery_csv = self.get_bias_batt_csv()
+                return bias_battery_csv
+        return bias_battery_csv
+
+    # -------------------------------------------------------------------------
+    def remove_prev_bias_battery_csv(self):
+        """Method to remove old bias battery CSV file(s) from the IV_Swinger2
+           directory"""
+        glob_pattern = "{}/bias_batt_adc_pairs*.csv"
+        dir = os.path.dirname(self.hdd_output_dir)
+        bb_files = glob.glob(glob_pattern.format(dir))
+        for f in bb_files:
+            self.clean_up_file(f)
 
     # -------------------------------------------------------------------------
     def log_initial_debug_info(self):
@@ -2954,6 +3076,19 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         hdd_iv_swinger_dir = hdd_iv_swinger_dirs[0]  # only one
         self.hdd_output_dir = os.path.join(hdd_iv_swinger_dir, date_time_str)
         os.makedirs(self.hdd_output_dir)
+
+    # -------------------------------------------------------------------------
+    def copy_file_to_parent(self, file):
+        """Method to copy a file to the IV_Swinger2 directory (parent of
+           output directory)
+        """
+        dir = os.path.dirname(self.hdd_output_dir)
+        try:
+            shutil.copy(file, dir)
+        except shutil.Error as e:
+            err_str = ("Couldn't copy {} to {} ({})"
+                       .format(file, dir, e))
+            self.logger.print_and_log(err_str)
 
     # -------------------------------------------------------------------------
     def write_adc_pairs_to_csv_file(self, filename, adc_pairs):
@@ -2990,7 +3125,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                             self.ivs2.logger.print_and_log(err_str)
                             return []
                     else:
-                        adc_pair = map(int, line.split(","))
+                        adc_pair = map(float, line.split(","))
                         if len(adc_pair) != 2:
                             err_str = ("ERROR: CSV line {} is not in "
                                        "expected CH0, CH1 format"
@@ -3138,9 +3273,20 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def swing_battery_calibration_curve(self):
         """Method to swing an IV curve for calibrating the bias battery
         """
+        restore_max_iv_points = [self.max_iv_points]
+        restore_isc_stable_adc = [self.isc_stable_adc]
+        restore_correct_adc = [self.correct_adc]
+        restore_reduce_noise = [self.reduce_noise]
+        restore_battery_bias = [self.battery_bias]
+        def restore_all_and_return(rc):
+            self.max_iv_points = restore_max_iv_points[0]
+            self.isc_stable_adc = restore_isc_stable_adc[0]
+            self.correct_adc = restore_correct_adc[0]
+            self.reduce_noise = restore_reduce_noise[0]
+            self.battery_bias = restore_battery_bias[0]
+            return rc
+
         # Temporarily set max_iv_points to 80 and isc_stable_adc to 200
-        restore_max_iv_points = self.max_iv_points
-        restore_isc_stable_adc = self.isc_stable_adc
         self.max_iv_points = 80
         self.isc_stable_adc = 200
         self.arduino_ready = False
@@ -3148,20 +3294,19 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if rc == RC_SUCCESS:
             rc = self.wait_for_arduino_ready_and_ack()
         if rc != RC_SUCCESS:
-            return rc
+            return restore_all_and_return(rc)
 
         # Force ADC correction and noise reduction ON
-        restore_correct_adc = self.correct_adc
-        restore_reduce_noise = self.reduce_noise
         self.correct_adc = True
         self.reduce_noise = True
 
         # Force battery bias OFF
-        restore_battery_bias = self.battery_bias
         self.battery_bias = False
 
         # Swing the IV curve
         rc = self.swing_iv_curve()
+        if rc != RC_SUCCESS:
+            return restore_all_and_return(rc)
 
         # Save config to output directory (this also overwrites the
         # normal config file)
@@ -3171,70 +3316,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         config.save(self.hdd_output_dir)
 
         # Restore properties
-        self.max_iv_points = restore_max_iv_points
-        self.isc_stable_adc = restore_isc_stable_adc
-        self.correct_adc = restore_correct_adc
-        self.reduce_noise = restore_reduce_noise
-        self.battery_bias = restore_battery_bias
-
-        return rc
-
-    # -------------------------------------------------------------------------
-    def calculate_bias_values(self):
-        """Method to calculate the battery bias voltage and resistance
-        """
-        v_batt = self.data_points[-1][VOLTS_INDEX]
-        r_batt = round(self.calc_r_batt(), 4)
-
-        return r_batt, v_batt
-
-    # -------------------------------------------------------------------------
-    def calc_r_batt(self):
-        """Empirical results show that there is a slight non-linearity of the
-           actual battery curve. This method finds a value for the
-           internal resistance of the battery that produces the smallest
-           net power error.
-        """
-        data_points = self.data_points
-        # We will use the points from four past the MPP to four before the
-        # end
-        min_v_pt = self.get_max_watt_point_number(data_points) + 4
-        max_v_pt = len(data_points) - 5
-        max_v = data_points[max_v_pt][VOLTS_INDEX]
-        max_v_amps = data_points[max_v_pt][AMPS_INDEX]
-        r_batt_list = []
-
-        for point_num, data_point in enumerate(data_points):
-            if point_num < min_v_pt or point_num >= max_v_pt:
-                continue
-            volts = data_point[VOLTS_INDEX]
-            amps = data_point[AMPS_INDEX]
-            if amps != max_v_amps:
-                r_batt = (max_v - volts) / (amps - max_v_amps)
-                r_batt_list.append(r_batt)
-
-        v_batt = data_points[-1][VOLTS_INDEX]
-        min_power_err_sum = INFINITE_VAL
-        for r_batt in r_batt_list:
-            power_err_sum = 0.0
-            for point_num, data_point in enumerate(data_points):
-                if point_num < min_v_pt or point_num >= max_v_pt:
-                    continue
-                volts = data_point[VOLTS_INDEX]
-                amps = data_point[AMPS_INDEX]
-                if amps > 9.0:
-                    continue
-                expected_v = v_batt - (amps * r_batt)
-                power_err = (volts * amps - expected_v * amps)
-                power_err_sum += power_err
-            log_str = ("r_batt:{:.6f}  total power error:{:.6f}"
-                       .format(r_batt, power_err_sum))
-            self.logger.log(log_str)
-            if abs(power_err_sum) < abs(min_power_err_sum):
-                best_r_batt = r_batt
-                min_power_err_sum = power_err_sum
-
-        return best_r_batt
+        return restore_all_and_return(rc)
 
     # -------------------------------------------------------------------------
     def get_csv_filenames(self, dir, date_time_str):
@@ -3272,18 +3354,21 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if rc != RC_SUCCESS:
             return rc
 
-        # Correct the ADC values to reduce noise, etc.
-        if self.correct_adc:
-            self.adc_pairs_corrected = self.correct_adc_values(self.adc_pairs)
-        else:
-            self.adc_pairs_corrected = self.adc_pairs
-
         # Apply battery bias, if enabled
         if self.battery_bias:
-            adc_pairs = self.adc_pairs_corrected
+            adc_pairs = self.adc_pairs
             self.adc_pairs_corrected = self.apply_battery_bias(adc_pairs)
             if len(self.adc_pairs_corrected) < 2:
                 return RC_NO_POINTS
+        else:
+            self.adc_pairs_corrected = self.adc_pairs
+
+        # Correct the ADC values to reduce noise, etc.
+        if self.correct_adc:
+            args = (self.adc_pairs_corrected, self.comb_dupv_pts, self.fix_voc,
+                    self.fix_isc, self.reduce_noise, self.fix_overshoot,
+                    self.battery_bias)
+            self.adc_pairs_corrected = self.correct_adc_values(*args)
 
         # Convert the ADC values to volts, amps, watts, and ohms
         self.convert_adc_values(self.adc_pairs_corrected)
