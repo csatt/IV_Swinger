@@ -1,4 +1,7 @@
 # IV_Swinger
+
+**NOTICE: Please contact me at csatt1@gmail.com if you are interested in building the hardware for people who don't have the time, skills, or tools to do it themselves. I get requests occasionally from such people, but cannot do this myself.**
+
 The IV Swinger is an IV curve tracer for photovoltaic solar panels. Both the hardware design and the software are open source.
 
 This GitHub repository contains the IV Swinger documentation, software and open source licensing files.
