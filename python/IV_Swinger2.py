@@ -1963,6 +1963,24 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     # ---------------------------------
     @property
+    def arduino_max_incoming_msg_len(self):
+        """Maximum supported length of messages sent to Arduino
+        """
+        if self.arduino_sketch_ver_lt("1.1.0"):
+            return 30
+        else:
+            return 35
+
+    # ---------------------------------
+    @property
+    def arduino_sketch_supports_eeprom_config(self):
+        """True for Arduino sketch versions that support saving config
+           values in EEPROM.
+        """
+        return self.arduino_sketch_ver_ge("1.1.0")
+
+    # ---------------------------------
+    @property
     def pdf_filename(self):
         """PDF file name"""
         dts = extract_date_time_str(self.hdd_output_dir)
@@ -2060,7 +2078,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         # Special case: EEPROM has never been written (and therefore no values
         # are returned).  We want to write it with the current values rather
         # than waiting for a calibration.
-        if (self.arduino_sketch_ver_ge("1.1.0") and
+        if (self.arduino_sketch_supports_eeprom_config and
                 not self.eeprom_values_received):
             rc = self.send_config_msgs_to_arduino(write_eeprom=True)
             if rc != RC_SUCCESS:
@@ -2093,7 +2111,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             if rc != RC_SUCCESS:
                 return rc
 
-        if write_eeprom and self.arduino_sketch_ver_ge("1.1.0"):
+        if write_eeprom and self.arduino_sketch_supports_eeprom_config:
             config_values = [("{} {}".format(EEPROM_VALID_ADDR,
                                              EEPROM_VALID_VALUE)),
                              ("{} {}".format(EEPROM_VALID_COUNT_ADDR,
@@ -2141,11 +2159,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def send_msg_to_arduino(self, msg):
         """Method to send a message to the Arduino"""
 
-        if self.arduino_sketch_ver_lt("1.1.0"):
-            MAX_MSG_LEN_TO_ARDUINO = 30
-        else:
-            MAX_MSG_LEN_TO_ARDUINO = 35
-        if len("{}\n".format(msg)) > MAX_MSG_LEN_TO_ARDUINO:
+        if len("{}\n".format(msg)) > self.arduino_max_incoming_msg_len:
             err_str = "ERROR: Message to Arduino is too long: {}".format(msg)
             self.logger.print_and_log(err_str)
             return RC_FAILURE
@@ -2235,7 +2249,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """Method to send a DUMP_EEPROM "config" message to the Arduino and
            capture the values returned
         """
-        if self.arduino_sketch_ver_lt("1.1.0"):
+        if not self.arduino_sketch_supports_eeprom_config:
             return RC_SUCCESS
         rc = self.send_msg_to_arduino("Config: DUMP_EEPROM ")
         if rc != RC_SUCCESS:
