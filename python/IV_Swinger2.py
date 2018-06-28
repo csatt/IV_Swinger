@@ -1367,6 +1367,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._arduino_ver_major = -1
         self._arduino_ver_minor = -1
         self._arduino_ver_patch = -1
+        self._arduino_ver_opt_suffix = ""
         self._spi_clk_div = SPI_CLK_DEFAULT
         self._max_iv_points = MAX_IV_POINTS_DEFAULT
         self._min_isc_adc = MIN_ISC_ADC_DEFAULT
@@ -1952,9 +1953,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def arduino_sketch_ver(self):
         """Arduino sketch version"""
         if self._arduino_ver_major > -1:
-            ver_str = "{}.{}.{}".format(self._arduino_ver_major,
-                                        self._arduino_ver_minor,
-                                        self._arduino_ver_patch)
+            ver_str = "{}.{}.{}{}".format(self._arduino_ver_major,
+                                          self._arduino_ver_minor,
+                                          self._arduino_ver_patch,
+                                          self._arduino_ver_opt_suffix)
             return ver_str
         else:
             return "Unknown"
@@ -2255,12 +2257,13 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """Method to extract the version number of the Arduino sketch from the
            message containing it
         """
-        sketch_ver_re = re.compile("sketch version (\d+)\.(\d+)\.(\d+)")
+        sketch_ver_re = re.compile("sketch version (\d+)\.(\d+)\.(\d+)(\S*)")
         match = sketch_ver_re.search(msg)
         if match:
             self._arduino_ver_major = int(match.group(1))
             self._arduino_ver_minor = int(match.group(2))
             self._arduino_ver_patch = int(match.group(3))
+            self._arduino_ver_opt_suffix = match.group(4)
         else:
             err_str = "ERROR: Bad Arduino version message: {}".format(msg)
             self.logger.print_and_log(err_str)
