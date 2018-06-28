@@ -2140,7 +2140,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                              ("{} {}".format(EEPROM_V_CAL_X1M_ADDR,
                                              int(self.v_cal * 1000000.0))),
                              ("{} {}".format(EEPROM_I_CAL_X1M_ADDR,
-                                             int(self.i_cal * 1000000.0)))]
+                                             int(self.i_cal * 1000000.0))),
+                             ("{} {}".format(EEPROM_V_BATT_X1M_ADDR,
+                                             0)),  # obsolete
+                             ("{} {}".format(EEPROM_R_BATT_X1M_ADDR,
+                                             0))]  # obsolete
             for config_value in config_values:
                 rc = self.send_one_config_msg_to_arduino("WRITE_EEPROM",
                                                          config_value)
