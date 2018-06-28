@@ -2430,7 +2430,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             adc_pairs_corrected[-1] = (adc_pairs_corrected[-1][0], 0.0)
 
         # Remove Isc point in some cases
-        if fix_isc and not self.battery_bias:
+        if fix_isc and not battery_bias:
             # Remove point 0 (the Isc point which was extrapolated by the
             # Arduino code) if the next point's CH0 value is more than
             # MIN_PT1_TO_VOC_RATIO_FOR_ISC of the Voc CH0 value.  We have to
@@ -2449,7 +2449,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
         # Noise reduction
         if reduce_noise:
-            if (fix_isc and not self.battery_bias and
+            if (fix_isc and not battery_bias and
                     not suppress_isc_point):
                 # Replace CH1 (current) value of Isc point with CH1
                 # value of first measured point
@@ -2464,7 +2464,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             adc_pairs_corrected = adc_pairs_nr + [adc_pairs_corrected[-1]]
 
         # Fix Isc
-        if fix_isc and not self.battery_bias:
+        if fix_isc and not battery_bias:
             # Replace Isc point (again) with a better extrapolation
             if not suppress_isc_point:
                 isc_ch1 = self.create_new_isc_point(adc_pairs_corrected)
