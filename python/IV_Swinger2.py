@@ -5,7 +5,7 @@
 #
 # IV_Swinger2.py: IV Swinger 2 configuration and control module
 #
-# Copyright (C) 2017  Chris Satterlee
+# Copyright (C) 2017,2018  Chris Satterlee
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -177,7 +177,7 @@ EEPROM_I_CAL_X1M_ADDR = 32
 EEPROM_V_BATT_X1M_ADDR = 36  # Obsolete
 EEPROM_R_BATT_X1M_ADDR = 40  # Obsolete
 EEPROM_VALID_VALUE = "123456.7890"
-EEPROM_VALID_COUNT = 9  # increment if any added
+EEPROM_VALID_COUNT = 9  # increment if any added (starts at addr 8)
 # Debug constants
 DEBUG_CONFIG = False
 
@@ -1130,7 +1130,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
     # ---------------------------------
     @property
     def font_scale(self):
-        """Value of the font scale value
+        """Value of the font scale
         """
         return self._font_scale
 
@@ -1141,7 +1141,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
     # ---------------------------------
     @property
     def line_scale(self):
-        """Value of the line scale value
+        """Value of the line scale
         """
         return self._line_scale
 
@@ -1152,7 +1152,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
     # ---------------------------------
     @property
     def point_scale(self):
-        """Value of the point scale value
+        """Value of the point scale
         """
         return self._point_scale
 
@@ -1335,6 +1335,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._current_saturated = False
         self._adc_range = 4096.0
         self._msg_timer_timeout = 50
+        # Note: following six override base class variables
         self._vdiv_r1 = R1_DEFAULT
         self._vdiv_r2 = R2_DEFAULT
         self._amm_op_amp_rf = RF_DEFAULT
@@ -1692,7 +1693,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # ---------------------------------
     @property
     def font_scale(self):
-        """Value of the font scale value
+        """Value of the font scale
         """
         return self._font_scale
 
@@ -1703,7 +1704,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # ---------------------------------
     @property
     def line_scale(self):
-        """Value of the line scale value
+        """Value of the line scale
         """
         return self._line_scale
 
@@ -1714,7 +1715,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # ---------------------------------
     @property
     def point_scale(self):
-        """Value of the point scale value
+        """Value of the point scale
         """
         return self._point_scale
 
@@ -1906,7 +1907,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     @property
     def adc_inc(self):
         """Volts per ADC increment"""
-        adc_inc = (1.0 / self.adc_range) * self.adc_vref
+        adc_inc = self.adc_vref / self.adc_range
         return adc_inc
 
     # ---------------------------------
@@ -2004,7 +2005,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             self._ser = serial.Serial(self.usb_port, self.usb_baud,
                                       timeout=self.serial_timeout)
         except (serial.SerialException) as e:
-            self.logger.print_and_log("reset_arduino: ({})".format(e))
+            self.logger.print_and_log("ERROR: reset_arduino: ({})".format(e))
             return RC_SERIAL_EXCEPTION
 
         # Create buffered text stream
@@ -2163,10 +2164,12 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             try:
                 self.msg_from_arduino = self._sio.readline()
             except (serial.SerialException) as e:
-                err_str = "receive_msg_from_arduino: ({})".format(e)
+                err_str = "ERROR: receive_msg_from_arduino: ({})".format(e)
                 self.logger.print_and_log(err_str)
                 return RC_SERIAL_EXCEPTION
             except UnicodeDecodeError:
+                err_str = "ERROR: Probable baud mismatch on USB"
+                self.logger.print_and_log(err_str)
                 return RC_BAUD_MISMATCH
             if len(self.msg_from_arduino) > 0:
                 self.log_msg_from_arduino(self.msg_from_arduino)
@@ -2174,6 +2177,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             msg_timer -= 1
 
         self.msg_from_arduino = "NONE"
+        err_str = "ERROR: Timeout waiting for message from Arduino"
+        self.logger.print_and_log(err_str)
         return RC_TIMEOUT
 
     # -------------------------------------------------------------------------
@@ -3179,12 +3184,12 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         isc_adc = adc_pairs[0][1]
         # Check for Voc = 0V
         if voc_adc - self._adc_ch0_offset == 0:
-            self.logger.log("Voc is zero volts")
+            self.logger.log("ERROR: Voc is zero volts")
             return RC_ZERO_VOC
 
         # Check for Isc = 0A
         if isc_adc - self._adc_ch1_offset == 0:
-            self.logger.log("Isc is zero amps")
+            self.logger.log("ERROR: Isc is zero amps")
             return RC_ZERO_ISC
 
         return RC_SUCCESS
@@ -3278,6 +3283,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         restore_correct_adc = [self.correct_adc]
         restore_reduce_noise = [self.reduce_noise]
         restore_battery_bias = [self.battery_bias]
+
         def restore_all_and_return(rc):
             self.max_iv_points = restore_max_iv_points[0]
             self.isc_stable_adc = restore_isc_stable_adc[0]
@@ -3359,6 +3365,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             adc_pairs = self.adc_pairs
             self.adc_pairs_corrected = self.apply_battery_bias(adc_pairs)
             if len(self.adc_pairs_corrected) < 2:
+                err_str = "ERROR: Fewer than two points recorded"
+                self.logger.print_and_log(err_str)
                 return RC_NO_POINTS
         else:
             self.adc_pairs_corrected = self.adc_pairs
