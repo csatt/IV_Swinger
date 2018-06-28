@@ -3,7 +3,7 @@
  *
  * IV_Swinger2.ino: IV Swinger 2 Arduino sketch
  *
- * Copyright (C) 2017  Chris Satterlee
+ * Copyright (C) 2017,2018  Chris Satterlee
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -119,9 +119,7 @@
 #define _impl_CASSERT_LINE(predicate, line) \
     typedef char _impl_PASTE(assertion_failed_on_line_,line)[2*!!(predicate)-1];
 
-#define VERSION "1.3.2"        // Version of this Arduino sketch
-#define FALSE 0                // Boolean false value
-#define TRUE 1                 // Boolean true value
+#define VERSION "1.3.2+"       // Version of this Arduino sketch
 #define MAX_UINT (1<<16)-1     // Max unsigned integer
 #define MAX_INT (1<<15)-1      // Max integer
 #define MAX_ULONG (1<<32)-1    // Max unsigned long integer
@@ -173,7 +171,7 @@ int aspect_width = ASPECT_WIDTH;
 
 void setup()
 {
-  boolean host_ready = FALSE;
+  bool host_ready = false;
   char incoming_msg[MAX_MSG_LEN];
   const static char ready_str[] PROGMEM = "Ready";
   const static char config_str[] PROGMEM = "Config";
@@ -193,12 +191,12 @@ void setup()
 
   // Tell host that we're ready, and wait for config messages and
   // acknowledgement
-  host_ready = FALSE;
+  host_ready = false;
   while (!host_ready) {
     Serial.println(F("Ready"));
     if (get_host_msg(incoming_msg)) {
       if (strstr_P(incoming_msg, ready_str)) {
-        host_ready = TRUE;
+        host_ready = true;
       }
       else if (strstr_P(incoming_msg, config_str)) {
         process_config_msg(incoming_msg);
@@ -211,10 +209,10 @@ void setup()
 void loop()
 {
   // Arduino: ints are 16 bits
-  boolean go_msg_received;
-  boolean update_prev_ch1 = FALSE;
-  boolean poll_timeout = FALSE;
-  boolean skip_isc_poll = FALSE;
+  bool go_msg_received;
+  bool update_prev_ch1 = false;
+  bool poll_timeout = false;
+  bool skip_isc_poll = false;
   char incoming_msg[MAX_MSG_LEN];
   int ii;
   int adc_ch0_delta, adc_ch1_delta, adc_ch1_prev_delta;
@@ -234,7 +232,7 @@ void loop()
   float usecs_per_iv_pair;
 #ifdef CAPTURE_UNFILTERED
 #define MAX_UNFILTERED_POINTS (400 - MAX_IV_POINTS)
-  boolean capture_unfiltered = FALSE;
+  bool capture_unfiltered = false;
   int unfiltered_index = 0;
   int unfiltered_adc_ch0_vals[MAX_UNFILTERED_POINTS];
   int unfiltered_adc_ch1_vals[MAX_UNFILTERED_POINTS];
@@ -242,10 +240,10 @@ void loop()
 
   // Wait for go message from host
   Serial.println(F("Waiting for go message"));
-  go_msg_received = FALSE;
+  go_msg_received = false;
   while (!go_msg_received) {
     if (get_host_msg(incoming_msg)) {
-      go_msg_received = TRUE;
+      go_msg_received = true;
     }
   }
 
@@ -322,11 +320,11 @@ void loop()
     // If the Voc ADC value is lower than MIN_VOC_ADC we assume that it
     // is actually zero (not connected) and we force it to zero and skip
     // the Isc polling
-    skip_isc_poll = TRUE;
+    skip_isc_poll = true;
     voc_adc = 0;
   } else {
-    skip_isc_poll = FALSE;
-    poll_timeout = TRUE;
+    skip_isc_poll = false;
+    poll_timeout = true;
   }
   for (ii = 0; ii < max_isc_poll; ii++) {
     if (skip_isc_poll)
@@ -338,7 +336,7 @@ void loop()
         (unfiltered_index < MAX_UNFILTERED_POINTS)) {
       unfiltered_adc_ch1_vals[unfiltered_index] = adc_ch1_val;
       unfiltered_adc_ch0_vals[unfiltered_index++] = adc_ch0_val;
-      capture_unfiltered = TRUE;
+      capture_unfiltered = true;
     }
 #endif
     isc_poll_loops = ii + 1;
@@ -356,7 +354,7 @@ void loop()
                       adc_ch1_val_prev) <= isc_stable_adc) {
                 // Current differences are less than or equal to
                 // isc_stable_adc
-                poll_timeout = FALSE;
+                poll_timeout = false;
                 break;
               }
             }
@@ -481,7 +479,7 @@ void loop()
       } 
       adc_ch0_vals[pt_num-1] = adc_ch0_val;
       adc_ch1_vals[pt_num-1] = adc_ch1_val;
-      update_prev_ch1 = TRUE; // Adjust this CH1 value on next measurement
+      update_prev_ch1 = true; // Adjust this CH1 value on next measurement
       continue;
     }
     //------------------- Discard decision ---------------
@@ -494,7 +492,7 @@ void loop()
         (num_discarded_pts >= max_discards)) {
       // Keep this one
       pt_num++;
-      update_prev_ch1 = TRUE; // Adjust this CH1 value on next measurement
+      update_prev_ch1 = true; // Adjust this CH1 value on next measurement
       num_discarded_pts = 0;  // Reset discard counter
       if (pt_num >= max_iv_points) {
         // We're done
@@ -502,7 +500,7 @@ void loop()
       }
     } else {
       // Don't record this one
-      update_prev_ch1 = FALSE; // And don't adjust prev CH1 val next time
+      update_prev_ch1 = false; // And don't adjust prev CH1 val next time
       num_discarded_pts++;
     }
   }
@@ -565,8 +563,8 @@ void loop()
 
 }
 
-boolean get_host_msg(char * msg) {
-  boolean msg_received = FALSE;
+bool get_host_msg(char * msg) {
+  bool msg_received = false;
   char c;
   int char_num = 0;
   int msg_timer;
@@ -577,7 +575,7 @@ boolean get_host_msg(char * msg) {
       if (c == '\n') {
         // Substitute NULL for newline
         msg[char_num++] = '\0';
-        msg_received = TRUE;
+        msg_received = true;
         Serial.print(F("Received host message: "));
         Serial.println(msg);
         break;
@@ -733,7 +731,7 @@ void compute_v_and_i_scale(int isc_adc, int voc_adc,
   // integer math is used exclusively (no floats or longs).
   //
 
-  boolean i_scale_gt_v_scale;
+  bool i_scale_gt_v_scale;
   int initial_v_scale, initial_i_scale;
   int lg, sm, round_up_mask;
   int lg_scale, sm_scale;
