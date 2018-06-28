@@ -481,7 +481,10 @@ class Configuration(object):
         """
         full_name = "{} {}".format(section, option)
         try:
-            if config_type == CFG_FLOAT:
+            # First check for a value of "None" and return None in that case
+            if self.cfg.get(section, option) == "None":
+                return None
+            elif config_type == CFG_FLOAT:
                 cfg_value = self.cfg.getfloat(section, option)
                 return float(cfg_value)
             elif config_type == CFG_INT:
@@ -492,8 +495,6 @@ class Configuration(object):
                 return bool(cfg_value)
             elif config_type == CFG_STRING:
                 cfg_value = self.cfg.get(section, option)
-                if cfg_value == "None":
-                    cfg_value = None
                 return cfg_value
             else:
                 return old_prop_val
