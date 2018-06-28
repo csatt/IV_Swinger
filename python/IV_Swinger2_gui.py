@@ -1089,6 +1089,9 @@ the log file to csatt1@gmail.com.  Thank you!
 
     # -------------------------------------------------------------------------
     def show_preferences(self, event=None):
+        if self.preferences_button.instate(["disabled"]):
+            # Mystery why this is necessary ...
+            return
         # Create the Preferences dialog
         PreferencesDialog(self)
 
@@ -1100,14 +1103,16 @@ the log file to csatt1@gmail.com.  Thank you!
         # "self.wait_window(self)" to block this method from ever returning,
         # but it is not understood why that works, and it doesn't seem like a
         # great idea.
-        self.recreate_prefs_results_button_box()
+        try:
+            self.recreate_prefs_results_button_box()
+        except tk.TclError:
+            pass
 
     # -------------------------------------------------------------------------
     def results_actions(self, event=None):
-        if self.results_button.instate(["disabled"]):
-            # Mystery why this is necessary ...
-            return
-        self.results_wiz = ResultsWizard(self)
+        if (self.results_wiz is None and
+                not self.results_button.instate(["disabled"])):
+            self.results_wiz = ResultsWizard(self)
 
     # -------------------------------------------------------------------------
     def go_actions(self, event=None):
@@ -2002,6 +2007,9 @@ class ResultsWizard(tk.Toplevel):
         # Remove incomplete overlay
         self.rm_overlay_if_unfinished()
         self.restore_master()
+        self.master.props.overlay_mode = False
+        self.master.props.overlay_dir = None
+        self.master.results_wiz = None
         self.destroy()
 
     # -------------------------------------------------------------------------
@@ -3696,11 +3704,23 @@ class Dialog(tk.Toplevel):
     provided for the subclass to override. A placeholder function to
     validate the input before applying it is also provided for optional
     override.
+
+    NOTE: There's a bug in version of Tk (8.5.9) that is included with
+    OSX/MacOS versions since 10.7 (Lion) and up to at least 10.13 (High
+    Sierra) that has the effect that the grab_set() method can cause
+    menu items to become permanently disabled (grayed out). See
+    https://bugs.python.org/issue21757. Although this can be solved by
+    installing Python from python.org, we'll opt to just avoid the
+    problem by not calling grab_set().  This removes the modal behavior
+    of the Dialog class.  For now, there's a "modal" parameter that
+    defaults to False.  This means that dialogs now may have to take
+    specific precautions to restrict what the user can do while the
+    dialog is open.
     """
     # Initializer
     def __init__(self, master=None, title=None, has_ok_button=True,
                  has_cancel_button=True, return_ok=False, ok_label="OK",
-                 resizable=False):
+                 resizable=False, modal=False):
         tk.Toplevel.__init__(self, master=master)
         self.win_sys = self.master.tk.call("tk", "windowingsystem")
         self.has_ok_button = has_ok_button
@@ -3712,7 +3732,8 @@ class Dialog(tk.Toplevel):
         self.transient(self.master)  # tie this window to master
         if title is not None:
             self.title(title)
-        self.grab_set()  # block change of focus to master
+        if modal:
+            self.grab_set()  # block change of focus to master
         self.focus_set()
         self.snapshot_values = {}
         self.curr_values = {}
@@ -4075,11 +4096,14 @@ class ResistorValuesDialog(Dialog):
     """
     # Initializer
     def __init__(self, master=None):
+        self.master = master
         self.r1_str = tk.StringVar()
         self.r2_str = tk.StringVar()
         self.rf_str = tk.StringVar()
         self.rg_str = tk.StringVar()
         self.shunt_str = tk.StringVar()
+        # Disable some (but not all) main window functions
+        self.constrain_master()
         title = "{} Resistor Values".format(APP_NAME)
         Dialog.__init__(self, master=master, title=title)
 
@@ -4161,6 +4185,29 @@ class ResistorValuesDialog(Dialog):
         frame.grid()
 
     # -------------------------------------------------------------------------
+    def constrain_master(self):
+        """Method to disable some of the functionality of the master while the
+           dialog is running
+        """
+        self.master.go_button.state(["disabled"])
+        self.master.preferences_button.state(["disabled"])
+        self.master.results_button.state(["disabled"])
+        self.master.menu_bar.disable_resistor_calibration()
+        self.master.menu_bar.disable_bias_calibration()
+
+    # -------------------------------------------------------------------------
+    def restore_master(self):
+        """Method to re-enable the functionality of the master that was
+           disabled by constrain_master
+        """
+        if self.master.ivs2.arduino_ready:
+            self.master.go_button.state(["!disabled"])
+        self.master.preferences_button.state(["!disabled"])
+        self.master.results_button.state(["!disabled"])
+        self.master.menu_bar.enable_resistor_calibration()
+        self.master.menu_bar.enable_bias_calibration()
+
+    # -------------------------------------------------------------------------
     def restore_defaults(self, event=None):
         """Restore resistor values to defaults"""
         self.r1_str.set(str(R1_DEFAULT))
@@ -4235,6 +4282,9 @@ class ResistorValuesDialog(Dialog):
         amm_shunt_max_volts = self.snapshot_values["amm_shunt_max_volts"]
         self.master.ivs2.amm_shunt_max_volts = amm_shunt_max_volts
 
+        # Restore master
+        self.restore_master()
+
     # -------------------------------------------------------------------------
     def apply(self):
         """Override apply() method of parent to apply new values to properties
@@ -4295,6 +4345,9 @@ class ResistorValuesDialog(Dialog):
             # Save config
             self.master.save_config()
 
+        # Restore master
+        self.restore_master()
+
 
 # Bias battery dialog class
 #
@@ -4304,11 +4357,14 @@ class BiasBatteryDialog(Dialog):
     """
     # Initializer
     def __init__(self, master=None):
+        self.master = master
         title = "{} Bias Battery".format(APP_NAME)
         self.ready_to_calibrate = False
         self.curve_looks_ok = False
         self.reestablish_arduino_comm_reqd = False
         self.bias_batt_csv_file = None
+        # Disable some (but not all) main window functions
+        self.constrain_master()
         Dialog.__init__(self, master=master, title=title)
 
     # -------------------------------------------------------------------------
@@ -4343,6 +4399,29 @@ To perform the calibration:
         frame.grid()
 
     # -------------------------------------------------------------------------
+    def constrain_master(self):
+        """Method to disable some of the functionality of the master while the
+           dialog is running
+        """
+        self.master.go_button.state(["disabled"])
+        self.master.preferences_button.state(["disabled"])
+        self.master.results_button.state(["disabled"])
+        self.master.menu_bar.disable_resistor_calibration()
+        self.master.menu_bar.disable_bias_calibration()
+
+    # -------------------------------------------------------------------------
+    def restore_master(self):
+        """Method to re-enable the functionality of the master that was
+           disabled by constrain_master
+        """
+        if self.master.ivs2.arduino_ready:
+            self.master.go_button.state(["!disabled"])
+        self.master.preferences_button.state(["!disabled"])
+        self.master.results_button.state(["!disabled"])
+        self.master.menu_bar.enable_resistor_calibration()
+        self.master.menu_bar.enable_bias_calibration()
+
+    # -------------------------------------------------------------------------
     def revert(self):
         """Override revert() method of parent to restore the Arduino
            configuration
@@ -4352,6 +4431,9 @@ To perform the calibration:
         if self.reestablish_arduino_comm_reqd:
             self.master.reestablish_arduino_comm()
 
+        # Restore master
+        self.restore_master()
+
     # -------------------------------------------------------------------------
     def apply(self):
         """Override apply() method of parent to copy the new bias battery CSV
@@ -4359,6 +4441,7 @@ To perform the calibration:
         """
         # Silently return if calibration was not performed
         if self.bias_batt_csv_file is None:
+            self.restore_master()
             return
 
         # Remove any previous bias battery calibration CSV
@@ -4372,6 +4455,9 @@ To perform the calibration:
         # isc_stable_adc value, et al)
         if self.reestablish_arduino_comm_reqd:
             self.master.reestablish_arduino_comm()
+
+        # Restore master
+        self.restore_master()
 
     # -------------------------------------------------------------------------
     def calibrate_battery_bias(self):
@@ -4469,7 +4555,26 @@ class PreferencesDialog(Dialog):
         self.aspect_width_str = tk.StringVar()
         self.plot_props = PlottingProps(ivs2=master.ivs2)
         title = "{} Preferences".format(APP_NAME)
+        # Disable some (but not all) main window functions
+        self.constrain_master()
         Dialog.__init__(self, master=master, title=title)
+
+    # -------------------------------------------------------------------------
+    def constrain_master(self):
+        """Method to disable some of the functionality of the master while the
+           Preferences dialog is running
+        """
+        # Currently the only constraint is that the Preferences button
+        # is disabled, preventing multiple Preferences dialogs from
+        # being opened concurrently.
+        self.master.preferences_button.state(["disabled"])
+
+    # -------------------------------------------------------------------------
+    def restore_master(self):
+        """Method to re-enable the functionality of the master that was
+           disabled by constrain_master
+        """
+        self.master.preferences_button.state(["!disabled"])
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -5183,6 +5288,9 @@ class PreferencesDialog(Dialog):
             self.master.redisplay_img(reprocess_adc=reprocess_adc)
             self.plot_props.update_prop_vals()
 
+        # Restore master
+        self.restore_master()
+
     # -------------------------------------------------------------------------
     def apply(self):
         """Override apply() method of parent to apply new values to properties
@@ -5195,6 +5303,9 @@ class PreferencesDialog(Dialog):
         self.plotting_apply()
         self.looping_apply()
         self.arduino_apply()
+
+        # Restore master
+        self.restore_master()
 
     # -------------------------------------------------------------------------
     def plotting_apply(self):
