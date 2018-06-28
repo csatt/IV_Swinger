@@ -5,7 +5,7 @@
 #
 # IV_Swinger2_gui.py: IV Swinger 2 GUI application module
 #
-# Copyright (C) 2017  Chris Satterlee
+# Copyright (C) 2017,2018  Chris Satterlee
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -214,8 +214,8 @@ DEBUG_MEMLEAK = False
 #   Global functions   #
 ########################
 def debug_memleak(str):
-    """Global function to print the current memory usage at a give place in the
-       code or point in time. Not supported on Windows.
+    """Global function to print the current memory usage at a given place in
+       the code or point in time. Not supported on Windows.
     """
     if DEBUG_MEMLEAK:
         date_time_str = IV_Swinger2.get_date_time_str()
@@ -892,7 +892,6 @@ the log file to csatt1@gmail.com.  Thank you!
         """This method updates configuration values that can be changed as
            side-effects of the Arduino handshake: namely the USB port
            and the calibration values.
-
         """
         config_changed = False
         # USB
@@ -940,7 +939,6 @@ the log file to csatt1@gmail.com.  Thank you!
         if cfg_i_cal != self.ivs2.i_cal:
             self.config.cfg_set(section, option, self.ivs2.i_cal)
             config_changed = True
-        option = "bias battery voltage"
         if config_changed:
             self.save_config()
 
@@ -1176,8 +1174,7 @@ the log file to csatt1@gmail.com.  Thank you!
                           not self.props.loop_save_graphs):
             self.ivs2.generate_pdf = False
         self.config.remove_axes_and_title()
-        rc = self.ivs2.swing_iv_curve(loop_mode=loop_mode,
-                                      first_loop=first_loop)
+        rc = self.ivs2.swing_iv_curve(loop_mode=loop_mode)
         self.config.add_axes_and_title()
         self.ivs2.generate_pdf = True
 
@@ -2682,13 +2679,13 @@ class ResultsWizard(tk.Toplevel):
                 self.overlay_title = new_title
                 self.plot_overlay_and_display()
             else:
-                time = self.tree.item(dts)["text"][:8]
+                time_of_day = self.tree.item(dts)["text"][:8]
                 if new_title == "None":
                     new_title = None
-                    text = time
+                    text = time_of_day
                     self.tree.item(dts, text=text)
                 else:
-                    text = "{}   {}".format(time, new_title)
+                    text = "{}   {}".format(time_of_day, new_title)
                     self.tree.item(dts, text=text)
                 self.master.ivs2.plot_title = new_title
                 self.master.props.overlay_names[dts] = new_title
@@ -3150,8 +3147,8 @@ class ResultsWizard(tk.Toplevel):
         """Method to convert a date_time_str to date@time, e.g. from
            170110_190017 to 01/10/17@19:00:17
         """
-        (date, time) = IV_Swinger2.xlate_date_time_str(dts)
-        return("{}@{}".format(date, time))
+        (date, time_of_day) = IV_Swinger2.xlate_date_time_str(dts)
+        return("{}@{}".format(date, time_of_day))
 
     # -------------------------------------------------------------------------
     def grab_overlay_curve(self, event=None):
@@ -4003,6 +4000,7 @@ class DownlevelArduinoSketchDialog(Dialog):
     # Create body, which is just a Text widget
     def body(self, master):
 
+        app_version_text = self.master.version
         heading_text = "** ATTENTION **\n\n"
         text_1 = """
 The Arduino software ("sketch") on the IV Swinger 2 hardware that is currently
@@ -4031,15 +4029,16 @@ Here is the procedure:
       - Use your browser to go to:
 """
         text_5 = ("\n          https://raw.githubusercontent.com/"
-                  "csatt/IV_Swinger/master/Arduino/IV_Swinger2/"
-                  "IV_Swinger2.ino")
-        text_6 = """
+                  "csatt/IV_Swinger/")
+        text_6 = app_version_text
+        text_7 = ("/Arduino/IV_Swinger2/IV_Swinger2.ino")
+        text_8 = """
 
-      - Right-click and use "Save As" to save IV_Swinger.ino to the Arduino
+      - Use your browser's "Save As" to save IV_Swinger.ino to the Arduino
         sketchbook folder found above (make sure your browser doesn't add an
         extension like .txt to the file name)
 
-      - Go back to the Arduino application and find the IV_swinger2.ino sketch
+      - Go back to the Arduino application and find the IV_Swinger2.ino sketch
         using:
 
            File->Open
@@ -4061,6 +4060,8 @@ Here is the procedure:
         self.text.insert("end", text_4, ("body_tag"))
         self.text.insert("end", text_5, ("body_tag"))
         self.text.insert("end", text_6, ("body_tag"))
+        self.text.insert("end", text_7, ("body_tag"))
+        self.text.insert("end", text_8, ("body_tag"))
         self.text.grid()
 
 
@@ -5391,7 +5392,7 @@ class PlottingProps(object):
         """Compare current value of battery_bias property with previously
            captured value to see if it has changed
         """
-        return self.prop_vals["battery_bias"] != self.ivs2.battery_bias
+        return (self.prop_vals["battery_bias"] != self.ivs2.battery_bias)
 
 
 # Plotting help dialog class
