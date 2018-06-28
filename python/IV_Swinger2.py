@@ -354,6 +354,7 @@ class Configuration(object):
             self.save()
         else:
             # File does exist ...
+            self.remove_obsolete_options()
             self.apply_all()
 
     # -------------------------------------------------------------------------
@@ -458,6 +459,15 @@ class Configuration(object):
             except ConfigParser.NoOptionError:
                 title = None
         return title
+
+    # -------------------------------------------------------------------------
+    def remove_obsolete_options(self):
+        """Method to remove obsolete option values from the config
+        """
+        if (self.cfg.has_option("Calibration", "bias battery voltage")):
+            self.cfg.remove_option("Calibration", "bias battery voltage")
+        if (self.cfg.has_option("Calibration", "bias battery resistance")):
+            self.cfg.remove_option("Calibration", "bias battery resistance")
 
     # -------------------------------------------------------------------------
     def apply_one(self, section, option, config_type, old_prop_val):
