@@ -137,6 +137,7 @@
 #define CURRENT_CH 1           // ADC channel used for current measurement
 #define RELAY_INACTIVE HIGH    // Relay pin is active low
 #define RELAY_ACTIVE LOW       // Relay pin is active low
+#define VOC_POLLING_LOOPS 400  // Number of loops measuring Voc
 #define MAX_IV_POINTS 275      // Max number of I/V pairs to capture
 #define MAX_IV_MEAS 1000000    // Max number of I/V measurements (inc discards)
 #define CH1_1ST_WEIGHT 5       // Amount to weigh 1st CH1 value in avg calc
@@ -213,8 +214,12 @@ void loop()
   bool update_prev_ch1 = false;
   bool poll_timeout = false;
   bool skip_isc_poll = false;
+  bool count_updated = false;
+  bool voc_adc_found = false;
   char incoming_msg[MAX_MSG_LEN];
   int ii;
+  int index = 0;
+  int max_count = 0;
   int adc_ch0_delta, adc_ch1_delta, adc_ch1_prev_delta;
   int manhattan_distance, min_manhattan_distance;
   int pt_num = 1;   // counts points actually recorded
@@ -231,7 +236,7 @@ void loop()
   long start_usecs, elapsed_usecs;
   float usecs_per_iv_pair;
 #ifdef CAPTURE_UNFILTERED
-#define MAX_UNFILTERED_POINTS (400 - MAX_IV_POINTS)
+#define MAX_UNFILTERED_POINTS (VOC_POLLING_LOOPS - MAX_IV_POINTS)
   bool capture_unfiltered = false;
   int unfiltered_index = 0;
   int unfiltered_adc_ch0_vals[MAX_UNFILTERED_POINTS];
@@ -252,12 +257,25 @@ void loop()
   adc_noise_floor = ADC_MAX;
   min_adc_noise_floor = ADC_MAX;
   max_adc_noise_floor = 0;
-  for (ii = 0; ii < 400; ii++) {
+  memset(adc_ch0_vals, 0, sizeof(adc_ch0_vals));
+  memset(adc_ch1_vals, 0, sizeof(adc_ch1_vals));
+  for (ii = 0; ii < VOC_POLLING_LOOPS; ii++) {
     adc_ch0_val = read_adc(VOLTAGE_CH);  // Read CH0 (voltage)
     adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
-    // The Voc ADC value is the highest CH0 value seen
-    if (adc_ch0_val > voc_adc) {
-      voc_adc = adc_ch0_val;
+    // Update frequency count for this CH0 value. We temporarily use the
+    // adc_ch0_vals array for the values and the adc_ch1_vals array for
+    // the counts
+    for (index = 0, count_updated = false;
+         (index < sizeof(adc_ch0_vals)) && !count_updated;
+         index++) {
+      if (adc_ch1_vals[index] == 0) { // first empty slot
+        adc_ch0_vals[index] = adc_ch0_val;
+        adc_ch1_vals[index] = 1; // count
+        count_updated = true;
+      } else if (adc_ch0_vals[index] == adc_ch0_val) {
+        adc_ch1_vals[index]++; // count
+        count_updated = true;
+      }
     }
     // The ADC noise floor is the value read from the ADC when it
     // "should" be zero.  At this point, we know that the actual current
@@ -275,10 +293,24 @@ void loop()
       max_adc_noise_floor = adc_ch1_val;
     }
   }
+
+  // The Voc ADC value is the most common value seen during polling
+  for (index = 0, voc_adc_found = false, max_count = 0;
+       (index < sizeof(adc_ch0_vals)) && !voc_adc_found;
+       index++) {
+    if (adc_ch1_vals[index] == 0) {
+      // When we see a slot with a zero count, we're done
+      voc_adc_found = true;
+    } else if (adc_ch1_vals[index] > max_count) {
+      voc_adc = adc_ch0_vals[index];
+      max_count = adc_ch1_vals[index];
+    }
+  }
+  
   if (max_adc_noise_floor - min_adc_noise_floor > 10) {
     // If the noise floor is cycling by more than 10 ADC units, we
     // attempt to catch it at a point that is near the bottom
-    for (ii = 0; ii < 400; ii++) {
+    for (ii = 0; ii < VOC_POLLING_LOOPS; ii++) {
       adc_ch0_val = read_adc(VOLTAGE_CH);  // Read CH0 (voltage)
       adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
 #ifdef CAPTURE_UNFILTERED
