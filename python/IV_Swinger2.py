@@ -1989,7 +1989,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         # first one if more than one Arduino is connected.
         if self.usb_port is None:
             for serial_port in self.serial_ports:
-                if "uino" in str(serial_port):
+                if ("uino" in str(serial_port) or
+                        "Generic CDC" in str(serial_port)):  # Elegoo now
                     self.usb_port = str(serial_port).split(" ")[0]
                     break
 
