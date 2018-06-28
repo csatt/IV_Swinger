@@ -119,7 +119,7 @@
 #define _impl_CASSERT_LINE(predicate, line) \
     typedef char _impl_PASTE(assertion_failed_on_line_,line)[2*!!(predicate)-1];
 
-#define VERSION "1.3.2+"       // Version of this Arduino sketch
+#define VERSION "1.3.3beta1"   // Version of this Arduino sketch
 #define MAX_UINT (1<<16)-1     // Max unsigned integer
 #define MAX_INT (1<<15)-1      // Max integer
 #define MAX_ULONG (1<<32)-1    // Max unsigned long integer
@@ -169,13 +169,24 @@ int isc_stable_adc = ISC_STABLE_ADC;
 int max_discards = MAX_DISCARDS;
 int aspect_height = ASPECT_HEIGHT;
 int aspect_width = ASPECT_WIDTH;
+const static char ready_str[] PROGMEM = "Ready";
+const static char config_str[] PROGMEM = "Config";
+const static char go_str[] PROGMEM = "Go";
+const static char clk_div_str[] PROGMEM = "CLK_DIV";
+const static char max_iv_points_str[] PROGMEM = "MAX_IV_POINTS";
+const static char min_isc_adc_str[] PROGMEM = "MIN_ISC_ADC";
+const static char max_isc_poll_str[] PROGMEM = "MAX_ISC_POLL";
+const static char isc_stable_adc_str[] PROGMEM = "ISC_STABLE_ADC";
+const static char max_discards_str[] PROGMEM = "MAX_DISCARDS";
+const static char aspect_height_str[] PROGMEM = "ASPECT_HEIGHT";
+const static char aspect_width_str[] PROGMEM = "ASPECT_WIDTH";
+const static char write_eeprom_str[] PROGMEM = "WRITE_EEPROM";
+const static char dump_eeprom_str[] PROGMEM = "DUMP_EEPROM";
 
 void setup()
 {
   bool host_ready = false;
   char incoming_msg[MAX_MSG_LEN];
-  const static char ready_str[] PROGMEM = "Ready";
-  const static char config_str[] PROGMEM = "Config";
 
   // Initialization
   pinMode(ADC_CS_PIN, OUTPUT);
@@ -243,12 +254,18 @@ void loop()
   int unfiltered_adc_ch1_vals[MAX_UNFILTERED_POINTS];
 #endif
 
-  // Wait for go message from host
-  Serial.println(F("Waiting for go message"));
+  // Wait for go (or config) message from host
+  Serial.println(F("Waiting for go message or config message"));
   go_msg_received = false;
   while (!go_msg_received) {
     if (get_host_msg(incoming_msg)) {
-      go_msg_received = true;
+      if (strstr_P(incoming_msg, go_str)) {
+        go_msg_received = true;
+      }
+      else if (strstr_P(incoming_msg, config_str)) {
+        process_config_msg(incoming_msg);
+        Serial.println(F("Config processed"));
+      }
     }
   }
 
@@ -629,16 +646,6 @@ void process_config_msg(char * msg) {
   char *config_val;
   char *config_val2;
   int ii = 0;
-  const static char clk_div_str[] PROGMEM = "CLK_DIV";
-  const static char max_iv_points_str[] PROGMEM = "MAX_IV_POINTS";
-  const static char min_isc_adc_str[] PROGMEM = "MIN_ISC_ADC";
-  const static char max_isc_poll_str[] PROGMEM = "MAX_ISC_POLL";
-  const static char isc_stable_adc_str[] PROGMEM = "ISC_STABLE_ADC";
-  const static char max_discards_str[] PROGMEM = "MAX_DISCARDS";
-  const static char aspect_height_str[] PROGMEM = "ASPECT_HEIGHT";
-  const static char aspect_width_str[] PROGMEM = "ASPECT_WIDTH";
-  const static char write_eeprom_str[] PROGMEM = "WRITE_EEPROM";
-  const static char dump_eeprom_str[] PROGMEM = "DUMP_EEPROM";
   int eeprom_addr;
   float eeprom_value;
   substr = strtok(msg, " ");  // "Config:"
