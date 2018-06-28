@@ -2014,6 +2014,8 @@ class ResultsWizard(tk.Toplevel):
         self.master.results_button.state(["!disabled"])
         if self.master.ivs2.arduino_ready:
             self.master.go_button.state(["!disabled"])
+            self.master.menu_bar.enable_resistor_calibration()
+            self.master.menu_bar.enable_bias_calibration()
         self.master.config.cfg_filename = None  # property will restore
         self.master.config.get()
         self.master.update_plot_power_cb()
