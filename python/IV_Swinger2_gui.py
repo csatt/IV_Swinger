@@ -4751,6 +4751,7 @@ class PreferencesDialog(Dialog):
         self.battery_bias = tk.StringVar()
         self.series_res_comp_milliohms_str = tk.StringVar()
         self.spi_clk_str = tk.StringVar()
+        self.relay_active_high_str = tk.StringVar()
         self.max_iv_points_str = tk.StringVar()
         self.min_isc_adc_str = tk.StringVar()
         self.max_isc_poll_str = tk.StringVar()
@@ -5334,6 +5335,16 @@ class PreferencesDialog(Dialog):
         aspect_width = self.master.config.cfg.getint("Arduino", "aspect width")
         self.aspect_width_str.set(aspect_width)
 
+        # Add checkbutton to choose active-high relay
+        active_high_cb = ttk.Checkbutton(master=arduino_widget_box,
+                                         text="Relay is active-high",
+                                         command=self.relay_active_warn,
+                                         variable=self.relay_active_high_str,
+                                         onvalue="Enabled",
+                                         offvalue="Disabled")
+        if self.master.ivs2.relay_active_high:
+            self.relay_active_high_str.set("Enabled")
+
         # Add Restore Defaults button in its own container box
         arduino_restore_box = ttk.Frame(master=self.arduino_tab, padding=10)
         arduino_restore = ttk.Button(arduino_restore_box,
@@ -5388,6 +5399,8 @@ class PreferencesDialog(Dialog):
         aspect_width_constraint_label.grid(column=2, row=row, sticky=W,
                                            pady=pady)
         row = 8
+        active_high_cb.grid(column=0, row=row, sticky=W, pady=pady)
+        row = 9
         arduino_help_box.grid(column=0, row=row, sticky=W, pady=pady,
                               columnspan=2)
         arduino_help.grid(column=0, row=0, sticky=W)
@@ -5406,6 +5419,35 @@ class PreferencesDialog(Dialog):
         self.max_discards_str.set(str(MAX_DISCARDS_DEFAULT))
         self.aspect_height_str.set(str(ASPECT_HEIGHT_DEFAULT))
         self.aspect_width_str.set(str(ASPECT_WIDTH_DEFAULT))
+        # NOTE: relay_active_high is not restored
+
+    # -------------------------------------------------------------------------
+    def relay_active_warn(self):
+        """Display a warning dialog when the relay active high
+           checkbutton value is changed. Display an error dialog if the
+           Arduino sketch is downlevel
+        """
+        if self.master.ivs2.arduino_sketch_supports_active_high_relay:
+            warning_str = """
+WARNING: Changing the "Relay is
+active-high" value WILL prevent
+the IV Swinger2 from tracing IV
+curves if it is changed to the
+wrong value! This box should be
+unchecked unless you KNOW that
+this IV Swinger 2 was built with
+a relay that has an active-high
+trigger pin.
+"""
+            tkmsg.showwarning(message=warning_str)
+        else:
+            error_str = """
+ERROR: This version of the Arduino
+software supports active-low relays
+only. Changing this value has no
+effect. Please upgrade.
+"""
+            tkmsg.showerror(message=error_str)
 
     # -------------------------------------------------------------------------
     def show_arduino_help(self):
@@ -5749,6 +5791,19 @@ class PreferencesDialog(Dialog):
             self.master.config.cfg_set(section, option, aspect_width)
             arduino_opt_changed = True
 
+        # The relay active high flag is different from the others. It is
+        # not stored in the config, but is saved in the Arduino EEPROM.
+        relay_active_high = (self.relay_active_high_str.get() == "Enabled")
+        if relay_active_high != self.master.ivs2.relay_active_high:
+            self.master.ivs2.relay_active_high = relay_active_high
+            rc = self.master.ivs2.write_relay_active_high_val_to_eeprom()
+            if rc != RC_SUCCESS:
+                error_msg = """
+ERROR: The relay_active_high value could not be
+written to Arduino EEPROM.
+"""
+                tkmsg.showerror('ERROR', error_msg)
+
         # Apply and save the config if anything changed
         if arduino_opt_changed:
             self.master.config.apply_arduino()
@@ -6068,6 +6123,11 @@ Aspect height:
 Aspect width:
   Width of graph's aspect ratio (max 8). Used for "distance" calculation in the
   discard algorithm.
+
+Relay is active-high:
+  Check ONLY if the IV Swinger 2 was constructed with a (non-standard) relay
+  module that has an active-high trigger pin. This value will be saved in the
+  Arduino EEPROM so the hardware "remembers" what type of relay it has.
 """
         font = HELP_DIALOG_FONT
         self.text = ScrolledText(master, height=30, borderwidth=10)

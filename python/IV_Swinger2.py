@@ -156,6 +156,7 @@ SECOND_RELAY_OFF = 0
 SECOND_RELAY_ON = 1
 SECOND_RELAY_STATE_DEFAULT = SECOND_RELAY_OFF
 MIN_BIAS_CH1_ADC = 50
+RELAY_ACTIVE_HIGH_DEFAULT = False
 # Other Arduino constants
 ARDUINO_MAX_INT = (1 << 15) - 1
 MAX_IV_POINTS_MAX = 275
@@ -186,8 +187,9 @@ EEPROM_V_CAL_X1M_ADDR = 28
 EEPROM_I_CAL_X1M_ADDR = 32
 EEPROM_V_BATT_X1M_ADDR = 36  # Obsolete
 EEPROM_R_BATT_X1M_ADDR = 40  # Obsolete
+EEPROM_RELAY_ACTIVE_HIGH_ADDR = 44
 EEPROM_VALID_VALUE = "123456.7890"
-EEPROM_VALID_COUNT = 9  # increment if any added (starts at addr 8)
+EEPROM_VALID_COUNT = 10  # increment if any added (starts at addr 8)
 # Debug constants
 DEBUG_CONFIG = False
 
@@ -1392,6 +1394,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self.lcd = None
         self.ivp = None
         self.prev_date_time_str = None
+        self.eeprom_rewrite_needed = False
         # Property variables
         self._app_data_dir = app_data_dir
         self._hdd_output_dir = None
@@ -1426,6 +1429,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._v_cal = V_CAL_DEFAULT
         self._second_relay_cal = SECOND_RELAY_CAL_DEFAULT
         self._i_cal = I_CAL_DEFAULT
+        self._relay_active_high = RELAY_ACTIVE_HIGH_DEFAULT
         self._plot_title = None
         self._current_img = None
         self._x_pixels = 770  # Default GIF width (770x595)
@@ -1576,6 +1580,21 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     @i_cal.setter
     def i_cal(self, value):
         self._i_cal = value
+
+    # ---------------------------------
+    @property
+    def relay_active_high(self):
+        """Property to get flag that indicates if the relay is active-high"""
+        return self._relay_active_high
+
+    @relay_active_high.setter
+    def relay_active_high(self, value):
+        if value not in set([True, False]):
+            raise ValueError("relay_active_high must be boolean")
+        self._relay_active_high = value
+        if value:
+            warn_str = "WARNING: Setting relay_active_high to True"
+            self.logger.print_and_log(warn_str)
 
     # ---------------------------------
     @property
@@ -2207,6 +2226,14 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     # ---------------------------------
     @property
+    def arduino_sketch_supports_active_high_relay(self):
+        """True for Arduino sketch versions that have code to support
+           relays with an active-high trigger pin.
+        """
+        return self.arduino_sketch_ver_ge("1.3.3")
+
+    # ---------------------------------
+    @property
     def pdf_filename(self):
         """PDF file name"""
         dts = extract_date_time_str(self.hdd_output_dir)
@@ -2301,14 +2328,20 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if rc != RC_SUCCESS:
             return rc
 
-        # Special case: EEPROM has never been written (and therefore no values
-        # are returned).  We want to write it with the current values rather
-        # than waiting for a calibration.
+        # Special case #1: EEPROM has never been written (and therefore
+        # no values are returned).  We want to write it with the current
+        # values rather than waiting for a calibration.
+        #
+        # Special case #2: EEPROM has fewer entries valid than the
+        # current number that are defined.  We also want to rewrite it
+        # in that case to bring it up to date.
         if (self.arduino_sketch_supports_eeprom_config and
-                not self.eeprom_values_received):
+                (not self.eeprom_values_received or
+                 self.eeprom_rewrite_needed)):
             rc = self.send_config_msgs_to_arduino(write_eeprom=True)
             if rc != RC_SUCCESS:
                 return rc
+            self.eeprom_rewrite_needed = False
             rc = self.request_eeprom_dump()
             if rc != RC_SUCCESS:
                 return rc
@@ -2379,7 +2412,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                              ("{} {}".format(EEPROM_V_BATT_X1M_ADDR,
                                              0)),  # obsolete
                              ("{} {}".format(EEPROM_R_BATT_X1M_ADDR,
-                                             0))]  # obsolete
+                                             0)),  # obsolete
+                             ("{} {}".format(EEPROM_RELAY_ACTIVE_HIGH_ADDR,
+                                             int(self.relay_active_high)))]
             for config_value in config_values:
                 rc = self.send_one_config_msg_to_arduino("WRITE_EEPROM",
                                                          config_value)
@@ -2540,6 +2575,24 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         return rc
 
     # -------------------------------------------------------------------------
+    def write_relay_active_high_val_to_eeprom(self):
+        """Method to send the Arduino a config message that tells it to write
+           either a 0 or 1 to the EEPROM location that contains the
+           indication whether the IVS2 relay is active low or active
+           high. If the relay_active_high property is False, a value of
+           0 is written and if the relay_active_high property is True, a
+           value of 1 is written.
+        """
+        if not self.arduino_sketch_supports_active_high_relay:
+            return RC_FAILURE
+        data_val = 0
+        if self.relay_active_high:
+            data_val = 1
+        config_value = "{} {}".format(EEPROM_RELAY_ACTIVE_HIGH_ADDR, data_val)
+        rc = self.send_one_config_msg_to_arduino("WRITE_EEPROM", config_value)
+        return rc
+
+    # -------------------------------------------------------------------------
     def get_arduino_sketch_ver(self, msg):
         """Method to extract the version number of the Arduino sketch from the
            message containing it
@@ -2668,6 +2721,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                             "supported by this version of the application: {}"
                             .format(self.msg_from_arduino))
                 self.logger.print_and_log(warn_str)
+            elif int(float(eeprom_value)) < EEPROM_VALID_COUNT:
+                self.eeprom_rewrite_needed = True
         elif eeprom_addr == EEPROM_R1_OHMS_ADDR:
             self.vdiv_r1 = float(eeprom_value)
         elif eeprom_addr == EEPROM_R2_OHMS_ADDR:
@@ -2687,6 +2742,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             pass  # obsolete
         elif eeprom_addr == EEPROM_R_BATT_X1M_ADDR:
             pass  # obsolete
+        elif eeprom_addr == EEPROM_RELAY_ACTIVE_HIGH_ADDR:
+            if float(eeprom_value) == 0.0:
+                self.relay_active_high = False
+            else:
+                self.relay_active_high = True
         else:
             warn_str = ("WARNING: EEPROM value not "
                         "supported by this version of the application: {}"

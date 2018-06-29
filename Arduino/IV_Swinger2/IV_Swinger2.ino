@@ -119,7 +119,7 @@
 #define _impl_CASSERT_LINE(predicate, line) \
     typedef char _impl_PASTE(assertion_failed_on_line_,line)[2*!!(predicate)-1];
 
-#define VERSION "1.3.3beta2"   // Version of this Arduino sketch
+#define VERSION "1.3.3beta3"   // Version of this Arduino sketch
 #define MAX_UINT (1<<16)-1     // Max unsigned integer
 #define MAX_INT (1<<15)-1      // Max integer
 #define MAX_ULONG (1<<32)-1    // Max unsigned long integer
@@ -136,8 +136,6 @@
 #define CS_ACTIVE LOW          // Chip select is active low
 #define VOLTAGE_CH 0           // ADC channel used for voltage measurement
 #define CURRENT_CH 1           // ADC channel used for current measurement
-#define RELAY_INACTIVE HIGH    // Relay pin is active low
-#define RELAY_ACTIVE LOW       // Relay pin is active low
 #define VOC_POLLING_LOOPS 400  // Number of loops measuring Voc
 #define MAX_IV_POINTS 275      // Max number of I/V pairs to capture
 #define MAX_IV_MEAS 1000000    // Max number of I/V measurements (inc discards)
@@ -152,7 +150,8 @@
 #define ASPECT_WIDTH 3         // Width of graph's aspect ratio (max 8)
 #define TOTAL_WEIGHT (CH1_1ST_WEIGHT + CH1_2ND_WEIGHT)
 #define AVG_WEIGHT (int) ((TOTAL_WEIGHT + 1) / 2)
-#define EEPROM_VALID_VALUE 123456.7890
+#define EEPROM_VALID_VALUE 123456.7890    // Must match IV_Swinger2.py
+#define EEPROM_RELAY_ACTIVE_HIGH_ADDR 44  // Must match IV_Swinger2.py
 //#define CAPTURE_UNFILTERED
 
 // Compile-time assertions
@@ -162,6 +161,8 @@ COMPILER_ASSERT(ASPECT_HEIGHT <= 8);
 COMPILER_ASSERT(ASPECT_WIDTH <= 8);
 
 // Global variables
+char relay_active;
+char relay_inactive;
 int clk_div = CLK_DIV;
 int max_iv_points = MAX_IV_POINTS;
 int min_isc_adc = MIN_ISC_ADC;
@@ -183,6 +184,7 @@ const static char aspect_height_str[] PROGMEM = "ASPECT_HEIGHT";
 const static char aspect_width_str[] PROGMEM = "ASPECT_WIDTH";
 const static char write_eeprom_str[] PROGMEM = "WRITE_EEPROM";
 const static char dump_eeprom_str[] PROGMEM = "DUMP_EEPROM";
+const static char relay_state_str[] PROGMEM = "RELAY_STATE";
 const static char second_relay_state_str[] PROGMEM = "SECOND_RELAY_STATE";
 
 void setup()
@@ -190,13 +192,17 @@ void setup()
   bool host_ready = false;
   char incoming_msg[MAX_MSG_LEN];
 
+  // Get relay type from EEPROM (active-low or active-high)
+  relay_active = get_relay_active_val();
+  relay_inactive = (relay_active == LOW) ? HIGH : LOW;
+
   // Initialization
   pinMode(ADC_CS_PIN, OUTPUT);
   digitalWrite(ADC_CS_PIN, CS_INACTIVE);
   pinMode(RELAY_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, RELAY_INACTIVE);
+  digitalWrite(RELAY_PIN, relay_inactive);
   pinMode(SECOND_RELAY_PIN, OUTPUT);
-  digitalWrite(SECOND_RELAY_PIN, RELAY_INACTIVE);
+  digitalWrite(SECOND_RELAY_PIN, relay_inactive);
   Serial.begin(SERIAL_BAUD);
   SPI.begin();
   SPI.setClockDivider(clk_div);
@@ -358,7 +364,7 @@ void loop()
   }
 
   // Activate relay
-  digitalWrite(RELAY_PIN, RELAY_ACTIVE);
+  digitalWrite(RELAY_PIN, relay_active);
 
   // Wait until three consecutive measurements:
   //   - have current greater than min_isc_adc
@@ -562,7 +568,7 @@ void loop()
     adc_ch1_vals[pt_num-1] = adc_ch1_val;
   }
   elapsed_usecs = micros() - start_usecs;
-  digitalWrite(RELAY_PIN, RELAY_INACTIVE);
+  digitalWrite(RELAY_PIN, relay_inactive);
 
   // Report results on serial port
   //
@@ -688,8 +694,16 @@ void process_config_msg(char * msg) {
     eeprom_addr = atoi(config_val);
     eeprom_value = atof(config_val2);
     EEPROM.put(eeprom_addr, eeprom_value);
+    if (eeprom_addr == EEPROM_RELAY_ACTIVE_HIGH_ADDR) {
+      relay_active = (eeprom_value == LOW) ? LOW : HIGH;
+      relay_inactive = (relay_active == LOW) ? HIGH : LOW;
+      digitalWrite(RELAY_PIN, relay_inactive);
+      digitalWrite(SECOND_RELAY_PIN, relay_inactive);
+    }
   } else if (strcmp_P(config_type, dump_eeprom_str) == 0) {
     dump_eeprom();
+  } else if (strcmp_P(config_type, relay_state_str) == 0) {
+    set_relay_state((bool)atoi(config_val));
   } else if (strcmp_P(config_type, second_relay_state_str) == 0) {
     set_second_relay_state((bool)atoi(config_val));
   } else {
@@ -721,13 +735,61 @@ void dump_eeprom() {
   }
 }
 
+char get_relay_active_val() {
+  // The IV Swinger 2 hardware design calls for an active-low triggered
+  // relay module.  Support has been added now for the alternate use of
+  // an active-high triggered relay module. The host software writes
+  // EEPROM address 44 with either the value 0 or 1 indicating
+  // active-low or active-high repectively. At the beginning of setup()
+  // this function is called to determine which type the relay is.  It
+  // is possible that EEPROM has not been written yet, or that it was
+  // written by an older version of the host software and does not have
+  // a valid value at address 44.  In either of these cases, the default
+  // value of LOW is returned.
+  int eeprom_valid_count;
+  float eeprom_value;
+
+  // Check that address 0 has "magic" value
+  EEPROM.get(0, eeprom_value);
+  if (eeprom_value == EEPROM_VALID_VALUE) {
+    // Second location has count of valid entries
+    EEPROM.get(sizeof(float), eeprom_value);
+    eeprom_valid_count = (int)eeprom_value;
+    // Check that EEPROM contains an entry for the relay active value
+    if ((eeprom_valid_count + 1) * sizeof(float) >=
+        EEPROM_RELAY_ACTIVE_HIGH_ADDR) {
+      EEPROM.get(EEPROM_RELAY_ACTIVE_HIGH_ADDR, eeprom_value);
+      if (eeprom_value == 0) {
+        return (LOW);
+      } else {
+        return (HIGH);
+      }
+    } else {
+      // If EEPROM is not programmed with the relay active value, we
+      // have to assume it is active-low
+      return (LOW);
+    }
+  } else {
+    // If EEPROM is not programmed (at all), we have to assume the relay
+    // is active-low
+    return (LOW);
+  }
+}
+
+void set_relay_state(bool active) {
+  if (active) {
+    digitalWrite(RELAY_PIN, relay_active);
+  } else { 
+    digitalWrite(RELAY_PIN, relay_inactive);
+  }
+}
+
 void set_second_relay_state(bool active) {
   if (active) {
-    digitalWrite(SECOND_RELAY_PIN, RELAY_ACTIVE);
+    digitalWrite(SECOND_RELAY_PIN, relay_active);
   } else { 
-    digitalWrite(SECOND_RELAY_PIN, RELAY_INACTIVE);
+    digitalWrite(SECOND_RELAY_PIN, relay_inactive);
   }
-  // delay(50);
 }
 
 int read_adc(int ch) {
