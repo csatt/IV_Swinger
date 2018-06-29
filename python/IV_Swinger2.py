@@ -117,7 +117,7 @@ SKETCH_VER_LT = -1
 SKETCH_VER_EQ = 0
 SKETCH_VER_GT = 1
 SKETCH_VER_ERR = -2
-LATEST_SKETCH_VER = "1.3.0"
+LATEST_SKETCH_VER = "1.3.3"
 MIN_PT1_TO_VOC_RATIO_FOR_ISC = 0.20
 BATTERY_FOLDER_NAME = "Battery"
 
@@ -150,6 +150,9 @@ ISC_STABLE_DEFAULT = 5
 MAX_DISCARDS_DEFAULT = 300
 ASPECT_HEIGHT_DEFAULT = 2
 ASPECT_WIDTH_DEFAULT = 3
+SECOND_RELAY_OFF = 0
+SECOND_RELAY_ON = 1
+SECOND_RELAY_STATE_DEFAULT = SECOND_RELAY_OFF
 MIN_BIAS_CH1_ADC = 50
 # Other Arduino constants
 ARDUINO_MAX_INT = (1 << 15) - 1
@@ -160,6 +163,7 @@ MAX_ASPECT = 8
 NOMINAL_ADC_VREF = 5.0  # USB voltage = 5V
 V_CAL_DEFAULT = 1.0197
 I_CAL_DEFAULT = 1.1187
+DYN_BIAS_CAL_DEFAULT = False
 # Default resistor values
 R1_DEFAULT = 150000.0   # R1 = 150k nominal
 R1_DEFAULT_BUG = 180000.0   # This was a bug
@@ -631,6 +635,11 @@ class Configuration(object):
                  (SHUNT_DEFAULT / 1000000.0)))
         self.ivs2.amm_shunt_max_volts = self.apply_one(*args)
 
+        # Dynamic bias battery calibration
+        args = (section, "dynamic bias calibration", CFG_BOOLEAN,
+                DYN_BIAS_CAL_DEFAULT)
+        self.ivs2.dyn_bias_cal = self.apply_one(*args)
+
     # -------------------------------------------------------------------------
     def apply_plotting(self):
         """Method to apply the Plotting section options read from the
@@ -875,6 +884,8 @@ class Configuration(object):
         self.cfg_set(section, "rg ohms", self.ivs2.amm_op_amp_rg)
         self.cfg_set(section, "shunt max volts",
                      self.ivs2.amm_shunt_max_volts)
+        self.cfg_set(section, "dynamic bias calibration",
+                     self.ivs2.dyn_bias_cal)
 
         # Plotting config
         section = "Plotting"
@@ -1382,6 +1393,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._amm_shunt_max_volts = (self._amm_shunt_max_amps *
                                      (SHUNT_DEFAULT / 1000000.0))
         self._adc_vref = NOMINAL_ADC_VREF
+        self._dyn_bias_cal = DYN_BIAS_CAL_DEFAULT
         self._v_cal = V_CAL_DEFAULT
         self._i_cal = I_CAL_DEFAULT
         self._plot_title = None
@@ -1423,6 +1435,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._max_discards = MAX_DISCARDS_DEFAULT
         self._aspect_height = ASPECT_HEIGHT_DEFAULT
         self._aspect_width = ASPECT_WIDTH_DEFAULT
+        self._second_relay_state = SECOND_RELAY_STATE_DEFAULT
         # Configure logging and find serial ports
         self.configure_logging()
         self.find_serial_ports()
@@ -1519,6 +1532,19 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     @i_cal.setter
     def i_cal(self, value):
         self._i_cal = value
+
+    # ---------------------------------
+    @property
+    def dyn_bias_cal(self):
+        """Property to get flag that indicates if dynamic bias calibration is
+           enabled"""
+        return self._dyn_bias_cal
+
+    @dyn_bias_cal.setter
+    def dyn_bias_cal(self, value):
+        if value not in set([True, False]):
+            raise ValueError("dyn_bias_cal must be boolean")
+        self._dyn_bias_cal = value
 
     # ---------------------------------
     @property
@@ -1980,6 +2006,26 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             self._aspect_width = value
             self.arduino_has_config["ASPECT_WIDTH"] = False
 
+    # ---------------------------------
+    @property
+    def second_relay_state(self):
+        """Arduino: State of second relay (if there is one).
+           1 means active/on and 0 means inactive/off (regardless of
+           whether the physical relay is active high or active low).
+           Constants SECOND_RELAY_OFF and SECOND_RELAY_ON should be
+           used to reduce confusion.
+        """
+        return self._second_relay_state
+
+    @second_relay_state.setter
+    def second_relay_state(self, value):
+        if value not in set([SECOND_RELAY_OFF, SECOND_RELAY_ON]):
+            raise ValueError("second_relay_state must be either {} or {}"
+                             .format(SECOND_RELAY_OFF, SECOND_RELAY_ON))
+        if self._second_relay_state != value:
+            self._second_relay_state = value
+            self.arduino_has_config["SECOND_RELAY_STATE"] = False
+
     # Derived properties
     # ---------------------------------
     @property
@@ -2204,7 +2250,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                        "ISC_STABLE_ADC": self.isc_stable_adc,
                        "MAX_DISCARDS": self.max_discards,
                        "ASPECT_HEIGHT": self.aspect_height,
-                       "ASPECT_WIDTH": self.aspect_width}
+                       "ASPECT_WIDTH": self.aspect_width,
+                       "SECOND_RELAY_STATE": self.second_relay_state}
         for config_type, config_value in config_dict.iteritems():
             if not self.arduino_has_config[config_type]:
                 rc = self.send_one_config_msg_to_arduino(config_type,
@@ -3491,6 +3538,13 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         # (list of tuples)
         rc = self.receive_data_from_arduino()
 
+        # Turn off the second relay (only if it had been turned on though)
+        if self.arduino_sketch_supports_dynamic_config:
+            self.second_relay_state = SECOND_RELAY_OFF
+            rc = self.send_config_msgs_to_arduino()
+            if rc != RC_SUCCESS:
+                return rc
+
         # Write ADC pairs to CSV file
         self.write_adc_pairs_to_csv_file(self.hdd_adc_pairs_csv_filename,
                                          self.adc_pairs)
@@ -3522,27 +3576,34 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """
         restore_max_iv_points = [self.max_iv_points]
         restore_isc_stable_adc = [self.isc_stable_adc]
+        restore_max_discards = [self.max_discards]
         restore_correct_adc = [self.correct_adc]
         restore_reduce_noise = [self.reduce_noise]
         restore_battery_bias = [self.battery_bias]
+        restore_second_relay_state = [self.second_relay_state]
 
         def restore_all_and_return(rc):
             self.max_iv_points = restore_max_iv_points[0]
             self.isc_stable_adc = restore_isc_stable_adc[0]
+            self.max_discards = restore_max_discards[0]
             self.correct_adc = restore_correct_adc[0]
             self.reduce_noise = restore_reduce_noise[0]
             self.battery_bias = restore_battery_bias[0]
+            self.second_relay_state = restore_second_relay_state[0]
             return rc
 
-        # Temporarily set max_iv_points to 80 and isc_stable_adc to 200
+        # Temporarily set max_iv_points to 80, isc_stable_adc to 200,
+        # and max_discards to 50
         self.max_iv_points = 80
         self.isc_stable_adc = 200
-        self.arduino_ready = False
-        rc = self.reset_arduino()
-        if rc == RC_SUCCESS:
-            rc = self.wait_for_arduino_ready_and_ack()
-        if rc != RC_SUCCESS:
-            return restore_all_and_return(rc)
+        self.max_discards = 50
+        if not self.arduino_sketch_supports_dynamic_config:
+            self.arduino_ready = False
+            rc = self.reset_arduino()
+            if rc == RC_SUCCESS:
+                rc = self.wait_for_arduino_ready_and_ack()
+            if rc != RC_SUCCESS:
+                return restore_all_and_return(rc)
 
         # Force ADC correction and noise reduction ON
         self.correct_adc = True
@@ -3550,6 +3611,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
         # Force battery bias OFF
         self.battery_bias = False
+
+        # Make sure second relay is turned off
+        self.second_relay_state = SECOND_RELAY_OFF
 
         # Swing the IV curve
         rc = self.swing_iv_curve(subdir=BATTERY_FOLDER_NAME,

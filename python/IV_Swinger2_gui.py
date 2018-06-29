@@ -1159,6 +1159,13 @@ the log file to csatt1@gmail.com.  Thank you!
         loop. Unlike an actual loop, however, it is non-blocking.  This
         is essential in order for the GUI not to lock up.
         """
+        def show_error_dialog_clean_up_and_return(rc):
+            self.show_error_dialog(rc)
+            if loop_mode:
+                self.stop_actions(event=None)
+            self.ivs2.clean_up_after_failure(self.ivs2.hdd_output_dir)
+            return rc
+
         # Capture the start time
         loop_start_time = dt.datetime.now()
 
@@ -1170,6 +1177,31 @@ the log file to csatt1@gmail.com.  Thank you!
             self.loop_mode_cb.state(["disabled"])
             self.loop_rate_cb.state(["disabled"])
             self.loop_save_cb.state(["disabled"])
+
+        # Swing battery calibration curve if dynamic bias calibration is
+        # enabled
+        if self.ivs2.battery_bias and self.ivs2.dyn_bias_cal:
+            rc = self.ivs2.swing_battery_calibration_curve(gen_graphs=False)
+            # Restore config file
+            self.props.suppress_cfg_file_copy = True
+            self.save_config()
+            if rc == RC_SUCCESS:
+                # Generate bias battery ADC CSV file
+                bias_batt_csv_file = self.ivs2.gen_bias_batt_adc_csv()
+                # Remove any previous bias battery calibration CSV
+                # files from parent directory
+                self.ivs2.remove_prev_bias_battery_csv()
+                # Copy calibration CSV file to parent directory
+                self.ivs2.copy_file_to_parent(bias_batt_csv_file)
+                # Clean up files, depending on mode and options
+                self.ivs2.clean_up_files(self.ivs2.hdd_output_dir, loop_mode,
+                                         self.props.loop_save_results)
+                # Turn second relay on for battery + PV curve
+                self.ivs2.second_relay_state = IV_Swinger2.SECOND_RELAY_ON
+            else:
+                err_str = ("ERROR: Failed to swing curve for bias battery")
+                tkmsg.showerror(message=err_str)
+                return show_error_dialog_clean_up_and_return(rc)
 
         # Allow copying the .cfg file to the run directory
         self.props.suppress_cfg_file_copy = False
@@ -1183,17 +1215,22 @@ the log file to csatt1@gmail.com.  Thank you!
         self.config.add_axes_and_title()
         self.ivs2.generate_pdf = True
 
-        # Return without generating graphs if it failed, displaying
-        # reason in a dialog
-        if rc != RC_SUCCESS:
-            self.show_error_dialog(rc)
-            if loop_mode:
-                self.stop_actions(event=None)
+        if rc == RC_SUCCESS:
+            # Update the image pane with the new curve GIF
+            self.display_img(self.ivs2.current_img)
+        elif (loop_mode and
+              not self.props.loop_stop_on_err and
+              (rc == RC_ZERO_ISC or rc == RC_ZERO_VOC or
+               rc == RC_ISC_TIMEOUT)):
+            # If it failed and we're in loop mode with the stop-on-error option
+            # disabled and the error is non-fatal, just clean up and continue
+            # after displaying the error message on the screen
+            self.display_screen_err_msg(rc)
             self.ivs2.clean_up_after_failure(self.ivs2.hdd_output_dir)
-            return rc
-
-        # Update the image pane with the new curve GIF
-        self.display_img(self.ivs2.current_img)
+        else:
+            # Otherwise return without generating graphs if it failed,
+            # displaying reason in a dialog
+            return show_error_dialog_clean_up_and_return(rc)
 
         # Schedule another call with "after" if looping
         if loop_mode:
@@ -3631,8 +3668,22 @@ Copyright (C) 2017  Chris Satterlee
 
     # -------------------------------------------------------------------------
     def get_v_cal_value(self):
+        if self.master.ivs2.battery_bias and not self.master.ivs2.dyn_bias_cal:
+            # If the battery bias mode is on, and we're NOT doing
+            # dynamic bias battery calibration, we can't really do
+            # anything that would work reliably.  It is likely that the
+            # error is due to the bias battery curve being "stale".
+            err_msg = """
+ERROR: voltage calibration cannot
+be performed using a curve that has
+battery bias applied unless dynamic
+bias battery calibration was enabled.
+"""
+            tkmsg.showerror(message=err_msg)
+            return
+
         data_points = self.master.ivs2.data_points
-        curr_voc = round(data_points[-1][IV_Swinger2.VOLTS_INDEX], 4)
+        curr_voc = round(data_points[-1][IV_Swinger2.VOLTS_INDEX], 5)
         prompt_str = "Enter measured Voc value:"
         new_voc = tksd.askfloat(title="Voltage Calibration",
                                 prompt=prompt_str,
@@ -3649,7 +3700,7 @@ Copyright (C) 2017  Chris Satterlee
     # -------------------------------------------------------------------------
     def get_i_cal_value(self):
         data_points = self.master.ivs2.data_points
-        curr_isc = round(data_points[0][IV_Swinger2.AMPS_INDEX], 4)
+        curr_isc = round(data_points[0][IV_Swinger2.AMPS_INDEX], 5)
         prompt_str = "Enter measured Isc value:"
         new_isc = tksd.askfloat(title="Current Calibration",
                                 prompt=prompt_str,
@@ -3685,8 +3736,8 @@ this version of the Arduino software. Please upgrade.
     # -------------------------------------------------------------------------
     def invalidate_arduino_eeprom(self):
         if not self.master.ivs2.arduino_sketch_supports_dynamic_config:
-            err_str = ("ERROR: The Arduino sketch does not support"
-                       "invalidating the EEPROM. You must update it"
+            err_str = ("ERROR: The Arduino sketch does not support "
+                       "invalidating the EEPROM. You must update it "
                        "to use this feature.")
             tkmsg.showerror(message=err_str)
             return
@@ -4399,6 +4450,7 @@ class BiasBatteryDialog(Dialog):
         self.curve_looks_ok = False
         self.reestablish_arduino_comm_reqd = False
         self.bias_batt_csv_file = None
+        self.dyn_cal_enable = tk.StringVar()
         # Disable some (but not all) main window functions
         self.constrain_master()
         Dialog.__init__(self, master=master, title=title)
@@ -4411,7 +4463,17 @@ class BiasBatteryDialog(Dialog):
 This calibration is used only for the cell version of IV Swinger 2
 which sometimes requires a bias battery in series with the PV cell.
 
-To perform the calibration:
+NOTE: before performing this calibration, NORMAL Current and Voltage
+calibrations must be performed with the bias battery and PV cell in
+series.
+
+If the hardware supports dynamic bias battery calibration, you may
+enable that below. When enabled, a bias battery calibration is
+performed immediately before EVERY curve is swung. Before enabling
+dynamic bias battery calibration, it is recommended that a manual
+calibration be run.
+
+To perform the manual calibration:
 
   1. Connect the bias battery BY ITSELF to the binding posts
   2. Click on the "Calibrate" button below."""
@@ -4424,6 +4486,24 @@ To perform the calibration:
         calibrate_button = ttk.Button(calibrate_button_box,
                                       text="Calibrate",
                                       command=self.calibrate_battery_bias)
+        # Add radio buttons to choose whether to enable dynamic bias
+        # battery calibration
+        pad = " " * 25
+        title = "Dynamic calibration"
+        dyn_cal_enable_label = ttk.Label(master=calibrate_button_box,
+                                         text="{}{}".format(pad, title))
+        dyn_cal_enable_off_rb = ttk.Radiobutton(master=calibrate_button_box,
+                                                text="Off",
+                                                variable=self.dyn_cal_enable,
+                                                value="Off")
+        dyn_cal_enable_on_rb = ttk.Radiobutton(master=calibrate_button_box,
+                                               text="On",
+                                               variable=self.dyn_cal_enable,
+                                               value="On")
+        self.dyn_cal_enable.set("Off")
+        if self.master.config.cfg.getboolean("Calibration",
+                                             "dynamic bias calibration"):
+            self.dyn_cal_enable.set("On")
 
         # Layout
         frame.grid(column=0, row=0, sticky=W, columnspan=2)
@@ -4432,6 +4512,9 @@ To perform the calibration:
         row = 1
         calibrate_button_box.grid(column=0, row=row, sticky=(S, W), pady=4)
         calibrate_button.grid(column=0, row=0, sticky=W)
+        dyn_cal_enable_label.grid(column=1, row=0, sticky=W)
+        dyn_cal_enable_off_rb.grid(column=2, row=0, sticky=W)
+        dyn_cal_enable_on_rb.grid(column=3, row=0, sticky=W)
         frame.grid()
 
     # -------------------------------------------------------------------------
@@ -4475,6 +4558,23 @@ To perform the calibration:
         """Override apply() method of parent to copy the new bias battery CSV
            file to the parent directory
         """
+        # Propagate the dynamic calibration setting to the IVS2 property
+        # and config if it has changed
+        dyn_bias_cal = (self.dyn_cal_enable.get() == "On")
+        if (dyn_bias_cal and
+                not self.master.ivs2.arduino_sketch_supports_dynamic_config):
+            err_str = ("ERROR: The Arduino sketch does not support dynamic "
+                       "bias calibration. You must update it to use this "
+                       "feature.")
+            tkmsg.showerror(message=err_str)
+        elif dyn_bias_cal != self.master.ivs2.dyn_bias_cal:
+            self.master.ivs2.dyn_bias_cal = dyn_bias_cal
+            # Update and save config
+            self.master.config.cfg_set("Calibration",
+                                       "dynamic bias calibration",
+                                       dyn_bias_cal)
+            self.master.save_config()
+
         # Silently return if calibration was not performed
         if self.bias_batt_csv_file is None:
             self.restore_master()
@@ -4513,7 +4613,8 @@ CELL?  Click YES to perform the calibration, NO to cancel."""
                                                      msg_str,
                                                      default=tkmsg.YES)
         if self.ready_to_calibrate:
-            self.reestablish_arduino_comm_reqd = True
+            if not self.master.ivs2.arduino_sketch_supports_dynamic_config:
+                self.reestablish_arduino_comm_reqd = True
             rc = self.master.ivs2.swing_battery_calibration_curve()
             # Restore config file
             self.master.props.suppress_cfg_file_copy = True
