@@ -102,6 +102,7 @@ import sys
 import ttk
 import Tkinter as tk
 import tkFileDialog
+import tkFont
 import tkMessageBox as tkmsg
 import tkSimpleDialog as tksd
 import traceback
@@ -172,6 +173,7 @@ INFINITE_VAL = IV_Swinger2.INFINITE_VAL
 # GUI-specific
 VERSION_FILE = "version.txt"
 SPLASH_IMG = "Splash_Screen.png"
+BLANK_IMG = "Blank_Screen.png"
 TITLEBAR_ICON = "IV_Swinger2.ico"  # Windows
 HELP_DIALOG_FONT = "Arial"
 WIZARD_MIN_HEIGHT_PIXELS = 250  # pixels
@@ -232,9 +234,9 @@ def get_app_dir():
        executable (e.g. built with pyinstaller).
     """
     if getattr(sys, "frozen", False):
-        return os.path.dirname(sys.executable)
+        return os.path.abspath(os.path.dirname(sys.executable))
     elif __file__:
-        return os.path.dirname(__file__)
+        return os.path.abspath(os.path.dirname(__file__))
 
 
 #################
@@ -256,6 +258,7 @@ class GraphicalUserInterface(ttk.Frame):
         self.ivs2 = IV_Swinger2.IV_Swinger2(app_data_dir)
         self.init_instance_vars()
         self.props = GraphicalUserInterfaceProps(self)
+        self.app_dir = get_app_dir()
         self.get_version()
         self.set_grid()
         self.config = Configuration(gui=self, ivs2=self.ivs2)
@@ -292,7 +295,7 @@ the log file to csatt1@gmail.com.  Thank you!
 
     # -------------------------------------------------------------------------
     def get_version(self):
-        version_file = os.path.join(get_app_dir(), VERSION_FILE)
+        version_file = os.path.join(self.app_dir, VERSION_FILE)
         try:
             with open(version_file, "r") as f:
                 lines = f.read().splitlines()
@@ -336,6 +339,7 @@ the log file to csatt1@gmail.com.  Thank you!
         self.img_file = None
         self._cfg_filename = None
         self._restore_loop = False
+        self._loop_stop_on_err = True
         self._loop_mode_active = False
         self._loop_rate_limit = False
         self._loop_delay = 0
@@ -346,6 +350,27 @@ the log file to csatt1@gmail.com.  Thank you!
         self._overlay_dir = None
         self._overlay_mode = False
         self._redisplay_after_axes_unlock = True
+        self.zero_voc_str = """
+ERROR: Voc is zero volts
+
+Check that the IV Swinger 2 is connected
+properly to the PV module
+"""
+        self.zero_isc_str = """
+ERROR: Isc is zero amps
+
+Check that the IV Swinger 2 is connected
+properly to the PV module
+"""
+        self.isc_timeout_str = """
+ERROR: Timed out polling for stable Isc
+
+This may be due to insufficient sunlight.
+
+If that is not the case, the "Isc stable ADC"
+value may need to be increased to a larger
+value on the Arduino tab of Preferences
+"""
 
     # -------------------------------------------------------------------------
     def get_adc_pairs_from_csv(self, adc_csv_file):
@@ -1262,10 +1287,30 @@ the log file to csatt1@gmail.com.  Thank you!
         self.img_file = img_file
         new_img = tk.PhotoImage(file=img_file)
         self.img_pane.configure(image=new_img)
+        self.img_pane.configure(text="")
         self.img_pane.image = new_img
         self.img_pane.splash_img_showing = False
         # Update values in range boxes
         self.update_axis_ranges()
+        self.update_idletasks()
+
+    # -------------------------------------------------------------------------
+    def display_screen_err_msg(self, rc):
+        dts = IV_Swinger2.extract_date_time_str(self.ivs2.hdd_output_dir)
+        xlated = IV_Swinger2.xlate_date_time_str(dts)
+        (xlated_date, xlated_time) = xlated
+        screen_msg = "{}@{}".format(xlated_date, xlated_time)
+        screen_msg += "\n\n"
+        screen_msg += "** Curve trace FAILED **"
+        screen_msg += "\n\n"
+        if rc == RC_ISC_TIMEOUT:
+            screen_msg += self.isc_timeout_str
+        elif rc == RC_ZERO_VOC:
+            screen_msg += self.zero_voc_str
+        else:
+            screen_msg += self.zero_isc_str
+        self.img_pane.display_error_img(screen_msg)
+        self.img_pane.splash_img_showing = True  # Hack
         self.update_idletasks()
 
     # -------------------------------------------------------------------------
@@ -1353,34 +1398,15 @@ on the "USB Port" menu.
 
     # -------------------------------------------------------------------------
     def show_zero_voc_dialog(self):
-        zero_voc_str = """
-ERROR: Voc is zero volts
-
-Check that the IV Swinger 2 is connected
-properly to the PV module
-"""
-        tkmsg.showerror(message=zero_voc_str)
+        tkmsg.showerror(message=self.zero_voc_str)
 
     # -------------------------------------------------------------------------
     def show_zero_isc_dialog(self):
-        zero_isc_str = """
-ERROR: Isc is zero amps
-
-Check that the IV Swinger 2 is connected
-properly to the PV module
-"""
-        tkmsg.showerror(message=zero_isc_str)
+        tkmsg.showerror(message=self.zero_isc_str)
 
     # -------------------------------------------------------------------------
     def show_isc_timeout_dialog(self):
-        isc_timeout_str = """
-ERROR: Timed out polling for stable Isc
-
-The "Isc stable ADC" value may need to be
-increased to a larger value on the Arduino
-tab of Preferences
-"""
-        tkmsg.showerror(message=isc_timeout_str)
+        tkmsg.showerror(message=self.isc_timeout_str)
 
     # -------------------------------------------------------------------------
     def show_no_points_dialog(self):
@@ -1491,6 +1517,20 @@ class GraphicalUserInterfaceProps(object):
         if value not in set([True, False]):
             raise ValueError("restore_loop must be boolean")
         self.master._restore_loop = value
+
+    # ---------------------------------
+    @property
+    def loop_stop_on_err(self):
+        """True if looping should stop on non-fatal errors, false if
+           looping should continue on non-fatal errors
+        """
+        return self.master._loop_stop_on_err
+
+    @loop_stop_on_err.setter
+    def loop_stop_on_err(self, value):
+        if value not in set([True, False]):
+            raise ValueError("loop_stop_on_err must be boolean")
+        self.master._loop_stop_on_err = value
 
     # ---------------------------------
     @property
@@ -1654,6 +1694,11 @@ class Configuration(IV_Swinger2.Configuration):
                 self.gui.props.restore_loop)
         self.gui.props.restore_loop = self.apply_one(*args)
 
+        # Stop on error
+        args = (section, "stop on error", CFG_BOOLEAN,
+                self.gui.props.loop_stop_on_err)
+        self.gui.props.loop_stop_on_err = self.apply_one(*args)
+
         if self.gui.props.restore_loop:
             # Loop mode
             args = (section, "loop mode", CFG_BOOLEAN,
@@ -1690,6 +1735,7 @@ class Configuration(IV_Swinger2.Configuration):
         section = "Looping"
         self.cfg.add_section(section)
         self.cfg_set(section, "restore values", self.gui.props.restore_loop)
+        self.cfg_set(section, "stop on error", self.gui.props.loop_stop_on_err)
         self.cfg_set(section, "loop mode", self.gui.props.loop_mode_active)
         self.cfg_set(section, "rate limit", self.gui.props.loop_rate_limit)
         self.cfg_set(section, "delay", self.gui.props.loop_delay)
@@ -4690,6 +4736,7 @@ class PreferencesDialog(Dialog):
     def __init__(self, master=None):
         self.master = master
         self.restore_looping = tk.StringVar()
+        self.loop_stop_on_err = tk.StringVar()
         self.fancy_labels = tk.StringVar()
         self.interpolation_type = tk.StringVar()
         self.font_scale = tk.StringVar()
@@ -5144,11 +5191,28 @@ class PreferencesDialog(Dialog):
                                              onvalue="Enabled",
                                              offvalue="Disabled")
 
-        # If the config contains a Looping section, use invoke the
-        # checkbutton if "restore values" is True
-        if self.master.config.cfg.has_section("Looping"):
-            if self.master.config.cfg.getboolean("Looping", "restore values"):
+        # Add checkbutton to choose whether to stop on non-fatal errors
+        # while looping
+        loop_stop_on_err_cb_text = "Stop on non-fatal errors when looping"
+        loop_stop_on_err_cb = ttk.Checkbutton(master=looping_widget_box,
+                                              text=loop_stop_on_err_cb_text,
+                                              variable=self.loop_stop_on_err,
+                                              onvalue="Enabled",
+                                              offvalue="Disabled")
+
+        # If the config contains a Looping section ...
+        section = "Looping"
+        if self.master.config.cfg.has_section(section):
+            # Invoke the checkbutton if "restore values" is True
+            option = "restore values"
+            if self.master.config.cfg.getboolean(section, option):
                 restore_looping_cb.invoke()
+            # Set the stop on error checkbutton according to the value
+            option = "stop on error"
+            self.loop_stop_on_err.set("Enabled")
+            if self.master.config.cfg.has_option(section, option):
+                if not self.master.config.cfg.getboolean(section, option):
+                    self.loop_stop_on_err.set("Disabled")
 
         # Add Help button in its own container box
         looping_help_box = ttk.Frame(master=self.looping_tab, padding=10)
@@ -5159,8 +5223,9 @@ class PreferencesDialog(Dialog):
         # Layout
         pady = 8
         looping_widget_box.grid(column=0, row=0, sticky=W, columnspan=2)
-        restore_looping_cb.grid(column=0, row=0)
-        looping_help_box.grid(column=0, row=1, sticky=W,
+        restore_looping_cb.grid(column=0, row=0, sticky=W)
+        loop_stop_on_err_cb.grid(column=0, row=1, sticky=W)
+        looping_help_box.grid(column=0, row=2, sticky=W,
                               pady=pady, columnspan=2)
         looping_help.grid(column=0, row=0, sticky=W)
 
@@ -5616,13 +5681,25 @@ class PreferencesDialog(Dialog):
     def looping_apply(self):
         """Apply looping config"""
         section = "Looping"
-        # Restore values
-        option = "restore values"
-        restore_values = (self.restore_looping.get() == "Enabled")
         if self.master.config.cfg.has_section(section):
+            looping_opt_changed = False
+            # Restore values
+            option = "restore values"
+            restore_values = (self.restore_looping.get() == "Enabled")
             if (restore_values != self.master.config.cfg.getboolean(section,
                                                                     option)):
                 self.master.config.cfg_set(section, option, restore_values)
+                looping_opt_changed = True
+            # Stop on error
+            option = "stop on error"
+            stop_on_err = (self.loop_stop_on_err.get() == "Enabled")
+            if self.master.config.cfg.has_option(section, option):
+                if (stop_on_err != self.master.config.cfg.getboolean(section,
+                                                                     option)):
+                    self.master.config.cfg_set(section, option, stop_on_err)
+                    self.master.props.loop_stop_on_err = stop_on_err
+                    looping_opt_changed = True
+            if looping_opt_changed:
                 # Save config
                 self.master.save_config()
 
@@ -5921,11 +5998,12 @@ class LoopingHelpDialog(Dialog):
     def body(self, master):
         """Create body, which is just a Text widget"""
         help_text_1 = """
-There is currently only one option on the Preferences Looping tab. The main
+There are currently only two options on the Preferences Looping tab. The main
 options controlling looping behavior are on the main IV Swinger 2 window to
-the right of the "Swing!" button. The lone Preferences option is to choose
+the right of the "Swing!" button. The first Preferences option is to choose
 whether the settings on the main screen should be retained after the program is
-closed and restored the next time it is opened.
+closed and restored the next time it is opened.  The second is to choose
+whether or not looping should stop on non-fatal errors.
 """
         font = HELP_DIALOG_FONT
         self.text = ScrolledText(master, height=15, borderwidth=10)
@@ -6094,23 +6172,45 @@ class ImagePane(ttk.Label):
 
     # Initializer
     def __init__(self, master=None):
-        ttk.Label.__init__(self, master=master)
+        ttk.Label.__init__(self, master=master, compound="center")
         self.master = master
+        self.font = tkFont.Font(family='TkDefaultFont')
+        self.img_file = None
         self.display_splash_img()
 
     # -------------------------------------------------------------------------
-    def display_splash_img(self):
-        """Method to display the appropriately-sized splash image"""
+    def display_img(self, text=None):
+        """Method to display the appropriately-sized image"""
         x_pixels = self.master.ivs2.x_pixels
         y_pixels = int(round(self.master.ivs2.x_pixels *
                              self.master.ivs2.plot_y_inches /
                              self.master.ivs2.plot_x_inches))
-        splash_img = os.path.join(get_app_dir(), SPLASH_IMG)
-        img = Image.open(splash_img).resize((x_pixels, y_pixels))
+        img = Image.open(self.img_file).resize((x_pixels, y_pixels))
         self.current_img = ImageTk.PhotoImage(img)
+        if text is not None:
+            self.font.configure(size=int(x_pixels/20))
+            self["font"] = self.font
+            self["justify"] = "center"
+            self["text"] = text
+        else:
+            self["text"] = ""
         self["image"] = self.current_img
         self.image = self.current_img
+
+    # -------------------------------------------------------------------------
+    def display_splash_img(self):
+        """Method to display the splash image"""
+        self.img_file = os.path.join(self.master.app_dir, SPLASH_IMG)
+        self.display_img()
         self.splash_img_showing = True
+
+    # -------------------------------------------------------------------------
+    def display_error_img(self, text="ERROR"):
+        """Method to display an error message image on the screen"""
+        self.img_file = os.path.join(self.master.app_dir, BLANK_IMG)
+        self["foreground"] = "red"
+        self.font.configure(slant="italic")
+        self.display_img(text=text)
 
 
 # Go/Stop button class
