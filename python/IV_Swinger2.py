@@ -141,6 +141,8 @@ SPI_CLOCK_DIV32 = 0x06
 FONT_SCALE_DEFAULT = 1.0
 LINE_SCALE_DEFAULT = 1.0
 POINT_SCALE_DEFAULT = 1.0
+SERIES_RES_COMP_DEFAULT = 0.0
+BIAS_SERIES_RES_COMP_DEFAULT = 0.0
 # Default Arduino config
 SPI_CLK_DEFAULT = SPI_CLOCK_DIV8
 MAX_IV_POINTS_DEFAULT = 140
@@ -430,6 +432,9 @@ class Configuration(object):
         # Note that battery bias is -not- included, so a batch update
         # that includes a mix of runs with and without a bias battery
         # won't get messed up
+        series_res_comp = self.cfg.get(section, "series resistance comp")
+        bias_series_res_comp = self.cfg.get(section,
+                                            "bias series resistance comp")
 
         # Read the old result's saved config
         self.get_old_result(cfg_file)
@@ -449,6 +454,9 @@ class Configuration(object):
         self.cfg_set(section, "combine dupv points", comb_dupv_pts)
         self.cfg_set(section, "reduce noise", reduce_noise)
         self.cfg_set(section, "fix overshoot", fix_overshoot)
+        self.cfg_set(section, "series resistance comp", series_res_comp)
+        self.cfg_set(section, "bias series resistance comp",
+                     bias_series_res_comp)
 
         # Apply plotting options to properties
         self.apply_plotting()
@@ -707,6 +715,16 @@ class Configuration(object):
         args = (section, "battery bias", CFG_BOOLEAN, self.ivs2.battery_bias)
         self.ivs2.battery_bias = self.apply_one(*args)
 
+        # Series resistance compensation
+        args = (section, "series resistance comp", CFG_FLOAT,
+                self.ivs2.series_res_comp)
+        self.ivs2.series_res_comp = self.apply_one(*args)
+
+        # Series resistance compensation (in bias battery mode)
+        args = (section, "bias series resistance comp", CFG_FLOAT,
+                self.ivs2.bias_series_res_comp)
+        self.ivs2.bias_series_res_comp = self.apply_one(*args)
+
     # -------------------------------------------------------------------------
     def apply_axes(self):
         """Method to apply the Plotting section "plot max x" and "plot max y"
@@ -910,6 +928,10 @@ class Configuration(object):
         self.cfg_set(section, "reduce noise", self.ivs2.reduce_noise)
         self.cfg_set(section, "fix overshoot", self.ivs2.fix_overshoot)
         self.cfg_set(section, "battery bias", self.ivs2.battery_bias)
+        self.cfg_set(section, "series resistance comp",
+                     self.ivs2.series_res_comp)
+        self.cfg_set(section, "bias series resistance comp",
+                     self.ivs2.bias_series_res_comp)
 
         # Arduino config
         section = "Arduino"
@@ -1422,6 +1444,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._reduce_noise = True
         self._fix_overshoot = True
         self._battery_bias = False
+        self._series_res_comp = SERIES_RES_COMP_DEFAULT
+        self._bias_series_res_comp = BIAS_SERIES_RES_COMP_DEFAULT
         self._arduino_has_config = {"CLK_DIV": False,
                                     "MAX_IV_POINTS": False,
                                     "MIN_ISC_ADC": False,
@@ -1907,6 +1931,35 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if value not in set([True, False]):
             raise ValueError("battery_bias must be boolean")
         self._battery_bias = value
+
+    # ---------------------------------
+    @property
+    def series_res_comp(self):
+        """Value of the series resistance compensation (in ohms).  If this value
+           is positive, the voltage at each point will be increased by
+           an amount equal to I * series_res_comp. This could be used,
+           for example, to factor out the effect of a long cable with
+           known resistance.  The resulting curve will have a steeper
+           slope, as it would without the long cable.  A negative value
+           has the opposite effect.
+        """
+        return self._series_res_comp
+
+    @series_res_comp.setter
+    def series_res_comp(self, value):
+        self._series_res_comp = value
+
+    # ---------------------------------
+    @property
+    def bias_series_res_comp(self):
+        """Value of the series resistance compensation (in ohms) when battery
+           bias is in effect.  See the description for series_res_comp.
+        """
+        return self._bias_series_res_comp
+
+    @bias_series_res_comp.setter
+    def bias_series_res_comp(self, value):
+        self._bias_series_res_comp = value
 
     # ---------------------------------
     @property
@@ -2673,21 +2726,22 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
         # Remove Isc point in some cases
         if fix_isc and not battery_bias:
-            # Remove point 0 (the Isc point which was extrapolated by the
-            # Arduino code) if the next point's CH0 value is more than
-            # MIN_PT1_TO_VOC_RATIO_FOR_ISC of the Voc CH0 value.  We have to
-            # check that point 0's voltage is zero before doing this, since
-            # this method can be called again after this has already been
-            # done, and we don't want to remove any points other than the
-            # one with V=0.
+            # Remove point 0 (the Isc point which was extrapolated by
+            # the Arduino code) if the next point's CH0 value is more
+            # than MIN_PT1_TO_VOC_RATIO_FOR_ISC of the Voc CH0 value.
+            # We also have to check that point 0's voltage is less than
+            # MIN_PT1_TO_VOC_RATIO_FOR_ISC of the Voc CH0 value before
+            # doing this, since this method can be called again after
+            # this has already been done, and we don't want to remove
+            # any points other than the Isc point.
             suppress_isc_point = False
-            pt0_ch0 = adc_pairs_corrected[0][0]
-            if pt0_ch0 <= self._adc_ch0_offset:
-                pt1_ch0 = float(adc_pairs_corrected[1][0])
-                voc_ch0 = float(adc_pairs_corrected[-1][0])
-                if (pt1_ch0 / voc_ch0) > MIN_PT1_TO_VOC_RATIO_FOR_ISC:
-                    del adc_pairs_corrected[0]
-                    suppress_isc_point = True
+            pt0_ch0 = float(adc_pairs_corrected[0][0])
+            pt1_ch0 = float(adc_pairs_corrected[1][0])
+            voc_ch0 = float(adc_pairs_corrected[-1][0])
+            if ((pt1_ch0 / voc_ch0) > MIN_PT1_TO_VOC_RATIO_FOR_ISC and
+                    (pt0_ch0 / voc_ch0) < MIN_PT1_TO_VOC_RATIO_FOR_ISC):
+                del adc_pairs_corrected[0]
+                suppress_isc_point = True
 
         # Noise reduction
         if reduce_noise:
@@ -3134,12 +3188,23 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # -------------------------------------------------------------------------
     def convert_adc_values(self, adc_pairs):
         """Method to convert the ADC values to voltage, current, power,
-           and resistance tuples and fill the data_points structure
+           and resistance tuples and fill the data_points structure.
+           This method does not make the calibration-based adjustments -
+           those are performed in the ADC domain before this method is
+           called. It does, however, make the series resistance
+           compensation adjustment.
         """
         self.data_points = []
         for pair_num, adc_pair in enumerate(adc_pairs):
-            volts = adc_pair[0] * self.v_mult
             amps = adc_pair[1] * self.i_mult
+            if adc_pair[0] == 0:
+                # never shift Isc point
+                series_res_comp = 0
+            elif self.battery_bias:
+                series_res_comp = self.bias_series_res_comp
+            else:
+                series_res_comp = self.series_res_comp
+            volts = adc_pair[0] * self.v_mult + (amps * series_res_comp)
             watts = volts * amps
             if amps:
                 ohms = volts / amps

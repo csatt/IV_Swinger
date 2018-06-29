@@ -145,6 +145,8 @@ SPI_CLOCK_DIV32 = IV_Swinger2.SPI_CLOCK_DIV32
 FONT_SCALE_DEFAULT = IV_Swinger2.FONT_SCALE_DEFAULT
 LINE_SCALE_DEFAULT = IV_Swinger2.LINE_SCALE_DEFAULT
 POINT_SCALE_DEFAULT = IV_Swinger2.POINT_SCALE_DEFAULT
+SERIES_RES_COMP_DEFAULT = IV_Swinger2.SERIES_RES_COMP_DEFAULT
+BIAS_SERIES_RES_COMP_DEFAULT = IV_Swinger2.BIAS_SERIES_RES_COMP_DEFAULT
 SPI_CLK_DEFAULT = IV_Swinger2.SPI_CLK_DEFAULT
 MAX_IV_POINTS_DEFAULT = IV_Swinger2.MAX_IV_POINTS_DEFAULT
 MIN_ISC_ADC_DEFAULT = IV_Swinger2.MIN_ISC_ADC_DEFAULT
@@ -4700,6 +4702,7 @@ class PreferencesDialog(Dialog):
         self.reduce_noise = tk.StringVar()
         self.fix_overshoot = tk.StringVar()
         self.battery_bias = tk.StringVar()
+        self.series_res_comp_milliohms_str = tk.StringVar()
         self.spi_clk_str = tk.StringVar()
         self.max_iv_points_str = tk.StringVar()
         self.min_isc_adc_str = tk.StringVar()
@@ -4966,16 +4969,36 @@ class PreferencesDialog(Dialog):
         battery_bias_off_rb = ttk.Radiobutton(master=plotting_widget_box,
                                               text="Off",
                                               variable=self.battery_bias,
-                                              command=self.immediate_apply,
+                                              command=self.turn_off_batt_bias,
                                               value="Off")
         battery_bias_on_rb = ttk.Radiobutton(master=plotting_widget_box,
                                              text="On",
                                              variable=self.battery_bias,
-                                             command=self.immediate_apply,
+                                             command=self.turn_on_batt_bias,
                                              value="On")
         self.battery_bias.set("Off")
         if self.master.config.cfg.getboolean(section, "battery bias"):
             self.battery_bias.set("On")
+
+        # Add label and entry box to specify the series resistance
+        # compensation
+        label_text = "Series resistance \ncompensation:"
+        series_res_comp_label = ttk.Label(master=plotting_widget_box,
+                                          text=label_text)
+        textvar = self.series_res_comp_milliohms_str
+        series_res_comp_entry = ttk.Entry(master=plotting_widget_box,
+                                          width=8,
+                                          textvariable=textvar)
+        series_res_comp_label2 = ttk.Label(master=plotting_widget_box,
+                                           text="milliohms")
+        if self.master.config.cfg.getboolean(section, "battery bias"):
+            value = "bias series resistance comp"
+        else:
+            value = "series resistance comp"
+        series_res_comp_ohms = self.master.config.cfg.getfloat(section, value)
+        series_res_comp_milliohms = round(series_res_comp_ohms * 1000.0, 3)
+        self.series_res_comp_milliohms_str.set(series_res_comp_milliohms)
+        series_res_comp_entry.bind("<Return>", self.apply_new_series_res_comp)
 
         # Add Restore Defaults button in its own container box
         plotting_restore_box = ttk.Frame(master=self.plotting_tab, padding=10)
@@ -5046,11 +5069,36 @@ class PreferencesDialog(Dialog):
             battery_bias_off_rb.grid(column=1, row=row, sticky=W, pady=pady)
             battery_bias_on_rb.grid(column=2, row=row, sticky=W, pady=pady)
         row += 1
+        series_res_comp_label.grid(column=0, row=row, sticky=W, pady=pady)
+        series_res_comp_entry.grid(column=1, row=row, sticky=W, pady=pady)
+        series_res_comp_label2.grid(column=2, row=row, sticky=W, pady=pady)
+        row += 1
         plotting_help_box.grid(column=0, row=row, sticky=W, pady=pady,
                                columnspan=2)
         plotting_help.grid(column=0, row=0, sticky=W)
         plotting_restore_box.grid(column=1, row=row, sticky=E)
         plotting_restore.grid(column=0, row=0, sticky=W)
+
+    # -------------------------------------------------------------------------
+    def turn_off_batt_bias(self, event=None):
+        """Turn off battery bias mode"""
+        series_res_comp_ohms = self.master.ivs2.series_res_comp
+        series_res_comp_milliohms = round(series_res_comp_ohms * 1000.0, 3)
+        self.series_res_comp_milliohms_str.set(series_res_comp_milliohms)
+        self.immediate_apply()
+
+    # -------------------------------------------------------------------------
+    def turn_on_batt_bias(self, event=None):
+        """Turn on battery bias mode"""
+        series_res_comp_ohms = self.master.ivs2.bias_series_res_comp
+        series_res_comp_milliohms = round(series_res_comp_ohms * 1000.0, 3)
+        self.series_res_comp_milliohms_str.set(series_res_comp_milliohms)
+        self.immediate_apply()
+
+    # -------------------------------------------------------------------------
+    def apply_new_series_res_comp(self, event=None):
+        """Apply new series resistance compensation value"""
+        self.immediate_apply()
 
     # -------------------------------------------------------------------------
     def restore_plotting_defaults(self, event=None):
@@ -5068,6 +5116,12 @@ class PreferencesDialog(Dialog):
         self.fix_overshoot.set(str(FIX_OVERSHOOT_DEFAULT))
         # NOTE: battery_bias is not restored since that is usually not
         # what the user would expect.
+        if self.master.config.cfg.getboolean("Plotting", "battery bias"):
+            default_ohms = BIAS_SERIES_RES_COMP_DEFAULT
+        else:
+            default_ohms = SERIES_RES_COMP_DEFAULT
+        default_milliohms = round(default_ohms * 1000.0, 3)
+        self.series_res_comp_milliohms_str.set(str(default_milliohms))
         self.immediate_apply()
 
     # -------------------------------------------------------------------------
@@ -5348,6 +5402,10 @@ class PreferencesDialog(Dialog):
         self.snapshot_values["reduce_noise"] = self.master.ivs2.reduce_noise
         self.snapshot_values["fix_overshoot"] = self.master.ivs2.fix_overshoot
         self.snapshot_values["battery_bias"] = self.master.ivs2.battery_bias
+        series_res_comp = self.master.ivs2.series_res_comp
+        bias_series_res_comp = self.master.ivs2.series_res_comp
+        self.snapshot_values["series_res_comp"] = series_res_comp
+        self.snapshot_values["bias_series_res_comp"] = bias_series_res_comp
 
     # -------------------------------------------------------------------------
     def validate(self):
@@ -5370,6 +5428,10 @@ class PreferencesDialog(Dialog):
                 err_str += "\n  Point scale value must be zero or positive"
             if line_scale == 0.0 and point_scale == 0.0:
                 err_str += "\n  Line and Point scale cannot both be zero"
+        try:
+            float(self.series_res_comp_milliohms_str.get())
+        except ValueError:
+            err_str += "\n  Series resistance Value must be floating point"
         # ------------------------ Arduino --------------------------
         try:
             max_iv_points = int(self.max_iv_points_str.get())
@@ -5435,6 +5497,10 @@ class PreferencesDialog(Dialog):
         self.master.ivs2.reduce_noise = self.snapshot_values["reduce_noise"]
         self.master.ivs2.fix_overshoot = self.snapshot_values["fix_overshoot"]
         self.master.ivs2.battery_bias = self.snapshot_values["battery_bias"]
+        series_res_comp = self.snapshot_values["series_res_comp"]
+        bias_series_res_comp = self.snapshot_values["bias_series_res_comp"]
+        self.master.ivs2.series_res_comp = series_res_comp
+        self.master.ivs2.bias_series_res_comp = bias_series_res_comp
 
         # Redisplay image if anything changed (saves config)
         if self.plot_props.prop_vals_changed():
@@ -5516,6 +5582,17 @@ class PreferencesDialog(Dialog):
         battery_bias = (self.battery_bias.get() == "On")
         self.master.config.cfg_set(section, "battery bias", battery_bias)
         self.master.ivs2.battery_bias = battery_bias
+        # Series resistance compensation
+        series_res_comp = (float(self.series_res_comp_milliohms_str.get()) /
+                           1000.0)
+        if battery_bias:
+            self.master.config.cfg_set(section, "bias series resistance comp",
+                                       series_res_comp)
+            self.master.ivs2.bias_series_res_comp = series_res_comp
+        else:
+            self.master.config.cfg_set(section, "series resistance comp",
+                                       series_res_comp)
+            self.master.ivs2.series_res_comp = series_res_comp
 
         # Redisplay image if anything changed (saves config)
         if self.plot_props.prop_vals_changed():
@@ -5634,6 +5711,8 @@ class PlottingProps(object):
         self.prop_vals["reduce_noise"] = self.ivs2.reduce_noise
         self.prop_vals["fix_overshoot"] = self.ivs2.fix_overshoot
         self.prop_vals["battery_bias"] = self.ivs2.battery_bias
+        self.prop_vals["series_res_comp"] = self.ivs2.series_res_comp
+        self.prop_vals["bias_series_res_comp"] = self.ivs2.bias_series_res_comp
 
     # -------------------------------------------------------------------------
     def prop_vals_changed(self):
@@ -5651,12 +5730,17 @@ class PlottingProps(object):
                 (self.prop_vals["comb_dupv_pts"] != self.ivs2.comb_dupv_pts) or
                 (self.prop_vals["reduce_noise"] != self.ivs2.reduce_noise) or
                 (self.prop_vals["fix_overshoot"] != self.ivs2.fix_overshoot) or
-                (self.prop_vals["battery_bias"] != self.ivs2.battery_bias))
+                (self.prop_vals["battery_bias"] != self.ivs2.battery_bias) or
+                (self.prop_vals["series_res_comp"] !=
+                 self.ivs2.series_res_comp) or
+                (self.prop_vals["bias_series_res_comp"] !=
+                 self.ivs2.bias_series_res_comp))
 
     # -------------------------------------------------------------------------
     def adc_prop_changed(self):
-        """Compare current values of correct_adc, fix_isc, fix_voc, comb_dupv_pts,
-           reduce_noise, fix_overshoot and battery_bias properties with
+        """Compare current values of correct_adc, fix_isc, fix_voc,
+           comb_dupv_pts, reduce_noise, fix_overshoot, battery_bias,
+           series_res_comp and bias_series_res_comp properties with
            previously captured values to see if any have changed
         """
         return ((self.prop_vals["correct_adc"] != self.ivs2.correct_adc) or
@@ -5665,7 +5749,11 @@ class PlottingProps(object):
                 (self.prop_vals["comb_dupv_pts"] != self.ivs2.comb_dupv_pts) or
                 (self.prop_vals["reduce_noise"] != self.ivs2.reduce_noise) or
                 (self.prop_vals["fix_overshoot"] != self.ivs2.fix_overshoot) or
-                (self.prop_vals["battery_bias"] != self.ivs2.battery_bias))
+                (self.prop_vals["battery_bias"] != self.ivs2.battery_bias) or
+                (self.prop_vals["series_res_comp"] !=
+                 self.ivs2.series_res_comp) or
+                (self.prop_vals["bias_series_res_comp"] !=
+                 self.ivs2.bias_series_res_comp))
 
     # -------------------------------------------------------------------------
     def battery_bias_prop_changed(self):
@@ -5775,6 +5863,17 @@ Battery bias:
   the bias battery.  Once that has been done, this control enables the software
   to "subtract" the bias such that the rendered IV curve is that of the PV cell
   alone.
+
+Series resistance compensation (milliohms):
+  This control may be used to negate the effect of any resistance that is in
+  series with the PV module or cell under test upstream from the point where
+  the voltage is measured. If this value is positive, the voltage at each
+  plotted point is increased by an amount equal to I * series_res_comp. This
+  could be used, for example, to factor out the effect of a long cable with
+  known resistance. The resulting curve will have a steeper slope (and higher
+  power MPP), as it would without the long cable. A negative value has the
+  opposite effect. Different values may be specified for the normal and battery
+  bias modes.
 """
         font = HELP_DIALOG_FONT
         self.text = ScrolledText(master, height=30, borderwidth=10)
