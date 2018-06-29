@@ -3689,11 +3689,29 @@ bias battery calibration was enabled.
                                 prompt=prompt_str,
                                 initialvalue=curr_voc)
         if new_voc:
-            new_v_cal = self.master.ivs2.v_cal * (new_voc / curr_voc)
-            self.master.ivs2.v_cal = new_v_cal
-            self.master.config.cfg_set("Calibration", "voltage", new_v_cal)
-            # Update value in EEPROM
-            self.update_values_in_eeprom()
+            if not self.master.ivs2.battery_bias:
+                # Normal case: just scale v_cal proportionally
+                adj_ratio = new_voc / curr_voc
+                new_v_cal = self.master.ivs2.v_cal * adj_ratio
+                self.master.ivs2.v_cal = new_v_cal
+                self.master.config.cfg_set("Calibration", "voltage", new_v_cal)
+                # Update value in EEPROM
+                self.update_values_in_eeprom()
+            elif self.master.ivs2.dyn_bias_cal:
+                # If the battery bias mode is on, and we're doing
+                # dynamic bias battery calibration, the error is due to
+                # the Vref droop caused by the activation of the second
+                # relay. So instead of updating the v_cal value, the
+                # second_relay_cal value is updated.
+                new_voc_uncal = new_voc / self.master.ivs2.v_cal
+                batt_voc = self.master.ivs2.bias_batt_voc_volts
+                curr_voc_with_batt = self.master.ivs2.pre_bias_voc_volts
+                new_second_relay_cal = ((new_voc_uncal + batt_voc) /
+                                        curr_voc_with_batt)
+                self.master.ivs2.second_relay_cal = new_second_relay_cal
+                self.master.config.cfg_set("Calibration", "second relay",
+                                           new_second_relay_cal)
+
             # Redisplay the image with the new settings (saves config)
             self.master.redisplay_img(reprocess_adc=True)
 

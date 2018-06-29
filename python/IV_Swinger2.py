@@ -163,6 +163,7 @@ MAX_ASPECT = 8
 NOMINAL_ADC_VREF = 5.0  # USB voltage = 5V
 V_CAL_DEFAULT = 1.0197
 I_CAL_DEFAULT = 1.1187
+SECOND_RELAY_CAL_DEFAULT = 0.9776
 DYN_BIAS_CAL_DEFAULT = False
 # Default resistor values
 R1_DEFAULT = 150000.0   # R1 = 150k nominal
@@ -597,6 +598,11 @@ class Configuration(object):
         args = (section, "current", CFG_FLOAT, self.ivs2.i_cal)
         self.ivs2.i_cal = self.apply_one(*args)
 
+        # Second relay
+        args = (section, "second relay", CFG_FLOAT,
+                self.ivs2.second_relay_cal)
+        self.ivs2.second_relay_cal = self.apply_one(*args)
+
         # NOTE: The "old" values in the args values are used when the
         # .cfg file is missing values for a particular config
         # type. Since the resistors were not originally included in the
@@ -878,6 +884,7 @@ class Configuration(object):
         self.cfg.add_section(section)
         self.cfg_set(section, "voltage", self.ivs2.v_cal)
         self.cfg_set(section, "current", self.ivs2.i_cal)
+        self.cfg_set(section, "second relay", self.ivs2.second_relay_cal)
         self.cfg_set(section, "r1 ohms", self.ivs2.vdiv_r1)
         self.cfg_set(section, "r2 ohms", self.ivs2.vdiv_r2)
         self.cfg_set(section, "rf ohms", self.ivs2.amm_op_amp_rf)
@@ -1395,6 +1402,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._adc_vref = NOMINAL_ADC_VREF
         self._dyn_bias_cal = DYN_BIAS_CAL_DEFAULT
         self._v_cal = V_CAL_DEFAULT
+        self._second_relay_cal = SECOND_RELAY_CAL_DEFAULT
         self._i_cal = I_CAL_DEFAULT
         self._plot_title = None
         self._current_img = None
@@ -1423,6 +1431,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                                     "ASPECT_HEIGHT": False,
                                     "ASPECT_WIDTH": False,
                                     "SECOND_RELAY_STATE": True}
+        self._pre_bias_voc_volts = 0.0
+        self._bias_batt_voc_volts = 0.0
         self._arduino_ver_major = -1
         self._arduino_ver_minor = -1
         self._arduino_ver_patch = -1
@@ -1522,6 +1532,16 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     @v_cal.setter
     def v_cal(self, value):
         self._v_cal = value
+
+    # ---------------------------------
+    @property
+    def second_relay_cal(self):
+        """Property to get the second relay calibration value"""
+        return self._second_relay_cal
+
+    @second_relay_cal.setter
+    def second_relay_cal(self, value):
+        self._second_relay_cal = value
 
     # ---------------------------------
     @property
@@ -1901,6 +1921,28 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     @arduino_has_config.setter
     def arduino_has_config(self, value):
         self._arduino_has_config = value
+
+    # ---------------------------------
+    @property
+    def pre_bias_voc_volts(self):
+        """Voc voltage of bias battery and PV cell in series
+        """
+        return self._pre_bias_voc_volts
+
+    @pre_bias_voc_volts.setter
+    def pre_bias_voc_volts(self, value):
+        self._pre_bias_voc_volts = value
+
+    # ---------------------------------
+    @property
+    def bias_batt_voc_volts(self):
+        """Voc voltage of bias battery
+        """
+        return self._bias_batt_voc_volts
+
+    @bias_batt_voc_volts.setter
+    def bias_batt_voc_volts(self, value):
+        self._bias_batt_voc_volts = value
 
     # ---------------------------------
     @property
@@ -3201,6 +3243,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         # Parse the ADC pairs from the bias battery CSV file
         batt_adc_pairs = self.read_adc_pairs_from_csv_file(bias_battery_csv)
 
+        # Get battery Voc
+        batt_voc_adc = batt_adc_pairs[-1][0]
+        self.bias_batt_voc_volts = batt_voc_adc * self.v_mult
+
         # Process each ADC pair in the input list
         biased_adc_pairs = []
         last_negv_point = None
@@ -3246,22 +3292,32 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 prev_batt_ch1_adc = batt_ch1_adc
 
             # Special case: Voc point. No interpolation here - the
-            # bias is simply the battery Voc (CH0 of last pair)
-            if ch1_adc == 0:
-                ch0_bias = batt_adc_pairs[-1][0]
+            # bias is simply the battery Voc
+            if voc_pair:
+                ch0_bias = batt_voc_adc
+
+            # Scale the biased voltage and current to account for the
+            # Vref droop from the second relay being active (if using
+            # dynamic bias calibration)
+            if self.dyn_bias_cal:
+                scaled_ch0_adc = ch0_adc * self.second_relay_cal
+                scaled_ch1_adc = ch1_adc * self.second_relay_cal
+            else:
+                scaled_ch0_adc = ch0_adc
+                scaled_ch1_adc = ch1_adc
 
             # Subtract bias amount from voltage (CH0)
-            biased_ch0_adc = ch0_adc - ch0_bias
+            biased_ch0_adc = scaled_ch0_adc - ch0_bias
 
             # If biased value is negative, throw the point away.
             # Otherwise, append it to the output list
             if biased_ch0_adc < 0:
                 # Actually, keep track of the last negative voltage
                 # point so we can interpolate the Isc point
-                last_negv_point = (biased_ch0_adc, ch1_adc)
+                last_negv_point = (biased_ch0_adc, scaled_ch1_adc)
                 continue
             else:
-                biased_adc_pairs.append((biased_ch0_adc, ch1_adc))
+                biased_adc_pairs.append((biased_ch0_adc, scaled_ch1_adc))
 
         # Some points of the biased curve were discarded because they
         # had a negative voltage.  The first non-discarded point has a
@@ -3670,6 +3726,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         # Apply battery bias, if enabled
         if self.battery_bias:
             adc_pairs = self.adc_pairs
+            self.pre_bias_voc_volts = adc_pairs[-1][0] * self.v_mult
             self.adc_pairs_corrected = self.apply_battery_bias(adc_pairs)
             if len(self.adc_pairs_corrected) < 2:
                 err_str = "ERROR: Fewer than two points recorded"
