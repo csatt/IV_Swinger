@@ -2598,8 +2598,15 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # -------------------------------------------------------------------------
     def v_adj(self, adc_pairs):
         """Method to determine the voltage adjustment value"""
-        # Compensate for (as-of-yet-not-understood) effect where the
-        # curve intersects the voltage axis at a value greater than Voc
+        # Compensate for the effect where the curve intersects the
+        # voltage axis at a value greater than Voc. This is due to the
+        # fact that the reference voltage of the ADC droops when the
+        # relay is active.  A lower reference voltage has the effect of
+        # the ADC returning a higher value for a given voltage.  Since
+        # the Voc measurement is taken with the relay inactive, it is
+        # the "correct" value, so we just need to calculate a scaling
+        # factor that, when applied to the other points, results in the
+        # curve intersecting at the measured Voc point.
 
         # Initialize v_adj to 1.0 (no adjustment) and just return that
         # now if there are fewer than two points
@@ -2646,6 +2653,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         voc_adc = adc_pairs[-1][0]
         if avg_v_intercept:
             v_adj = float(voc_adc) / float(avg_v_intercept)
+        if v_adj > 1.0:
+            # Never scale up
+            v_adj = 1.0
         return v_adj
 
     # -------------------------------------------------------------------------

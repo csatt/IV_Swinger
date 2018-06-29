@@ -5629,11 +5629,13 @@ ADC correction:
 
   Fix overshoot:
     If "ADC correction" is "On", this controls whether the curve is corrected
-    to fix the (not-yet-well-understood) phemomenon where the tail of the IV
-    curve overshoots the voltage that was measured when the circuit was
-    actually open, before charging the capacitor. The voltage of all points is
-    scaled such that the tail of the curve hits the I=0 point at the measured
-    Voc voltage.
+    to fix the phemomenon where the tail of the IV curve overshoots the voltage
+    that was measured when the circuit was actually open, before charging the
+    capacitor. The voltage of all points is scaled such that the tail of the
+    curve hits the I=0 point at the measured Voc voltage. This phenomenon was a
+    mystery. It is now understood to be due to the +5V supply (from USB)
+    drooping when the relay is active. The reduced reference voltage to the ADC
+    results in voltage measurements that are too high.
 
 Battery bias:
   The cell version of IV Swinger 2 may require a bias battery to be placed in
