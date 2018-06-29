@@ -1992,6 +1992,14 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     # ---------------------------------
     @property
+    def arduino_sketch_supports_dynamic_config(self):
+        """True for Arduino sketch versions that have code to accept config
+           messages in main loop.
+        """
+        return self.arduino_sketch_ver_ge("1.3.3")
+
+    # ---------------------------------
+    @property
     def pdf_filename(self):
         """PDF file name"""
         dts = extract_date_time_str(self.hdd_output_dir)
@@ -2281,6 +2289,29 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                     return rc
 
         return RC_SUCCESS
+
+    # -------------------------------------------------------------------------
+    def invalidate_arduino_eeprom(self):
+        """Method to send the Arduino a config message that tells it to
+           invalidate its EEPROM by writing 0 to EEPROM address 0.
+        """
+        if not self.arduino_sketch_supports_eeprom_config:
+            return RC_FAILURE
+        rc = self.send_one_config_msg_to_arduino("WRITE_EEPROM", "0 0")
+        return rc
+
+    # -------------------------------------------------------------------------
+    def restore_arduino_eeprom(self):
+        """Method to send the Arduino a config message that tells it to
+           restore its EEPROM by writing the "magic" value to EEPROM
+           address 0.  This should only be used after the
+           invalidate_arduino_eeprom method is called.
+        """
+        if not self.arduino_sketch_supports_eeprom_config:
+            return RC_FAILURE
+        config_value = "{} {}".format(EEPROM_VALID_ADDR, EEPROM_VALID_VALUE)
+        rc = self.send_one_config_msg_to_arduino("WRITE_EEPROM", config_value)
+        return rc
 
     # -------------------------------------------------------------------------
     def get_arduino_sketch_ver(self, msg):

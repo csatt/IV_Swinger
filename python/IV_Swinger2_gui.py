@@ -3506,6 +3506,8 @@ class MenuBar(tk.Menu):
                                         command=self.get_resistor_values)
         self.calibrate_menu.add_command(label="Bias Battery",
                                         command=self.get_battery_bias)
+        self.calibrate_menu.add_command(label="Invalidate Arduino EEPROM",
+                                        command=self.invalidate_arduino_eeprom)
         self.calibrate_menu.add_command(label="Calibration Help",
                                         command=self.show_calibration_help)
         self.disable_calibration()
@@ -3679,6 +3681,30 @@ this version of the Arduino software. Please upgrade.
     # -------------------------------------------------------------------------
     def get_battery_bias(self):
         BiasBatteryDialog(self.master)
+
+    # -------------------------------------------------------------------------
+    def invalidate_arduino_eeprom(self):
+        if not self.master.ivs2.arduino_sketch_supports_dynamic_config:
+            err_str = ("ERROR: The Arduino sketch does not support"
+                       "invalidating the EEPROM. You must update it"
+                       "to use this feature.")
+            tkmsg.showerror(message=err_str)
+            return
+        msg_str = """
+Are you SURE you want to invalidate the
+Arduino EEPROM? This removes the
+calibration values that are saved in the
+IV Swinger 2 hardware (voltage, current,
+resistors). After the invalidate, the app
+will exit.
+"""
+        inval_eeprom = tkmsg.askyesno("Invalidate EEPROM?", msg_str,
+                                      default=tkmsg.NO)
+        if inval_eeprom:
+            self.master.ivs2.invalidate_arduino_eeprom()
+            self.master.close_gui()
+        else:
+            return
 
     # -------------------------------------------------------------------------
     def show_calibration_help(self):
@@ -3992,6 +4018,14 @@ Bias Battery:"""
   which sometimes requires a bias battery in series with the PV cell.
   More help is available when this option is selected.
 """
+        invalidate_eeprom_heading = """
+Invalidate Arduino EEPROM:"""
+        help_text_6 = """
+  The calibration values for the voltage, current and resistors are
+  saved to the hardware in the Arduino EEPROM. This menu item is
+  primarily for testing that the software handles the case of IV Swinger
+  2 hardware that is being used for the first time. It invalidates all
+  calibration values that have been saved in the hardware."""
         font = HELP_DIALOG_FONT
         self.text = ScrolledText(master, height=30, borderwidth=10)
         self.text.tag_configure("body_tag", font=font)
@@ -4005,6 +4039,8 @@ Bias Battery:"""
         self.text.insert("end", help_text_4, ("body_tag"))
         self.text.insert("end", bias_battery_heading, ("heading_tag"))
         self.text.insert("end", help_text_5, ("body_tag"))
+        self.text.insert("end", invalidate_eeprom_heading, ("heading_tag"))
+        self.text.insert("end", help_text_6, ("body_tag"))
         self.text.grid()
 
 
