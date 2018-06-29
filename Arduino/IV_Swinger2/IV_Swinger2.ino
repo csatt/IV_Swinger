@@ -119,7 +119,7 @@
 #define _impl_CASSERT_LINE(predicate, line) \
     typedef char _impl_PASTE(assertion_failed_on_line_,line)[2*!!(predicate)-1];
 
-#define VERSION "1.3.3beta1"   // Version of this Arduino sketch
+#define VERSION "1.3.3beta2"   // Version of this Arduino sketch
 #define MAX_UINT (1<<16)-1     // Max unsigned integer
 #define MAX_INT (1<<15)-1      // Max integer
 #define MAX_ULONG (1<<32)-1    // Max unsigned long integer
@@ -131,6 +131,7 @@
 #define ADC_MAX 4096.0         // Max count of ADC (2^^num_bits)
 #define ADC_CS_PIN 10          // Arduino pin used for ADC chip select
 #define RELAY_PIN 2            // Arduino pin used to activate relay
+#define SECOND_RELAY_PIN 4     // Arduino pin used to activate second relay
 #define CS_INACTIVE HIGH       // Chip select is active low
 #define CS_ACTIVE LOW          // Chip select is active low
 #define VOLTAGE_CH 0           // ADC channel used for voltage measurement
@@ -182,6 +183,7 @@ const static char aspect_height_str[] PROGMEM = "ASPECT_HEIGHT";
 const static char aspect_width_str[] PROGMEM = "ASPECT_WIDTH";
 const static char write_eeprom_str[] PROGMEM = "WRITE_EEPROM";
 const static char dump_eeprom_str[] PROGMEM = "DUMP_EEPROM";
+const static char second_relay_state_str[] PROGMEM = "SECOND_RELAY_STATE";
 
 void setup()
 {
@@ -193,6 +195,8 @@ void setup()
   digitalWrite(ADC_CS_PIN, CS_INACTIVE);
   pinMode(RELAY_PIN, OUTPUT);
   digitalWrite(RELAY_PIN, RELAY_INACTIVE);
+  pinMode(SECOND_RELAY_PIN, OUTPUT);
+  digitalWrite(SECOND_RELAY_PIN, RELAY_INACTIVE);
   Serial.begin(SERIAL_BAUD);
   SPI.begin();
   SPI.setClockDivider(clk_div);
@@ -686,6 +690,8 @@ void process_config_msg(char * msg) {
     EEPROM.put(eeprom_addr, eeprom_value);
   } else if (strcmp_P(config_type, dump_eeprom_str) == 0) {
     dump_eeprom();
+  } else if (strcmp_P(config_type, second_relay_state_str) == 0) {
+    set_second_relay_state((bool)atoi(config_val));
   } else {
     Serial.print(F("ERROR: Unknown config type: "));
     Serial.println(config_type);
@@ -713,6 +719,15 @@ void dump_eeprom() {
       Serial.println(eeprom_value, 4);
     }
   }
+}
+
+void set_second_relay_state(bool active) {
+  if (active) {
+    digitalWrite(SECOND_RELAY_PIN, RELAY_ACTIVE);
+  } else { 
+    digitalWrite(SECOND_RELAY_PIN, RELAY_INACTIVE);
+  }
+  // delay(50);
 }
 
 int read_adc(int ch) {
