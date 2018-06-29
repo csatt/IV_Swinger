@@ -150,6 +150,7 @@ ISC_STABLE_DEFAULT = 5
 MAX_DISCARDS_DEFAULT = 300
 ASPECT_HEIGHT_DEFAULT = 2
 ASPECT_WIDTH_DEFAULT = 3
+MIN_BIAS_CH1_ADC = 50
 # Other Arduino constants
 ARDUINO_MAX_INT = (1 << 15) - 1
 MAX_IV_POINTS_MAX = 275
@@ -3101,9 +3102,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                   "calibrate": False,
                   "comb_dupv_pts": True,
                   "fix_voc": True,
-                  "fix_isc": True,
+                  "fix_isc": False,
                   "reduce_noise": True,
-                  "fix_overshoot": True,
+                  "fix_overshoot": False,
                   "battery_bias": False,
                   "corr_adc_csv_file": bias_batt_csv_file}
         self.gen_corrected_adc_csv(**kwargs)
@@ -3156,11 +3157,20 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         # Process each ADC pair in the input list
         biased_adc_pairs = []
         last_negv_point = None
+        last_pair_num = len(adc_pairs) - 1
+        voc_pair = False
         for pair_num, adc_pair in enumerate(adc_pairs):
+            if pair_num == last_pair_num:
+                voc_pair = True
             ch0_adc = adc_pair[0]  # voltage value
             ch1_adc = adc_pair[1]  # current value
-            prev_batt_ch0_adc = None
-            prev_batt_ch1_adc = None
+            prev_batt_ch0_adc = 0
+            prev_batt_ch1_adc = ADC_MAX
+
+            # Discard non-Voc points with CH1 (current) ADC values less
+            # than MIN_BIAS_CH1_ADC
+            if not voc_pair and ch1_adc < MIN_BIAS_CH1_ADC:
+                continue
 
             # Search the bias battery ADC pairs
             for batt_adc_pair in batt_adc_pairs:
@@ -3175,9 +3185,14 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                     # the battery curve that corresponds to the
                     # current of the given point; this is the bias
                     interp_batt_ch1_adc = prev_batt_ch1_adc - ch1_adc
-                    interp_batt_ch0_adc = (interp_batt_ch1_adc *
-                                           (batt_ch0_adc - prev_batt_ch0_adc) /
-                                           (prev_batt_ch1_adc - batt_ch1_adc))
+                    if (prev_batt_ch1_adc == batt_ch1_adc):
+                        interp_batt_ch0_adc = batt_ch0_adc
+                    else:
+                        interp_batt_ch0_adc = (interp_batt_ch1_adc *
+                                               (batt_ch0_adc -
+                                                prev_batt_ch0_adc) /
+                                               (prev_batt_ch1_adc -
+                                                batt_ch1_adc))
                     ch0_bias = prev_batt_ch0_adc + interp_batt_ch0_adc
                     break
                 prev_batt_ch0_adc = batt_ch0_adc
