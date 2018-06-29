@@ -156,6 +156,7 @@ MAX_IV_POINTS_MAX = 275
 ADC_MAX = 4095
 MAX_ASPECT = 8
 # Default calibration values
+NOMINAL_ADC_VREF = 5.0  # USB voltage = 5V
 V_CAL_DEFAULT = 1.0197
 I_CAL_DEFAULT = 1.1187
 # Default resistor values
@@ -1376,10 +1377,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._vdiv_r2 = R2_DEFAULT
         self._amm_op_amp_rf = RF_DEFAULT
         self._amm_op_amp_rg = RG_DEFAULT
-        self._adc_vref = 5.0             # ADC voltage reference = 5V
         self._amm_shunt_max_amps = 10.0  # Legacy - hardcoded
         self._amm_shunt_max_volts = (self._amm_shunt_max_amps *
                                      (SHUNT_DEFAULT / 1000000.0))
+        self._adc_vref = NOMINAL_ADC_VREF
         self._v_cal = V_CAL_DEFAULT
         self._i_cal = I_CAL_DEFAULT
         self._plot_title = None
@@ -1997,30 +1998,30 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     @property
     def v_mult(self):
         """Voltage multiplier"""
-        v_mult = (self.adc_inc / self.vdiv_ratio) * self.v_cal
+        v_mult = self.adc_inc / self.vdiv_ratio
         return v_mult
 
     # ---------------------------------
     @property
     def i_mult(self):
         """Current multiplier"""
-        i_mult = ((self.adc_inc /
-                   self.amm_op_amp_gain /
-                   self.amm_shunt_resistance) * self.i_cal)
+        i_mult = (self.adc_inc /
+                  self.amm_op_amp_gain /
+                  self.amm_shunt_resistance)
         return i_mult
 
     # ---------------------------------
     @property
     def v_sat(self):
         """Saturation voltage"""
-        v_sat = ADC_MAX * self.v_mult
+        v_sat = ADC_MAX * self.v_mult * self.v_cal
         return v_sat
 
     # ---------------------------------
     @property
     def i_sat(self):
         """Saturation current"""
-        i_sat = ADC_MAX * self.i_mult
+        i_sat = ADC_MAX * self.i_mult * self.i_cal
         return i_sat
 
     # ---------------------------------
@@ -3060,14 +3061,20 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             self.logger.log(output_line)
 
     # -------------------------------------------------------------------------
-    def gen_corrected_adc_csv(self, adc_pairs, comb_dupv_pts, fix_voc, fix_isc,
-                              reduce_noise, fix_overshoot, battery_bias,
-                              corr_adc_csv_file):
+    def gen_corrected_adc_csv(self, adc_pairs, calibrate, comb_dupv_pts,
+                              fix_voc, fix_isc, reduce_noise, fix_overshoot,
+                              battery_bias, corr_adc_csv_file):
         """Method to take raw ADC values and generate a CSV file with the
            selected corrections.
         """
+        # Apply voltage/current calibration
+        if calibrate:
+            adc_pairs_calibrated = self.calibrate_adc_pairs(adc_pairs)
+        else:
+            adc_pairs_calibrated = adc_pairs
+
         # Apply corrections
-        adc_pairs_corrected = self.correct_adc_values(adc_pairs,
+        adc_pairs_corrected = self.correct_adc_values(adc_pairs_calibrated,
                                                       comb_dupv_pts,
                                                       fix_voc,
                                                       fix_isc,
@@ -3091,6 +3098,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         bias_batt_csv_file = uncorr_adc_csv_file.replace("adc_pairs",
                                                          "bias_batt_adc_pairs")
         kwargs = {"adc_pairs": raw_adc_pairs,
+                  "calibrate": False,
                   "comb_dupv_pts": True,
                   "fix_voc": True,
                   "fix_isc": True,
@@ -3101,6 +3109,21 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self.gen_corrected_adc_csv(**kwargs)
 
         return bias_batt_csv_file
+
+    # -------------------------------------------------------------------------
+    def calibrate_adc_pairs(self, adc_pairs):
+        """Method to apply the voltage and current calibration to the ADC
+           values.
+        """
+        calibrated_adc_pairs = []
+        for adc_pair in adc_pairs:
+            ch0_adc = adc_pair[0]  # voltage value
+            ch1_adc = adc_pair[1]  # current value
+            calibrated_ch0_adc = ch0_adc * self.v_cal
+            calibrated_ch1_adc = ch1_adc * self.i_cal
+            calibrated_adc_pairs.append((calibrated_ch0_adc,
+                                         calibrated_ch1_adc))
+        return calibrated_adc_pairs
 
     # -------------------------------------------------------------------------
     def apply_battery_bias(self, adc_pairs):
@@ -3117,7 +3140,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            the given point and interpolating between them to find the
            exact voltage bias amount. Note that this is all done in
            the ADC domain, i.e. before ADC values are converted to
-           volts and amps.
+           volts and amps (and also before calibration is applied).
         """
         # Get the CSV file with the corrected ADC values for the bias
         # battery IV curve
@@ -3133,7 +3156,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         # Process each ADC pair in the input list
         biased_adc_pairs = []
         last_negv_point = None
-        for adc_pair in adc_pairs:
+        for pair_num, adc_pair in enumerate(adc_pairs):
             ch0_adc = adc_pair[0]  # voltage value
             ch1_adc = adc_pair[1]  # current value
             prev_batt_ch0_adc = None
@@ -3575,6 +3598,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 return RC_NO_POINTS
         else:
             self.adc_pairs_corrected = self.adc_pairs
+
+        # Apply Vref voltage/current calibration
+        adc_pairs = self.adc_pairs_corrected
+        self.adc_pairs_corrected = self.calibrate_adc_pairs(adc_pairs)
 
         # Correct the ADC values to reduce noise, etc.
         if self.correct_adc:
