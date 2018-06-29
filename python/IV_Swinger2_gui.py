@@ -4947,7 +4947,8 @@ class PreferencesDialog(Dialog):
         self.comb_dupv_pts.set(str(COMB_DUPV_PTS_DEFAULT))
         self.reduce_noise.set(str(REDUCE_NOISE_DEFAULT))
         self.fix_overshoot.set(str(FIX_OVERSHOOT_DEFAULT))
-        self.battery_bias.set(str(BATTERY_BIAS_DEFAULT))
+        # NOTE: battery_bias is not restored since that is usually not
+        # what the user would expect.
         self.immediate_apply()
 
     # -------------------------------------------------------------------------
@@ -5401,9 +5402,19 @@ class PreferencesDialog(Dialog):
         if self.plot_props.prop_vals_changed():
             reprocess_adc = self.plot_props.adc_prop_changed()
             if self.plot_props.battery_bias_prop_changed():
-                self.master.unlock_axes()
-            self.master.redisplay_img(reprocess_adc=reprocess_adc)
-            self.plot_props.update_prop_vals()
+                if self.master.results_wiz is not None:
+                    # Only redisplay and update properties on change of
+                    # battery bias if Wizard is active - pretty
+                    # confusing otherwise
+                    self.master.unlock_axes()
+                    self.master.redisplay_img(reprocess_adc=reprocess_adc)
+                    self.plot_props.update_prop_vals()
+                else:
+                    # Have to save config explicitly in that case, however
+                    self.master.save_config()
+            else:
+                self.master.redisplay_img(reprocess_adc=reprocess_adc)
+                self.plot_props.update_prop_vals()
 
     # -------------------------------------------------------------------------
     def looping_apply(self):
