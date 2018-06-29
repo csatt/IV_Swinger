@@ -5465,11 +5465,12 @@ class PreferencesDialog(Dialog):
             self.master.config.cfg_set(section, option, aspect_width)
             arduino_opt_changed = True
 
-        # Reestablish communication with Arduino if anything changed
+        # Apply and save the config if anything changed
         if arduino_opt_changed:
             self.master.config.apply_arduino()
-            self.master.reestablish_arduino_comm()
-            # Save config
+            if not self.master.ivs2.arduino_sketch_supports_dynamic_config:
+                # Have to reset Arduino if sketch is old
+                self.master.reestablish_arduino_comm()
             self.master.save_config()
 
 

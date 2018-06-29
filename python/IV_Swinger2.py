@@ -726,36 +726,60 @@ class Configuration(object):
         section = "Arduino"
 
         # SPI clock divider
-        args = (section, "spi clock div", CFG_INT, self.ivs2.spi_clk_div)
-        self.ivs2.spi_clk_div = self.apply_one(*args)
+        curr_val = self.ivs2.spi_clk_div
+        args = (section, "spi clock div", CFG_INT, curr_val)
+        new_val = self.apply_one(*args)
+        if new_val != curr_val:
+            self.ivs2.spi_clk_div = new_val
 
         # Max IV points
-        args = (section, "max iv points", CFG_INT, self.ivs2.max_iv_points)
-        self.ivs2.max_iv_points = self.apply_one(*args)
+        curr_val = self.ivs2.max_iv_points
+        args = (section, "max iv points", CFG_INT, curr_val)
+        new_val = self.apply_one(*args)
+        if new_val != curr_val:
+            self.ivs2.max_iv_points = new_val
 
         # Min Isc ADC
-        args = (section, "min isc adc", CFG_INT, self.ivs2.min_isc_adc)
-        self.ivs2.min_isc_adc = self.apply_one(*args)
+        curr_val = self.ivs2.min_isc_adc
+        args = (section, "min isc adc", CFG_INT, curr_val)
+        new_val = self.apply_one(*args)
+        if new_val != curr_val:
+            self.ivs2.min_isc_adc = new_val
 
         # Max Isc poll
-        args = (section, "max isc poll", CFG_INT, self.ivs2.max_isc_poll)
-        self.ivs2.max_isc_poll = self.apply_one(*args)
+        curr_val = self.ivs2.max_isc_poll
+        args = (section, "max isc poll", CFG_INT, curr_val)
+        new_val = self.apply_one(*args)
+        if new_val != curr_val:
+            self.ivs2.max_isc_poll = new_val
 
         # Isc stable ADC
-        args = (section, "isc stable adc", CFG_INT, self.ivs2.isc_stable_adc)
-        self.ivs2.isc_stable_adc = self.apply_one(*args)
+        curr_val = self.ivs2.isc_stable_adc
+        args = (section, "isc stable adc", CFG_INT, curr_val)
+        new_val = self.apply_one(*args)
+        if new_val != curr_val:
+            self.ivs2.isc_stable_adc = new_val
 
         # Max discards
-        args = (section, "max discards", CFG_INT, self.ivs2.max_discards)
-        self.ivs2.max_discards = self.apply_one(*args)
+        curr_val = self.ivs2.max_discards
+        args = (section, "max discards", CFG_INT, curr_val)
+        new_val = self.apply_one(*args)
+        if new_val != curr_val:
+            self.ivs2.max_discards = new_val
 
         # Aspect height
-        args = (section, "aspect height", CFG_INT, self.ivs2.aspect_height)
-        self.ivs2.aspect_height = self.apply_one(*args)
+        curr_val = self.ivs2.aspect_height
+        args = (section, "aspect height", CFG_INT, curr_val)
+        new_val = self.apply_one(*args)
+        if new_val != curr_val:
+            self.ivs2.aspect_height = new_val
 
         # Aspect width
-        args = (section, "aspect width", CFG_INT, self.ivs2.aspect_width)
-        self.ivs2.aspect_width = self.apply_one(*args)
+        curr_val = self.ivs2.aspect_width
+        args = (section, "aspect height", CFG_INT, curr_val)
+        new_val = self.apply_one(*args)
+        if new_val != curr_val:
+            self.ivs2.aspect_width = new_val
 
     # -------------------------------------------------------------------------
     def save(self, copy_dir=None):
@@ -1375,6 +1399,15 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._reduce_noise = True
         self._fix_overshoot = True
         self._battery_bias = False
+        self._arduino_has_config = {"CLK_DIV": False,
+                                    "MAX_IV_POINTS": False,
+                                    "MIN_ISC_ADC": False,
+                                    "MAX_ISC_POLL": False,
+                                    "ISC_STABLE_ADC": False,
+                                    "MAX_DISCARDS": False,
+                                    "ASPECT_HEIGHT": False,
+                                    "ASPECT_WIDTH": False,
+                                    "SECOND_RELAY_STATE": True}
         self._arduino_ver_major = -1
         self._arduino_ver_minor = -1
         self._arduino_ver_patch = -1
@@ -1828,6 +1861,20 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     # ---------------------------------
     @property
+    def arduino_has_config(self):
+        """Dict containing flags that indicate whether the current Arduino
+           config value has been sent to the Arduino. The property
+           setters clear these flags (if the value changes) and the
+           send_config_msgs_to_arduino method sets them.
+        """
+        return self._arduino_has_config
+
+    @arduino_has_config.setter
+    def arduino_has_config(self, value):
+        self._arduino_has_config = value
+
+    # ---------------------------------
+    @property
     def spi_clk_div(self):
         """Arduino: SPI bus clock divider value
         """
@@ -1835,7 +1882,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     @spi_clk_div.setter
     def spi_clk_div(self, value):
-        self._spi_clk_div = value
+        if self._spi_clk_div != value:
+            self._spi_clk_div = value
+            self.arduino_has_config["CLK_DIV"] = False
 
     # ---------------------------------
     @property
@@ -1846,7 +1895,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     @max_iv_points.setter
     def max_iv_points(self, value):
-        self._max_iv_points = value
+        if self._max_iv_points != value:
+            self._max_iv_points = value
+            self.arduino_has_config["MAX_IV_POINTS"] = False
 
     # ---------------------------------
     @property
@@ -1857,7 +1908,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     @min_isc_adc.setter
     def min_isc_adc(self, value):
-        self._min_isc_adc = value
+        if self._min_isc_adc != value:
+            self._min_isc_adc = value
+            self.arduino_has_config["MIN_ISC_ADC"] = False
 
     # ---------------------------------
     @property
@@ -1868,7 +1921,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     @max_isc_poll.setter
     def max_isc_poll(self, value):
-        self._max_isc_poll = value
+        if self._max_isc_poll != value:
+            self._max_isc_poll = value
+            self.arduino_has_config["MAX_ISC_POLL"] = False
 
     # ---------------------------------
     @property
@@ -1879,7 +1934,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     @isc_stable_adc.setter
     def isc_stable_adc(self, value):
-        self._isc_stable_adc = value
+        if self._isc_stable_adc != value:
+            self._isc_stable_adc = value
+            self.arduino_has_config["ISC_STABLE_ADC"] = False
 
     # ---------------------------------
     @property
@@ -1890,7 +1947,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     @max_discards.setter
     def max_discards(self, value):
-        self._max_discards = value
+        if self._max_discards != value:
+            self._max_discards = value
+            self.arduino_has_config["MAX_DISCARDS"] = False
 
     # ---------------------------------
     @property
@@ -1901,7 +1960,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     @aspect_height.setter
     def aspect_height(self, value):
-        self._aspect_height = value
+        if self._aspect_height != value:
+            self._aspect_height = value
+            self.arduino_has_config["ASPECT_HEIGHT"] = False
 
     # ---------------------------------
     @property
@@ -1912,7 +1973,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     @aspect_width.setter
     def aspect_width(self, value):
-        self._aspect_width = value
+        if self._aspect_width != value:
+            self._aspect_width = value
+            self.arduino_has_config["ASPECT_WIDTH"] = False
 
     # Derived properties
     # ---------------------------------
@@ -2116,7 +2179,21 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # -------------------------------------------------------------------------
     def send_config_msgs_to_arduino(self, write_eeprom=False):
         """Method to send config messages to the Arduino, waiting for each
-        reply"""
+           reply. The class dict arduino_has_config keeps track of which
+           config values the Arduino already has, and config messages
+           are only sent for those that have a value of False in that
+           dict. Initially all are marked False, so all messages are
+           sent, with each being marked True at that point. After that,
+           when this method is called, it is possible that no config
+           messages are sent if the Arduino has all of the up-to-date
+           values. Or if only one value has changed, then only that
+           config message will be sent.
+
+           If write_eeprom is True, config messages are sent with all of
+           the calibration values that are to be stored in the Arduino's
+           EEPROM. This will be in addition to the other config messages
+           (if any), and is not subject to the arduino_has_config dict.
+        """
         config_dict = {"CLK_DIV": self.spi_clk_div,
                        "MAX_IV_POINTS": self.max_iv_points,
                        "MIN_ISC_ADC": self.min_isc_adc,
@@ -2126,9 +2203,13 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                        "ASPECT_HEIGHT": self.aspect_height,
                        "ASPECT_WIDTH": self.aspect_width}
         for config_type, config_value in config_dict.iteritems():
-            rc = self.send_one_config_msg_to_arduino(config_type, config_value)
-            if rc != RC_SUCCESS:
-                return rc
+            if not self.arduino_has_config[config_type]:
+                rc = self.send_one_config_msg_to_arduino(config_type,
+                                                         config_value)
+                if rc != RC_SUCCESS:
+                    return rc
+                if self.arduino_sketch_supports_dynamic_config:
+                    self.arduino_has_config[config_type] = True
 
         if write_eeprom and self.arduino_sketch_supports_eeprom_config:
             config_values = [("{} {}".format(EEPROM_VALID_ADDR,
@@ -3312,6 +3393,12 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
             # Wait for Arduino ready message
             rc = self.wait_for_arduino_ready_and_ack()
+            if rc != RC_SUCCESS:
+                return rc
+
+        # Send config message(s) to Arduino (if values have changed)
+        if self.arduino_sketch_supports_dynamic_config:
+            rc = self.send_config_msgs_to_arduino()
             if rc != RC_SUCCESS:
                 return rc
 
