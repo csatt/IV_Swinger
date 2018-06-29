@@ -119,6 +119,7 @@ SKETCH_VER_GT = 1
 SKETCH_VER_ERR = -2
 LATEST_SKETCH_VER = "1.3.0"
 MIN_PT1_TO_VOC_RATIO_FOR_ISC = 0.20
+BATTERY_FOLDER_NAME = "Battery"
 
 # From IV_Swinger
 PLOT_COLORS = IV_Swinger.PLOT_COLORS
@@ -3201,7 +3202,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         bias_battery_csv = None
         glob_pattern = "{}/bias_batt_adc_pairs*.csv"
         # Find the bias battery CSV file. If one exists in the run
-        # directory, use that.  Otherwise, copy the one from the parent
+        # directory, use that.  Otherwise, copy the one from the Battery
         # directory to the run directory and then use it.
         dir = self.hdd_output_dir
         bb_files = glob.glob(glob_pattern.format(dir))
@@ -3214,7 +3215,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                        "bias_batt_adc_pairs*.csv files in {}".format(dir))
             self.logger.print_and_log(err_str)
         elif bb_file_count == 0:
-            dir = os.path.dirname(self.hdd_output_dir)
+            dir = os.path.join(os.path.dirname(self.hdd_output_dir),
+                               BATTERY_FOLDER_NAME)
             bb_files = glob.glob(glob_pattern.format(dir))
             for f in bb_files:
                 bias_battery_csv = f
@@ -3237,7 +3239,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     # -------------------------------------------------------------------------
     def remove_prev_bias_battery_csv(self):
-        """Method to remove old bias battery CSV file(s) from the IV_Swinger2
+        """Method to remove old bias battery CSV file(s) from the parent
            directory"""
         glob_pattern = "{}/bias_batt_adc_pairs*.csv"
         dir = os.path.dirname(self.hdd_output_dir)
@@ -3258,7 +3260,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self.logger.log("i_mult = {}".format(self.i_mult))
 
     # -------------------------------------------------------------------------
-    def create_hdd_output_dir(self, date_time_str):
+    def create_hdd_output_dir(self, date_time_str, subdir=""):
         """Method to create the HDD output directory"""
 
         # Create the HDD output directory
@@ -3266,7 +3268,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                                                           include_csv=False,
                                                           include_pdf=False)
         hdd_iv_swinger_dir = hdd_iv_swinger_dirs[0]  # only one
-        self.hdd_output_dir = os.path.join(hdd_iv_swinger_dir, date_time_str)
+        self.hdd_output_dir = os.path.join(hdd_iv_swinger_dir, subdir,
+                                           date_time_str)
         os.makedirs(self.hdd_output_dir)
 
     # -------------------------------------------------------------------------
@@ -3382,7 +3385,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         return RC_SUCCESS
 
     # -------------------------------------------------------------------------
-    def swing_iv_curve(self, loop_mode=False, first_loop=False):
+    def swing_iv_curve(self, loop_mode=False, subdir="", process_adc=True):
         """Method to generate and plot an IV curve. This overrides the
            method in the IV_Swinger base class, but is completely
            different. The actual swinging of the IV curve is done by the
@@ -3390,8 +3393,15 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            points from it, converts the results to
            volts/amps/watts/ohms, writes the values to a CSV file, and
            plots the results to both PDF and GIF files.
-           """
 
+           If the "subdir" parameter value is something other than "",
+           it specifies the name of a subdirectory for the output files.
+
+           The "process_adc" parameter defaults to True, but if it is set
+           to False by the caller, no processing of the ADC values is
+           performed, i.e. no corrections, no conversion to
+           volts/amps/watts/ohms, and no plotting of results.
+           """
         # Generate the date/time string from the current time
         while True:
             date_time_str = IV_Swinger.DateTimeStr.get_date_time_str()
@@ -3404,7 +3414,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 break
 
         # Create the HDD output directory
-        self.create_hdd_output_dir(date_time_str)
+        self.create_hdd_output_dir(date_time_str, subdir=subdir)
 
         # Write info to the log file
         self.logger.log("================== Swing! ==========================")
@@ -3453,8 +3463,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             self.write_adc_pairs_to_csv_file(unfiltered_adc_csv,
                                              self.unfiltered_adc_pairs)
 
-        # Return if receive_data_from_arduino() failed
-        if rc != RC_SUCCESS:
+        # Return if receive_data_from_arduino() failed or if not
+        # processing the ADC values
+        if rc != RC_SUCCESS or not process_adc:
             return rc
 
         # Process ADC values
@@ -3468,7 +3479,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         return RC_SUCCESS
 
     # -------------------------------------------------------------------------
-    def swing_battery_calibration_curve(self):
+    def swing_battery_calibration_curve(self, gen_graphs=True):
         """Method to swing an IV curve for calibrating the bias battery
         """
         restore_max_iv_points = [self.max_iv_points]
@@ -3503,7 +3514,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self.battery_bias = False
 
         # Swing the IV curve
-        rc = self.swing_iv_curve()
+        rc = self.swing_iv_curve(subdir=BATTERY_FOLDER_NAME,
+                                 process_adc=gen_graphs)
         if rc != RC_SUCCESS:
             return restore_all_and_return(rc)
 
@@ -3672,7 +3684,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
             elif not loop_save_graphs:
                 # Remove GIF only
-                self.clean_up_file(self.current_img)
+                if (self.current_img is not None and
+                        os.path.exists(self.current_img)):
+                    self.clean_up_file(self.current_img)
 
     # -------------------------------------------------------------------------
     def clean_up_file(self, f):
