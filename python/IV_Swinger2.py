@@ -2608,7 +2608,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             adc_pairs_for_nr = adc_pairs_corrected[:-1]  # exclude Voc
             adc_pairs_nr = self.noise_reduction(adc_pairs_for_nr,
                                                 starting_rot_thresh=10.0,
-                                                iterations=25,
+                                                max_iterations=40,
                                                 thresh_divisor=2.0)
             # Tack Voc point back on
             adc_pairs_corrected = adc_pairs_nr + [adc_pairs_corrected[-1]]
@@ -2741,7 +2741,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     # -------------------------------------------------------------------------
     def noise_reduction(self, adc_pairs, starting_rot_thresh=5.0,
-                        iterations=1, thresh_divisor=2.0):
+                        max_iterations=1, thresh_divisor=2.0,
+                        ppm_thresh=100):
         """Method to smooth out "bumps" in the curve. The trick is to
            disambiguate between deviations (bad) and inflections
            (normal). For each point on the curve, the rotation angle at
@@ -2761,15 +2762,26 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         adc_pairs_nr = adc_pairs[:]
         num_points = len(adc_pairs)
         rot_thresh = starting_rot_thresh
-        for ii in xrange(iterations):
+        for ii in xrange(max_iterations):
             # Calculate the distance (in points) of the "far" points for
-            # the inflection comparison.  It is 1/25 of the total number
+            # the inflection comparison.  It is 1/20 of the total number
             # of points, but always at least 2.
-            dist = int(num_points / 25.0)
+            dist = int(num_points / 20.0)
             if dist < 2:
                 dist = 2
+            # Calculate the rotation at each point and then sort the
+            # list of (point, rot_degrees) tuples by the absolute value
+            # of the rotation angles.
+            rot_at_point = []
+            pairs_list = adc_pairs_nr
             for point in xrange(num_points - 1):
-                # Rotation calculation
+                rot_degrees = self.rotation_at_point(pairs_list, point)
+                rot_at_point.append((point, rot_degrees))
+            sorted_points = sorted(rot_at_point,
+                                   key=lambda rot: abs(rot[1]), reverse=True)
+            # Iterate through the sorted points
+            max_corr_ppm = -1.0
+            for (point, _) in sorted_points:
                 pairs_list = adc_pairs_nr
                 rot_degrees = self.rotation_at_point(pairs_list, point)
                 if abs(rot_degrees) > rot_thresh:
@@ -2801,6 +2813,26 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                                              next_point[1]) / 2.0
                         adc_pairs_nr[point] = (ch0_adc_corrected,
                                                ch1_adc_corrected)
+
+                        # Calculate the PPM of the corrections so we
+                        # stop iterating early if the corrections have
+                        # become sufficiently small
+                        ch0_corr_ppm = 1000000.0 * abs(1.0 - curr_point[0] /
+                                                       ch0_adc_corrected)
+                        ch1_corr_ppm = 1000000.0 * abs(1.0 - curr_point[1] /
+                                                       ch1_adc_corrected)
+                        if ch0_corr_ppm > max_corr_ppm:
+                            max_corr_ppm = ch0_corr_ppm
+                        if ch1_corr_ppm > max_corr_ppm:
+                            max_corr_ppm = ch1_corr_ppm
+
+            # Stop iterating if the PPM of the maximum correction
+            # performed is less than the ppm_thresh parameter, but only
+            # if we've done at least one correction (as indicated by
+            # max_corr_ppm having its initial value of -1)
+            if max_corr_ppm > 0 and max_corr_ppm < ppm_thresh:
+                break
+
             rot_thresh /= thresh_divisor
 
         return adc_pairs_nr
