@@ -3677,7 +3677,7 @@ at:
 
    https://github.com/csatt/IV_Swinger
 
-Copyright (C) 2017  Chris Satterlee
+Copyright (C) 2017, 2018  Chris Satterlee
 """
         sketch_ver = self.master.ivs2.arduino_sketch_ver
         sketch_ver_str = ""
