@@ -3422,14 +3422,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 ch0_bias = batt_voc_adc
 
             # Scale the biased voltage and current to account for the
-            # Vref droop from the second relay being active (if using
-            # dynamic bias calibration)
-            if self.dyn_bias_cal:
-                scaled_ch0_adc = ch0_adc * self.second_relay_cal
-                scaled_ch1_adc = ch1_adc * self.second_relay_cal
-            else:
-                scaled_ch0_adc = ch0_adc
-                scaled_ch1_adc = ch1_adc
+            # Vref droop from the second relay being active
+            scaled_ch0_adc = ch0_adc * self.second_relay_cal
+            scaled_ch1_adc = ch1_adc * self.second_relay_cal
 
             # Subtract bias amount from voltage (CH0)
             biased_ch0_adc = scaled_ch0_adc - ch0_bias

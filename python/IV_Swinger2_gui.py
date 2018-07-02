@@ -1223,12 +1223,15 @@ value on the Arduino tab of Preferences
                 # Clean up files, depending on mode and options
                 self.ivs2.clean_up_files(self.ivs2.hdd_output_dir, loop_mode,
                                          self.props.loop_save_results)
-                # Turn second relay on for battery + PV curve
-                self.ivs2.second_relay_state = IV_Swinger2.SECOND_RELAY_ON
             else:
                 err_str = ("ERROR: Failed to swing curve for bias battery")
                 tkmsg.showerror(message=err_str)
                 return show_error_dialog_clean_up_and_return(rc)
+
+        # Turn second relay on for battery + PV curve. This is done
+        # regardless of whether dynamic bias calibration is enabled.
+        if self.ivs2.battery_bias:
+            self.ivs2.second_relay_state = IV_Swinger2.SECOND_RELAY_ON
 
         # Allow copying the .cfg file to the run directory
         self.props.suppress_cfg_file_copy = False
