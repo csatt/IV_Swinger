@@ -4532,20 +4532,21 @@ class BiasBatteryDialog(Dialog):
 This calibration is used only for the cell version of IV Swinger 2
 which sometimes requires a bias battery in series with the PV cell.
 
-NOTE: before performing this calibration, NORMAL Current and Voltage
+NOTE: BEFORE performing this calibration, NORMAL Current and Voltage
 calibrations must be performed with the bias battery and PV cell in
-series.
+series: battery (-) connected to bottom black binding post, battery (+)
+connected to PV cell (-), PV cell (+) connected to lower red binding
+post.
 
-If the hardware supports dynamic bias battery calibration, you may
-enable that below. When enabled, a bias battery calibration is
-performed immediately before EVERY curve is swung. Before enabling
-dynamic bias battery calibration, it is recommended that a manual
-calibration be run.
+To perform a manual bias battery calibration:
 
-To perform the manual calibration:
+  1. Connect the bias battery (-) to the bottom black binding post
+  2. Connect the bias battery (+) to the top red binding post
+  3. Click on the "Calibrate" button below.
 
-  1. Connect the bias battery BY ITSELF to the binding posts
-  2. Click on the "Calibrate" button below."""
+After performing a manual calibration, you should enable dynamic bias
+battery calibration below. When enabled, a bias battery calibration is
+performed immediately before EVERY curve is swung."""
 
         # Add label with description text
         desc_label = ttk.Label(master=frame, text=desc_text)
@@ -4676,8 +4677,11 @@ To perform the manual calibration:
         if not self.ready_to_calibrate:
             title_str = "Ready to calibrate bias battery?"
             msg_str = """
-Is the bias battery connected to the IV Swinger 2 WITHOUT THE PV
-CELL?  Click YES to perform the calibration, NO to cancel."""
+Is the bias battery connected to the IV
+Swinger 2 bottom black and top red
+binding posts WITHOUT THE PV CELL in
+series?  Click YES to perform the
+calibration, NO to cancel."""
             self.ready_to_calibrate = tkmsg.askyesno(title_str,
                                                      msg_str,
                                                      default=tkmsg.YES)
