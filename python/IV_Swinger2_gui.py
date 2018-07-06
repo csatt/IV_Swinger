@@ -6256,7 +6256,7 @@ class ImagePane(ttk.Label):
         img = Image.open(self.img_file).resize((x_pixels, y_pixels))
         self.current_img = ImageTk.PhotoImage(img)
         if text is not None:
-            self.font.configure(size=int(x_pixels/20))
+            self.font.configure(size=int(-y_pixels/20))  # neg => pixel height
             self["font"] = self.font
             self["justify"] = "center"
             self["text"] = text
