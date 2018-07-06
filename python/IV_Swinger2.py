@@ -156,6 +156,7 @@ SECOND_RELAY_OFF = 0
 SECOND_RELAY_ON = 1
 SECOND_RELAY_STATE_DEFAULT = SECOND_RELAY_OFF
 MIN_BIAS_CH1_ADC = 50
+MIN_BIAS_CH1_ADC_PCT = 7
 RELAY_ACTIVE_HIGH_DEFAULT = False
 # Other Arduino constants
 ARDUINO_MAX_INT = (1 << 15) - 1
@@ -3386,8 +3387,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             prev_batt_ch1_adc = ADC_MAX
 
             # Discard non-Voc points with CH1 (current) ADC values less
-            # than MIN_BIAS_CH1_ADC
-            if not voc_pair and ch1_adc < MIN_BIAS_CH1_ADC:
+            # than MIN_BIAS_CH1_ADC or MIN_BIAS_CH1_ADC_PCT % of point
+            # 0's CH1 value, whichever is greater
+            if not voc_pair and (ch1_adc < MIN_BIAS_CH1_ADC or
+                                 ch1_adc < (adc_pairs[0][1] *
+                                            MIN_BIAS_CH1_ADC_PCT/100.0)):
                 continue
 
             # Search the bias battery ADC pairs
@@ -3845,8 +3849,24 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
         # Apply battery bias, if enabled
         if self.battery_bias:
-            adc_pairs = self.adc_pairs
-            self.pre_bias_voc_volts = adc_pairs[-1][0] * self.v_mult
+            self.pre_bias_voc_volts = self.adc_pairs[-1][0] * self.v_mult
+            if self.reduce_noise:
+                # We will perform noise reduction on the biased result,
+                # but just as it is necessary to perform n.r. on the
+                # battery curve, it is also necessary to perform n.r. on
+                # the combo curve before applying the bias. If this is
+                # not done, fairly small errors in the combo curve get
+                # magnified to very large errors in the biased curve
+                # which are beyond the n.r. algorithm's ability to
+                # correct.  This n.r. can be coarser than the final
+                # n.r., however.
+                adc_pairs = self.noise_reduction(self.adc_pairs,
+                                                 starting_rot_thresh=5.0,
+                                                 max_iterations=40,
+                                                 thresh_divisor=4.0,
+                                                 ppm_thresh=4000)
+            else:
+                adc_pairs = self.adc_pairs
             self.adc_pairs_corrected = self.apply_battery_bias(adc_pairs)
             if len(self.adc_pairs_corrected) < 2:
                 err_str = "ERROR: Fewer than two points recorded"
