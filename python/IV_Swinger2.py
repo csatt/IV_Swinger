@@ -3716,7 +3716,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
         # Receive ADC data from Arduino and store in adc_pairs property
         # (list of tuples)
-        rc = self.receive_data_from_arduino()
+        receive_data_from_arduino_rc = self.receive_data_from_arduino()
 
         # Turn off the second relay (only if it had been turned on though)
         if self.arduino_sketch_supports_dynamic_config:
@@ -3737,8 +3737,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
         # Return if receive_data_from_arduino() failed or if not
         # processing the ADC values
-        if rc != RC_SUCCESS or not process_adc:
-            return rc
+        if receive_data_from_arduino_rc != RC_SUCCESS or not process_adc:
+            return receive_data_from_arduino_rc
 
         # Process ADC values
         rc = self.process_adc_values()
