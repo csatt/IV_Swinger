@@ -119,7 +119,7 @@
 #define _impl_CASSERT_LINE(predicate, line) \
     typedef char _impl_PASTE(assertion_failed_on_line_,line)[2*!!(predicate)-1];
 
-#define VERSION "1.3.3beta3"   // Version of this Arduino sketch
+#define VERSION "1.3.3"        // Version of this Arduino sketch
 #define MAX_UINT (1<<16)-1     // Max unsigned integer
 #define MAX_INT (1<<15)-1      // Max integer
 #define MAX_ULONG (1<<32)-1    // Max unsigned long integer
