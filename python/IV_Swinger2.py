@@ -815,7 +815,7 @@ class Configuration(object):
 
         # Aspect width
         curr_val = self.ivs2.aspect_width
-        args = (section, "aspect height", CFG_INT, curr_val)
+        args = (section, "aspect width", CFG_INT, curr_val)
         new_val = self.apply_one(*args)
         if new_val != curr_val:
             self.ivs2.aspect_width = new_val
@@ -1451,15 +1451,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._battery_bias = False
         self._series_res_comp = SERIES_RES_COMP_DEFAULT
         self._bias_series_res_comp = BIAS_SERIES_RES_COMP_DEFAULT
-        self._arduino_has_config = {"CLK_DIV": False,
-                                    "MAX_IV_POINTS": False,
-                                    "MIN_ISC_ADC": False,
-                                    "MAX_ISC_POLL": False,
-                                    "ISC_STABLE_ADC": False,
-                                    "MAX_DISCARDS": False,
-                                    "ASPECT_HEIGHT": False,
-                                    "ASPECT_WIDTH": False,
-                                    "SECOND_RELAY_STATE": True}
+        self._arduino_has_config = {}
         self._pre_bias_voc_volts = 0.0
         self._bias_batt_voc_volts = 0.0
         self._arduino_ver_major = -1
@@ -2267,6 +2259,20 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                     break
 
     # -------------------------------------------------------------------------
+    def init_arduino_has_config(self):
+        """Method to initialize the arduino_has_config dict
+        """
+        self.arduino_has_config = {"CLK_DIV": False,
+                                   "MAX_IV_POINTS": False,
+                                   "MIN_ISC_ADC": False,
+                                   "MAX_ISC_POLL": False,
+                                   "ISC_STABLE_ADC": False,
+                                   "MAX_DISCARDS": False,
+                                   "ASPECT_HEIGHT": False,
+                                   "ASPECT_WIDTH": False,
+                                   "SECOND_RELAY_STATE": True}
+
+    # -------------------------------------------------------------------------
     def reset_arduino(self):
         """Method to reset the Arduino and establish communication to it
            over USB
@@ -2286,6 +2292,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         # Create buffered text stream
         self._sio = io.TextIOWrapper(io.BufferedRWPair(self._ser, self._ser),
                                      line_buffering=True)
+
+        # Initialize arduino_has_config dict
+        self.init_arduino_has_config()
 
         return RC_SUCCESS
 
