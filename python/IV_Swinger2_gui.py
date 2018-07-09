@@ -1229,10 +1229,9 @@ value on the Arduino tab of Preferences
                 return show_error_dialog_clean_up_and_return(rc)
 
         # Turn second relay on for battery + PV curve. This is done
-        # regardless of whether dynamic bias calibration is enabled and,
-        # in fact, regardless of whether there even is a second
-        # relay.
-        self.ivs2.second_relay_state = IV_Swinger2.SECOND_RELAY_ON
+        # regardless of whether dynamic bias calibration is enabled.
+        if self.ivs2.battery_bias:
+            self.ivs2.second_relay_state = IV_Swinger2.SECOND_RELAY_ON
 
         # Allow copying the .cfg file to the run directory
         self.props.suppress_cfg_file_copy = False
