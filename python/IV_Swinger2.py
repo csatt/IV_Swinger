@@ -1087,6 +1087,12 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
     def curve_names(self):
         """Value of the curve names list
         """
+        if self._curve_names is None:
+            # Initialize to a list the same length as the PLOT_COLORS
+            # list (in IV_Swinger.py).
+            self._curve_names = [None] * len(PLOT_COLORS)
+            # Set the first name to the default for a standalone curve
+            self._curve_names[0] = "Interpolated IV Curve"
         return self._curve_names
 
     @curve_names.setter
@@ -1283,6 +1289,16 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
     def ivsp_ivse(self, value):
         self._ivsp_ivse = value
 
+    # Derived properties
+    # ---------------------------------
+    @property
+    def csv_dirs(self):
+        """List of CSV file directories"""
+        csv_dirs = []
+        for csv_file in self.csv_files:
+            csv_dirs.append(os.path.dirname(csv_file))
+        return csv_dirs
+
     # -------------------------------------------------------------------------
     def set_default_args(self):
         """Method to set argparse args to default values"""
@@ -1348,8 +1364,50 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         self.current_img = gif_file
 
     # -------------------------------------------------------------------------
+    def add_sensor_info_to_curve_names(self):
+        """Method to append the sensor values (if any) to the curve names, so
+           they will be included in the legend
+        """
+        curve_num = 0
+        for csv_dir in self.csv_dirs:
+            dts = extract_date_time_str(csv_dir)
+            sensor_info_filename = os.path.join(csv_dir,
+                                                ("sensor_info_{}.txt"
+                                                 .format(dts)))
+            if os.path.exists(sensor_info_filename):
+                try:
+                    with open(sensor_info_filename, "r") as f:
+                        temp_format_str = "Temperature at sensor "
+                        temp_format_str += "#\d+ is ([-+]?\d*\.\d+|\d+) "
+                        temp_format_str += "degrees Celsius"
+                        temp_re = re.compile(temp_format_str)
+                        info_added = False
+                        for line in f.read().splitlines():
+                            # Temperature
+                            match = temp_re.search(line)
+                            if match:
+                                temp = float(match.group(1))
+                                if not info_added:
+                                    self.curve_names[curve_num] += " ["
+                                else:
+                                    self.curve_names[curve_num] += ", "
+                                dgs = u'\N{DEGREE SIGN}'
+                                self.curve_names[curve_num] += (u"{:4.2f}{}C"
+                                                                .format(temp,
+                                                                        dgs))
+                                info_added = True
+                        if info_added:
+                            self.curve_names[curve_num] += "]"
+                except (IOError, OSError) as e:
+                    self.logger.print_and_log("({})".format(e))
+            curve_num += 1
+
+    # -------------------------------------------------------------------------
     def run(self):
         """Main method to run the IV Swinger 2 plotter"""
+
+        # Add sensor info (if any) to the curve names
+        self.add_sensor_info_to_curve_names()
 
         # The plotter uses the argparse library for command line
         # argument parsing. Here we just need to "manually" create an
@@ -2234,6 +2292,20 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                                     "{}{}.pdf".format(self.file_prefix, dts))
         return pdf_filename
 
+    # ---------------------------------
+    @property
+    def sensor_info_filename(self):
+        """Sensor information file name"""
+        if self.hdd_output_dir is not None:
+            dts = extract_date_time_str(self.hdd_output_dir)
+            sensor_info_filename = os.path.join(self.hdd_output_dir,
+                                                ("sensor_info_{}.txt"
+                                                 .format(dts)))
+        else:
+            sensor_info_filename = None
+
+        return sensor_info_filename
+
     # -------------------------------------------------------------------------
     def find_serial_ports(self):
         """Method to find the serial ports on this computer
@@ -2519,6 +2591,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         for msg in received_msgs:
             if msg.startswith("Polling for stable Isc timed out"):
                 rc = RC_ISC_TIMEOUT
+            elif (msg.startswith("ROM code of DS18B20") or
+                  msg.startswith("Temperature at sensor")):
+                self.write_sensor_info_to_file(msg)
             match = adc_re.search(msg)
             if match:
                 ch0_adc = int(match.group(1))
@@ -2531,6 +2606,15 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 self.unfiltered_adc_pairs.append((ch0_adc, ch1_adc))
 
         return rc
+
+    # -------------------------------------------------------------------------
+    def write_sensor_info_to_file(self, str):
+        """Method to write a string to the sensor info file"""
+        try:
+            with open(self.sensor_info_filename, "a") as f:
+                f.write("{}".format(str))
+        except (IOError, OSError) as e:
+            self.logger.print_and_log("({})".format(e))
 
     # -------------------------------------------------------------------------
     def log_msg_from_arduino(self, msg):

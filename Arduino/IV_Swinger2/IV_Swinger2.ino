@@ -109,9 +109,14 @@
  * it's a weighted average based on measured times.
  *
  */
+//#define DS18B20_SUPPORTED
 #include <SPI.h>
 #include <EEPROM.h>
 #include <avr/pgmspace.h>
+#ifdef DS18B20_SUPPORTED
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#endif
 
 // Compile-time assertion macros (from Stack Overflow)
 #define COMPILER_ASSERT(predicate) _impl_CASSERT_LINE(predicate,__LINE__)
@@ -119,7 +124,7 @@
 #define _impl_CASSERT_LINE(predicate, line) \
     typedef char _impl_PASTE(assertion_failed_on_line_,line)[2*!!(predicate)-1];
 
-#define VERSION "1.3.3"        // Version of this Arduino sketch
+#define VERSION "1.3.4"        // Version of this Arduino sketch
 #define MAX_UINT (1<<16)-1     // Max unsigned integer
 #define MAX_INT (1<<15)-1      // Max integer
 #define MAX_ULONG (1<<32)-1    // Max unsigned long integer
@@ -131,6 +136,7 @@
 #define ADC_MAX 4096.0         // Max count of ADC (2^^num_bits)
 #define ADC_CS_PIN 10          // Arduino pin used for ADC chip select
 #define RELAY_PIN 2            // Arduino pin used to activate relay
+#define ONE_WIRE_BUS 3         // Arduino pin used for one-wire bus (DS18B20)
 #define SECOND_RELAY_PIN 4     // Arduino pin used to activate second relay
 #define CS_INACTIVE HIGH       // Chip select is active low
 #define CS_ACTIVE LOW          // Chip select is active low
@@ -187,6 +193,13 @@ const static char dump_eeprom_str[] PROGMEM = "DUMP_EEPROM";
 const static char relay_state_str[] PROGMEM = "RELAY_STATE";
 const static char second_relay_state_str[] PROGMEM = "SECOND_RELAY_STATE";
 
+#ifdef DS18B20_SUPPORTED
+// Global setup for DS18B20 temperature sensor
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+int num_ds18b20s;
+#endif
+
 void setup()
 {
   bool host_ready = false;
@@ -206,6 +219,14 @@ void setup()
   Serial.begin(SERIAL_BAUD);
   SPI.begin();
   SPI.setClockDivider(clk_div);
+#ifdef DS18B20_SUPPORTED
+  // DS18B20 temperature sensor init
+  sensors.begin();
+  num_ds18b20s = sensors.getDS18Count();
+  if (num_ds18b20s) {
+    sensors.setResolution(10);
+  }
+#endif
 
   // Print version number
   Serial.print(F("IV Swinger2 sketch version "));
@@ -226,6 +247,21 @@ void setup()
       }
     }
   }
+#ifdef DS18B20_SUPPORTED
+  // Print temp sensor info 
+  for (int ii = 0; ii < num_ds18b20s; ii++) {
+    DeviceAddress rom_code;
+    sensors.getAddress(rom_code, ii);
+    Serial.print(F("ROM code of DS18B20 temp sensor #"));
+    Serial.print(ii+1);
+    Serial.print(F(" is 0x"));
+    for (int jj = 7; jj >= 0; jj--) {
+      if (rom_code[jj] < 16) Serial.print('0');
+      Serial.print(rom_code[jj], HEX);
+    }
+    Serial.println("");
+  }
+#endif
 }
 
 void loop()
@@ -572,6 +608,19 @@ void loop()
 
   // Report results on serial port
   //
+#ifdef DS18B20_SUPPORTED
+  // Temperature
+  if (num_ds18b20s) {
+    sensors.requestTemperatures();
+    for (int ii = 0; ii < num_ds18b20s; ii++) {
+      Serial.print(F("Temperature at sensor #"));
+      Serial.print(ii+1);
+      Serial.print(F(" is "));
+      Serial.print(sensors.getTempCByIndex(ii));
+      Serial.println(F(" degrees Celsius"));
+    }
+  }
+#endif
   // CH1 ADC noise floor
   Serial.print(F("CH1 ADC noise floor:"));
   Serial.println(adc_noise_floor);
