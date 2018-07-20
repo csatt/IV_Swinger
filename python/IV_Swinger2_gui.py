@@ -3485,6 +3485,9 @@ class ResultsWizard(tk.Toplevel):
         self.ivp.font_scale = self.master.ivs2.font_scale
         self.ivp.line_scale = self.master.ivs2.line_scale
         self.ivp.point_scale = self.master.ivs2.point_scale
+        if self.master.axes_locked.get() == "Lock":
+            self.ivp.max_x = self.master.ivs2.plot_max_x
+            self.ivp.max_y = self.master.ivs2.plot_max_y
         self.ivp.run()
         self.overlay_img = self.ivp.current_img
 
