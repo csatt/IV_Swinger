@@ -254,6 +254,7 @@ class GraphicalUserInterface(ttk.Frame):
         self.root = tk.Tk()
         self.set_root_options()
         ttk.Frame.__init__(self, self.root)
+        self.win_sys = self.root.tk.call("tk", "windowingsystem")
         self.memory_monitor()
         self.ivs2 = IV_Swinger2.IV_Swinger2(app_data_dir)
         self.init_instance_vars()
@@ -2284,7 +2285,7 @@ class ResultsWizard(tk.Toplevel):
         options["initialdir"] = self.results_dir
         options["parent"] = self.master
         options["title"] = "Choose Folder"
-        if sys.platform == "darwin":
+        if self.master.win_sys == "aqua":  # Mac
             options["message"] = options["title"]
         dir = tkFileDialog.askdirectory(**options)
         if len(dir):
@@ -2470,7 +2471,7 @@ class ResultsWizard(tk.Toplevel):
         options = {}
         options["parent"] = self.master
         options["title"] = "Choose Copy Destination"
-        if sys.platform == "darwin":
+        if self.master.win_sys == "aqua":  # Mac
             options["message"] = options["title"]
         self.copy_dest = tkFileDialog.askdirectory(**options)
         if self.copy_dest is "":  # Cancel
@@ -2850,7 +2851,7 @@ class ResultsWizard(tk.Toplevel):
         # Hack: invisible progress bar (length=0). For some reason, this solves
         # the (Mac-only) problem of the images not getting displayed during the
         # update
-        if sys.platform == "darwin":
+        if self.master.win_sys == "aqua":  # Mac
             pb = ProgressBar(master=self, length=0, maximum=len(selected_runs))
 
         # Loop through runs, regenerating/redisplaying
@@ -2904,7 +2905,7 @@ class ResultsWizard(tk.Toplevel):
             self.update_idletasks()
 
         # Destroy dummy progress bar
-        if sys.platform == "darwin":
+        if self.master.win_sys == "aqua":  # Mac
             pb.destroy()
 
         # Display done message if multiple runs selected
@@ -3539,7 +3540,6 @@ class MenuBar(tk.Menu):
     # Initializer
     def __init__(self, master=None):
         tk.Menu.__init__(self, master=master)
-        self.win_sys = self.master.root.tk.call("tk", "windowingsystem")
         self.menubar = tk.Menu(self.master)
         self.selected_port = tk.StringVar()
         self.selected_port.set(self.master.ivs2.usb_port)
@@ -3553,7 +3553,7 @@ class MenuBar(tk.Menu):
 
     # -------------------------------------------------------------------------
     def create_about_menu(self):
-        if self.win_sys == "aqua":  # Mac
+        if self.master.win_sys == "aqua":  # Mac
             self.about_menu = tk.Menu(self.menubar, name="apple")
             self.menubar.add_cascade(menu=self.about_menu)
             self.master.root.createcommand("tk::mac::ShowPreferences",
@@ -3653,7 +3653,7 @@ class MenuBar(tk.Menu):
 
     # -------------------------------------------------------------------------
     def create_window_menu(self):
-        if self.win_sys == "aqua":  # Mac
+        if self.master.win_sys == "aqua":  # Mac
             self.window_menu = tk.Menu(self.menubar, name="window")
             self.menubar.add_cascade(menu=self.window_menu, label="Window")
         else:
@@ -3661,7 +3661,7 @@ class MenuBar(tk.Menu):
 
     # -------------------------------------------------------------------------
     def create_help_menu(self):
-        if self.win_sys == "aqua":  # Mac
+        if self.master.win_sys == "aqua":  # Mac
             self.help_menu = tk.Menu(self.menubar, name="help")
             self.menubar.add_cascade(menu=self.help_menu, label="Help")
             self.master.root.createcommand("tk::mac::ShowHelp",
@@ -3713,7 +3713,7 @@ Copyright (C) 2017, 2018  Chris Satterlee
         options["initialfile"] = file
         options["parent"] = self.master
         options["title"] = "Choose log file"
-        if sys.platform == "darwin":
+        if self.master.win_sys == "aqua":  # Mac
             options["message"] = options["title"]
         log_file = tkFileDialog.askopenfilename(**options)
         IV_Swinger2.sys_view_file(log_file)
