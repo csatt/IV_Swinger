@@ -351,6 +351,10 @@ the log file to csatt1@gmail.com.  Thank you!
         self._overlay_dir = None
         self._overlay_mode = False
         self._redisplay_after_axes_unlock = True
+        self._voltage_cal_enabled = False
+        self._current_cal_enabled = False
+        self._resistor_cal_enabled = False
+        self._bias_cal_enabled = False
         self.zero_voc_str = """
 ERROR: Voc is zero volts
 
@@ -905,7 +909,7 @@ value on the Arduino tab of Preferences
                                lambda: self.clear_go_button_status_label())
                     self.check_arduino_sketch_version()
                     self.update_config_after_arduino_handshake()
-                    self.menu_bar.enable_resistor_calibration()
+                    self.master.resistor_cal_enabled = True
                     return
 
         # If any of the above failed, try again in 1 second
@@ -1167,8 +1171,10 @@ value on the Arduino tab of Preferences
 
         # Enable calibration
         if rc == RC_SUCCESS:
-            self.menu_bar.enable_calibration()
-            self.menu_bar.enable_bias_calibration()
+            self.props.voltage_cal_enabled = True
+            self.props.current_cal_enabled = True
+            self.props.resistor_cal_enabled = True
+            self.props.bias_cal_enabled = True
 
         # Restore button to "unpressed" appearance
         self.go_button.state(["!pressed"])
@@ -1661,6 +1667,58 @@ class GraphicalUserInterfaceProps(object):
             raise ValueError("redisplay_after_axes_unlock must be boolean")
         self.master._redisplay_after_axes_unlock = value
 
+    # ---------------------------------
+    @property
+    def voltage_cal_enabled(self):
+        """True if voltage calibration is enabled
+        """
+        return self.master._voltage_cal_enabled
+
+    @voltage_cal_enabled.setter
+    def voltage_cal_enabled(self, value):
+        if value not in set([True, False]):
+            raise ValueError("voltage_cal_enabled must be boolean")
+        self.master._voltage_cal_enabled = value
+
+    # ---------------------------------
+    @property
+    def current_cal_enabled(self):
+        """True if current calibration is enabled
+        """
+        return self.master._current_cal_enabled
+
+    @current_cal_enabled.setter
+    def current_cal_enabled(self, value):
+        if value not in set([True, False]):
+            raise ValueError("current_cal_enabled must be boolean")
+        self.master._current_cal_enabled = value
+
+    # ---------------------------------
+    @property
+    def resistor_cal_enabled(self):
+        """True if resistor calibration is enabled
+        """
+        return self.master._resistor_cal_enabled
+
+    @resistor_cal_enabled.setter
+    def resistor_cal_enabled(self, value):
+        if value not in set([True, False]):
+            raise ValueError("resistor_cal_enabled must be boolean")
+        self.master._resistor_cal_enabled = value
+
+    # ---------------------------------
+    @property
+    def bias_cal_enabled(self):
+        """True if bias battery calibration is enabled
+        """
+        return self.master._bias_cal_enabled
+
+    @bias_cal_enabled.setter
+    def bias_cal_enabled(self, value):
+        if value not in set([True, False]):
+            raise ValueError("bias_cal_enabled must be boolean")
+        self.master._bias_cal_enabled = value
+
 
 # GUI Configuration class
 #
@@ -1828,8 +1886,10 @@ class ResultsWizard(tk.Toplevel):
         """
         self.master.results_button.state(["disabled"])
         self.master.go_button.state(["disabled"])
-        self.master.menu_bar.disable_calibration()
-        self.master.menu_bar.disable_bias_calibration()
+        self.master.props.voltage_cal_enabled = False
+        self.master.props.current_cal_enabled = False
+        self.master.props.resistor_cal_enabled = False
+        self.master.props.bias_cal_enabled = False
 
     # -------------------------------------------------------------------------
     def change_min_height(self, min_height):
@@ -2111,8 +2171,8 @@ class ResultsWizard(tk.Toplevel):
         self.master.results_button.state(["!disabled"])
         if self.master.ivs2.arduino_ready:
             self.master.go_button.state(["!disabled"])
-            self.master.menu_bar.enable_resistor_calibration()
-            self.master.menu_bar.enable_bias_calibration()
+            self.master.resistor_cal_enabled = True
+            self.master.bias_cal_enabled = True
         self.master.config.cfg_filename = None  # property will restore
         self.master.config.get()
         self.master.update_plot_power_cb()
@@ -3599,7 +3659,8 @@ class MenuBar(tk.Menu):
 
     # -------------------------------------------------------------------------
     def create_calibrate_menu(self):
-        self.calibrate_menu = tk.Menu(self.menubar)
+        self.calibrate_menu = tk.Menu(self.menubar,
+                                      postcommand=self.update_calibrate_menu)
         self.menubar.add_cascade(menu=self.calibrate_menu, label="Calibrate")
         self.calibrate_menu.add_command(label="Voltage Calibration",
                                         command=self.get_v_cal_value)
@@ -3613,42 +3674,32 @@ class MenuBar(tk.Menu):
                                         command=self.invalidate_arduino_eeprom)
         self.calibrate_menu.add_command(label="Calibration Help",
                                         command=self.show_calibration_help)
-        self.disable_calibration()
 
     # -------------------------------------------------------------------------
-    def disable_calibration(self):
-        kwargs = {"state": "disabled"}
+    def update_calibrate_menu(self):
+        # Voltage
+        if self.master.props.voltage_cal_enabled:
+            kwargs = {"state": "normal"}
+        else:
+            kwargs = {"state": "disabled"}
         self.calibrate_menu.entryconfig("Voltage Calibration", **kwargs)
+        # Current
+        if self.master.props.current_cal_enabled:
+            kwargs = {"state": "normal"}
+        else:
+            kwargs = {"state": "disabled"}
         self.calibrate_menu.entryconfig("Current Calibration", **kwargs)
+        # Resistors
+        if self.master.props.resistor_cal_enabled:
+            kwargs = {"state": "normal"}
+        else:
+            kwargs = {"state": "disabled"}
         self.calibrate_menu.entryconfig("Resistors", **kwargs)
-        self.calibration_disabled = True
-
-    # -------------------------------------------------------------------------
-    def enable_calibration(self):
-        kwargs = {"state": "normal"}
-        self.calibrate_menu.entryconfig("Voltage Calibration", **kwargs)
-        self.calibrate_menu.entryconfig("Current Calibration", **kwargs)
-        self.calibrate_menu.entryconfig("Resistors", **kwargs)
-        self.calibration_disabled = False
-
-    # -------------------------------------------------------------------------
-    def disable_resistor_calibration(self):
-        kwargs = {"state": "disabled"}
-        self.calibrate_menu.entryconfig("Resistors", **kwargs)
-
-    # -------------------------------------------------------------------------
-    def enable_resistor_calibration(self):
-        kwargs = {"state": "normal"}
-        self.calibrate_menu.entryconfig("Resistors", **kwargs)
-
-    # -------------------------------------------------------------------------
-    def disable_bias_calibration(self):
-        kwargs = {"state": "disabled"}
-        self.calibrate_menu.entryconfig("Bias Battery", **kwargs)
-
-    # -------------------------------------------------------------------------
-    def enable_bias_calibration(self):
-        kwargs = {"state": "normal"}
+        # Bias battery
+        if self.master.props.bias_cal_enabled:
+            kwargs = {"state": "normal"}
+        else:
+            kwargs = {"state": "disabled"}
         self.calibrate_menu.entryconfig("Bias Battery", **kwargs)
 
     # -------------------------------------------------------------------------
@@ -3717,6 +3768,9 @@ Copyright (C) 2017, 2018  Chris Satterlee
             options["message"] = options["title"]
         log_file = tkFileDialog.askopenfilename(**options)
         IV_Swinger2.sys_view_file(log_file)
+        if self.master.win_sys == "aqua":  # Mac
+            # Work around Mac bug (grayed menu items)
+            self.master.create_menu_bar()
 
     # -------------------------------------------------------------------------
     def view_config_file(self):
@@ -4367,8 +4421,8 @@ class ResistorValuesDialog(Dialog):
         self.master.go_button.state(["disabled"])
         self.master.preferences_button.state(["disabled"])
         self.master.results_button.state(["disabled"])
-        self.master.menu_bar.disable_resistor_calibration()
-        self.master.menu_bar.disable_bias_calibration()
+        self.master.resistor_cal_enabled = False
+        self.master.bias_cal_enabled = False
 
     # -------------------------------------------------------------------------
     def restore_master(self):
@@ -4379,8 +4433,8 @@ class ResistorValuesDialog(Dialog):
             self.master.go_button.state(["!disabled"])
         self.master.preferences_button.state(["!disabled"])
         self.master.results_button.state(["!disabled"])
-        self.master.menu_bar.enable_resistor_calibration()
-        self.master.menu_bar.enable_bias_calibration()
+        self.master.resistor_cal_enabled = True
+        self.master.bias_cal_enabled = True
 
     # -------------------------------------------------------------------------
     def restore_defaults(self, event=None):
@@ -4614,8 +4668,8 @@ performed immediately before EVERY curve is swung."""
         self.master.go_button.state(["disabled"])
         self.master.preferences_button.state(["disabled"])
         self.master.results_button.state(["disabled"])
-        self.master.menu_bar.disable_resistor_calibration()
-        self.master.menu_bar.disable_bias_calibration()
+        self.master.resistor_cal_enabled = False
+        self.master.bias_cal_enabled = False
 
     # -------------------------------------------------------------------------
     def restore_master(self):
@@ -4626,8 +4680,8 @@ performed immediately before EVERY curve is swung."""
             self.master.go_button.state(["!disabled"])
         self.master.preferences_button.state(["!disabled"])
         self.master.results_button.state(["!disabled"])
-        self.master.menu_bar.enable_resistor_calibration()
-        self.master.menu_bar.enable_bias_calibration()
+        self.master.resistor_cal_enabled = True
+        self.master.bias_cal_enabled = True
 
     # -------------------------------------------------------------------------
     def revert(self):
