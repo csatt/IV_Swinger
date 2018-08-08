@@ -109,22 +109,42 @@
  * it's a weighted average based on measured times.
  *
  */
+#define VERSION "1.3.5"        // Version of this Arduino sketch
+
+// Uncomment one or more of the following to enable the associated
+// feature. Note, however, that enabling these features uses more of the
+// Arduino's SRAM, so we have to reduce the maximum number of IV points
+// accordingly to prevent running out of memory.
 //#define DS18B20_SUPPORTED
+//#define ADS1115_PYRANOMETER_SUPPORTED
+//#define CAPTURE_UNFILTERED  // Debug only
+
 #include <SPI.h>
 #include <EEPROM.h>
-#include <avr/pgmspace.h>
+
 #ifdef DS18B20_SUPPORTED
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#define DS18B20_SRAM 44
+#else
+#define DS18B20_SRAM 0
 #endif
 
-// Compile-time assertion macros (from Stack Overflow)
-#define COMPILER_ASSERT(predicate) _impl_CASSERT_LINE(predicate,__LINE__)
-#define _impl_PASTE(a,b) a##b
-#define _impl_CASSERT_LINE(predicate, line) \
-    typedef char _impl_PASTE(assertion_failed_on_line_,line)[2*!!(predicate)-1];
+#ifdef ADS1115_PYRANOMETER_SUPPORTED
+#include <Wire.h>
+#include <Adafruit_ADS1015.h>
+#define ADS1115_SRAM 224
+#else
+#define ADS1115_SRAM 0
+#endif
 
-#define VERSION "1.3.4"        // Version of this Arduino sketch
+#ifdef CAPTURE_UNFILTERED
+#define MAX_UNFILTERED_POINTS 125
+#define UNFILTERED_SRAM ((MAX_UNFILTERED_POINTS*4)+12)
+#else
+#define UNFILTERED_SRAM 0
+#endif
+
 #define MAX_UINT (1<<16)-1     // Max unsigned integer
 #define MAX_INT (1<<15)-1      // Max integer
 #define MAX_ULONG (1<<32)-1    // Max unsigned long integer
@@ -143,7 +163,9 @@
 #define VOLTAGE_CH 0           // ADC channel used for voltage measurement
 #define CURRENT_CH 1           // ADC channel used for current measurement
 #define VOC_POLLING_LOOPS 400  // Number of loops measuring Voc
-#define MAX_IV_POINTS 275      // Max number of I/V pairs to capture
+#define FULL_MAX_IV_POINTS 275 // Max number of I/V pairs to capture
+#define IV_POINT_REDUCTION ((DS18B20_SRAM+ADS1115_SRAM+UNFILTERED_SRAM)/4)
+#define MAX_IV_POINTS (FULL_MAX_IV_POINTS - IV_POINT_REDUCTION)
 #define MAX_IV_MEAS 1000000    // Max number of I/V measurements (inc discards)
 #define CH1_1ST_WEIGHT 5       // Amount to weigh 1st CH1 value in avg calc
 #define CH1_2ND_WEIGHT 3       // Amount to weigh 2nd CH1 value in avg calc
@@ -158,9 +180,15 @@
 #define AVG_WEIGHT (int) ((TOTAL_WEIGHT + 1) / 2)
 #define EEPROM_VALID_VALUE 123456.7890    // Must match IV_Swinger2.py
 #define EEPROM_RELAY_ACTIVE_HIGH_ADDR 44  // Must match IV_Swinger2.py
-//#define CAPTURE_UNFILTERED
+
+// Compile-time assertion macros (from Stack Overflow)
+#define COMPILER_ASSERT(predicate) _impl_CASSERT_LINE(predicate,__LINE__)
+#define _impl_PASTE(a,b) a##b
+#define _impl_CASSERT_LINE(predicate, line) \
+    typedef char _impl_PASTE(assertion_failed_on_line_,line)[2*!!(predicate)-1];
 
 // Compile-time assertions
+COMPILER_ASSERT(MAX_IV_POINTS >= 10);
 COMPILER_ASSERT(MAX_IV_MEAS <= (unsigned long) MAX_ULONG);
 COMPILER_ASSERT(TOTAL_WEIGHT <= 16);
 COMPILER_ASSERT(ASPECT_HEIGHT <= 8);
@@ -199,6 +227,10 @@ OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 int num_ds18b20s;
 #endif
+#ifdef ADS1115_PYRANOMETER_SUPPORTED
+// Global setup for ADS1115-based pyranometer
+Adafruit_ADS1115 ads1115;
+#endif
 
 void setup()
 {
@@ -227,6 +259,11 @@ void setup()
     sensors.setResolution(10);
   }
 #endif
+#ifdef ADS1115_PYRANOMETER_SUPPORTED
+  adsGain_t ads1115_gain;
+  ads1115.begin();
+  ads1115.setGain(GAIN_EIGHT);
+#endif
 
   // Print version number
   Serial.print(F("IV Swinger2 sketch version "));
@@ -247,6 +284,26 @@ void setup()
       }
     }
   }
+#ifdef DS18B20_SUPPORTED
+  Serial.println(F("DS18B20 temperature sensor is SUPPORTED"));
+#else
+  Serial.println(F("DS18B20 temperature sensor is NOT supported"));
+#endif
+#ifdef ADS1115_PYRANOMETER_SUPPORTED
+  Serial.println(F("ADS1115-based pyranometer is SUPPORTED"));
+#else
+  Serial.println(F("ADS1115-based pyranometer is NOT supported"));
+#endif
+#ifdef CAPTURE_UNFILTERED
+  Serial.println(F("Debug capture of unfiltered IV points is SUPPORTED"));
+#else
+  Serial.println(F("Debug capture of unfiltered IV points is NOT supported"));
+#endif
+  // Print value of MAX_IV_POINTS / max_iv_points
+  Serial.print(F("MAX_IV_POINTS: "));
+  Serial.print(MAX_IV_POINTS);
+  Serial.print(F("   max_iv_points: "));
+  Serial.println(max_iv_points);
 #ifdef DS18B20_SUPPORTED
   // Print temp sensor info 
   for (int ii = 0; ii < num_ds18b20s; ii++) {
@@ -293,7 +350,6 @@ void loop()
   long start_usecs, elapsed_usecs;
   float usecs_per_iv_pair;
 #ifdef CAPTURE_UNFILTERED
-#define MAX_UNFILTERED_POINTS (VOC_POLLING_LOOPS - MAX_IV_POINTS)
   bool capture_unfiltered = false;
   int unfiltered_index = 0;
   int unfiltered_adc_ch0_vals[MAX_UNFILTERED_POINTS];
@@ -608,6 +664,15 @@ void loop()
 
   // Report results on serial port
   //
+#ifdef ADS1115_PYRANOMETER_SUPPORTED
+  // Irradiance
+    int16_t ads1115_val;
+    ads1115_val = ads1115.readADC_Differential_0_1();
+    if (ads1115_val != -1) {  // Value of -1 indicates no ADS1115 is present
+      Serial.print(F("ADS1115 (pyranometer) raw value: "));
+      Serial.println(ads1115_val);
+    }
+#endif
 #ifdef DS18B20_SUPPORTED
   // Temperature
   if (num_ds18b20s) {
@@ -727,6 +792,9 @@ void process_config_msg(char * msg) {
     SPI.setClockDivider(clk_div);
   } else if (strcmp_P(config_type, max_iv_points_str) == 0) {
     max_iv_points = atoi(config_val);
+    if (max_iv_points > MAX_IV_POINTS) {
+      max_iv_points = MAX_IV_POINTS;
+    }
   } else if (strcmp_P(config_type, min_isc_adc_str) == 0) {
     min_isc_adc = atoi(config_val);
   } else if (strcmp_P(config_type, max_isc_poll_str) == 0) {

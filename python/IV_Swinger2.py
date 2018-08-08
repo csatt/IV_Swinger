@@ -117,7 +117,7 @@ SKETCH_VER_LT = -1
 SKETCH_VER_EQ = 0
 SKETCH_VER_GT = 1
 SKETCH_VER_ERR = -2
-LATEST_SKETCH_VER = "1.3.4"
+LATEST_SKETCH_VER = "1.3.5"
 MIN_PT1_TO_VOC_RATIO_FOR_ISC = 0.20
 BATTERY_FOLDER_NAME = "Battery"
 
@@ -163,12 +163,16 @@ ARDUINO_MAX_INT = (1 << 15) - 1
 MAX_IV_POINTS_MAX = 275
 ADC_MAX = 4095
 MAX_ASPECT = 8
+ADS1115_UNITY_GAIN_MAX_MILLIVOLTS = 4096
+ADS1115_PGA_GAIN = 8
+ADS1115_NON_SIGN_BITS = 15
 # Default calibration values
 NOMINAL_ADC_VREF = 5.0  # USB voltage = 5V
 V_CAL_DEFAULT = 1.0197
 I_CAL_DEFAULT = 1.1187
 SECOND_RELAY_CAL_DEFAULT = 0.9776
 DYN_BIAS_CAL_DEFAULT = False
+PYRANO_CAL_DEFAULT = 4.2572  # W/m^2/mV
 # Default resistor values
 R1_DEFAULT = 150000.0   # R1 = 150k nominal
 R1_DEFAULT_BUG = 180000.0   # This was a bug
@@ -609,6 +613,10 @@ class Configuration(object):
         args = (section, "current", CFG_FLOAT, self.ivs2.i_cal)
         self.ivs2.i_cal = self.apply_one(*args)
 
+        # Pyranometer
+        args = (section, "pyranometer", CFG_FLOAT, self.ivs2.pyrano_cal)
+        self.ivs2.pyrano_cal = self.apply_one(*args)
+
         # Second relay
         args = (section, "second relay", CFG_FLOAT,
                 self.ivs2.second_relay_cal)
@@ -905,6 +913,7 @@ class Configuration(object):
         self.cfg.add_section(section)
         self.cfg_set(section, "voltage", self.ivs2.v_cal)
         self.cfg_set(section, "current", self.ivs2.i_cal)
+        self.cfg_set(section, "pyranometer", self.ivs2.pyrano_cal)
         self.cfg_set(section, "second relay", self.ivs2.second_relay_cal)
         self.cfg_set(section, "r1 ohms", self.ivs2.vdiv_r1)
         self.cfg_set(section, "r2 ohms", self.ivs2.vdiv_r2)
@@ -1381,8 +1390,23 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
                         temp_format_str += "#\d+ is ([-+]?\d*\.\d+|\d+) "
                         temp_format_str += "degrees Celsius"
                         temp_re = re.compile(temp_format_str)
+                        irrad_format_str = "Irradiance: (\d+) W/m\^2"
+                        irrad_re = re.compile(irrad_format_str)
                         info_added = False
                         for line in f.read().splitlines():
+                            # Irradiance
+                            match = irrad_re.search(line)
+                            if match:
+                                irrad = int(match.group(1))
+                                if not info_added:
+                                    self.curve_names[curve_num] += " ["
+                                else:
+                                    self.curve_names[curve_num] += ", "
+                                sqd = u'\xb2'
+                                self.curve_names[curve_num] += (u"{} W/m{}"
+                                                                .format(irrad,
+                                                                        sqd))
+                                info_added = True
                             # Temperature
                             match = temp_re.search(line)
                             if match:
@@ -1488,6 +1512,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._v_cal = V_CAL_DEFAULT
         self._second_relay_cal = SECOND_RELAY_CAL_DEFAULT
         self._i_cal = I_CAL_DEFAULT
+        self._pyrano_cal = PYRANO_CAL_DEFAULT
+        self._irradiance = None
         self._relay_active_high = RELAY_ACTIVE_HIGH_DEFAULT
         self._plot_title = None
         self._current_img = None
@@ -1631,6 +1657,26 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     @i_cal.setter
     def i_cal(self, value):
         self._i_cal = value
+
+    # ---------------------------------
+    @property
+    def pyrano_cal(self):
+        """Property to get the pyranometer calibration value"""
+        return self._pyrano_cal
+
+    @pyrano_cal.setter
+    def pyrano_cal(self, value):
+        self._pyrano_cal = value
+
+    # ---------------------------------
+    @property
+    def irradiance(self):
+        """Property to get the irradiance of the current run"""
+        return self._irradiance
+
+    @irradiance.setter
+    def irradiance(self, value):
+        self._irradiance = value
 
     # ---------------------------------
     @property
@@ -2592,7 +2638,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             if msg.startswith("Polling for stable Isc timed out"):
                 rc = RC_ISC_TIMEOUT
             elif (msg.startswith("ROM code of DS18B20") or
-                  msg.startswith("Temperature at sensor")):
+                  msg.startswith("Temperature at sensor") or
+                  msg.startswith("ADS1115 (pyranometer)")):
                 self.write_sensor_info_to_file(msg)
             match = adc_re.search(msg)
             if match:
@@ -2608,11 +2655,66 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         return rc
 
     # -------------------------------------------------------------------------
-    def write_sensor_info_to_file(self, str):
+    def write_sensor_info_to_file(self, msg):
         """Method to write a string to the sensor info file"""
+        if msg.startswith("ADS1115 (pyranometer)"):
+            str = self.translate_ads1115_to_irradiance(msg)
+        else:
+            str = msg
         try:
             with open(self.sensor_info_filename, "a") as f:
                 f.write("{}".format(str))
+        except (IOError, OSError) as e:
+            self.logger.print_and_log("({})".format(e))
+
+    # -------------------------------------------------------------------------
+    def translate_ads1115_to_irradiance(self, msg):
+        """Method to translate the ADS1115 value to W/m^2"""
+        ads1115_re_str = "ADS1115 \(pyranometer\) raw value: (-?\d+)"
+        ads1115_re = re.compile(ads1115_re_str)
+        match = ads1115_re.search(msg)
+        str = "Irradiance: ** ERROR **\n"
+        if match:
+            raw_val = int(match.group(1))
+            irradiance = self.convert_ads1115_val_to_w_per_m_squared(raw_val)
+            str = "Irradiance: {} W/m^2\n".format(irradiance)
+            self.irradiance = irradiance
+        return str
+
+    # -------------------------------------------------------------------------
+    def convert_ads1115_val_to_w_per_m_squared(self, raw_val):
+        """Method to convert a raw ADS1115 reading to an irradiance value in
+           watts/m^2"""
+        # First convert reading value to millivolts
+        max_millivolts = ADS1115_UNITY_GAIN_MAX_MILLIVOLTS / ADS1115_PGA_GAIN
+        pyrano_millivolts = (max_millivolts *
+                             (float(abs(raw_val)) /
+                              (2 ** ADS1115_NON_SIGN_BITS)))
+
+        # Then convert millivolts to irradiance
+        w_per_m_squared = pyrano_millivolts * self.pyrano_cal
+
+        # Return value rounded to nearest integer W/m^2
+        return int(round(w_per_m_squared))
+
+    # -------------------------------------------------------------------------
+    def update_irradiance(self, new_irradiance):
+        """Method to update the irradiance value in the sensor info file"""
+        new_lines = []
+        irrad_re = re.compile("Irradiance: (\d+) W/m\^2")
+        try:
+            with open(self.sensor_info_filename, "r") as f:
+                for line in f.read().splitlines():
+                    match = irrad_re.search(line)
+                    if match:
+                        round_new_irradiance = int(round(new_irradiance))
+                        new_lines.append("Irradiance: {} W/m^2"
+                                         .format(round_new_irradiance))
+                    else:
+                        new_lines.append(line)
+            with open(self.sensor_info_filename, "w") as f:
+                for line in new_lines:
+                    f.write("{}\n".format(line))
         except (IOError, OSError) as e:
             self.logger.print_and_log("({})".format(e))
 

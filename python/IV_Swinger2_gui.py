@@ -354,6 +354,7 @@ the log file to csatt1@gmail.com.  Thank you!
         self._voltage_cal_enabled = False
         self._current_cal_enabled = False
         self._resistor_cal_enabled = False
+        self._pyranometer_cal_enabled = False
         self._bias_cal_enabled = False
         self.zero_voc_str = """
 ERROR: Voc is zero volts
@@ -1174,6 +1175,8 @@ value on the Arduino tab of Preferences
             self.props.voltage_cal_enabled = True
             self.props.current_cal_enabled = True
             self.props.resistor_cal_enabled = True
+            if self.ivs2.irradiance is not None:
+                self.props.pyranometer_cal_enabled = True
             self.props.bias_cal_enabled = True
 
         # Restore button to "unpressed" appearance
@@ -1708,6 +1711,19 @@ class GraphicalUserInterfaceProps(object):
 
     # ---------------------------------
     @property
+    def pyranometer_cal_enabled(self):
+        """True if pyranometer calibration is enabled
+        """
+        return self.master._pyranometer_cal_enabled
+
+    @pyranometer_cal_enabled.setter
+    def pyranometer_cal_enabled(self, value):
+        if value not in set([True, False]):
+            raise ValueError("pyranometer_cal_enabled must be boolean")
+        self.master._pyranometer_cal_enabled = value
+
+    # ---------------------------------
+    @property
     def bias_cal_enabled(self):
         """True if bias battery calibration is enabled
         """
@@ -1889,6 +1905,7 @@ class ResultsWizard(tk.Toplevel):
         self.master.props.voltage_cal_enabled = False
         self.master.props.current_cal_enabled = False
         self.master.props.resistor_cal_enabled = False
+        self.master.props.pyranometer_cal_enabled = False
         self.master.props.bias_cal_enabled = False
 
     # -------------------------------------------------------------------------
@@ -3668,6 +3685,8 @@ class MenuBar(tk.Menu):
                                         command=self.get_i_cal_value)
         self.calibrate_menu.add_command(label="Resistors",
                                         command=self.get_resistor_values)
+        self.calibrate_menu.add_command(label="Pyranometer",
+                                        command=self.get_pyrano_cal_value)
         self.calibrate_menu.add_command(label="Bias Battery",
                                         command=self.get_battery_bias)
         self.calibrate_menu.add_command(label="Invalidate Arduino EEPROM",
@@ -3695,6 +3714,12 @@ class MenuBar(tk.Menu):
         else:
             kwargs = {"state": "disabled"}
         self.calibrate_menu.entryconfig("Resistors", **kwargs)
+        # Pyranometer
+        if self.master.props.pyranometer_cal_enabled:
+            kwargs = {"state": "normal"}
+        else:
+            kwargs = {"state": "disabled"}
+        self.calibrate_menu.entryconfig("Pyranometer", **kwargs)
         # Bias battery
         if self.master.props.bias_cal_enabled:
             kwargs = {"state": "normal"}
@@ -3855,6 +3880,24 @@ bias battery calibration was enabled.
             self.update_values_in_eeprom()
             # Redisplay the image with the new settings (saves config)
             self.master.redisplay_img(reprocess_adc=True)
+
+    # -------------------------------------------------------------------------
+    def get_pyrano_cal_value(self):
+        curr_irradiance = self.master.ivs2.irradiance
+        prompt_str = "Enter measured W/m^2 value:"
+        new_irradiance = tksd.askfloat(title="Pyranometer Calibration",
+                                       prompt=prompt_str,
+                                       initialvalue=curr_irradiance)
+        if new_irradiance:
+            new_pyrano_cal = (self.master.ivs2.pyrano_cal *
+                              (new_irradiance / curr_irradiance))
+            self.master.ivs2.pyrano_cal = new_pyrano_cal
+            self.master.config.cfg_set("Calibration", "pyranometer",
+                                       new_pyrano_cal)
+            # Overwrite the value in the sensor info file
+            self.master.ivs2.update_irradiance(new_irradiance)
+            # Redisplay the image with the new settings (saves config)
+            self.master.redisplay_img(reprocess_adc=False)
 
     # -------------------------------------------------------------------------
     def update_values_in_eeprom(self):
