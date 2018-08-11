@@ -3644,24 +3644,14 @@ class MenuBar(tk.Menu):
 
     # -------------------------------------------------------------------------
     def create_file_menu(self):
-        self.file_menu = tk.Menu(self.menubar,
-                                 postcommand=self.update_file_menu)
+        self.file_menu = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.file_menu, label="File")
         self.file_menu.add_command(label="View Log File",
                                    command=self.view_log_file)
         self.file_menu.add_command(label="View Config File",
                                    command=self.view_config_file)
-        self.file_menu.add_command(label="View Sensor Info File",
-                                   command=self.view_sensor_info_file)
-
-    # -------------------------------------------------------------------------
-    def update_file_menu(self):
-        if (self.master.ivs2.sensor_info_filename is None or
-                not os.path.exists(self.master.ivs2.sensor_info_filename)):
-            kwargs = {"state": "disabled"}
-        else:
-            kwargs = {"state": "normal"}
-        self.file_menu.entryconfig("View Sensor Info File", **kwargs)
+        self.file_menu.add_command(label="View Run Info File",
+                                   command=self.view_run_info_file)
 
     # -------------------------------------------------------------------------
     def create_usb_port_menu(self):
@@ -3802,8 +3792,10 @@ Copyright (C) 2017, 2018  Chris Satterlee
         IV_Swinger2.sys_view_file(self.master.config.cfg_filename)
 
     # -------------------------------------------------------------------------
-    def view_sensor_info_file(self):
-        IV_Swinger2.sys_view_file(self.master.ivs2.sensor_info_filename)
+    def view_run_info_file(self):
+        self.master.ivs2.convert_sensor_to_run_info_file()
+        self.master.ivs2.create_run_info_file()  # if it doesn't exist
+        IV_Swinger2.sys_view_file(self.master.ivs2.run_info_filename)
 
     # -------------------------------------------------------------------------
     def select_serial(self):
@@ -3894,7 +3886,7 @@ bias battery calibration was enabled.
             self.master.ivs2.pyrano_cal = new_pyrano_cal
             self.master.config.cfg_set("Calibration", "pyranometer",
                                        new_pyrano_cal)
-            # Overwrite the value in the sensor info file
+            # Overwrite the value in the run info file
             self.master.ivs2.update_irradiance(new_irradiance)
             # Redisplay the image with the new settings (saves config)
             self.master.redisplay_img(reprocess_adc=False)

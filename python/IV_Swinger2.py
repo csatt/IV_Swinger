@@ -1384,8 +1384,15 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
                                                 ("sensor_info_{}.txt"
                                                  .format(dts)))
             if os.path.exists(sensor_info_filename):
+                # Backward compatibility
+                run_info_filename = sensor_info_filename
+            else:
+                run_info_filename = os.path.join(csv_dir,
+                                                 ("run_info_{}.txt"
+                                                  .format(dts)))
+            if os.path.exists(run_info_filename):
                 try:
-                    with open(sensor_info_filename, "r") as f:
+                    with open(run_info_filename, "r") as f:
                         temp_format_str = "Temperature at sensor "
                         temp_format_str += "#\d+ is ([-+]?\d*\.\d+|\d+) "
                         temp_format_str += "degrees Celsius"
@@ -1551,6 +1558,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._aspect_height = ASPECT_HEIGHT_DEFAULT
         self._aspect_width = ASPECT_WIDTH_DEFAULT
         self._second_relay_state = SECOND_RELAY_STATE_DEFAULT
+        self._ds18b20_rom_codes = []
         # Configure logging and find serial ports
         self.configure_logging()
         self.find_serial_ports()
@@ -2341,7 +2349,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # ---------------------------------
     @property
     def sensor_info_filename(self):
-        """Sensor information file name"""
+        """Former name of the run info file - needed for backward
+           compatibility"""
         if self.hdd_output_dir is not None:
             dts = extract_date_time_str(self.hdd_output_dir)
             sensor_info_filename = os.path.join(self.hdd_output_dir,
@@ -2351,6 +2360,20 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             sensor_info_filename = None
 
         return sensor_info_filename
+
+    # ---------------------------------
+    @property
+    def run_info_filename(self):
+        """Run information (includes sensor info) file name"""
+        if self.hdd_output_dir is not None:
+            dts = extract_date_time_str(self.hdd_output_dir)
+            run_info_filename = os.path.join(self.hdd_output_dir,
+                                             ("run_info_{}.txt"
+                                              .format(dts)))
+        else:
+            run_info_filename = None
+
+        return run_info_filename
 
     # -------------------------------------------------------------------------
     def find_serial_ports(self):
@@ -2628,7 +2651,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 return rc
 
         # Loop through list, filling the adc_pairs list with the CH0/CH1
-        # pairs
+        # pairs.  Also capture sensor messages.
         self.adc_pairs = []
         self.unfiltered_adc_pairs = []
         adc_re = re.compile("CH0:(\d+)\s+CH1:(\d+)")
@@ -2637,8 +2660,16 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         for msg in received_msgs:
             if msg.startswith("Polling for stable Isc timed out"):
                 rc = RC_ISC_TIMEOUT
-            elif (msg.startswith("ROM code of DS18B20") or
-                  msg.startswith("Temperature at sensor") or
+            elif msg.startswith("ROM code of DS18B20"):
+                # The DS18B20 ROM code messages are only sent once per
+                # Arduino reset so we need to capture them in a list
+                # that we write to the run info file on every run. Since
+                # it is possible for the Arduino to be reset more than
+                # once per app session, it is necessary to prevent
+                # duplicates.
+                if msg not in self._ds18b20_rom_codes:
+                    self._ds18b20_rom_codes.append(msg)
+            elif (msg.startswith("Temperature at sensor") or
                   msg.startswith("ADS1115 (pyranometer)")):
                 self.write_sensor_info_to_file(msg)
             match = adc_re.search(msg)
@@ -2655,14 +2686,63 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         return rc
 
     # -------------------------------------------------------------------------
+    def create_run_info_file(self):
+        """Method to create the run info file (if it doesn't already exist) and
+           populate it with the boilerplate header"""
+        if not os.path.exists(self.run_info_filename):
+            dts = extract_date_time_str(self.run_info_filename)
+            (xlated_date, xlated_time) = xlate_date_time_str(dts)
+            run_date_time = "# Run date and time: {} at {}".format(xlated_date,
+                                                                   xlated_time)
+            boilerplate = """
+#
+# This file may contain:
+#   - Sensor information added automatically by the software
+#   - Sensor information added manually by the user
+#   - Other information added manually by the user (e.g. module or cell
+#     type, tilt angle, notes on shading, notes on sky conditions, etc.
+#
+"""
+            try:
+                with open(self.run_info_filename, "w") as f:
+                    f.write("#\n")
+                    f.write("{}".format(run_date_time))
+                    f.write("{}".format(boilerplate))
+                    if len(self._ds18b20_rom_codes):
+                        for msg in self._ds18b20_rom_codes:
+                            f.write("{}".format(msg))
+            except (IOError, OSError) as e:
+                self.logger.print_and_log("({})".format(e))
+
+    # -------------------------------------------------------------------------
+    def convert_sensor_to_run_info_file(self):
+        """Method to convert an obsolete sensor_info file to a run_info file"""
+        if os.path.exists(self.sensor_info_filename):
+            # If old named file exists:
+            #    - create the run_info file
+            #    - append the contents of the sensor_info file
+            #    - remove the sensor_info file
+            self.create_run_info_file()
+            try:
+                with open(self.sensor_info_filename, "r") as f:
+                    sensor_lines = f.read().splitlines()
+                with open(self.run_info_filename, "a") as f:
+                    for line in sensor_lines:
+                        f.write("{}\n".format(line))
+                os.remove(self.sensor_info_filename)
+            except (IOError, OSError) as e:
+                self.logger.print_and_log("({})".format(e))
+
+    # -------------------------------------------------------------------------
     def write_sensor_info_to_file(self, msg):
-        """Method to write a string to the sensor info file"""
+        """Method to write a sensor info string to the run info file"""
+        self.create_run_info_file()
         if msg.startswith("ADS1115 (pyranometer)"):
             str = self.translate_ads1115_to_irradiance(msg)
         else:
             str = msg
         try:
-            with open(self.sensor_info_filename, "a") as f:
+            with open(self.run_info_filename, "a") as f:
                 f.write("{}".format(str))
         except (IOError, OSError) as e:
             self.logger.print_and_log("({})".format(e))
@@ -2703,7 +2783,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         new_lines = []
         irrad_re = re.compile("Irradiance: (\d+) W/m\^2")
         try:
-            with open(self.sensor_info_filename, "r") as f:
+            with open(self.run_info_filename, "r") as f:
                 for line in f.read().splitlines():
                     match = irrad_re.search(line)
                     if match:
@@ -2712,7 +2792,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                                          .format(round_new_irradiance))
                     else:
                         new_lines.append(line)
-            with open(self.sensor_info_filename, "w") as f:
+            with open(self.run_info_filename, "w") as f:
                 for line in new_lines:
                     f.write("{}\n".format(line))
         except (IOError, OSError) as e:
