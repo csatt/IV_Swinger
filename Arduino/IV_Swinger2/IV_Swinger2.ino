@@ -666,12 +666,12 @@ void loop()
   //
 #ifdef ADS1115_PYRANOMETER_SUPPORTED
   // Irradiance
-    int16_t ads1115_val;
-    ads1115_val = ads1115.readADC_Differential_0_1();
-    if (ads1115_val != -1) {  // Value of -1 indicates no ADS1115 is present
-      Serial.print(F("ADS1115 (pyranometer) raw value: "));
-      Serial.println(ads1115_val);
-    }
+  int16_t ads1115_val;
+  ads1115_val = ads1115.readADC_Differential_0_1();
+  if (ads1115_val != -1) {  // Value of -1 indicates no ADS1115 is present
+    Serial.print(F("ADS1115 (pyranometer) raw value: "));
+    Serial.println(ads1115_val);
+  }
 #endif
 #ifdef DS18B20_SUPPORTED
   // Temperature
