@@ -1,8 +1,69 @@
-This folder contains PCB design and manufacturing files.
+This folder contains subfolders for each different type of IV Swinger
+PCB.  Each subfolder contains an EAGLE subfolder with the schematic and
+board files created with the free version of EAGLE.  There is also a
+Gerber subfolder with the manufacturing files.
 
-** IMPORTANT NOTE **
+IV_Swinger_2_module
+-------------------
+  This is an Arduino "shield" that replaces the PermaProto board in the
+  original IV Swinger 2 design.  It plugs onto the top of the Arduino.
+  An external electromechanical relay module is required, just like the
+  original. The only external wiring is between a screw-terminal block
+  on the PCB and the relay module and the binding posts.  Additional
+  external wires are required for the optional temperature and
+  irradiance sensors.
 
-The IV Swinger PCB files are in development.  They have not been tested
-yet, and no instructions are available for using them.  Please hold off
-using them until this README file says otherwise.  Feel free to look,
-however!
+  Status: Verified (OSH Park, submitted IV_Swinger_2_module.brd).
+          Gerber files should be ok, but have not been submitted to a
+          fab.
+
+  To order:
+          OSH Park: https://oshpark.com/projects/cdoYwuqd/order
+          PCBWay: submit Gerber files to www.pcbway.com
+
+
+IV_Swinger_2_cell
+-----------------
+  This is similar to the IV_Swinger_2_module Arduino shield, but it is
+  for use with PV cells.
+
+  Status: ** TO BE ADDED **
+
+
+IV_Swinger_2_ss_mod
+-------------------
+  This is similar to the IV_Swinger_2_module Arduino shield, but it uses
+  three solid-state relays (SSRs) instead of the one electromechanical
+  relay (EMR) module.  The only off-board connections are to the PV
+  module itself (PV- and PV+). These can go to binding posts, or can be
+  connected directly to wires with MC-4 connectors on their ends.
+
+  Status: Order pending with PCBWay, but with known silkscreen problem.
+
+  To order:
+          OSH Park: submit IV_Swinger_2_ss_mod.brd
+          PCBWay: submit Gerber files to www.pcbway.com
+
+
+IV_Swinger_2_ss_cell
+--------------------
+  This is similar to the IV_Swinger_2_ss_mod Arduino shield, but it is
+  for use with PV cells.  It requires four SSRs.
+
+  Status: ** TO BE ADDED **
+
+--------------------------------------------------------------------------------
+
+Advantages of EMR design:
+  - EMR module is inexpensive (~$2), vs three SSRs (~$21)
+  - "Clicks" tell you it's working
+  - EMR module is easy to replace if it goes bad
+  
+Advantages of SSR design:
+  - On-board:
+     - No wires
+     - No relay module to mount
+  - Rated at 100V
+  - No mechanical wearout
+  - Silent
+
