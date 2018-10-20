@@ -117,7 +117,7 @@ SKETCH_VER_LT = -1
 SKETCH_VER_EQ = 0
 SKETCH_VER_GT = 1
 SKETCH_VER_ERR = -2
-LATEST_SKETCH_VER = "1.3.5"
+LATEST_SKETCH_VER = "1.3.6"
 MIN_PT1_TO_VOC_RATIO_FOR_ISC = 0.20
 BATTERY_FOLDER_NAME = "Battery"
 
@@ -3078,6 +3078,18 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                     (pt0_ch0 / voc_ch0) < MIN_PT1_TO_VOC_RATIO_FOR_ISC):
                 del adc_pairs_corrected[0]
                 suppress_isc_point = True
+
+        # Remove point 1 in some cases
+        if fix_isc and not battery_bias:
+            # For a still mysterious reason, in the SSR version the
+            # current measured before SSR3 is completely turned off is
+            # too low. This includes not only the Isc point, but at
+            # least one point after it.  The solution (for now) is to
+            # remove point 1 until the new point 1's current is greater
+            # than or equal to the new point 2's current.  This should
+            # have no effect for EMR-based IVS2s.
+            while adc_pairs_corrected[1][1] < adc_pairs_corrected[2][1]:
+                del adc_pairs_corrected[1]
 
         # Noise reduction
         if reduce_noise:
