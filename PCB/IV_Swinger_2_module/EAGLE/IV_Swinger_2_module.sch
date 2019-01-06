@@ -20125,7 +20125,8 @@ Silk outline shows header location.
 <sheet>
 <plain>
 <text x="1.016" y="65.278" size="1.778" layer="97">→ From PV-</text>
-<text x="2.54" y="109.22" size="2.54" layer="97">Screw terminal blocks</text>
+<text x="2.032" y="51.816" size="2.54" layer="97">Screw terminal 
+blocks</text>
 <text x="18.288" y="126.492" size="1.778" layer="97">SCL</text>
 <text x="18.288" y="129.032" size="1.778" layer="97">SDA</text>
 <text x="18.288" y="131.572" size="1.778" layer="97">AREF</text>
@@ -20168,8 +20169,8 @@ for PV modules. There is a different design for PV cells.</text>
 <text x="35.052" y="18.034" size="1.778" layer="97" rot="R90">Reverse connection
 bypass diodes (15SQ045)</text>
 <text x="1.016" y="68.072" size="1.778" layer="97">→ From PV+</text>
-<text x="1.016" y="98.552" size="1.778" layer="97">→ From relay NC</text>
-<text x="1.016" y="95.758" size="1.778" layer="97">→ From relay C</text>
+<text x="1.016" y="93.218" size="1.778" layer="97">→ From relay NC</text>
+<text x="1.016" y="90.424" size="1.778" layer="97">→ From relay C</text>
 </plain>
 <instances>
 <instance part="MCP3202" gate="G$1" x="180.34" y="66.04" smashed="yes" rot="R90">
@@ -20342,9 +20343,9 @@ bypass diodes (15SQ045)</text>
 </instance>
 <instance part="D5" gate="G$1" x="38.1" y="43.18" smashed="yes" rot="R90"/>
 <instance part="D6" gate="G$1" x="38.1" y="22.86" smashed="yes" rot="R90"/>
-<instance part="J2" gate="J$1" x="24.13" y="96.52" smashed="yes">
-<attribute name="VALUE" x="21.59" y="89.154" size="1.778" layer="96" font="vector"/>
-<attribute name="NAME" x="21.59" y="102.108" size="1.778" layer="95" font="vector"/>
+<instance part="J2" gate="J$1" x="23.876" y="91.44" smashed="yes">
+<attribute name="VALUE" x="21.336" y="84.074" size="1.778" layer="96" font="vector"/>
+<attribute name="NAME" x="21.336" y="97.028" size="1.778" layer="95" font="vector"/>
 </instance>
 <instance part="R6" gate="G$1" x="48.26" y="172.72" smashed="yes" rot="R180">
 <attribute name="NAME" x="52.07" y="171.2214" size="1.778" layer="95" rot="R180"/>
@@ -20363,13 +20364,14 @@ bypass diodes (15SQ045)</text>
 <pinref part="C2" gate="G$1" pin="+"/>
 <wire x1="58.42" y1="58.42" x2="71.12" y2="58.42" width="0.1524" layer="91"/>
 <label x="57.404" y="59.944" size="1.778" layer="95"/>
-<wire x1="71.12" y1="58.42" x2="71.12" y2="96.52" width="0.1524" layer="91"/>
+<wire x1="71.12" y1="58.42" x2="71.12" y2="91.44" width="0.1524" layer="91"/>
 <junction x="71.12" y="58.42"/>
 <pinref part="J2" gate="J$1" pin="2"/>
-<wire x1="31.75" y1="96.52" x2="71.12" y2="96.52" width="0.1524" layer="91"/>
+<wire x1="31.496" y1="91.44" x2="71.12" y2="91.44" width="0.1524" layer="91"/>
 <pinref part="J2" gate="J$1" pin="1"/>
-<wire x1="31.75" y1="93.98" x2="31.75" y2="96.52" width="0.1524" layer="91"/>
-<junction x="31.75" y="96.52"/>
+<wire x1="31.496" y1="88.9" x2="31.496" y2="91.44" width="0.1524" layer="91"/>
+<junction x="31.496" y="91.44"/>
+<label x="38.354" y="88.646" size="1.778" layer="95"/>
 </segment>
 </net>
 <net name="N17" class="0">
@@ -20614,22 +20616,23 @@ bypass diodes (15SQ045)</text>
 <net name="PV+" class="0">
 <segment>
 <pinref part="J1" gate="J$1" pin="2"/>
-<wire x1="45.72" y1="68.58" x2="26.67" y2="68.58" width="0.1524" layer="91"/>
-<wire x1="45.72" y1="48.26" x2="45.72" y2="68.58" width="0.1524" layer="91"/>
 <pinref part="D1" gate="G$1" pin="P"/>
 <pinref part="R1" gate="G$1" pin="2"/>
-<wire x1="127" y1="119.38" x2="127" y2="124.46" width="0.1524" layer="91"/>
-<wire x1="127" y1="124.46" x2="45.72" y2="124.46" width="0.1524" layer="91"/>
-<wire x1="45.72" y1="124.46" x2="45.72" y2="68.58" width="0.1524" layer="91"/>
+<label x="60.96" y="67.818" size="1.778" layer="95" rot="R180"/>
+<wire x1="26.67" y1="68.58" x2="45.72" y2="68.58" width="0.1524" layer="91"/>
+<wire x1="45.72" y1="68.58" x2="66.04" y2="68.58" width="0.1524" layer="91"/>
+<wire x1="66.04" y1="68.58" x2="66.04" y2="124.46" width="0.1524" layer="91"/>
+<wire x1="66.04" y1="124.46" x2="127" y2="124.46" width="0.1524" layer="91"/>
+<wire x1="127" y1="124.46" x2="127" y2="119.38" width="0.1524" layer="91"/>
+<wire x1="45.72" y1="48.26" x2="45.72" y2="68.58" width="0.1524" layer="91"/>
 <junction x="45.72" y="68.58"/>
-<label x="43.942" y="103.124" size="1.778" layer="95" rot="R90"/>
 </segment>
 </net>
 <net name="N1" class="0">
 <segment>
 <pinref part="A2" gate="G$1" pin="6"/>
 <wire x1="35.56" y1="172.72" x2="43.18" y2="172.72" width="0.1524" layer="91"/>
-<label x="38.1" y="173.736" size="1.778" layer="95"/>
+<label x="38.354" y="172.974" size="1.778" layer="95"/>
 <pinref part="R6" gate="G$1" pin="2"/>
 </segment>
 </net>
@@ -20681,10 +20684,11 @@ bypass diodes (15SQ045)</text>
 <net name="BLEED+" class="0">
 <segment>
 <pinref part="RB" gate="G$1" pin="1"/>
-<wire x1="83.82" y1="99.06" x2="83.82" y2="66.04" width="0.1524" layer="91"/>
+<wire x1="83.82" y1="93.98" x2="83.82" y2="66.04" width="0.1524" layer="91"/>
 <label x="86.106" y="68.326" size="1.778" layer="95" rot="R90"/>
 <pinref part="J2" gate="J$1" pin="3"/>
-<wire x1="31.75" y1="99.06" x2="83.82" y2="99.06" width="0.1524" layer="91"/>
+<wire x1="31.496" y1="93.98" x2="83.82" y2="93.98" width="0.1524" layer="91"/>
+<label x="38.354" y="95.25" size="1.778" layer="95"/>
 </segment>
 </net>
 </nets>

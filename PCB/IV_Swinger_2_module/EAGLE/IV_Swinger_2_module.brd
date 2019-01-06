@@ -2551,8 +2551,8 @@ These rules have been curated by SparkFuns DFM commitee. After doing much resear
 <vertex x="8.89" y="27.94"/>
 <vertex x="11.43" y="30.48"/>
 <vertex x="32.512" y="30.48"/>
-<vertex x="22.733" y="20.701"/>
-<vertex x="22.733" y="8.382"/>
+<vertex x="22.86" y="20.828"/>
+<vertex x="22.86" y="8.382"/>
 <vertex x="18.415" y="8.382"/>
 <vertex x="16.637" y="6.604"/>
 </polygon>
@@ -2905,7 +2905,7 @@ These rules have been curated by SparkFuns DFM commitee. After doing much resear
 </signal>
 </signals>
 <mfgpreviewcolors>
-<mfgpreviewcolor name="soldermaskcolor" color="0xC8008000"/>
+<mfgpreviewcolor name="soldermaskcolor" color="0xB400AA00"/>
 <mfgpreviewcolor name="silkscreencolor" color="0xFFFEFEFE"/>
 <mfgpreviewcolor name="backgroundcolor" color="0xFF282828"/>
 <mfgpreviewcolor name="coppercolor" color="0xFFFFBF00"/>
