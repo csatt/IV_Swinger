@@ -1,18 +1,23 @@
 This folder contains subfolders for each different type of IV Swinger
 PCB.  Each subfolder contains an EAGLE subfolder with the schematic and
 board files created with the free version of EAGLE.  There is also a
-Gerber subfolder with the manufacturing files.
+Gerber subfolder with the manufacturing files (in a zip archive).
+
+All PCBs are Arduino "shields" that replace the PermaProto board in the
+original IV Swinger 2 design.  They plug onto the top of the Arduino.
+
 
 IV_Swinger_2_module
 -------------------
-  This is an Arduino "shield" that replaces the PermaProto board in the
-  original IV Swinger 2 design.  It plugs onto the top of the Arduino.
-  An external electromechanical relay module is required, just like the
-  original. The only external wiring is between a screw-terminal block
-  on the PCB and the relay module and the binding posts.  Additional
-  external wires are required for the optional temperature and
-  irradiance sensors.
+  This is the version for PV modules that requires an external
+  electromechanical relay module, just like the original. The only
+  external wiring is between one screw-terminal block on the PCB and the
+  relay module and between another screw-terminal block and the binding
+  posts.  Additional external wires are required for the optional
+  temperature and irradiance sensors.
 
+  RevA
+  ----
   Status: Verified (OSH Park, submitted IV_Swinger_2_module.brd).
           Gerber files should be ok, but have not been submitted to a
           fab.
@@ -21,13 +26,41 @@ IV_Swinger_2_module
           OSH Park: https://oshpark.com/projects/cdoYwuqd/order
           PCBWay: submit Gerber files to www.pcbway.com
 
+  RevB
+  ----
+  Based on RevB of the SSR-based module version. The main purpose of
+  this revision is to make the SSR and EMR versions as similar as
+  possible, namely:
+
+     - the connections to the binding posts are both on a screw-terminal
+       block on the left end of the board (like SSR version)
+
+     - pads are provided for the bypass diodes (like SSR version)
+
+     - the current-carrying path from the shunt is now isolated in a
+       stub off the ground plane (like SSR version)
+
+     - R3 is now connected to the shunt with a dedicated trace (like SSR
+       version)
+
+     - Connections to EMR are from a second screw-terminal block that is
+       located on the board where the SSRs are in the SSR version
+
+  Note that there is nothing "wrong", per se, with the RevA board. This
+  just cleans a few things up and makes it much easier to compare it
+  with the SSR version.
+  
+  Status:   Unverified - order pending 
+  To order: TBA
+
 
 IV_Swinger_2_cell
 -----------------
   This is similar to the IV_Swinger_2_module Arduino shield, but it is
   for use with PV cells.
 
-  Status: ** TO BE ADDED **
+  Status:   Unverified - order pending 
+  To order: TBA
 
 
 IV_Swinger_2_ss_mod
@@ -38,10 +71,15 @@ IV_Swinger_2_ss_mod
   module itself (PV- and PV+). These can go to binding posts, or can be
   connected directly to wires with MC-4 connectors on their ends.
 
-  Status: Order pending with PCBWay, but with known silkscreen problem.
+  RevA
+  ----
+  Status: OBSOLETE (Several design problems - not viable)
+
+  RevB
+  ----
+  Status: Verified (PCBWay - submitted Gerber files)
 
   To order:
-          OSH Park: submit IV_Swinger_2_ss_mod.brd
           PCBWay: submit Gerber files to www.pcbway.com
 
 
@@ -50,20 +88,24 @@ IV_Swinger_2_ss_cell
   This is similar to the IV_Swinger_2_ss_mod Arduino shield, but it is
   for use with PV cells.  It requires four SSRs.
 
-  Status: ** TO BE ADDED **
+  Status:   Unverified - order pending 
+  To order: TBA
 
 --------------------------------------------------------------------------------
 
-Advantages of EMR design:
+Advantages of EMR designs:
   - EMR module is inexpensive (~$2), vs three SSRs (~$21)
   - "Clicks" tell you it's working
   - EMR module is easy to replace if it goes bad
   
-Advantages of SSR design:
+Advantages of SSR designs:
   - On-board:
      - No wires
      - No relay module to mount
   - Rated at 100V
   - No mechanical wearout
   - Silent
+
+NOTE: The IV Swinger 2 Arduino code and application software work with
+      all four variants.
 

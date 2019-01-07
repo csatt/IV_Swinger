@@ -1,0 +1,40 @@
+This folder contains GIFs that can be used to visually compare the
+different PCB variants.
+
+Schematics
+----------
+emr_mod_vs_ssr_mod_sch.gif:
+   IV_Swinger_2_module compared with IV_Swinger_2_ss_mod
+   
+emr_mod_vs_emr_cell_sch.gif:
+   IV_Swinger_2_module compared with IV_Swinger_2_cell
+   
+emr_cell_vs_ssr_cell_sch.gif:
+   IV_Swinger_2_cell compared with IV_Swinger_2_ss_cell
+   
+ssr_mod_vs_ssr_cell_sch.gif:
+   IV_Swinger_2_ss_mod compared with IV_Swinger_2_ss_cell
+   
+all_sch.gif:
+   All four schematics
+
+
+Board top/bottom
+----------------
+emr_mod_vs_ssr_mod_top.gif:
+emr_mod_vs_ssr_mod_bot.gif:
+   IV_Swinger_2_module compared with IV_Swinger_2_ss_mod
+   
+emr_mod_vs_emr_cell_top.gif:
+emr_mod_vs_emr_cell_bot.gif:
+   IV_Swinger_2_module compared with IV_Swinger_2_cell
+   
+emr_cell_vs_ssr_cell_top.gif:
+emr_cell_vs_ssr_cell_bot.gif:
+   IV_Swinger_2_cell compared with IV_Swinger_2_ss_cell
+   
+ssr_mod_vs_ssr_cell_top.gif:
+ssr_mod_vs_ssr_cell_bot.gif:
+   IV_Swinger_2_ss_mod compared with IV_Swinger_2_ss_cell
+
+
