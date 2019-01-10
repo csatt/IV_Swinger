@@ -1,0 +1,45 @@
+Bill of Materials
+-----------------
+
+There is a single configurable spreadsheet in this folder that serves as
+the BOM for all four versions of the PCB:
+  
+     IV_Swinger_2_PCB_BOM.xlsx
+
+Near the top are two cells containing RED text that specify the PV type
+and relay type.  Each of these cells has a pull-down list that
+constrains its values.
+
+     PV type: "PV module" or "PV cell"
+
+    Relay type: "EMR" or "SSR"
+
+--------------------------------------------------------------------------------
+PCB name                PV type       Relay type
+--------                -------       ----------
+IV_Swinger_2_module:    PV module     EMR
+IV_Swinger_2_cell:      PV cell       EMR
+IV_Swinger_2_ss_mod:    PV module     SSR
+IV_Swinger_2_ss_cell:   PV cell       SSR
+--------------------------------------------------------------------------------
+
+The items in the BOM that are dependent on the PV type and/or the relay
+type change based on the values in those two cells.  Items that are not
+present at all for the given configuration are shown with a quantity of
+0 and are grayed out.
+
+This folder also contains PDFs generated for each of the four
+configurations:
+
+   emr_mod_BOM.pdf
+   emr_cell_BOM.pdf
+   ssr_mod_BOM.pdf
+   ssr_cell_BOM.pdf
+
+Additionally, in ../GIFs there are animations that do pairwise comparisons:
+
+   ../GIFs/emr_mod_vs_emr_cell_BOM.gif
+   ../GIFs/emr_mod_vs_ssr_mod_BOM.gif
+   ../GIFs/ssr_mod_vs_ssr_cell_BOM.gif
+   ../GIFs/emr_cell_vs_ssr_cell_BOM.gif
+
