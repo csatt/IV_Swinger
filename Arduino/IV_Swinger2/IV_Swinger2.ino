@@ -144,7 +144,7 @@
  * them from charging until SSR1 is fully on.]
  *
  */
-#define VERSION "1.3.7beta_1"        // Version of this Arduino sketch
+#define VERSION "1.3.7beta_2"        // Version of this Arduino sketch
 
 // Uncomment one or more of the following to enable the associated
 // feature. Note, however, that enabling these features uses more of the
@@ -152,7 +152,15 @@
 // accordingly to prevent running out of memory.
 //#define DS18B20_SUPPORTED
 //#define ADS1115_PYRANOMETER_SUPPORTED
-//#define CAPTURE_UNFILTERED  // Debug only
+//#define CAPTURE_UNFILTERED_NOISE_FLOOR  // Debug only
+//#define CAPTURE_UNFILTERED_ISC_POLL     // Debug only
+//#define CAPTURE_UNFILTERED_POST_ISC     // Debug only
+
+#if defined(CAPTURE_UNFILTERED_NOISE_FLOOR) || \
+    defined(CAPTURE_UNFILTERED_ISC_POLL) || \
+    defined(CAPTURE_UNFILTERED_POST_ISC)
+#define CAPTURE_UNFILTERED
+#endif
 
 #include <SPI.h>
 #include <EEPROM.h>
@@ -473,7 +481,7 @@ void loop()
     for (ii = 0; ii < VOC_POLLING_LOOPS; ii++) {
       adc_ch0_val = read_adc(VOLTAGE_CH);  // Read CH0 (voltage)
       adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
-#ifdef CAPTURE_UNFILTERED
+#ifdef CAPTURE_UNFILTERED_NOISE_FLOOR
       if (unfiltered_index < MAX_UNFILTERED_POINTS) {
         unfiltered_adc_ch1_vals[unfiltered_index] = adc_ch1_val;
         unfiltered_adc_ch0_vals[unfiltered_index++] = adc_ch0_val;
@@ -527,7 +535,7 @@ void loop()
       break;
     adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
     adc_ch0_val = read_adc(VOLTAGE_CH);  // Read CH0 (voltage)
-#ifdef CAPTURE_UNFILTERED
+#ifdef CAPTURE_UNFILTERED_ISC_POLL
     if (((adc_ch1_val > min_isc_adc) || capture_unfiltered) &&
         (unfiltered_index < MAX_UNFILTERED_POINTS)) {
       unfiltered_adc_ch1_vals[unfiltered_index] = adc_ch1_val;
@@ -542,16 +550,17 @@ void loop()
       if (adc_ch0_val >= adc_ch0_val_prev) {
         if (adc_ch0_val_prev >= adc_ch0_val_prev_prev) {
           // Voltage is increasing or equal
-          if ((adc_ch1_val <= adc_ch1_val_prev) ||
-              (adc_ch1_val_prev <= adc_ch1_val_prev_prev)) {
-            // Current is decreasing or equal
-            if (abs(adc_ch1_val_prev - adc_ch1_val) <= isc_stable_adc) {
-              if (abs(adc_ch1_val_prev_prev -
-                      adc_ch1_val_prev) <= isc_stable_adc) {
-                // Current differences are less than or equal to
-                // isc_stable_adc
-                poll_timeout = false;
-                break;
+          if (adc_ch1_val <= adc_ch1_val_prev) {
+            if (adc_ch1_val_prev <= adc_ch1_val_prev_prev) {
+              // Current is decreasing or equal
+              if (abs(adc_ch1_val_prev - adc_ch1_val) <= isc_stable_adc) {
+                if (abs(adc_ch1_val_prev_prev -
+                        adc_ch1_val_prev) <= isc_stable_adc) {
+                  // Current differences are less than or equal to
+                  // isc_stable_adc
+                  poll_timeout = false;
+                  break;
+                }
               }
             }
           }
@@ -620,7 +629,7 @@ void loop()
     // first in the reads for point 0 above.
     adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
     adc_ch0_val = read_adc(VOLTAGE_CH);  // Read CH0 (voltage)
-#ifdef CAPTURE_UNFILTERED
+#ifdef CAPTURE_UNFILTERED_POST_ISC
     //------------------------- Unfiltered ----------------------
     if (unfiltered_index < MAX_UNFILTERED_POINTS) {
       unfiltered_adc_ch1_vals[unfiltered_index] = adc_ch1_val;
