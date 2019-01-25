@@ -3777,8 +3777,9 @@ Copyright (C) 2017-2019  Chris Satterlee
         (dir, file) = os.path.split(self.master.ivs2.logger.log_file_name)
         options = {}
         options["defaultextension"] = ".txt"
-        options["initialdir"] = dir
-        options["initialfile"] = file
+        (initial_dir, initial_file) = self.get_initial_log_file_name(dir, file)
+        options["initialdir"] = initial_dir
+        options["initialfile"] = initial_file
         options["parent"] = self.master
         options["title"] = "Choose log file"
         if self.master.win_sys == "aqua":  # Mac
@@ -3788,6 +3789,32 @@ Copyright (C) 2017-2019  Chris Satterlee
         if self.master.win_sys == "aqua":  # Mac
             # Work around Mac bug (grayed menu items)
             self.master.create_menu_bar()
+
+    # -------------------------------------------------------------------------
+    def get_initial_log_file_name(self, dir, current_log):
+        # If the config file name has a date_time_str in its name, we're
+        # in the Results Wizard, and the relevant log file is the one
+        # that contains the info for the selected run.  That is the one
+        # that has a date_time_str that is older than or equal to the
+        # config file's, but the newest such log file.
+        cfg_filename = self.master.config.cfg_filename
+        cfg_dts = IV_Swinger2.extract_date_time_str(cfg_filename)
+        cfg_dir = os.path.dirname(cfg_filename)
+        cfg_dir_logs = os.path.join(os.path.dirname(cfg_dir), "logs")
+        if os.path.isdir(cfg_dir_logs):
+            search_dir = cfg_dir_logs
+        else:
+            search_dir = dir
+        if IV_Swinger2.is_date_time_str(cfg_dts):
+            # Search list of log files, sorted newest to oldest
+            for log_file in sorted(os.listdir(search_dir), reverse=True):
+                if log_file.startswith("log_") and log_file.endswith(".txt"):
+                    log_dts = IV_Swinger2.extract_date_time_str(log_file)
+                    if IV_Swinger2.is_date_time_str(log_dts):
+                        if log_dts <= cfg_dts:  # older than or equal to
+                            return (search_dir, log_file)
+        # Default is the current log file
+        return (dir, current_log)
 
     # -------------------------------------------------------------------------
     def view_config_file(self):
