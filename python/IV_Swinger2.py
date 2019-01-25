@@ -5,7 +5,7 @@
 #
 # IV_Swinger2.py: IV Swinger 2 configuration and control module
 #
-# Copyright (C) 2017,2018  Chris Satterlee
+# Copyright (C) 2017,2018,2019  Chris Satterlee
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -117,7 +117,7 @@ SKETCH_VER_LT = -1
 SKETCH_VER_EQ = 0
 SKETCH_VER_GT = 1
 SKETCH_VER_ERR = -2
-LATEST_SKETCH_VER = "1.3.6"
+LATEST_SKETCH_VER = "1.3.7"
 MIN_PT1_TO_VOC_RATIO_FOR_ISC = 0.20
 BATTERY_FOLDER_NAME = "Battery"
 
@@ -164,8 +164,9 @@ MAX_IV_POINTS_MAX = 275
 ADC_MAX = 4095
 MAX_ASPECT = 8
 ADS1115_UNITY_GAIN_MAX_MILLIVOLTS = 4096
-ADS1115_PGA_GAIN = 8
 ADS1115_NON_SIGN_BITS = 15
+ADS1115_PGA_GAIN_TMP36 = 2     # See Arduino code (GAIN_TWO)
+ADS1115_PGA_GAIN_PDB_C139 = 8  # See Arduino code (GAIN_EIGHT)
 # Default calibration values
 NOMINAL_ADC_VREF = 5.0  # USB voltage = 5V
 V_CAL_DEFAULT = 1.0197
@@ -173,6 +174,10 @@ I_CAL_DEFAULT = 1.1187
 SECOND_RELAY_CAL_DEFAULT = 0.9776
 DYN_BIAS_CAL_DEFAULT = False
 PYRANO_CAL_DEFAULT = 4.2572  # W/m^2/mV
+PHOTODIODE_NOMINAL_DEG_C_DEFAULT = 25.0
+PHOTODIODE_PCT_PER_DEG_C_DEFAULT = 0.124  # determined empirically
+PHOTODIODE_NOMINAL_MV = 188  # determined empirically
+PHOTODIODE_ADJ_PPM = 700  # determined empirically
 # Default resistor values
 R1_DEFAULT = 150000.0   # R1 = 150k nominal
 R1_DEFAULT_BUG = 180000.0   # This was a bug
@@ -1521,6 +1526,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._i_cal = I_CAL_DEFAULT
         self._pyrano_cal = PYRANO_CAL_DEFAULT
         self._irradiance = None
+        self._photodiode_nominal_deg_c = PHOTODIODE_NOMINAL_DEG_C_DEFAULT
+        self._photodiode_pct_per_deg_c = PHOTODIODE_PCT_PER_DEG_C_DEFAULT
+        self._photodiode_temp_scaling_factor = 1.0
+        self._photodiode_deg_c = None
         self._relay_active_high = RELAY_ACTIVE_HIGH_DEFAULT
         self._plot_title = None
         self._current_img = None
@@ -1685,6 +1694,58 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     @irradiance.setter
     def irradiance(self, value):
         self._irradiance = value
+
+    # ---------------------------------
+    @property
+    def photodiode_nominal_deg_c(self):
+        """Property to get the pyranometer photodiode's nominal temperature in
+           degrees C, used to determine the temperature variation
+           coefficient (photodiode_pct_per_deg_c).
+        """
+        return self._photodiode_nominal_deg_c
+
+    @photodiode_nominal_deg_c.setter
+    def photodiode_nominal_deg_c(self, value):
+        self._photodiode_nominal_deg_c = value
+
+    # ---------------------------------
+    @property
+    def photodiode_pct_per_deg_c(self):
+        """Property to get the pyranometer photodiode's temperature variation
+           coefficient as a percent per degree C relative to the nominal
+           temperature (photodiode_nominal_deg_c).
+        """
+        return self._photodiode_pct_per_deg_c
+
+    @photodiode_pct_per_deg_c.setter
+    def photodiode_pct_per_deg_c(self, value):
+        self._photodiode_pct_per_deg_c = value
+
+    # ---------------------------------
+    @property
+    def photodiode_temp_scaling_factor(self):
+        """Property to get the pyranometer's photodiode temperature scaling
+           factor of the current run.  The measured photodiode voltage
+           is multiplied by this value to get the
+           temperature-compensated value.
+        """
+        return self._photodiode_temp_scaling_factor
+
+    @photodiode_temp_scaling_factor.setter
+    def photodiode_temp_scaling_factor(self, value):
+        self._photodiode_temp_scaling_factor = value
+
+    # ---------------------------------
+    @property
+    def photodiode_deg_c(self):
+        """Property to get the pyranometer photodiode's temperature in
+           degrees C for the current run.
+        """
+        return self._photodiode_deg_c
+
+    @photodiode_deg_c.setter
+    def photodiode_deg_c(self, value):
+        self._photodiode_deg_c = value
 
     # ---------------------------------
     @property
@@ -2669,8 +2730,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 # duplicates.
                 if msg not in self._ds18b20_rom_codes:
                     self._ds18b20_rom_codes.append(msg)
+            elif (msg.startswith("ADS1115 (pyranometer temp sensor)")):
+                self.translate_ads1115_msg_to_photodiode_temp_scaling(msg)
             elif (msg.startswith("Temperature at sensor") or
-                  msg.startswith("ADS1115 (pyranometer)")):
+                  msg.startswith("ADS1115 (pyranometer photodiode)")):
                 self.write_sensor_info_to_file(msg)
             match = adc_re.search(msg)
             if match:
@@ -2737,8 +2800,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def write_sensor_info_to_file(self, msg):
         """Method to write a sensor info string to the run info file"""
         self.create_run_info_file()
-        if msg.startswith("ADS1115 (pyranometer)"):
-            str = self.translate_ads1115_to_irradiance(msg)
+        if msg.startswith("ADS1115 (pyranometer photodiode)"):
+            str = self.translate_ads1115_msg_to_irradiance(msg)
         else:
             str = msg
         try:
@@ -2748,48 +2811,132 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             self.logger.print_and_log("({})".format(e))
 
     # -------------------------------------------------------------------------
-    def translate_ads1115_to_irradiance(self, msg):
-        """Method to translate the ADS1115 value to W/m^2"""
-        ads1115_re_str = "ADS1115 \(pyranometer\) raw value: (-?\d+)"
+    def translate_ads1115_msg_to_photodiode_temp_scaling(self, msg):
+        """Method to translate the ADS1115 message containing the pyranometer
+           temperature sensor reading to degrees C and from that to the
+           temperature scaling factor that will be multiplied by the
+           measured photodiode value to produce the
+           temperature-corrected photodiode value.
+        """
+        ads1115_re_str = "ADS1115 \(pyranometer temp sensor\) "
+        ads1115_re_str += "raw value: (\d+)"
+        ads1115_re = re.compile(ads1115_re_str)
+        match = ads1115_re.search(msg)
+        if match:
+            raw_val = int(match.group(1))
+            deg_c = self.convert_ads1115_val_to_deg_c(raw_val)
+            temp_diff = deg_c - self.photodiode_nominal_deg_c
+            multiplier = self.photodiode_pct_per_deg_c / 100
+            self.photodiode_temp_scaling_factor = temp_diff * multiplier + 1.0
+            self.photodiode_deg_c = deg_c
+
+    # -------------------------------------------------------------------------
+    def convert_ads1115_val_to_deg_c(self, raw_val):
+        """Method to convert the raw ADS1115 reading to degrees C"""
+        # First convert reading value to millivolts
+        max_millivolts = (ADS1115_UNITY_GAIN_MAX_MILLIVOLTS /
+                          ADS1115_PGA_GAIN_TMP36)
+        tmp36_millivolts = (max_millivolts *
+                            float(raw_val) / (2 ** ADS1115_NON_SIGN_BITS))
+
+        # Then convert millivolts to degrees C
+        tmp36_offset_millivolts = 500  # from datasheet
+        tmp36_mv_per_deg_c = 10        # from datasheet
+        deg_c = ((tmp36_millivolts - tmp36_offset_millivolts) /
+                 tmp36_mv_per_deg_c)
+
+        # Return value
+        return deg_c
+
+    # -------------------------------------------------------------------------
+    def translate_ads1115_msg_to_irradiance(self, msg):
+        """Method to translate the ADS1115 message containing the photodiode
+           sensor reading to W/m^2 and return a string to be printed to
+           the run info file.  If the value has been scaled for
+           temperature compensation, the uncompensated value is also
+           printed with the sensor temperature.
+        """
+        ads1115_re_str = "ADS1115 \(pyranometer photodiode\) "
+        ads1115_re_str += "raw value: (-?\d+)"
         ads1115_re = re.compile(ads1115_re_str)
         match = ads1115_re.search(msg)
         str = "Irradiance: ** ERROR **\n"
         if match:
             raw_val = int(match.group(1))
-            irradiance = self.convert_ads1115_val_to_w_per_m_squared(raw_val)
-            str = "Irradiance: {} W/m^2\n".format(irradiance)
-            self.irradiance = irradiance
+            irrad = self.convert_ads1115_val_to_w_per_m_squared(raw_val,
+                                                                True)
+            str = "Irradiance: {} W/m^2".format(irrad)
+            self.irradiance = irrad
+            if self.photodiode_temp_scaling_factor != 1.0:
+                irrad = self.convert_ads1115_val_to_w_per_m_squared(raw_val,
+                                                                    False)
+                str += " ({} @ {} deg C)".format(irrad, self.photodiode_deg_c)
+            str += "\n"
         return str
 
     # -------------------------------------------------------------------------
-    def convert_ads1115_val_to_w_per_m_squared(self, raw_val):
-        """Method to convert a raw ADS1115 reading to an irradiance value in
-           watts/m^2"""
+    def convert_ads1115_val_to_w_per_m_squared(self, raw_val,
+                                               temp_comp=False):
+        """Method to convert the raw ADS1115 photodiode reading to an
+           irradiance value in watts/m^2.  If the temp_comp parameter is
+           True, temperature compensation is applied.
+        """
         # First convert reading value to millivolts
-        max_millivolts = ADS1115_UNITY_GAIN_MAX_MILLIVOLTS / ADS1115_PGA_GAIN
-        pyrano_millivolts = (max_millivolts *
-                             (float(abs(raw_val)) /
-                              (2 ** ADS1115_NON_SIGN_BITS)))
+        max_millivolts = (ADS1115_UNITY_GAIN_MAX_MILLIVOLTS /
+                          ADS1115_PGA_GAIN_PDB_C139)
+        photodiode_millivolts = (max_millivolts *
+                                 (float(abs(raw_val)) /
+                                  (2 ** ADS1115_NON_SIGN_BITS)))
+
+        # Conditionally apply temperature scaling
+        if temp_comp:
+            temp_scaling = self.photodiode_temp_scaling_factor
+        else:
+            temp_scaling = 1.0
+        scaled_photodiode_millivolts = photodiode_millivolts * temp_scaling
+
+        # Next apply an adjustment for an empirically observed error in
+        # the photodiode sensitivity, where it reads slightly low at
+        # higher irradiances and slightly high at lower irradiances.
+        adjusted_millivolts = (scaled_photodiode_millivolts *
+                               (1.0 + (scaled_photodiode_millivolts -
+                                       PHOTODIODE_NOMINAL_MV) *
+                                PHOTODIODE_ADJ_PPM / 1000000.0))
 
         # Then convert millivolts to irradiance
-        w_per_m_squared = pyrano_millivolts * self.pyrano_cal
+        w_per_m_squared = adjusted_millivolts * self.pyrano_cal
 
         # Return value rounded to nearest integer W/m^2
         return int(round(w_per_m_squared))
 
     # -------------------------------------------------------------------------
     def update_irradiance(self, new_irradiance):
-        """Method to update the irradiance value in the sensor info file"""
+        """Method to update the irradiance value(s) in the sensor info file"""
         new_lines = []
         irrad_re = re.compile("Irradiance: (\d+) W/m\^2")
+        ext_irrad_re = re.compile("(\d+) @ (\S+) deg C")
         try:
             with open(self.run_info_filename, "r") as f:
                 for line in f.read().splitlines():
                     match = irrad_re.search(line)
                     if match:
+                        ext_match = ext_irrad_re.search(line)
+                        if ext_match:
+                            old_irradiance = int(match.group(1))
+                            ratio = new_irradiance / old_irradiance
+                            old_uncomp_irrad = int(ext_match.group(1))
+                            temp = float(ext_match.group(2))
+                            new_uncomp_irrad = int(round(old_uncomp_irrad *
+                                                         ratio))
+                            ext_str = (" ({} @ {} deg C)"
+                                       .format(new_uncomp_irrad, temp))
+                        else:
+                            ext_str = ""
                         round_new_irradiance = int(round(new_irradiance))
-                        new_lines.append("Irradiance: {} W/m^2"
-                                         .format(round_new_irradiance))
+                        new_lines.append("Irradiance: {} W/m^2{}"
+                                         .format(round_new_irradiance,
+                                                 ext_str))
+                        self.irradiance = round_new_irradiance
                     else:
                         new_lines.append(line)
             with open(self.run_info_filename, "w") as f:

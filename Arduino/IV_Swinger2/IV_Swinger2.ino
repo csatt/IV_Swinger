@@ -3,7 +3,7 @@
  *
  * IV_Swinger2.ino: IV Swinger 2 Arduino sketch
  *
- * Copyright (C) 2017,2018  Chris Satterlee
+ * Copyright (C) 2017,2018,2019  Chris Satterlee
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -144,7 +144,7 @@
  * them from charging until SSR1 is fully on.]
  *
  */
-#define VERSION "1.3.6"        // Version of this Arduino sketch
+#define VERSION "1.3.7beta_1"        // Version of this Arduino sketch
 
 // Uncomment one or more of the following to enable the associated
 // feature. Note, however, that enabling these features uses more of the
@@ -169,6 +169,8 @@
 #include <Wire.h>
 #include <Adafruit_ADS1015.h>
 #define ADS1115_SRAM 224
+#define ADS1115_IRRADIANCE_POLLING_LOOPS 10
+#define ADS1115_TEMP_POLLING_LOOPS 5
 #else
 #define ADS1115_SRAM 0
 #endif
@@ -302,7 +304,6 @@ void setup()
 #ifdef ADS1115_PYRANOMETER_SUPPORTED
   adsGain_t ads1115_gain;
   ads1115.begin();
-  ads1115.setGain(GAIN_EIGHT);
 #endif
 
   // Print version number
@@ -714,12 +715,39 @@ void loop()
   // Report results on serial port
   //
 #ifdef ADS1115_PYRANOMETER_SUPPORTED
-  // Irradiance
   int16_t ads1115_val;
-  ads1115_val = ads1115.readADC_Differential_0_1();
-  if (ads1115_val != -1) {  // Value of -1 indicates no ADS1115 is present
-    Serial.print(F("ADS1115 (pyranometer) raw value: "));
+  long ads1115_val_sum, ads1115_val_avg;
+  // Pyranometer temperature (TMP36)
+  ads1115.setGain(GAIN_TWO);  // -2 V to 2 V
+  ads1115_val_sum = 0;
+  for (int ii = 0; ii < ADS1115_TEMP_POLLING_LOOPS; ii++) {
+    ads1115_val = ads1115.readADC_SingleEnded(2);
+    if (ads1115_val == -1) { // Value of -1 indicates no ADS1115 is present
+      ads1115_val_sum = 0;
+      break;
+    }
+    ads1115_val_sum += ads1115_val;
+  }
+  ads1115_val_avg = ads1115_val_sum / ADS1115_TEMP_POLLING_LOOPS;
+  if (ads1115_val_avg > 4000) {  // Ignore if < 250 mV (-25 deg C) 
+    Serial.print(F("ADS1115 (pyranometer temp sensor) raw value: "));
     Serial.println(ads1115_val);
+  }
+  // Irradiance (PDB-C139)
+  ads1115.setGain(GAIN_EIGHT); // -512 mV to 512 mV
+  ads1115_val_sum = 0;
+  for (int ii = 0; ii < ADS1115_IRRADIANCE_POLLING_LOOPS; ii++) {
+  ads1115_val = ads1115.readADC_Differential_0_1();
+    if (ads1115_val == -1) { // Value of -1 indicates no ADS1115 is present
+      ads1115_val_sum = 0;
+      break;
+    }
+    ads1115_val_sum += ads1115_val;
+  }
+  ads1115_val_avg = ads1115_val_sum / ADS1115_IRRADIANCE_POLLING_LOOPS;
+  if (ads1115_val_avg != 0) {
+    Serial.print(F("ADS1115 (pyranometer photodiode) raw value: "));
+    Serial.println(ads1115_val_avg);
   }
 #endif
 #ifdef DS18B20_SUPPORTED
