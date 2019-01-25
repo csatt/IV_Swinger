@@ -108,8 +108,17 @@
  * between iterations (which takes time), so it's not a simple average;
  * it's a weighted average based on measured times.
  *
- * NOTE: This code supports both the original electromechanical relay
- * (EMR) design and the more recent solid-state relay (SSR) design.  The
+ * Cell version support:
+ *
+ * The Arduino code does exactly the same thing for a cell version IVS2
+ * as it does for the module version. There is, however, a configuration
+ * command that the host software uses to turn on or turn off the second
+ * relay.
+ *
+ * SSR support:
+ *
+ * This code supports both the original electromechanical relay (EMR)
+ * designs and the more recent solid-state relay (SSR) designs.  The
  * code does not "know" which type of relay is in use. The EMR is an
  * SPDT switch, so only one is needed to switch between the bleed
  * circuit and the PV circuit.  SSRs are SPST, so two are required for
@@ -143,8 +152,19 @@
  * provides a short-circuit path around the load capacitors, keeping
  * them from charging until SSR1 is fully on.]
  *
+ * The SSR cell version has four SSRs. SSR1 is the same as SSR1 in the
+ * module version, connected to Arduino pin D2. There is no SSR2 or SSR3
+ * in the cell version.  SSR4 takes the place of SSR2 and SSR3 and is
+ * used both to bleed and to bypass the load capacitors since there is
+ * no bleed resistor.  It is controlled by Arduino pin D8. SSR5 and SSR6
+ * together provide the function of the second relay in the non-SSR cell
+ * version. SSR5 is controlled by Arduino pin D4, just like the second
+ * relay. SSR6 is controlled by Arduino pin D5.  As with the other SSRs,
+ * the versions that do not have SSR4, SSR5, and SSR6 are not affected
+ * when the pins controlling them are activated or deactivated since
+ * nothing is connected to those pins in the other versions.
  */
-#define VERSION "1.3.7beta_3"        // Version of this Arduino sketch
+#define VERSION "1.3.7"        // Version of this Arduino sketch
 
 // Uncomment one or more of the following to enable the associated
 // feature. Note, however, that enabling these features uses more of the
@@ -202,13 +222,19 @@
 #define ADC_CS_PIN 10          // Arduino pin used for ADC chip select
 #define RELAY_PIN 2            // Arduino pin used to activate relay (or SSR1)
 #define ONE_WIRE_BUS 3         // Arduino pin used for one-wire bus (DS18B20)
-#define SECOND_RELAY_PIN 4     // Arduino pin used to activate 2nd relay
+#define SECOND_RELAY_PIN 4     // Arduino pin used to activate 2nd relay/SSR5
 #define SSR2_PIN 6             // Arduino pin used to activate SSR2 (if exists)
 #define SSR2_ACTIVE HIGH       // SSR2 is active high
 #define SSR2_INACTIVE LOW      // SSR2 is active high
 #define SSR3_PIN 7             // Arduino pin used to activate SSR3 (if exists)
 #define SSR3_ACTIVE LOW        // SSR3 is active low
 #define SSR3_INACTIVE HIGH     // SSR3 is active low
+#define SSR4_PIN 8             // Arduino pin used to activate SSR4 (if exists)
+#define SSR4_ACTIVE LOW        // SSR4 is active low
+#define SSR4_INACTIVE HIGH     // SSR4 is active low
+#define SSR6_PIN 5             // Arduino pin used to activate SSR6 (if exists)
+#define SSR6_ACTIVE LOW        // SSR6 is active low
+#define SSR6_INACTIVE HIGH     // SSR6 is active low
 #define CS_INACTIVE HIGH       // Chip select is active low
 #define CS_ACTIVE LOW          // Chip select is active low
 #define VOLTAGE_CH 0           // ADC channel used for voltage measurement
@@ -297,12 +323,16 @@ void setup()
   digitalWrite(ADC_CS_PIN, CS_INACTIVE);
   pinMode(RELAY_PIN, OUTPUT); // Also SSR1
   digitalWrite(RELAY_PIN, relay_inactive);
-  pinMode(SECOND_RELAY_PIN, OUTPUT);
+  pinMode(SECOND_RELAY_PIN, OUTPUT); // Also SSR5
   digitalWrite(SECOND_RELAY_PIN, relay_inactive);
   pinMode(SSR2_PIN, OUTPUT);
   digitalWrite(SSR2_PIN, SSR2_ACTIVE);
   pinMode(SSR3_PIN, OUTPUT);
   digitalWrite(SSR3_PIN, SSR3_INACTIVE);
+  pinMode(SSR4_PIN, OUTPUT);
+  digitalWrite(SSR4_PIN, SSR4_ACTIVE);
+  pinMode(SSR6_PIN, OUTPUT);
+  digitalWrite(SSR6_PIN, SSR6_ACTIVE);
   Serial.begin(SERIAL_BAUD);
   SPI.begin();
   SPI.setClockDivider(clk_div);
@@ -510,7 +540,8 @@ void loop()
     done_ch1_adc = 20;
   }
 
-  // Turn on SSR3 (does nothing if this is not an SSR IVS2)
+  // Turn on SSR3 (does nothing if this is not an SSR IVS2 or is a cell
+  // version that has no SSR3)
   digitalWrite(SSR3_PIN, SSR3_ACTIVE);
   ssr3_is_active = true;
   delay(20);  // Let it turn completely on before any current flows
@@ -557,17 +588,18 @@ void loop()
     if ((adc_ch0_val == adc_ch0_val_prev) &&
         (adc_ch0_val_prev == adc_ch0_val_prev_prev) &&
         (ssr3_is_active)) {
-      // For the SSR version, we want to turn off SSR3 when the voltage
-      // has stopped changing, i.e. three of the same values are seen in
-      // a row.  At that point we want to restart searching for three
-      // points whose current is varying by less than or equal to
-      // isc_stable_adc.
+      // For the SSR version, we want to turn off SSR3 (SSR4 in cell
+      // version) when the voltage has stopped changing, i.e. three of
+      // the same values are seen in a row.  At that point we want to
+      // restart searching for three points whose current is varying by
+      // less than or equal to isc_stable_adc.
       //
       // For the EMR version, it is very unlikely that we'll ever see
       // three points in a row with the same voltage during Isc polling,
       // so chances are good that this code never will be executed. And
       // even if it is, the effect will be minimal.
       digitalWrite(SSR3_PIN, SSR3_INACTIVE);
+      digitalWrite(SSR4_PIN, SSR4_INACTIVE);
       ssr3_is_active = false;
       // Wait for the voltage to start increasing
       for (int jj = 0; jj < 100; jj++) {
@@ -764,8 +796,11 @@ void loop()
   // Turn off relay (or SSR1)
   digitalWrite(RELAY_PIN, relay_inactive);
 
-  // Turn on SSR2 (does nothing if this is not an SSR IVS2)
+  // Turn on SSR2 (does nothing if this is not a module version SSR
+  // IVS2)
   digitalWrite(SSR2_PIN, SSR2_ACTIVE);
+  // Turn on SSR4 (does nothing if this is not a cell version SSR IVS2)
+  digitalWrite(SSR4_PIN, SSR4_ACTIVE);
 
   // Report results on serial port
   //
@@ -1035,9 +1070,11 @@ void set_relay_state(bool active) {
 
 void set_second_relay_state(bool active) {
   if (active) {
+    digitalWrite(SSR6_PIN, SSR6_INACTIVE);
     digitalWrite(SECOND_RELAY_PIN, relay_active);
   } else { 
     digitalWrite(SECOND_RELAY_PIN, relay_inactive);
+    digitalWrite(SSR6_PIN, SSR6_ACTIVE);
   }
 }
 
