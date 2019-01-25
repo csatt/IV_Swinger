@@ -3363,9 +3363,6 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         voc_adc = adc_pairs[-1][0]
         if avg_v_intercept:
             v_adj = float(voc_adc) / float(avg_v_intercept)
-        if v_adj > 1.0:
-            # Never scale up
-            v_adj = 1.0
         return v_adj
 
     # -------------------------------------------------------------------------
