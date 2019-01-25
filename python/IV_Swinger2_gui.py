@@ -910,7 +910,8 @@ value on the Arduino tab of Preferences
                                lambda: self.clear_go_button_status_label())
                     self.check_arduino_sketch_version()
                     self.update_config_after_arduino_handshake()
-                    self.master.resistor_cal_enabled = True
+                    self.props.resistor_cal_enabled = True
+                    self.props.bias_cal_enabled = True
                     return
 
         # If any of the above failed, try again in 1 second
@@ -1869,6 +1870,7 @@ class ResultsWizard(tk.Toplevel):
     # Initializer
     def __init__(self, master=None):
         tk.Toplevel.__init__(self, master=master)
+        self.master = master
         self.title("Results Wizard")
         self.results_dir = self.master.ivs2.app_data_dir
         self.copy_dest = None
@@ -1876,7 +1878,6 @@ class ResultsWizard(tk.Toplevel):
         self.overlay_img = None
         self.overlay_iid = None
         self.overlay_title = None
-        self.master = master
 
         # Tie this window to master
         self.transient(self.master)
@@ -2188,8 +2189,8 @@ class ResultsWizard(tk.Toplevel):
         self.master.results_button.state(["!disabled"])
         if self.master.ivs2.arduino_ready:
             self.master.go_button.state(["!disabled"])
-            self.master.resistor_cal_enabled = True
-            self.master.bias_cal_enabled = True
+            self.master.props.resistor_cal_enabled = True
+            self.master.props.bias_cal_enabled = True
         self.master.config.cfg_filename = None  # property will restore
         self.master.config.get()
         self.master.update_plot_power_cb()
@@ -3617,6 +3618,7 @@ class MenuBar(tk.Menu):
     # Initializer
     def __init__(self, master=None):
         tk.Menu.__init__(self, master=master)
+        self.master = master
         self.menubar = tk.Menu(self.master)
         self.selected_port = tk.StringVar()
         self.selected_port.set(self.master.ivs2.usb_port)
@@ -3976,13 +3978,13 @@ class Dialog(tk.Toplevel):
                  has_cancel_button=True, return_ok=False, ok_label="OK",
                  resizable=False, modal=False):
         tk.Toplevel.__init__(self, master=master)
+        self.master = master
         self.win_sys = self.master.tk.call("tk", "windowingsystem")
         self.has_ok_button = has_ok_button
         self.has_cancel_button = has_cancel_button
         self.return_ok = return_ok
         self.ok_label = ok_label
         self.resizable(width=resizable, height=resizable)
-        self.master = master
         self.transient(self.master)  # tie this window to master
         if title is not None:
             self.title(title)
@@ -4283,6 +4285,7 @@ class DownlevelArduinoSketchDialog(Dialog):
         title = "Downlevel Arduino Code"
         Dialog.__init__(self, master=master, title=title,
                         has_cancel_button=False, return_ok=True)
+        self.master = master
 
     # Create body, which is just a Text widget
     def body(self, master):
@@ -4456,8 +4459,8 @@ class ResistorValuesDialog(Dialog):
         self.master.go_button.state(["disabled"])
         self.master.preferences_button.state(["disabled"])
         self.master.results_button.state(["disabled"])
-        self.master.resistor_cal_enabled = False
-        self.master.bias_cal_enabled = False
+        self.master.props.resistor_cal_enabled = False
+        self.master.props.bias_cal_enabled = False
 
     # -------------------------------------------------------------------------
     def restore_master(self):
@@ -4468,8 +4471,8 @@ class ResistorValuesDialog(Dialog):
             self.master.go_button.state(["!disabled"])
         self.master.preferences_button.state(["!disabled"])
         self.master.results_button.state(["!disabled"])
-        self.master.resistor_cal_enabled = True
-        self.master.bias_cal_enabled = True
+        self.master.props.resistor_cal_enabled = True
+        self.master.props.bias_cal_enabled = True
 
     # -------------------------------------------------------------------------
     def restore_defaults(self, event=None):
@@ -4703,8 +4706,8 @@ performed immediately before EVERY curve is swung."""
         self.master.go_button.state(["disabled"])
         self.master.preferences_button.state(["disabled"])
         self.master.results_button.state(["disabled"])
-        self.master.resistor_cal_enabled = False
-        self.master.bias_cal_enabled = False
+        self.master.props.resistor_cal_enabled = False
+        self.master.props.bias_cal_enabled = False
 
     # -------------------------------------------------------------------------
     def restore_master(self):
@@ -4715,8 +4718,8 @@ performed immediately before EVERY curve is swung."""
             self.master.go_button.state(["!disabled"])
         self.master.preferences_button.state(["!disabled"])
         self.master.results_button.state(["!disabled"])
-        self.master.resistor_cal_enabled = True
-        self.master.bias_cal_enabled = True
+        self.master.props.resistor_cal_enabled = True
+        self.master.props.bias_cal_enabled = True
 
     # -------------------------------------------------------------------------
     def revert(self):
@@ -6415,6 +6418,7 @@ class PlotPower(ttk.Checkbutton):
                                  command=self.update_plot_power,
                                  variable=variable,
                                  onvalue="Plot", offvalue="DontPlot")
+        self.master = master
         self.plot_power = variable
         if self.master.config.cfg.getboolean("Plotting", "plot power"):
             self.invoke()
@@ -6550,6 +6554,7 @@ class LoopRateLimit(ttk.Checkbutton):
                                  command=self.update_loop_rate_limit,
                                  variable=variable,
                                  onvalue="On", offvalue="Off")
+        self.master = master
         self.gui = gui
         self.loop_rate_limit = variable
         self.value_label_obj = None
@@ -6601,6 +6606,7 @@ class LoopSaveResults(ttk.Checkbutton):
                                  command=self.update_loop_save_results,
                                  variable=variable,
                                  onvalue="On", offvalue="Off")
+        self.master = master
         self.gui = gui
         self.loop_save_results = variable
         self.value_label_obj = None
