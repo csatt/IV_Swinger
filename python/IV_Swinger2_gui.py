@@ -5,7 +5,7 @@
 #
 # IV_Swinger2_gui.py: IV Swinger 2 GUI application module
 #
-# Copyright (C) 2017,2018  Chris Satterlee
+# Copyright (C) 2017,2018,2019  Chris Satterlee
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -360,13 +360,13 @@ the log file to csatt1@gmail.com.  Thank you!
 ERROR: Voc is zero volts
 
 Check that the IV Swinger 2 is connected
-properly to the PV module
+properly to the PV module (or cell)
 """
         self.zero_isc_str = """
 ERROR: Isc is zero amps
 
 Check that the IV Swinger 2 is connected
-properly to the PV module
+properly to the PV module (or cell)
 """
         self.isc_timeout_str = """
 ERROR: Timed out polling for stable Isc
@@ -3761,7 +3761,7 @@ at:
 
    https://github.com/csatt/IV_Swinger
 
-Copyright (C) 2017, 2018  Chris Satterlee
+Copyright (C) 2017-2019  Chris Satterlee
 """
         sketch_ver = self.master.ivs2.arduino_sketch_ver
         sketch_ver_str = ""
@@ -4188,8 +4188,8 @@ stored on the IV Swinger 2 hardware:
         voltage_heading = """
 Voltage calibration:"""
         help_text_2 = """
-  1. Connect the DMM to the IV Swinger 2 binding posts with the PV module
-     connected normally
+  1. Connect the DMM to the IV Swinger 2 binding posts with the PV
+     module/cell connected normally
   2. Set the DMM to measure DC voltage
   3. Note the DMM value immediately before and after swinging a curve
   4. Enter this value in the Voltage Calibration dialog and hit OK
@@ -4391,16 +4391,16 @@ class ResistorValuesDialog(Dialog):
         r2_ohms = self.master.config.cfg.getfloat("Calibration", "r2 ohms")
         self.r2_str.set(r2_ohms)
 
-        # Add label and entry box to select Rf resistance
-        rf_label = ttk.Label(master=frame, text="Rf (ohms):")
+        # Add label and entry box to select RF resistance
+        rf_label = ttk.Label(master=frame, text="RF (ohms):")
         rf_entry = ttk.Entry(master=frame,
                              width=8,
                              textvariable=self.rf_str)
         rf_ohms = self.master.config.cfg.getfloat("Calibration", "rf ohms")
         self.rf_str.set(rf_ohms)
 
-        # Add label and entry box to select Rg resistance
-        rg_label = ttk.Label(master=frame, text="Rg (ohms):")
+        # Add label and entry box to select RG resistance
+        rg_label = ttk.Label(master=frame, text="RG (ohms):")
         rg_entry = ttk.Entry(master=frame,
                              width=8,
                              textvariable=self.rg_str)
@@ -4514,9 +4514,9 @@ class ResistorValuesDialog(Dialog):
             if r2_ohms <= 0.0:
                 err_str += "\n  R2 value must be positive"
             if rf_ohms < 0.0:
-                err_str += "\n  Rf value must be zero or positive"
+                err_str += "\n  RF value must be zero or positive"
             if rg_ohms <= 0.0:
-                err_str += "\n  Rg value must be positive"
+                err_str += "\n  RG value must be positive"
             if shunt_uohms <= 1.0:
                 err_str += "\n  Shunt value must be >1 (unit is microohms)"
         if len(err_str) > len("ERROR:"):
@@ -5546,7 +5546,7 @@ class PreferencesDialog(Dialog):
             warning_str = """
 WARNING: Changing the "Relay is
 active-high" value WILL prevent
-the IV Swinger2 from tracing IV
+the IV Swinger 2 from tracing IV
 curves if it is changed to the
 wrong value! This box should be
 unchecked unless you KNOW that
@@ -6101,7 +6101,9 @@ ADC correction:
     curve hits the I=0 point at the measured Voc voltage. This phenomenon was a
     mystery. It is now understood to be due to the +5V supply (from USB)
     drooping when the relay is active. The reduced reference voltage to the ADC
-    results in voltage measurements that are too high.
+    results in voltage measurements that are too high. Negative overshoot
+    (i.e. undershoot) is also corrected; this can be due to SSR current draw in
+    the SSR version.
 
 Battery bias:
   The cell version of IV Swinger 2 may require a bias battery to be placed in
