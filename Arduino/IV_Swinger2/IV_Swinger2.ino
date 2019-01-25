@@ -113,27 +113,27 @@
  * code does not "know" which type of relay is in use. The EMR is an
  * SPDT switch, so only one is needed to switch between the bleed
  * circuit and the PV circuit.  SSRs are SPST, so two are required for
- * the same functionality.  SSR1 is configured to be active-low and SSR2
- * is configured to be active-high, so together they look like an
- * active-low SPDT relay.  A third SSR is needed because of the slow
- * turn-on time of SSR1 (7.5ms typical).  SSR3, when active, bypasses
- * the load capacitors.  SSR1 and SSR2 are controlled by the same
- * Arduino pin as the EMR (pin D2).  SSR1 is turned on ("closed") and
- * SSR2 is turned off ("opened") after the Voc measurement has been
- * taken - as usual.  SSR3, controlled by Arduino pin D7, is turned on
- * at this point as well (actually just before). In this state, the PV
- * current flows through SSR1 and SSR3 and through the shunt.  The load
- * capacitors do not start charging yet, and the current has a very near
- * short-circuit path.  The Isc polling is performed at this point, and
- * ends when a stable value is detected.  At that point, SSR3 is turned
- * off ("opened"), and the load capacitors start to charge.  The curve
- * is traced in this state.  When the curve is complete, SSR1 is turned
- * off, and SSR2 is turned on.  In this state, the load capacitors drain
- * through SSR2 and the bleed resistor.  The relays stay in this state
- * until the next curve is swung. Since nothing is connected to Arduino
- * pin D7 in the EMR design, there is no effect of the code that is
- * controlling SSR3. And since SSR1 activated (and SSR2 deactivated) at
- * exactly the same times as the EMR (using the same Arduino pin), the
+ * the same functionality (SSR1 and SSR2). A third SSR is needed because
+ * of the slow turn-on time of SSR1 (7.5ms typical).  SSR3, when active,
+ * bypasses the load capacitors.  SSR1 is controlled by the same Arduino
+ * pin as the EMR (pin D2).  SSR2 is controlled by a different pin
+ * (D6). SSR1 is turned on ("closed") and SSR2 is turned off ("opened")
+ * after the Voc measurement has been taken - as usual.  SSR3,
+ * controlled by Arduino pin D7, is turned on at this point as well
+ * (actually just before). In this state, the PV current flows through
+ * SSR1 and SSR3 and through the shunt.  The load capacitors do not
+ * start charging yet, and the current has a very near short-circuit
+ * path.  The Isc polling is started at this point. When the voltage
+ * stops changing, SSR3 is turned off ("opened"), and the load
+ * capacitors start to charge. The Isc polling continues as usual until
+ * a stable Isc value is found. Then the curve is traced.  When the
+ * curve is complete, SSR1 is turned off, and SSR2 is turned on.  In
+ * this state, the load capacitors drain through SSR2 and the bleed
+ * resistor.  The relays stay in this state until the next curve is
+ * swung. Since nothing is connected to Arduino pins D6 and D7 in the
+ * EMR design, there is no effect of the code that is controlling SSR2
+ * and SSR3. And since SSR1 activated (and SSR2 deactivated) at exactly
+ * the same times as the EMR (using the same Arduino pin for SSR1), the
  * code does the right thing. [In a design without SSR3, the load
  * capacitors would start charging up while SSR1 is still turning on.
  * During the turn-on period, SSR1 has a significant resistance. By the
@@ -144,7 +144,7 @@
  * them from charging until SSR1 is fully on.]
  *
  */
-#define VERSION "1.3.7beta_2"        // Version of this Arduino sketch
+#define VERSION "1.3.7beta_3"        // Version of this Arduino sketch
 
 // Uncomment one or more of the following to enable the associated
 // feature. Note, however, that enabling these features uses more of the
@@ -200,9 +200,12 @@
 #define SERIAL_BAUD 57600      // Serial port baud rate
 #define ADC_MAX 4096.0         // Max count of ADC (2^^num_bits)
 #define ADC_CS_PIN 10          // Arduino pin used for ADC chip select
-#define RELAY_PIN 2            // Arduino pin used to activate relay (or SSR1/2)
+#define RELAY_PIN 2            // Arduino pin used to activate relay (or SSR1)
 #define ONE_WIRE_BUS 3         // Arduino pin used for one-wire bus (DS18B20)
-#define SECOND_RELAY_PIN 4     // Arduino pin used to activate second relay
+#define SECOND_RELAY_PIN 4     // Arduino pin used to activate 2nd relay
+#define SSR2_PIN 6             // Arduino pin used to activate SSR2 (if exists)
+#define SSR2_ACTIVE HIGH       // SSR2 is active high
+#define SSR2_INACTIVE LOW      // SSR2 is active high
 #define SSR3_PIN 7             // Arduino pin used to activate SSR3 (if exists)
 #define SSR3_ACTIVE LOW        // SSR3 is active low
 #define SSR3_INACTIVE HIGH     // SSR3 is active low
@@ -292,10 +295,12 @@ void setup()
   // Initialization
   pinMode(ADC_CS_PIN, OUTPUT);
   digitalWrite(ADC_CS_PIN, CS_INACTIVE);
-  pinMode(RELAY_PIN, OUTPUT);
+  pinMode(RELAY_PIN, OUTPUT); // Also SSR1
   digitalWrite(RELAY_PIN, relay_inactive);
   pinMode(SECOND_RELAY_PIN, OUTPUT);
   digitalWrite(SECOND_RELAY_PIN, relay_inactive);
+  pinMode(SSR2_PIN, OUTPUT);
+  digitalWrite(SSR2_PIN, SSR2_ACTIVE);
   pinMode(SSR3_PIN, OUTPUT);
   digitalWrite(SSR3_PIN, SSR3_INACTIVE);
   Serial.begin(SERIAL_BAUD);
@@ -379,6 +384,7 @@ void loop()
   bool skip_isc_poll = false;
   bool count_updated = false;
   bool voc_adc_found = false;
+  bool ssr3_is_active = true;
   char incoming_msg[MAX_MSG_LEN];
   int ii;
   int index = 0;
@@ -506,10 +512,15 @@ void loop()
 
   // Turn on SSR3 (does nothing if this is not an SSR IVS2)
   digitalWrite(SSR3_PIN, SSR3_ACTIVE);
+  ssr3_is_active = true;
   delay(20);  // Let it turn completely on before any current flows
 
-  // Activate relay (or SSR1=on/SSR2=off)
+  // Activate relay (or SSR1)
   digitalWrite(RELAY_PIN, relay_active);
+
+  // Turn off SSR2 (does nothing if this is not an SSR IVS2 or is a cell
+  // version that has no SSR2)
+  digitalWrite(SSR2_PIN, SSR2_INACTIVE);
 
   // Wait until three consecutive measurements:
   //   - have current greater than min_isc_adc
@@ -543,6 +554,41 @@ void loop()
       capture_unfiltered = true;
     }
 #endif
+    if ((adc_ch0_val == adc_ch0_val_prev) &&
+        (adc_ch0_val_prev == adc_ch0_val_prev_prev) &&
+        (ssr3_is_active)) {
+      // For the SSR version, we want to turn off SSR3 when the voltage
+      // has stopped changing, i.e. three of the same values are seen in
+      // a row.  At that point we want to restart searching for three
+      // points whose current is varying by less than or equal to
+      // isc_stable_adc.
+      //
+      // For the EMR version, it is very unlikely that we'll ever see
+      // three points in a row with the same voltage during Isc polling,
+      // so chances are good that this code never will be executed. And
+      // even if it is, the effect will be minimal.
+      digitalWrite(SSR3_PIN, SSR3_INACTIVE);
+      ssr3_is_active = false;
+      // Wait for the voltage to start increasing
+      for (int jj = 0; jj < 100; jj++) {
+        adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
+        adc_ch0_val = read_adc(VOLTAGE_CH);  // Read CH0 (voltage)
+#ifdef CAPTURE_UNFILTERED_ISC_POLL
+        if (unfiltered_index < MAX_UNFILTERED_POINTS) {
+          unfiltered_adc_ch1_vals[unfiltered_index] = adc_ch1_val;
+          unfiltered_adc_ch0_vals[unfiltered_index++] = adc_ch0_val;
+        }
+#endif
+        // Break out of loop when voltage has increased by at least 10
+        // ADC units
+        if ((adc_ch0_val - adc_ch0_val_prev) > 10)
+          break;
+      }
+      // Reset all of the CH1 values to restart stable Isc search
+      adc_ch1_val_prev_prev = 0;
+      adc_ch1_val_prev = 0;
+      adc_ch1_val = 0;
+    }
     isc_poll_loops = ii + 1;
     // Nested ifs should be faster than &&
     if (adc_ch1_val > min_isc_adc) {
@@ -613,9 +659,6 @@ void loop()
   min_manhattan_distance = (unsigned int) ((isc_adc * i_scale) +
                             (voc_adc * v_scale)) / (max_iv_points - 2);
 
-  // Turn off SSR3 (does nothing if this is not an SSR IVS2)
-  digitalWrite(SSR3_PIN, SSR3_INACTIVE);
-  
   // Proceed to read remaining points on IV curve. Compensate for the
   // fact that time passes between I and V measurements by using a
   // weighted average for I. Discard points that are not a minimum
@@ -718,8 +761,11 @@ void loop()
   }
   elapsed_usecs = micros() - start_usecs;
 
-  // Turn off relay (or SSR1=off/SSR2=on)
+  // Turn off relay (or SSR1)
   digitalWrite(RELAY_PIN, relay_inactive);
+
+  // Turn on SSR2 (does nothing if this is not an SSR IVS2)
+  digitalWrite(SSR2_PIN, SSR2_ACTIVE);
 
   // Report results on serial port
   //
