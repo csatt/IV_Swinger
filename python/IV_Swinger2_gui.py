@@ -5572,7 +5572,17 @@ class PreferencesDialog(Dialog):
            checkbutton value is changed. Display an error dialog if the
            Arduino sketch is downlevel
         """
-        if self.master.ivs2.arduino_sketch_supports_active_high_relay:
+        if not self.master.ivs2.arduino_ready:
+            error_str = """
+ERROR: Arduino is not connected
+or not ready. Cannot change this
+value now.
+"""
+            self.relay_active_high_str.set("Disabled")
+            if self.master.ivs2.relay_active_high:
+                self.relay_active_high_str.set("Enabled")
+            tkmsg.showerror(message=error_str)
+        elif self.master.ivs2.arduino_sketch_supports_active_high_relay:
             warning_str = """
 WARNING: Changing the "Relay is
 active-high" value WILL prevent
@@ -5582,7 +5592,9 @@ wrong value! This box should be
 unchecked unless you KNOW that
 this IV Swinger 2 was built with
 a relay that has an active-high
-trigger pin.
+trigger pin. It should NEVER be
+checked for an IV Swinger 2 that
+uses SSRs or damage could result!
 """
             tkmsg.showwarning(message=warning_str)
         else:
@@ -5592,6 +5604,7 @@ software supports active-low relays
 only. Changing this value has no
 effect. Please upgrade.
 """
+            self.relay_active_high_str.set("Disabled")
             tkmsg.showerror(message=error_str)
 
     # -------------------------------------------------------------------------
@@ -5938,16 +5951,17 @@ effect. Please upgrade.
 
         # The relay active high flag is different from the others. It is
         # not stored in the config, but is saved in the Arduino EEPROM.
-        relay_active_high = (self.relay_active_high_str.get() == "Enabled")
-        if relay_active_high != self.master.ivs2.relay_active_high:
-            self.master.ivs2.relay_active_high = relay_active_high
-            rc = self.master.ivs2.write_relay_active_high_val_to_eeprom()
-            if rc != RC_SUCCESS:
-                error_msg = """
+        if self.master.ivs2.arduino_ready:
+            relay_active_high = (self.relay_active_high_str.get() == "Enabled")
+            if relay_active_high != self.master.ivs2.relay_active_high:
+                self.master.ivs2.relay_active_high = relay_active_high
+                rc = self.master.ivs2.write_relay_active_high_val_to_eeprom()
+                if rc != RC_SUCCESS:
+                    error_msg = """
 ERROR: The relay_active_high value could not be
 written to Arduino EEPROM.
 """
-                tkmsg.showerror('ERROR', error_msg)
+                    tkmsg.showerror('ERROR', error_msg)
 
         # Apply and save the config if anything changed
         if arduino_opt_changed:
@@ -6274,7 +6288,9 @@ Aspect width:
 Relay is active-high:
   Check ONLY if the IV Swinger 2 was constructed with a (non-standard) relay
   module that has an active-high trigger pin. This value will be saved in the
-  Arduino EEPROM so the hardware "remembers" what type of relay it has.
+  Arduino EEPROM so the hardware "remembers" what type of relay it has. NEVER
+  check for an IV Swinger 2 that uses solid-state relays (SSRs); damage could
+  result.
 """
         font = HELP_DIALOG_FONT
         self.text = ScrolledText(master, height=30, borderwidth=10)
