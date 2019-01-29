@@ -540,19 +540,6 @@ void loop()
     done_ch1_adc = 20;
   }
 
-  // Turn on SSR3 (does nothing if this is not an SSR IVS2 or is a cell
-  // version that has no SSR3)
-  digitalWrite(SSR3_PIN, SSR3_ACTIVE);
-  ssr3_is_active = true;
-  delay(20);  // Let it turn completely on before any current flows
-
-  // Activate relay (or SSR1)
-  digitalWrite(RELAY_PIN, relay_active);
-
-  // Turn off SSR2 (does nothing if this is not an SSR IVS2 or is a cell
-  // version that has no SSR2)
-  digitalWrite(SSR2_PIN, SSR2_INACTIVE);
-
   // Wait until three consecutive measurements:
   //   - have current greater than min_isc_adc
   //   - have increasing or equal voltage
@@ -565,12 +552,25 @@ void loop()
   if (voc_adc < MIN_VOC_ADC) {
     // If the Voc ADC value is lower than MIN_VOC_ADC we assume that it
     // is actually zero (not connected) and we force it to zero and skip
-    // the Isc polling
+    // the relay activation and Isc polling
     skip_isc_poll = true;
     voc_adc = 0;
   } else {
     skip_isc_poll = false;
     poll_timeout = true;
+
+    // Turn on SSR3 (does nothing if this is not an SSR IVS2 or is a cell
+    // version that has no SSR3)
+    digitalWrite(SSR3_PIN, SSR3_ACTIVE);
+    ssr3_is_active = true;
+    delay(20);  // Let it turn completely on before any current flows
+
+    // Activate relay (or SSR1)
+    digitalWrite(RELAY_PIN, relay_active);
+
+    // Turn off SSR2 (does nothing if this is not an SSR IVS2 or is a cell
+    // version that has no SSR2)
+    digitalWrite(SSR2_PIN, SSR2_INACTIVE);
   }
   for (ii = 0; ii < max_isc_poll; ii++) {
     if (skip_isc_poll)
