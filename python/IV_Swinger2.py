@@ -169,9 +169,9 @@ ADS1115_PGA_GAIN_TMP36 = 2     # See Arduino code (GAIN_TWO)
 ADS1115_PGA_GAIN_PDB_C139 = 8  # See Arduino code (GAIN_EIGHT)
 # Default calibration values
 NOMINAL_ADC_VREF = 5.0  # USB voltage = 5V
-V_CAL_DEFAULT = 1.0197
-I_CAL_DEFAULT = 1.1187
-SECOND_RELAY_CAL_DEFAULT = 0.9776
+V_CAL_DEFAULT = 1.0
+I_CAL_DEFAULT = 1.0
+SECOND_RELAY_CAL_DEFAULT = 1.0
 DYN_BIAS_CAL_DEFAULT = False
 PYRANO_CAL_DEFAULT = 4.2572  # W/m^2/mV
 PHOTODIODE_NOMINAL_DEG_C_DEFAULT = 25.0
@@ -629,14 +629,14 @@ class Configuration(object):
 
         # NOTE: The "old" values in the args values are used when the
         # .cfg file is missing values for a particular config
-        # type. Since the resistors were not originally included in the
-        # config, they will be missing in the .cfg files of older
-        # runs. Instead of using the current values of their associated
-        # properties, we use the default values. In the case of R1,
-        # however, there was a bug in the code when the older runs were
-        # generated, so we need to use that older (bad) value. This
-        # should prevent unexpected changes in the old graphs when they
-        # are updated (for example to plot power).
+        # type. Since the resistors and Vref were not originally
+        # included in the config, they will be missing in the .cfg files
+        # of older runs. Instead of using the current values of their
+        # associated properties, we use the default values. In the case
+        # of R1, however, there was a bug in the code when the older
+        # runs were generated, so we need to use that older (bad)
+        # value. This should prevent unexpected changes in the old
+        # graphs when they are updated (for example to plot power).
 
         # Resistor R1
         args = (section, "r1 ohms", CFG_FLOAT, R1_DEFAULT_BUG)
@@ -653,6 +653,10 @@ class Configuration(object):
         # Resistor Rg
         args = (section, "rg ohms", CFG_FLOAT, RG_DEFAULT)
         self.ivs2.amm_op_amp_rg = self.apply_one(*args)
+
+        # ADC Vref (+5V reference voltage from USB)
+        args = (section, "vref", CFG_FLOAT, NOMINAL_ADC_VREF)
+        self.ivs2.adc_vref = self.apply_one(*args)
 
         # Shunt resistor
         #
@@ -922,6 +926,7 @@ class Configuration(object):
         self.cfg.add_section(section)
         self.cfg_set(section, "voltage", self.ivs2.v_cal)
         self.cfg_set(section, "current", self.ivs2.i_cal)
+        self.cfg_set(section, "vref", self.ivs2.adc_vref)
         self.cfg_set(section, "pyranometer", self.ivs2.pyrano_cal)
         self.cfg_set(section, "second relay", self.ivs2.second_relay_cal)
         self.cfg_set(section, "r1 ohms", self.ivs2.vdiv_r1)

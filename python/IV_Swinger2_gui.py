@@ -351,6 +351,7 @@ the log file to csatt1@gmail.com.  Thank you!
         self._overlay_dir = None
         self._overlay_mode = False
         self._redisplay_after_axes_unlock = True
+        self._vref_cal_enabled = False
         self._voltage_cal_enabled = False
         self._current_cal_enabled = False
         self._resistor_cal_enabled = False
@@ -910,6 +911,7 @@ value on the Arduino tab of Preferences
                                lambda: self.clear_go_button_status_label())
                     self.check_arduino_sketch_version()
                     self.update_config_after_arduino_handshake()
+                    self.props.vref_cal_enabled = True
                     self.props.resistor_cal_enabled = True
                     self.props.bias_cal_enabled = True
                     return
@@ -1673,6 +1675,19 @@ class GraphicalUserInterfaceProps(object):
 
     # ---------------------------------
     @property
+    def vref_cal_enabled(self):
+        """True if Vref calibration is enabled
+        """
+        return self.master._vref_cal_enabled
+
+    @vref_cal_enabled.setter
+    def vref_cal_enabled(self, value):
+        if value not in set([True, False]):
+            raise ValueError("vref_cal_enabled must be boolean")
+        self.master._vref_cal_enabled = value
+
+    # ---------------------------------
+    @property
     def voltage_cal_enabled(self):
         """True if voltage calibration is enabled
         """
@@ -1903,6 +1918,7 @@ class ResultsWizard(tk.Toplevel):
         """
         self.master.results_button.state(["disabled"])
         self.master.go_button.state(["disabled"])
+        self.master.props.vref_cal_enabled = False
         self.master.props.voltage_cal_enabled = False
         self.master.props.current_cal_enabled = False
         self.master.props.resistor_cal_enabled = False
@@ -2189,8 +2205,11 @@ class ResultsWizard(tk.Toplevel):
         self.master.results_button.state(["!disabled"])
         if self.master.ivs2.arduino_ready:
             self.master.go_button.state(["!disabled"])
+            self.master.props.vref_cal_enabled = True
             self.master.props.resistor_cal_enabled = True
             self.master.props.bias_cal_enabled = True
+        if self.master.ivs2.irradiance is not None:
+            self.props.pyranometer_cal_enabled = True
         self.master.config.cfg_filename = None  # property will restore
         self.master.config.get()
         self.master.update_plot_power_cb()
@@ -3671,6 +3690,8 @@ class MenuBar(tk.Menu):
         self.calibrate_menu = tk.Menu(self.menubar,
                                       postcommand=self.update_calibrate_menu)
         self.menubar.add_cascade(menu=self.calibrate_menu, label="Calibrate")
+        self.calibrate_menu.add_command(label="Vref (+5V)",
+                                        command=self.get_vref_cal_value)
         self.calibrate_menu.add_command(label="Voltage Calibration",
                                         command=self.get_v_cal_value)
         self.calibrate_menu.add_command(label="Current Calibration",
@@ -3688,6 +3709,12 @@ class MenuBar(tk.Menu):
 
     # -------------------------------------------------------------------------
     def update_calibrate_menu(self):
+        # Vref
+        if self.master.props.vref_cal_enabled:
+            kwargs = {"state": "normal"}
+        else:
+            kwargs = {"state": "disabled"}
+        self.calibrate_menu.entryconfig("Vref (+5V)", **kwargs)
         # Voltage
         if self.master.props.voltage_cal_enabled:
             kwargs = {"state": "normal"}
@@ -3835,6 +3862,19 @@ Copyright (C) 2017-2019  Chris Satterlee
             self.master.config.cfg_set("USB", "port",
                                        self.master.ivs2.usb_port)
             self.master.save_config()
+
+    # -------------------------------------------------------------------------
+    def get_vref_cal_value(self):
+        curr_vref = self.master.ivs2.adc_vref
+        prompt_str = "Enter measured voltage of +5V reference:"
+        new_vref = tksd.askfloat(title="+5V (Vref) Calibration",
+                                 prompt=prompt_str,
+                                 initialvalue=curr_vref)
+        if new_vref:
+            self.master.ivs2.adc_vref = new_vref
+            self.master.config.cfg_set("Calibration", "vref", new_vref)
+            # Redisplay the image with the new settings (saves config)
+            self.master.redisplay_img(reprocess_adc=True)
 
     # -------------------------------------------------------------------------
     def get_v_cal_value(self):
@@ -4214,10 +4254,23 @@ stored on the IV Swinger 2 hardware:
        its own calibration
      - A given IV Swinger 2 only needs to be calibrated once, and that
        calibration will apply for any laptop it is used with
+NOTE: the "Vref (+5V)" calibration should be performed BEFORE curent and
+      voltage calibration.
+"""
+        vref_heading = """
+Vref (+5V):"""
+        vref_help_text = """
+  This calibration should be done on each *laptop* the first time it is used to
+  swing curves (even if the IV Swinger 2 has already been calibrated using a
+  different laptop). It must be done before a laptop is used to perform voltage
+  and current calibrations. Measure the voltage between the GND and +5V pins on
+  the PCB, PermaProto, or Arduino. It is stored on the laptop, not on the IV
+  Swinger 2 hardware. [The +5V is supplied by the laptop via USB, so it is a
+  characteristic of the laptop, not the IV Swinger 2 hardware.]
 """
         voltage_heading = """
 Voltage calibration:"""
-        help_text_2 = """
+        voltage_help_text = """
   1. Connect the DMM to the IV Swinger 2 binding posts with the PV
      module/cell connected normally
   2. Set the DMM to measure DC voltage
@@ -4229,7 +4282,7 @@ Voltage calibration:"""
 """
         current_heading = """
 Current calibration (a bit trickier):"""
-        help_text_3 = """
+        current_help_text = """
 This must be done on a very clear day, preferably near noon - otherwise the Isc
 value fluctuates too much. You need one additional piece of equipment: a
 standard 15A single-pole light switch with a short wire connected to each
@@ -4259,26 +4312,38 @@ screw.
 """
         resistors_heading = """
 Resistors:"""
-        help_text_4 = """
+        resistors_help_text = """
   Measured values of the resistors used in the IV Swinger 2 voltmeter and
-  ammeter circuits can be specified.  Note, however, that it is not very useful
-  to do this if you perform the voltage and current calibrations since those
-  will account for any differences in the resistances from their nominal values
-  (in addition to other sources of error).  It could be useful, however, if the
+  ammeter circuits can be specified. Note, however, that it is not required to
+  do this if you perform the voltage and current calibrations since those will
+  account for any differences in the resistances from their nominal values (in
+  addition to other sources of error).  It is required, however, if the
   software is being used with a "scaled up" or "scaled down" version of IV
-  Swinger 2 (i.e. one that is configured for higher or lower voltages and
-  currents).
+  Swinger 2 (i.e. one that is configured for higher or lower voltages or
+  currents than the normal module version). This is the case for the cell
+  version: Resistor R1 must be set to a value of 0.0, and when the DIP switch
+  is set to the OFF position (or the jumper is removed) the value of resistor
+  RF must be set to RF + RF1 (755000 nominal).
+"""
+        pyrano_heading = """
+Pyranometer:"""
+        pyrano_help_text = """
+  If the optional pyranometer is being used, this can be used to calibrate the
+  irradiance to a value measured with a reference pyranometer. It is enabled
+  when a curve has been swung with the pyranometer.  The curve will be
+  redisplayed with the new irradiance value, and future curves will be
+  generated using the new calibration.
 """
         bias_battery_heading = """
 Bias Battery:"""
-        help_text_5 = """
+        bias_battery_help_text = """
   This calibration is used only for the cell version of IV Swinger 2
   which sometimes requires a bias battery in series with the PV cell.
   More help is available when this option is selected.
 """
         invalidate_eeprom_heading = """
 Invalidate Arduino EEPROM:"""
-        help_text_6 = """
+        invalidate_eeprom_help_text = """
   The calibration values for the voltage, current and resistors are
   saved to the hardware in the Arduino EEPROM. This menu item is
   primarily for testing that the software handles the case of IV Swinger
@@ -4289,16 +4354,20 @@ Invalidate Arduino EEPROM:"""
         self.text.tag_configure("body_tag", font=font)
         self.text.tag_configure("heading_tag", font=font, underline=True)
         self.text.insert("end", help_text_1, ("body_tag"))
+        self.text.insert("end", vref_heading, ("heading_tag"))
+        self.text.insert("end", vref_help_text, ("body_tag"))
         self.text.insert("end", voltage_heading, ("heading_tag"))
-        self.text.insert("end", help_text_2, ("body_tag"))
+        self.text.insert("end", voltage_help_text, ("body_tag"))
         self.text.insert("end", current_heading, ("heading_tag"))
-        self.text.insert("end", help_text_3, ("body_tag"))
+        self.text.insert("end", current_help_text, ("body_tag"))
         self.text.insert("end", resistors_heading, ("heading_tag"))
-        self.text.insert("end", help_text_4, ("body_tag"))
+        self.text.insert("end", resistors_help_text, ("body_tag"))
+        self.text.insert("end", pyrano_heading, ("heading_tag"))
+        self.text.insert("end", pyrano_help_text, ("body_tag"))
         self.text.insert("end", bias_battery_heading, ("heading_tag"))
-        self.text.insert("end", help_text_5, ("body_tag"))
+        self.text.insert("end", bias_battery_help_text, ("body_tag"))
         self.text.insert("end", invalidate_eeprom_heading, ("heading_tag"))
-        self.text.insert("end", help_text_6, ("body_tag"))
+        self.text.insert("end", invalidate_eeprom_help_text, ("body_tag"))
         self.text.grid()
 
 
