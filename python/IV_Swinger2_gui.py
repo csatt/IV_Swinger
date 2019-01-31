@@ -3927,6 +3927,7 @@ bias battery calibration was enabled.
 WARNING: Calibration values cannot be stored on the IV Swinger 2 hardware with
 this version of the Arduino software. Please upgrade.
 """
+            self.master.save_config()
             tkmsg.showwarning(message=warning_str)
         else:
             self.master.reestablish_arduino_comm(write_eeprom=True)
@@ -4633,11 +4634,9 @@ class ResistorValuesDialog(Dialog):
             self.master.ivs2.amm_shunt_max_volts = val
             resistance_opt_changed = True
 
-        # Update values in EEPROM and save the config if anything changed
+        # Update values in EEPROM (saves the config) if anything changed
         if resistance_opt_changed:
             self.master.menu_bar.update_values_in_eeprom()
-            # Save config
-            self.master.save_config()
 
         # Restore master
         self.restore_master()

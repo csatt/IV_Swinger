@@ -853,6 +853,10 @@ class Configuration(object):
             self.ivs2.logger.print_and_log(err_str)
             return
 
+        # Write meter debug values to log file since they may have
+        # changed
+        self.ivs2.log_meter_debug_info()
+
         # Copy the file to the specified directory (if any, and if it is
         # actually a directory)
         if copy_dir is not None and os.path.isdir(copy_dir):
@@ -3932,16 +3936,25 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             self.clean_up_file(f)
 
     # -------------------------------------------------------------------------
-    def log_initial_debug_info(self):
-        """Method to write pre-run debug info to the log file"""
-
-        self.logger.log("app_data_dir = {}".format(self.app_data_dir))
-        self.logger.log("log_file_name = {}".format(self.logger.log_file_name))
+    def log_meter_debug_info(self):
+        """Method to write some voltmeter and ammeter related derived properties
+           to the log file
+        """
+        self.logger.log("---------------------------------------")
         self.logger.log("adc_inc = {}".format(self.adc_inc))
         self.logger.log("vdiv_ratio = {}".format(self.vdiv_ratio))
         self.logger.log("v_mult = {}".format(self.v_mult))
+        self.logger.log("v_sat = {}".format(self.v_sat))
         self.logger.log("amm_op_amp_gain = {}".format(self.amm_op_amp_gain))
         self.logger.log("i_mult = {}".format(self.i_mult))
+        self.logger.log("i_sat = {}".format(self.i_sat))
+        self.logger.log("---------------------------------------")
+
+    # -------------------------------------------------------------------------
+    def log_initial_debug_info(self):
+        """Method to write pre-run debug info to the log file"""
+        self.logger.log("app_data_dir = {}".format(self.app_data_dir))
+        self.logger.log("log_file_name = {}".format(self.logger.log_file_name))
 
     # -------------------------------------------------------------------------
     def create_hdd_output_dir(self, date_time_str, subdir=""):
