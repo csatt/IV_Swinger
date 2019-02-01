@@ -1,0 +1,18 @@
+The original IV Swinger 2 designs (for PV modules and PV cells) use a
+"Perma-Proto" board and hand-cut, hand-stripped, hand-soldered hookup
+wires for all of the connections between the resistors, capacitors, ICs,
+and power/ground rails.  Hookup wire is also used for the connections
+between the Perma-Proto and the Arduino.
+
+Now there are printed circuit boards (PCBs) available that provide all
+of these connections, making the construction much simpler, faster, and
+more mistake-proof.  Furthermore, there are versions of the PCBs that
+support on-board solid-state relays (SSRs) instead of the off-board
+electromagnetic relays (EMRs).
+
+It is recommended that, moving forward, all IV Swinger 2 constructions
+use the PCB-based designs.
+
+The Perma-Proto-based designs are still valid, and the software is
+backward compatible.  This folder contains the legacy documentation for
+construction of the Perma-Proto-based designs.
