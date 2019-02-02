@@ -32,8 +32,8 @@
 # Permission to use the software is granted under the terms of the GNU
 # GPL v3 as noted above.
 #
-# Current versions of the licensing files, documentation, Fritzing file
-# (hardware description), and software can be found at:
+# Current versions of the licensing files, documentation, hardware
+# design files, and software can be found at:
 #
 #    https://github.com/csatt/IV_Swinger
 #
@@ -3784,9 +3784,8 @@ granted under the terms of the GNU GPL
 v3 as noted above.
 
 Current versions of the licensing files,
-documentation, Fritzing file (hardware
-description), and software can be found
-at:
+documentation, hardware design files,
+and software can be found at:
 
    https://github.com/csatt/IV_Swinger
 

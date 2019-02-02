@@ -4,7 +4,7 @@
 #
 # fix_heat_wxs.py: Support script for IV Swinger 2 Windows installer build
 #
-# Copyright (C) 2017  Chris Satterlee
+# Copyright (C) 2017, 2019  Chris Satterlee
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -31,8 +31,8 @@
 # Permission to use the software is granted under the terms of the GNU
 # GPL v3 as noted above.
 #
-# Current versions of the licensing files, documentation, Fritzing file
-# (hardware description), and software can be found at:
+# Current versions of the licensing files, documentation, hardware
+# design files, and software can be found at:
 #
 #    https://github.com/csatt/IV_Swinger
 #
