@@ -1,0 +1,54 @@
+The original IV Swinger 2 designs (for PV modules and PV cells) use a
+"Perma-Proto" board and hand-cut, hand-stripped, hand-soldered hookup
+wires for all of the connections between the resistors, capacitors, ICs,
+and power/ground rails.  Hookup wire is also used for the connections
+between the Perma-Proto and the Arduino.
+
+Now there are printed circuit boards (PCBs) available that provide all
+of these connections, making the construction much simpler, faster, and
+more mistake-proof.  Furthermore, there are versions of the PCBs that
+support on-board solid-state relays (SSRs) instead of the off-board
+electromagnetic relays (EMRs).
+
+It is recommended that, moving forward, all IV Swinger 2 constructions
+use the PCB-based designs.
+
+The legacy documentation that describes the construction of older
+Perma-Proto-based designs is contained in the Perma_Proto folder. This
+folder contains the documents that are specific to construction using
+the PCBs.
+
+There are four PCB variants:
+
+    EMR-based version for PV modules
+    SSR-based version for PV modules 
+    EMR-based version for PV cells 
+    SSR-based version for PV cells
+
+The step-by-step instructions for building the PCB-based IV Swinger 2
+variants are contained in the variant-specific documents:
+
+   IV_Swinger2_EMR_mod_PCB_Step_by_Step.docx
+   IV_Swinger2_EMR_mod_PCB_Step_by_Step_v<x>.pdf
+   IV_Swinger2_SSR_mod_PCB_Step_by_Step.docx
+   IV_Swinger2_SSR_mod_PCB_Step_by_Step_v<x>.pdf
+   IV_Swinger2_EMR_cell_PCB_Step_by_Step.docx
+   IV_Swinger2_EMR_cell_PCB_Step_by_Step_v<x>.pdf
+   IV_Swinger2_SSR_cell_PCB_Step_by_Step.docx
+   IV_Swinger2_SSR_cell_PCB_Step_by_Step_v<x>.pdf
+
+Drawings of the off-PCB connections are contained in the following:
+
+   Off_PCB_Connections.pptx
+   Off_PCB_Connections_v<x>.pdf
+
+The bills-of-materials (BOMs) for the PCB designs are NOT in this
+folder; they are in the IV_Swinger/PCB/BOM folder.  Note that these BOMs
+contain the parts that are soldered onto the PCBs, but they also contain
+all of the other parts needed to completely construct a PCB-based IV
+Swinger 2.  However, they do not include the parts or instructions for
+adding temperature and irradiance sensors (see the IV_Swinger2_Sensors
+document for that).
+
+
+
