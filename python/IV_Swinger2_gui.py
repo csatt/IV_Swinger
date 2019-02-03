@@ -76,7 +76,7 @@
 #      This class extends the IV_Swinger2 Configuration() class, adding
 #      the looping controls.
 #
-#   ImgSizeCombo(), ResultsWizard(), ProgressBar(), MenuBar(),
+#   ImgSizeCombo(), ResultsWizard(), MenuBar(),
 #   Dialog(), GlobalHelpDialog(), CalibrationHelpDialog(),
 #   DownlevelArduinoSketchDialog(), ResistorValuesDialog(),
 #   PreferencesDialog(), PlottingProps(), PlottingHelpDialog(),
@@ -2951,12 +2951,6 @@ class ResultsWizard(tk.Toplevel):
             tkmsg.showerror(message="ERROR: no runs are selected")
             return
 
-        # Hack: invisible progress bar (length=0). For some reason, this solves
-        # the (Mac-only) problem of the images not getting displayed during the
-        # update
-        if self.master.win_sys == "aqua":  # Mac
-            pb = ProgressBar(master=self, length=0, maximum=len(selected_runs))
-
         # Loop through runs, regenerating/redisplaying
         for run_dir in selected_runs:
             selection = os.path.basename(run_dir)
@@ -3005,11 +2999,7 @@ class ResultsWizard(tk.Toplevel):
             self.master.img_pane.splash_img_showing = False
             reprocess_adc = os.path.exists(adc_csv_file)
             self.master.redisplay_img(reprocess_adc=reprocess_adc)
-            self.update_idletasks()
-
-        # Destroy dummy progress bar
-        if self.master.win_sys == "aqua":  # Mac
-            pb.destroy()
+            self.update()
 
         # Display done message if multiple runs selected
         if len(selected_runs) > 1:
@@ -3619,20 +3609,6 @@ class ResultsWizard(tk.Toplevel):
                 self.ivp.curve_names.append(date_time)
         if len(self.ivp.curve_names) == 0:
             self.ivp.curve_names = None
-
-
-# Progress bar class
-#
-class ProgressBar(tk.Toplevel):
-    """Determinate progress bar class"""
-
-    # Initializer
-    def __init__(self, master=None, orient=HORIZONTAL, length=200,
-                 maximum=None):
-        tk.Toplevel.__init__(self, master=master)
-        self.p = ttk.Progressbar(self, orient=orient, length=length,
-                                 maximum=maximum, mode="determinate")
-        self.p.pack()
 
 
 # Menu bar class
