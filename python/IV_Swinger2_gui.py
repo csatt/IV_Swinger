@@ -2038,7 +2038,9 @@ class ResultsWizard(tk.Toplevel):
         self.treescroll = ttk.Scrollbar(self.treebox, command=self.tree.yview)
         self.tree.configure(yscroll=self.treescroll.set)
         self.tree.bind("<<TreeviewSelect>>", self.select)
-        self.populate_tree()
+        self.configure_tree_size()
+        self.tree.insert("", "end", "", text="WORKING...")
+        self.master.root.after(100,self.populate_tree)
         tt_text = ("Click on path at the top to change. Shift-click and "
                    "Control-click can be used to select multiple runs "
                    "for copying or overlaying.")
@@ -2053,6 +2055,8 @@ class ResultsWizard(tk.Toplevel):
         There is also a top level item for the overlays, and it has all
         of the overlays under it.
         """
+        # Remove any prior contents
+        self.delete_all()
         self.dates = []
 
         # Get a list of all of the subdirectories (and files) in the
@@ -2081,6 +2085,15 @@ class ResultsWizard(tk.Toplevel):
         if not self.tree.exists("overlays") and not len(self.dates):
             self.tree.insert("", "end", "err_msg", text="NO RUNS HERE")
 
+        # Set the column #0 heading
+        self.tree.heading("#0", text=self.results_dir,
+                          command=self.change_folder)
+
+        self.update_idletasks()
+
+    # -------------------------------------------------------------------------
+    def configure_tree_size(self):
+        """Method to set the tree height and column width"""
         # Configure a large height so it is never shorter than the
         # window
         self.tree.configure(height=WIZARD_TREE_HEIGHT)
@@ -2088,9 +2101,6 @@ class ResultsWizard(tk.Toplevel):
         # Configure the column width to be large enough for a fairly
         # long path in the heading
         self.tree.column("#0", width=WIZARD_TREE_WIDTH)
-        self.tree.heading("#0", text=self.results_dir,
-                          command=self.change_folder)
-        self.update_idletasks()
 
     # -------------------------------------------------------------------------
     def populate_overlays(self, subdir):
@@ -2387,7 +2397,6 @@ class ResultsWizard(tk.Toplevel):
         dir = tkFileDialog.askdirectory(**options)
         if len(dir):
             self.results_dir = dir
-            self.delete_all()
             self.populate_tree()
             if not self.tree.exists("overlays") and not len(self.dates):
                 # If there are no overlays or runs in the specified folder, but
@@ -2398,11 +2407,9 @@ class ResultsWizard(tk.Toplevel):
                 parent_dir = os.path.dirname(self.results_dir)
                 if os.path.isdir(ivs2_subdir):
                     self.results_dir = ivs2_subdir
-                    self.delete_all()
                     self.populate_tree()
                 elif os.path.basename(parent_dir) == APP_NAME:
                     self.results_dir = parent_dir
-                    self.delete_all()
                     self.populate_tree()
             self.config_import_button()
 
@@ -2540,7 +2547,6 @@ class ResultsWizard(tk.Toplevel):
 
         # Restore the tree to the app data folder
         self.results_dir = self.master.ivs2.app_data_dir
-        self.delete_all()
         self.populate_tree()
         self.config_shortcut_button()
 
