@@ -3665,7 +3665,8 @@ class MenuBar(tk.Menu):
 
     # -------------------------------------------------------------------------
     def create_file_menu(self):
-        self.file_menu = tk.Menu(self.menubar)
+        self.file_menu = tk.Menu(self.menubar,
+                                 postcommand=self.update_file_menu)
         self.menubar.add_cascade(menu=self.file_menu, label="File")
         self.file_menu.add_command(label="View Log File",
                                    command=self.view_log_file)
@@ -3673,6 +3674,13 @@ class MenuBar(tk.Menu):
                                    command=self.view_config_file)
         self.file_menu.add_command(label="View Run Info File",
                                    command=self.view_run_info_file)
+
+    # -------------------------------------------------------------------------
+    def update_file_menu(self):
+        kwargs = {"state": "normal"}
+        if self.master.ivs2.hdd_output_dir is None:
+            kwargs = {"state": "disabled"}
+        self.file_menu.entryconfig("View Run Info File", **kwargs)
 
     # -------------------------------------------------------------------------
     def create_usb_port_menu(self):
