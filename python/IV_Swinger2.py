@@ -1896,10 +1896,6 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def arduino_ready(self):
         """Property to get flag that indicates if the Arduino is ready
         """
-        # If the USB cable has been unplugged, we need to set this flag
-        # to False even if it was True last time anyone checked
-        if self.usb_port_disconnected():
-            self.arduino_ready = False
         return self._arduino_ready
 
     @arduino_ready.setter

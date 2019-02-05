@@ -269,6 +269,7 @@ class GraphicalUserInterface(ttk.Frame):
         self.create_menu_bar()
         self.create_widgets()
         self.ivs2.log_initial_debug_info()
+        self.usb_monitor()
 
     # -------------------------------------------------------------------------
     def report_callback_exception(self, *args):
@@ -1166,6 +1167,20 @@ value on the Arduino tab of Preferences
     def reestablish_arduino_comm(self, write_eeprom=False):
         self.ivs2.arduino_ready = False
         self.attempt_arduino_handshake(write_eeprom)
+
+    # -------------------------------------------------------------------------
+    def usb_monitor(self):
+        """This method runs every 500 milliseconds, checking if the USB cable
+           was disconnected. If communication had previously been established
+           with the Arduino, it attempts to reestablish communication.
+        """
+        if self.ivs2.arduino_ready and self.ivs2.usb_port_disconnected():
+            self.ivs2.arduino_ready = False
+            self.go_button.state(["disabled"])
+            self.go_button_status_label["text"] = "Not connected"
+            self.reestablish_arduino_comm()
+
+        self.after(500, lambda: self.usb_monitor())
 
     # -------------------------------------------------------------------------
     def swing_loop(self, loop_mode=False, first_loop=False):
