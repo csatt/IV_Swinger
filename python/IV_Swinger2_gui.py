@@ -351,12 +351,6 @@ the log file to csatt1@gmail.com.  Thank you!
         self._overlay_dir = None
         self._overlay_mode = False
         self._redisplay_after_axes_unlock = True
-        self._vref_cal_enabled = False
-        self._voltage_cal_enabled = False
-        self._current_cal_enabled = False
-        self._resistor_cal_enabled = False
-        self._pyranometer_cal_enabled = False
-        self._bias_cal_enabled = False
         self.zero_voc_str = """
 ERROR: Voc is zero volts
 
@@ -889,11 +883,6 @@ value on the Arduino tab of Preferences
         self.ivs2.find_serial_ports()
         if old_serial_ports != self.ivs2.serial_ports:
             self.ivs2.find_arduino_port()
-            # If the list of serial ports changed, we need to update the
-            # list for the USB Port menu. Simplest way is to just
-            # destroy and re-create the whole menu bar.
-            self.menu_bar.destroy()
-            self.create_menu_bar()
 
         if self.ivs2.usb_port is not None:
             self.go_button.state(["disabled"])
@@ -911,9 +900,6 @@ value on the Arduino tab of Preferences
                                lambda: self.clear_go_button_status_label())
                     self.check_arduino_sketch_version()
                     self.update_config_after_arduino_handshake()
-                    self.props.vref_cal_enabled = True
-                    self.props.resistor_cal_enabled = True
-                    self.props.bias_cal_enabled = True
                     return
 
         # If any of the above failed, try again in 1 second
@@ -1172,15 +1158,6 @@ value on the Arduino tab of Preferences
                              first_loop=True)
         if rc == RC_SERIAL_EXCEPTION:
             self.reestablish_arduino_comm()
-
-        # Enable calibration
-        if rc == RC_SUCCESS:
-            self.props.voltage_cal_enabled = True
-            self.props.current_cal_enabled = True
-            self.props.resistor_cal_enabled = True
-            if self.ivs2.irradiance is not None:
-                self.props.pyranometer_cal_enabled = True
-            self.props.bias_cal_enabled = True
 
         # Restore button to "unpressed" appearance
         self.go_button.state(["!pressed"])
@@ -1673,84 +1650,6 @@ class GraphicalUserInterfaceProps(object):
             raise ValueError("redisplay_after_axes_unlock must be boolean")
         self.master._redisplay_after_axes_unlock = value
 
-    # ---------------------------------
-    @property
-    def vref_cal_enabled(self):
-        """True if Vref calibration is enabled
-        """
-        return self.master._vref_cal_enabled
-
-    @vref_cal_enabled.setter
-    def vref_cal_enabled(self, value):
-        if value not in set([True, False]):
-            raise ValueError("vref_cal_enabled must be boolean")
-        self.master._vref_cal_enabled = value
-
-    # ---------------------------------
-    @property
-    def voltage_cal_enabled(self):
-        """True if voltage calibration is enabled
-        """
-        return self.master._voltage_cal_enabled
-
-    @voltage_cal_enabled.setter
-    def voltage_cal_enabled(self, value):
-        if value not in set([True, False]):
-            raise ValueError("voltage_cal_enabled must be boolean")
-        self.master._voltage_cal_enabled = value
-
-    # ---------------------------------
-    @property
-    def current_cal_enabled(self):
-        """True if current calibration is enabled
-        """
-        return self.master._current_cal_enabled
-
-    @current_cal_enabled.setter
-    def current_cal_enabled(self, value):
-        if value not in set([True, False]):
-            raise ValueError("current_cal_enabled must be boolean")
-        self.master._current_cal_enabled = value
-
-    # ---------------------------------
-    @property
-    def resistor_cal_enabled(self):
-        """True if resistor calibration is enabled
-        """
-        return self.master._resistor_cal_enabled
-
-    @resistor_cal_enabled.setter
-    def resistor_cal_enabled(self, value):
-        if value not in set([True, False]):
-            raise ValueError("resistor_cal_enabled must be boolean")
-        self.master._resistor_cal_enabled = value
-
-    # ---------------------------------
-    @property
-    def pyranometer_cal_enabled(self):
-        """True if pyranometer calibration is enabled
-        """
-        return self.master._pyranometer_cal_enabled
-
-    @pyranometer_cal_enabled.setter
-    def pyranometer_cal_enabled(self, value):
-        if value not in set([True, False]):
-            raise ValueError("pyranometer_cal_enabled must be boolean")
-        self.master._pyranometer_cal_enabled = value
-
-    # ---------------------------------
-    @property
-    def bias_cal_enabled(self):
-        """True if bias battery calibration is enabled
-        """
-        return self.master._bias_cal_enabled
-
-    @bias_cal_enabled.setter
-    def bias_cal_enabled(self, value):
-        if value not in set([True, False]):
-            raise ValueError("bias_cal_enabled must be boolean")
-        self.master._bias_cal_enabled = value
-
 
 # GUI Configuration class
 #
@@ -1918,12 +1817,6 @@ class ResultsWizard(tk.Toplevel):
         """
         self.master.results_button.state(["disabled"])
         self.master.go_button.state(["disabled"])
-        self.master.props.vref_cal_enabled = False
-        self.master.props.voltage_cal_enabled = False
-        self.master.props.current_cal_enabled = False
-        self.master.props.resistor_cal_enabled = False
-        self.master.props.pyranometer_cal_enabled = False
-        self.master.props.bias_cal_enabled = False
 
     # -------------------------------------------------------------------------
     def change_min_height(self, min_height):
@@ -2040,7 +1933,7 @@ class ResultsWizard(tk.Toplevel):
         self.tree.bind("<<TreeviewSelect>>", self.select)
         self.configure_tree_size()
         self.tree.insert("", "end", "", text="WORKING...")
-        self.master.root.after(100,self.populate_tree)
+        self.master.root.after(100, self.populate_tree)
         tt_text = ("Click on path at the top to change. Shift-click and "
                    "Control-click can be used to select multiple runs "
                    "for copying or overlaying.")
@@ -2215,11 +2108,6 @@ class ResultsWizard(tk.Toplevel):
         self.master.results_button.state(["!disabled"])
         if self.master.ivs2.arduino_ready:
             self.master.go_button.state(["!disabled"])
-            self.master.props.vref_cal_enabled = True
-            self.master.props.resistor_cal_enabled = True
-            self.master.props.bias_cal_enabled = True
-        if self.master.ivs2.irradiance is not None:
-            self.props.pyranometer_cal_enabled = True
         self.master.config.cfg_filename = None  # property will restore
         self.master.config.get()
         self.master.update_plot_power_cb()
@@ -3622,7 +3510,6 @@ class MenuBar(tk.Menu):
         self.master = master
         self.menubar = tk.Menu(self.master)
         self.selected_port = tk.StringVar()
-        self.selected_port.set(self.master.ivs2.usb_port)
         self.create_about_menu()
         self.create_file_menu()
         self.create_usb_port_menu()
@@ -3666,8 +3553,18 @@ class MenuBar(tk.Menu):
 
     # -------------------------------------------------------------------------
     def create_usb_port_menu(self):
-        self.usb_port_menu = tk.Menu(self.menubar)
+        self.usb_port_menu = tk.Menu(self.menubar,
+                                     postcommand=self.update_usb_port_menu)
         self.menubar.add_cascade(menu=self.usb_port_menu, label="USB Port")
+
+    # -------------------------------------------------------------------------
+    def update_usb_port_menu(self):
+        # If already populated, clear it out
+        index2 = self.usb_port_menu.index("end")
+        if index2 is not None:
+            self.usb_port_menu.delete(0, index2)
+        # Populate
+        self.selected_port.set(self.master.ivs2.usb_port)
         for serial_port_full_str in self.master.ivs2.serial_ports:
             serial_port = str(serial_port_full_str).split(" ")[0]
             self.usb_port_menu.add_radiobutton(label=serial_port_full_str,
@@ -3699,42 +3596,49 @@ class MenuBar(tk.Menu):
 
     # -------------------------------------------------------------------------
     def update_calibrate_menu(self):
-        # Vref
-        if self.master.props.vref_cal_enabled:
+        # Vref, Resistors, Bias battery, Invalidate EEPROM
+        #
+        #   Enabled only if:
+        #     Wizard not active
+        #     Arduino is ready
+        if (self.master.results_wiz is None and
+                self.master.ivs2.arduino_ready):
             kwargs = {"state": "normal"}
         else:
             kwargs = {"state": "disabled"}
         self.calibrate_menu.entryconfig("Vref (+5V)", **kwargs)
-        # Voltage
-        if self.master.props.voltage_cal_enabled:
+        self.calibrate_menu.entryconfig("Resistors", **kwargs)
+        self.calibrate_menu.entryconfig("Bias Battery", **kwargs)
+        self.calibrate_menu.entryconfig("Invalidate Arduino EEPROM", **kwargs)
+        # Voltage, Current
+        #
+        #   Enabled only if:
+        #     Wizard not active
+        #     Arduino is ready
+        #     Splash image is not showing
+        if (self.master.results_wiz is None and
+                self.master.ivs2.arduino_ready and
+                not self.master.img_pane.splash_img_showing):
             kwargs = {"state": "normal"}
         else:
             kwargs = {"state": "disabled"}
         self.calibrate_menu.entryconfig("Voltage Calibration", **kwargs)
-        # Current
-        if self.master.props.current_cal_enabled:
-            kwargs = {"state": "normal"}
-        else:
-            kwargs = {"state": "disabled"}
         self.calibrate_menu.entryconfig("Current Calibration", **kwargs)
-        # Resistors
-        if self.master.props.resistor_cal_enabled:
-            kwargs = {"state": "normal"}
-        else:
-            kwargs = {"state": "disabled"}
-        self.calibrate_menu.entryconfig("Resistors", **kwargs)
         # Pyranometer
-        if self.master.props.pyranometer_cal_enabled:
+        #
+        #   Enabled only if:
+        #     Wizard not active
+        #     Arduino is ready
+        #     Splash image is not showing
+        #     Irradiance value is valid
+        if (self.master.results_wiz is None and
+                self.master.ivs2.arduino_ready and
+                not self.master.img_pane.splash_img_showing and
+                self.master.ivs2.irradiance is not None):
             kwargs = {"state": "normal"}
         else:
             kwargs = {"state": "disabled"}
         self.calibrate_menu.entryconfig("Pyranometer", **kwargs)
-        # Bias battery
-        if self.master.props.bias_cal_enabled:
-            kwargs = {"state": "normal"}
-        else:
-            kwargs = {"state": "disabled"}
-        self.calibrate_menu.entryconfig("Bias Battery", **kwargs)
 
     # -------------------------------------------------------------------------
     def create_window_menu(self):

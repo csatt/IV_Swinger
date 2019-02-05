@@ -1896,6 +1896,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def arduino_ready(self):
         """Property to get flag that indicates if the Arduino is ready
         """
+        # If the USB cable has been unplugged, we need to set this flag
+        # to False even if it was True last time anyone checked
+        if self.usb_port_disconnected():
+            self.arduino_ready = False
         return self._arduino_ready
 
     @arduino_ready.setter
@@ -2468,6 +2472,18 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                         "Generic CDC" in str(serial_port)):  # Elegoo now
                     self.usb_port = str(serial_port).split(" ")[0]
                     break
+
+    # -------------------------------------------------------------------------
+    def usb_port_disconnected(self):
+        """Method to determine if the USB port connected to the Arduino has
+           been disconnected
+        """
+        serial_ports = list(serial.tools.list_ports.comports())
+        for serial_port in serial_ports:
+            port_id = str(serial_port).split(" ")[0]
+            if port_id == self.usb_port:
+                return False
+        return True
 
     # -------------------------------------------------------------------------
     def init_arduino_has_config(self):
