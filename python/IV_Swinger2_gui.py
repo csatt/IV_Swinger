@@ -3667,7 +3667,8 @@ class MenuBar(tk.Menu):
     # -------------------------------------------------------------------------
     def update_file_menu(self):
         kwargs = {"state": "normal"}
-        if self.master.ivs2.hdd_output_dir is None:
+        if (self.master.ivs2.hdd_output_dir is None or
+                not os.path.exists(self.master.ivs2.hdd_output_dir)):
             kwargs = {"state": "disabled"}
         self.file_menu.entryconfig("View Run Info File", **kwargs)
 
