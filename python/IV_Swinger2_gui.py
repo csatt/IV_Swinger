@@ -239,6 +239,83 @@ def get_app_dir():
         return os.path.abspath(os.path.dirname(__file__))
 
 
+def tkmsg_showinfo(master, message):
+    """Global function that creates a tkMessageBox object and calls
+       its showinfo method, passing the message from the caller. The
+       purpose if this is to add the workaround for the Mac grayed
+       menu bug.
+    """
+    tkmsg.showinfo(message=message)
+    master.mac_grayed_menu_workaround()
+
+
+def tkmsg_showwarning(master, message):
+    """Global function that creates a tkMessageBox object and calls
+       its showwarning method, passing the message from the caller. The
+       purpose if this is to add the workaround for the Mac grayed
+       menu bug.
+    """
+    tkmsg.showwarning(message=message)
+    master.mac_grayed_menu_workaround()
+
+
+def tkmsg_showerror(master, message):
+    """Global function that creates a tkMessageBox object and calls
+       its showerror method, passing the message from the caller. The
+       purpose if this is to add the workaround for the Mac grayed
+       menu bug.
+    """
+    tkmsg.showerror(message=message)
+    master.mac_grayed_menu_workaround()
+
+
+def tkmsg_askyesno(master, title, message, default):
+    """Global function that creates a tkMessageBox object and calls
+       its askyesno method, passing the args from the caller. The
+       purpose if this is to add the workaround for the Mac grayed
+       menu bug.
+    """
+    answer = tkmsg.askyesno(title, message=message, default=default)
+    master.mac_grayed_menu_workaround()
+    return answer
+
+
+def tksd_askstring(master, title, prompt, initialvalue):
+    """Global function that creates a tkSimpleDialog object and calls
+       its askstring method, passing the args from the caller. The
+       purpose if this is to add the workaround for the Mac grayed
+       menu bug.
+    """
+    answer = tksd.askstring(title=title, prompt=prompt,
+                            initialvalue=initialvalue)
+    master.mac_grayed_menu_workaround()
+    return answer
+
+
+def tksd_askinteger(master, title, prompt, initialvalue):
+    """Global function that creates a tkSimpleDialog object and calls
+       its askinteger method, passing the args from the caller. The
+       purpose if this is to add the workaround for the Mac grayed
+       menu bug.
+    """
+    answer = tksd.askinteger(title=title, prompt=prompt,
+                             initialvalue=initialvalue)
+    master.mac_grayed_menu_workaround()
+    return answer
+
+
+def tksd_askfloat(master, title, prompt, initialvalue):
+    """Global function that creates a tkSimpleDialog object and calls
+       its askfloat method, passing the args from the caller. The
+       purpose if this is to add the workaround for the Mac grayed
+       menu bug.
+    """
+    answer = tksd.askfloat(title=title, prompt=prompt,
+                           initialvalue=initialvalue)
+    master.mac_grayed_menu_workaround()
+    return answer
+
+
 #################
 #   Classes     #
 #################
@@ -288,7 +365,7 @@ class GraphicalUserInterface(ttk.Frame):
 An internal error has occurred.  Please send
 the log file to csatt1@gmail.com.  Thank you!
 """
-        tkmsg.showerror('Exception', exception_msg)
+        tkmsg_showerror(self, exception_msg)
 
     # -------------------------------------------------------------------------
     def memory_monitor(self):
@@ -413,6 +490,21 @@ value on the Arduino tab of Preferences
         """Method to create the menu bar
         """
         self.menu_bar = MenuBar(master=self)
+
+    # -------------------------------------------------------------------------
+    def mac_grayed_menu_workaround(self):
+        """Method to work around a Mac bug in the version of Tk (8.5.9) that
+           is included with OSX/MacOS versions since 10.7 (Lion) and up to at
+           least 10.13 (High Sierra) that has the effect that if the user
+           looks at the menu while a "modal" window is active, the menu items
+           remain disabled (grayed out) even after the modal window is
+           closed. See https://bugs.python.org/issue21757. Although this can
+           be solved by installing Python from python.org, we'll opt to work
+           around the problem by recreating the menu bar whenever a modal
+           window is closed.
+        """
+        if self.win_sys == "aqua":  # Mac
+            self.create_menu_bar()
 
     # -------------------------------------------------------------------------
     def get_dialog_width(self, dialog):
@@ -1081,7 +1173,7 @@ value on the Arduino tab of Preferences
                            "\n\n"
                            "PDF could not be written. If you have it open in "
                            "a viewer, close it BEFORE clicking OK.".format(e))
-                tkmsg.showerror(message=err_str)
+                tkmsg_showerror(self, message=err_str)
                 try:
                     func(*args)
                 except IOError as e:
@@ -1090,7 +1182,7 @@ value on the Arduino tab of Preferences
                                    "\n\n"
                                    "PDF still could not be written. "
                                    "It will not be updated.".format(e))
-                        tkmsg.showerror(message=err_str)
+                        tkmsg_showerror(self, message=err_str)
 
     # -------------------------------------------------------------------------
     def pdf_permission_denied(self, e):
@@ -1230,7 +1322,7 @@ value on the Arduino tab of Preferences
                                          self.props.loop_save_results)
             else:
                 err_str = ("ERROR: Failed to swing curve for bias battery")
-                tkmsg.showerror(message=err_str)
+                tkmsg_showerror(self, message=err_str)
                 return show_error_dialog_clean_up_and_return(rc)
 
         # Turn second relay on for battery + PV curve. This is done
@@ -1372,7 +1464,7 @@ mismatch. The baud rate is hardcoded in
 the Arduino sketch, and this must match
 the rate specified in Preferences.
 """
-        tkmsg.showerror(message=baud_mismatch_str)
+        tkmsg_showerror(self, message=baud_mismatch_str)
 
     # -------------------------------------------------------------------------
     def show_timeout_dialog(self):
@@ -1387,7 +1479,7 @@ Arduino is lit.
 Check that the correct port is selected
 on the "USB Port" menu.
 """
-        tkmsg.showerror(message=timeout_str)
+        tkmsg_showerror(self, message=timeout_str)
 
     # -------------------------------------------------------------------------
     def show_serial_exception_dialog(self):
@@ -1402,19 +1494,19 @@ Arduino is lit.
 Check that the correct port is selected
 on the "USB Port" menu.
 """
-        tkmsg.showerror(message=serial_exception_str)
+        tkmsg_showerror(self, message=serial_exception_str)
 
     # -------------------------------------------------------------------------
     def show_zero_voc_dialog(self):
-        tkmsg.showerror(message=self.zero_voc_str)
+        tkmsg_showerror(self, message=self.zero_voc_str)
 
     # -------------------------------------------------------------------------
     def show_zero_isc_dialog(self):
-        tkmsg.showerror(message=self.zero_isc_str)
+        tkmsg_showerror(self, message=self.zero_isc_str)
 
     # -------------------------------------------------------------------------
     def show_isc_timeout_dialog(self):
-        tkmsg.showerror(message=self.isc_timeout_str)
+        tkmsg_showerror(self, message=self.isc_timeout_str)
 
     # -------------------------------------------------------------------------
     def show_no_points_dialog(self):
@@ -1424,7 +1516,7 @@ ERROR: No points to display
 This could be a result of selecting "Battery bias" in Preferences when no
 bias was actually applied.
 """
-        tkmsg.showerror(message=no_points_str)
+        tkmsg_showerror(self, message=no_points_str)
 
     # -------------------------------------------------------------------------
     def show_error_dialog(self, rc):
@@ -2093,7 +2185,8 @@ class ResultsWizard(tk.Toplevel):
         # overlay
         if self.master.props.overlay_mode:
             msg_str = "Save overlay before quitting Results Wizard?"
-            save_overlay = tkmsg.askyesno("Save overlay?", msg_str,
+            save_overlay = tkmsg_askyesno(self.master,
+                                          "Save overlay?", msg_str,
                                           default=tkmsg.NO)
             if save_overlay:
                 # Yes: same as if Finished button had been pressed
@@ -2213,7 +2306,7 @@ class ResultsWizard(tk.Toplevel):
         if not os.path.isdir(run_dir):
             err_str = "ERROR: directory {} does not exist".format(run_dir)
             self.master.ivs2.logger.print_and_log(err_str)
-            tkmsg.showerror(message=err_str)
+            tkmsg_showerror(self.master, message=err_str)
             return None
         return run_dir
 
@@ -2298,6 +2391,7 @@ class ResultsWizard(tk.Toplevel):
         if self.master.win_sys == "aqua":  # Mac
             options["message"] = options["title"]
         dir = tkFileDialog.askdirectory(**options)
+        self.master.mac_grayed_menu_workaround()
         if len(dir):
             self.results_dir = dir
             self.populate_tree()
@@ -2341,7 +2435,7 @@ class ResultsWizard(tk.Toplevel):
         desktop_path = os.path.expanduser(os.path.join("~", "Desktop"))
         if not os.path.exists(desktop_path):
             err_str = "ERROR: {} does not exist".format(desktop_path)
-            tkmsg.showerror(message=err_str)
+            tkmsg_showerror(self.master, message=err_str)
 
         # Define shortcut name
         desktop_shortcut_path = os.path.join(desktop_path, "IV_Swinger2")
@@ -2402,7 +2496,7 @@ class ResultsWizard(tk.Toplevel):
             msg_str = "ERROR: could not create shortcut"
         else:
             msg_str = "ERROR: Programming bug"
-        tkmsg.showerror(message=msg_str)
+        tkmsg_showerror(self.master, message=msg_str)
 
     # -------------------------------------------------------------------------
     def import_results(self, event=None):
@@ -2480,6 +2574,7 @@ class ResultsWizard(tk.Toplevel):
         if self.master.win_sys == "aqua":  # Mac
             options["message"] = options["title"]
         self.copy_dest = tkFileDialog.askdirectory(**options)
+        self.master.mac_grayed_menu_workaround()
         if self.copy_dest is "":  # Cancel
             return RC_FAILURE
 
@@ -2491,7 +2586,7 @@ class ResultsWizard(tk.Toplevel):
         # Check that it is writeable
         if not os.access(self.copy_dest, os.W_OK | os.X_OK):
             err_str = "ERROR: {} is not writeable".format(self.copy_dest)
-            tkmsg.showerror(message=err_str)
+            tkmsg_showerror(self.master, message=err_str)
             return RC_FAILURE
 
         return RC_SUCCESS
@@ -2508,13 +2603,14 @@ class ResultsWizard(tk.Toplevel):
 
         # Display error dialog and return if nothing is selected
         if not len(selected_runs) and not len(selected_overlays):
-            tkmsg.showerror(message="ERROR: no runs or overlays are selected")
+            tkmsg_showerror(self.master,
+                            message="ERROR: no runs or overlays are selected")
             return
 
         # Display error dialog and return if in overlay mode
         if self.master.props.overlay_mode:
             err_msg = "ERROR: cannot perform a delete in overlay mode"
-            tkmsg.showerror(message=err_msg)
+            tkmsg_showerror(self.master, message=err_msg)
             return
 
         all_selected = selected_runs + selected_overlays
@@ -2544,7 +2640,8 @@ class ResultsWizard(tk.Toplevel):
         if num_selected_overlays:
             msg_str += ("Send {} overlays to the trash?\n"
                         .format(num_selected_overlays))
-        granted = tkmsg.askyesno("OK to send to trash?", msg_str,
+        granted = tkmsg_askyesno(self.master,
+                                 "OK to send to trash?", msg_str,
                                  default=tkmsg.NO)
         return granted
 
@@ -2561,13 +2658,14 @@ class ResultsWizard(tk.Toplevel):
 
         # Display error dialog and return if nothing is selected
         if not len(selected_runs) and not len(selected_overlays):
-            tkmsg.showerror(message="ERROR: no runs or overlays are selected")
+            tkmsg_showerror(self.master,
+                            message="ERROR: no runs or overlays are selected")
             return
 
         # Display error dialog and return if in overlay mode
         if self.master.props.overlay_mode:
             err_msg = "ERROR: cannot perform a copy in overlay mode"
-            tkmsg.showerror(message=err_msg)
+            tkmsg_showerror(self.master, message=err_msg)
             return
 
         # Get destination from user
@@ -2674,7 +2772,8 @@ class ResultsWizard(tk.Toplevel):
                 for dest_dir in existing_dest_dirs:
                     msg_str += "  {}\n".format(dest_dir)
             msg_str += "\nOverwrite all?"
-            overwrite = tkmsg.askyesno("Overwrite all?", msg_str,
+            overwrite = tkmsg_askyesno(self.master,
+                                       "Overwrite all?", msg_str,
                                        default=tkmsg.NO)
         return overwrite
 
@@ -2694,7 +2793,7 @@ class ResultsWizard(tk.Toplevel):
                     except (IOError, OSError, shutil.Error) as e:
                         err_str = ("ERROR: removing {} ({})"
                                    .format(dest_dir, e))
-                        tkmsg.showerror(message=err_str)
+                        tkmsg_showerror(self.master, message=err_str)
                         continue
                 else:
                     continue
@@ -2709,7 +2808,7 @@ class ResultsWizard(tk.Toplevel):
             except (IOError, OSError, shutil.Error) as e:
                 err_str = ("ERROR: error copying {} to {}\n({})"
                            .format(src_dir, dest_dir, e))
-                tkmsg.showerror(message=err_str)
+                tkmsg_showerror(self.master, message=err_str)
 
         return num_copied
 
@@ -2738,7 +2837,7 @@ class ResultsWizard(tk.Toplevel):
                    .format(num_copied["overlays"],
                            num_copied["runs"],
                            os.path.join(self.copy_dest, APP_NAME)))
-        tkmsg.showerror(message=msg_str)
+        tkmsg_showerror(self.master, message=msg_str)
 
     # -------------------------------------------------------------------------
     def change_title(self, event=None):
@@ -2756,7 +2855,8 @@ class ResultsWizard(tk.Toplevel):
             selected_overlays = self.get_selected_overlays()
             # Display error dialog and return if any overlays are selected
             if len(selected_overlays):
-                tkmsg.showerror(message=("ERROR: cannot change title on "
+                tkmsg_showerror(self.master,
+                                message=("ERROR: cannot change title on "
                                          "completed overlays"))
                 return
             sel_runs = self.get_selected_runs(include_whole_days=False)
@@ -2770,13 +2870,14 @@ class ResultsWizard(tk.Toplevel):
             elif len(sel_runs) > 1:
                 err_str = ("ERROR: Title can only be changed on one run "
                            "at a time")
-                tkmsg.showerror(message=err_str)
+                tkmsg_showerror(self.master, message=err_str)
                 return
             else:
                 err_str = ("ERROR: No run selected")
-                tkmsg.showerror(message=err_str)
+                tkmsg_showerror(self.master, message=err_str)
                 return
-        new_title = tksd.askstring(title=prompt_title_str,
+        new_title = tksd_askstring(self.master,
+                                   title=prompt_title_str,
                                    prompt=prompt_str,
                                    initialvalue=init_val)
         if new_title:
@@ -2817,7 +2918,7 @@ class ResultsWizard(tk.Toplevel):
                 IV_Swinger2.sys_view_file(pdf)
                 return
         err_str = ("ERROR: No PDF to display")
-        tkmsg.showerror(message=err_str)
+        tkmsg_showerror(self.master, message=err_str)
 
     # -------------------------------------------------------------------------
     def plot_graphs_to_pdf(self):
@@ -2837,13 +2938,14 @@ class ResultsWizard(tk.Toplevel):
         # Display error dialog and return if any overlays are selected
         selected_overlays = self.get_selected_overlays()
         if len(selected_overlays):
-            tkmsg.showerror(message="ERROR: overlays cannot be updated")
+            tkmsg_showerror(self.master,
+                            message="ERROR: overlays cannot be updated")
             return
 
         # Display error dialog and return if in overlay mode
         if self.master.props.overlay_mode:
             err_msg = "ERROR: cannot perform an update in overlay mode"
-            tkmsg.showerror(message=err_msg)
+            tkmsg_showerror(self.master, message=err_msg)
             return
 
         # Get the selected run(s) from the Treeview (sorted from
@@ -2851,7 +2953,8 @@ class ResultsWizard(tk.Toplevel):
         # runs are selected
         selected_runs = sorted(self.get_selected_runs())
         if not len(selected_runs):
-            tkmsg.showerror(message="ERROR: no runs are selected")
+            tkmsg_showerror(self.master,
+                            message="ERROR: no runs are selected")
             return
 
         # Loop through runs, regenerating/redisplaying
@@ -2906,7 +3009,8 @@ class ResultsWizard(tk.Toplevel):
 
         # Display done message if multiple runs selected
         if len(selected_runs) > 1:
-            tkmsg.showinfo(message="Batch update complete")
+            tkmsg_showinfo(self.master,
+                           message="Batch update complete")
 
     # -------------------------------------------------------------------------
     def overlay_runs(self, event=None):
@@ -2922,13 +3026,13 @@ class ResultsWizard(tk.Toplevel):
         if len(self.overlaid_runs) > max_overlays:
             err_str = ("ERROR: Maximum of {} overlays supported ({} requested)"
                        .format(max_overlays, len(self.overlaid_runs)))
-            tkmsg.showerror(message=err_str)
+            tkmsg_showerror(self.master, message=err_str)
             return RC_FAILURE
 
         # Check for none selected
         if not self.master.props.overlay_mode and not len(self.overlaid_runs):
             info_str = ("Select at least one run to begin an overlay")
-            tkmsg.showerror(message=info_str)
+            tkmsg_showerror(self.master, message=info_str)
             return RC_FAILURE
 
         # Enter overlay mode (if not already in it)
@@ -3215,7 +3319,7 @@ class ResultsWizard(tk.Toplevel):
         """
         help_str = ("Double-click items below to rename.\n"
                     "Drag items to change order.")
-        tkmsg.showinfo(message=help_str)
+        tkmsg_showinfo(self.master, message=help_str)
 
     # -------------------------------------------------------------------------
     def populate_overlay_treeview(self, run_dirs):
@@ -3297,7 +3401,8 @@ class ResultsWizard(tk.Toplevel):
             init_val = self.master.props.overlay_names[dts]
         else:
             init_val = date_time
-        new_name = tksd.askstring(title="Change name",
+        new_name = tksd_askstring(self.master,
+                                  title="Change name",
                                   prompt=prompt_str,
                                   initialvalue=init_val)
         if new_name:
@@ -3416,12 +3521,12 @@ class ResultsWizard(tk.Toplevel):
             if not csv_files_found:
                 err_str = ("ERROR: no data point CSV file found in {}"
                            .format(csv_dir))
-                tkmsg.showerror(message=err_str)
+                tkmsg_showerror(self.master, message=err_str)
                 return RC_FAILURE
             elif csv_files_found > 1:
                 err_str = ("ERROR: multiple data point CSV files found in {}"
                            .format(csv_dir))
-                tkmsg.showerror(message=err_str)
+                tkmsg_showerror(self.master, message=err_str)
                 return RC_FAILURE
 
         return RC_SUCCESS
@@ -3705,7 +3810,8 @@ Copyright (C) 2017-2019  Chris Satterlee
         if sketch_ver != "Unknown":
             sketch_ver_str = ("Arduino sketch version: {}\n\n"
                               .format(sketch_ver))
-        tkmsg.showinfo(message=version_str+sketch_ver_str+about_str)
+        tkmsg_showinfo(self.master,
+                       message=version_str+sketch_ver_str+about_str)
 
     # -------------------------------------------------------------------------
     def view_log_file(self):
@@ -3720,10 +3826,8 @@ Copyright (C) 2017-2019  Chris Satterlee
         if self.master.win_sys == "aqua":  # Mac
             options["message"] = options["title"]
         log_file = tkFileDialog.askopenfilename(**options)
+        self.master.mac_grayed_menu_workaround()
         IV_Swinger2.sys_view_file(log_file)
-        if self.master.win_sys == "aqua":  # Mac
-            # Work around Mac bug (grayed menu items)
-            self.master.create_menu_bar()
 
     # -------------------------------------------------------------------------
     def get_initial_log_file_name(self, dir, current_log):
@@ -3775,7 +3879,8 @@ Copyright (C) 2017-2019  Chris Satterlee
     def get_vref_cal_value(self):
         curr_vref = self.master.ivs2.adc_vref
         prompt_str = "Enter measured voltage of +5V reference:"
-        new_vref = tksd.askfloat(title="+5V (Vref) Calibration",
+        new_vref = tksd_askfloat(self.master,
+                                 title="+5V (Vref) Calibration",
                                  prompt=prompt_str,
                                  initialvalue=curr_vref)
         if new_vref:
@@ -3797,13 +3902,14 @@ be performed using a curve that has
 battery bias applied unless dynamic
 bias battery calibration was enabled.
 """
-            tkmsg.showerror(message=err_msg)
+            tkmsg_showerror(self.master, message=err_msg)
             return
 
         data_points = self.master.ivs2.data_points
         curr_voc = round(data_points[-1][IV_Swinger2.VOLTS_INDEX], 5)
         prompt_str = "Enter measured Voc value:"
-        new_voc = tksd.askfloat(title="Voltage Calibration",
+        new_voc = tksd_askfloat(self.master,
+                                title="Voltage Calibration",
                                 prompt=prompt_str,
                                 initialvalue=curr_voc)
         if new_voc:
@@ -3838,7 +3944,8 @@ bias battery calibration was enabled.
         data_points = self.master.ivs2.data_points
         curr_isc = round(data_points[0][IV_Swinger2.AMPS_INDEX], 5)
         prompt_str = "Enter measured Isc value:"
-        new_isc = tksd.askfloat(title="Current Calibration",
+        new_isc = tksd_askfloat(self.master,
+                                title="Current Calibration",
                                 prompt=prompt_str,
                                 initialvalue=curr_isc)
         if new_isc:
@@ -3854,7 +3961,8 @@ bias battery calibration was enabled.
     def get_pyrano_cal_value(self):
         curr_irradiance = self.master.ivs2.irradiance
         prompt_str = "Enter measured W/m^2 value:"
-        new_irradiance = tksd.askfloat(title="Pyranometer Calibration",
+        new_irradiance = tksd_askfloat(self.master,
+                                       title="Pyranometer Calibration",
                                        prompt=prompt_str,
                                        initialvalue=curr_irradiance)
         if new_irradiance:
@@ -3876,7 +3984,7 @@ WARNING: Calibration values cannot be stored on the IV Swinger 2 hardware with
 this version of the Arduino software. Please upgrade.
 """
             self.master.save_config()
-            tkmsg.showwarning(message=warning_str)
+            tkmsg_showwarning(self.master, message=warning_str)
         else:
             self.master.reestablish_arduino_comm(write_eeprom=True)
 
@@ -3894,7 +4002,7 @@ this version of the Arduino software. Please upgrade.
             err_str = ("ERROR: The Arduino sketch does not support "
                        "invalidating the EEPROM. You must update it "
                        "to use this feature.")
-            tkmsg.showerror(message=err_str)
+            tkmsg_showerror(self.master, message=err_str)
             return
         msg_str = """
 Are you SURE you want to invalidate the
@@ -3904,7 +4012,8 @@ IV Swinger 2 hardware (voltage, current,
 resistors). After the invalidate, the app
 will exit.
 """
-        inval_eeprom = tkmsg.askyesno("Invalidate EEPROM?", msg_str,
+        inval_eeprom = tkmsg_askyesno(self.master,
+                                      "Invalidate EEPROM?", msg_str,
                                       default=tkmsg.NO)
         if inval_eeprom:
             self.master.ivs2.invalidate_arduino_eeprom()
@@ -3936,23 +4045,11 @@ class Dialog(tk.Toplevel):
     provided for the subclass to override. A placeholder function to
     validate the input before applying it is also provided for optional
     override.
-
-    NOTE: There's a bug in version of Tk (8.5.9) that is included with
-    OSX/MacOS versions since 10.7 (Lion) and up to at least 10.13 (High
-    Sierra) that has the effect that the grab_set() method can cause
-    menu items to become permanently disabled (grayed out). See
-    https://bugs.python.org/issue21757. Although this can be solved by
-    installing Python from python.org, we'll opt to just avoid the
-    problem by not calling grab_set().  This removes the modal behavior
-    of the Dialog class.  For now, there's a "modal" parameter that
-    defaults to False.  This means that dialogs now may have to take
-    specific precautions to restrict what the user can do while the
-    dialog is open.
     """
     # Initializer
     def __init__(self, master=None, title=None, has_ok_button=True,
                  has_cancel_button=True, return_ok=False, ok_label="OK",
-                 resizable=False, modal=False):
+                 resizable=False, parent_is_modal=False):
         tk.Toplevel.__init__(self, master=master)
         self.master = master
         self.win_sys = self.master.tk.call("tk", "windowingsystem")
@@ -3964,11 +4061,11 @@ class Dialog(tk.Toplevel):
         self.transient(self.master)  # tie this window to master
         if title is not None:
             self.title(title)
-        if modal:
-            self.grab_set()  # block change of focus to master
+        self.grab_set()  # block change of focus to master
         self.focus_set()
         self.snapshot_values = {}
         self.curr_values = {}
+        self.parent_is_modal = parent_is_modal
 
         # Snapshot current values for revert
         self.snapshot()
@@ -4052,6 +4149,8 @@ class Dialog(tk.Toplevel):
         # put focus back to the master window
         self.master.focus_set()
         self.destroy()
+        if not self.parent_is_modal:
+            self.master.mac_grayed_menu_workaround()
 
 
 # Global help dialog class
@@ -4374,8 +4473,6 @@ class ResistorValuesDialog(Dialog):
         self.rf_str = tk.StringVar()
         self.rg_str = tk.StringVar()
         self.shunt_str = tk.StringVar()
-        # Disable some (but not all) main window functions
-        self.constrain_master()
         title = "{} Resistor Values".format(APP_NAME)
         Dialog.__init__(self, master=master, title=title)
 
@@ -4457,29 +4554,6 @@ class ResistorValuesDialog(Dialog):
         frame.grid()
 
     # -------------------------------------------------------------------------
-    def constrain_master(self):
-        """Method to disable some of the functionality of the master while the
-           dialog is running
-        """
-        self.master.go_button.state(["disabled"])
-        self.master.preferences_button.state(["disabled"])
-        self.master.results_button.state(["disabled"])
-        self.master.props.resistor_cal_enabled = False
-        self.master.props.bias_cal_enabled = False
-
-    # -------------------------------------------------------------------------
-    def restore_master(self):
-        """Method to re-enable the functionality of the master that was
-           disabled by constrain_master
-        """
-        if self.master.ivs2.arduino_ready:
-            self.master.go_button.state(["!disabled"])
-        self.master.preferences_button.state(["!disabled"])
-        self.master.results_button.state(["!disabled"])
-        self.master.props.resistor_cal_enabled = True
-        self.master.props.bias_cal_enabled = True
-
-    # -------------------------------------------------------------------------
     def restore_defaults(self, event=None):
         """Restore resistor values to defaults"""
         self.r1_str.set(str(R1_DEFAULT))
@@ -4535,7 +4609,7 @@ class ResistorValuesDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def show_resistor_error_dialog(self, err_str):
-        tkmsg.showerror(message=err_str)
+        tkmsg_showerror(self.master, message=err_str)
 
     # -------------------------------------------------------------------------
     def revert(self):
@@ -4553,9 +4627,6 @@ class ResistorValuesDialog(Dialog):
         self.master.ivs2.amm_op_amp_rg = self.snapshot_values["amm_op_amp_rg"]
         amm_shunt_max_volts = self.snapshot_values["amm_shunt_max_volts"]
         self.master.ivs2.amm_shunt_max_volts = amm_shunt_max_volts
-
-        # Restore master
-        self.restore_master()
 
     # -------------------------------------------------------------------------
     def apply(self):
@@ -4615,9 +4686,6 @@ class ResistorValuesDialog(Dialog):
         if resistance_opt_changed:
             self.master.menu_bar.update_values_in_eeprom()
 
-        # Restore master
-        self.restore_master()
-
 
 # Bias battery dialog class
 #
@@ -4634,8 +4702,6 @@ class BiasBatteryDialog(Dialog):
         self.reestablish_arduino_comm_reqd = False
         self.bias_batt_csv_file = None
         self.dyn_cal_enable = tk.StringVar()
-        # Disable some (but not all) main window functions
-        self.constrain_master()
         Dialog.__init__(self, master=master, title=title)
 
     # -------------------------------------------------------------------------
@@ -4702,29 +4768,6 @@ performed immediately before EVERY curve is swung."""
         frame.grid()
 
     # -------------------------------------------------------------------------
-    def constrain_master(self):
-        """Method to disable some of the functionality of the master while the
-           dialog is running
-        """
-        self.master.go_button.state(["disabled"])
-        self.master.preferences_button.state(["disabled"])
-        self.master.results_button.state(["disabled"])
-        self.master.props.resistor_cal_enabled = False
-        self.master.props.bias_cal_enabled = False
-
-    # -------------------------------------------------------------------------
-    def restore_master(self):
-        """Method to re-enable the functionality of the master that was
-           disabled by constrain_master
-        """
-        if self.master.ivs2.arduino_ready:
-            self.master.go_button.state(["!disabled"])
-        self.master.preferences_button.state(["!disabled"])
-        self.master.results_button.state(["!disabled"])
-        self.master.props.resistor_cal_enabled = True
-        self.master.props.bias_cal_enabled = True
-
-    # -------------------------------------------------------------------------
     def revert(self):
         """Override revert() method of parent to restore the Arduino
            configuration
@@ -4733,9 +4776,6 @@ performed immediately before EVERY curve is swung."""
         # isc_stable_adc value, et al)
         if self.reestablish_arduino_comm_reqd:
             self.master.reestablish_arduino_comm()
-
-        # Restore master
-        self.restore_master()
 
     # -------------------------------------------------------------------------
     def apply(self):
@@ -4750,7 +4790,7 @@ performed immediately before EVERY curve is swung."""
             err_str = ("ERROR: The Arduino sketch does not support dynamic "
                        "bias calibration. You must update it to use this "
                        "feature.")
-            tkmsg.showerror(message=err_str)
+            tkmsg_showerror(self.master, message=err_str)
         elif dyn_bias_cal != self.master.ivs2.dyn_bias_cal:
             self.master.ivs2.dyn_bias_cal = dyn_bias_cal
             # Update and save config
@@ -4761,7 +4801,6 @@ performed immediately before EVERY curve is swung."""
 
         # Silently return if calibration was not performed
         if self.bias_batt_csv_file is None:
-            self.restore_master()
             return
 
         # Remove any previous bias battery calibration CSV
@@ -4776,9 +4815,6 @@ performed immediately before EVERY curve is swung."""
         if self.reestablish_arduino_comm_reqd:
             self.master.reestablish_arduino_comm()
 
-        # Restore master
-        self.restore_master()
-
     # -------------------------------------------------------------------------
     def calibrate_battery_bias(self):
         """Swing an IV curve of the bias battery and generate a CSV file with
@@ -4786,7 +4822,7 @@ performed immediately before EVERY curve is swung."""
         """
         if not self.master.ivs2.arduino_ready:
             err_str = ("ERROR: The IV Swinger 2 is not connected.")
-            tkmsg.showerror(message=err_str)
+            tkmsg_showerror(self.master, message=err_str)
             return
         if not self.ready_to_calibrate:
             title_str = "Ready to calibrate bias battery?"
@@ -4796,7 +4832,8 @@ Swinger 2 bottom black and top red
 binding posts WITHOUT THE PV CELL in
 series?  Click YES to perform the
 calibration, NO to cancel."""
-            self.ready_to_calibrate = tkmsg.askyesno(title_str,
+            self.ready_to_calibrate = tkmsg_askyesno(self.master,
+                                                     title_str,
                                                      msg_str,
                                                      default=tkmsg.YES)
         if self.ready_to_calibrate:
@@ -4826,7 +4863,8 @@ the displayed curve:
      expected Isc of the PV cell at a
      voltage > 1.0V
 """
-                    self.curve_looks_ok = tkmsg.askyesno(title_str,
+                    self.curve_looks_ok = tkmsg_askyesno(self.master,
+                                                         title_str,
                                                          msg_str,
                                                          default=tkmsg.YES)
                 if self.curve_looks_ok:
@@ -4839,7 +4877,7 @@ the displayed curve:
                 self.master.ivs2.clean_up_files(output_dir)
             else:
                 err_str = ("ERROR: Failed to swing curve for bias battery")
-                tkmsg.showerror(message=err_str)
+                tkmsg_showerror(self.master, message=err_str)
                 self.master.show_error_dialog(rc)
                 # Clean up
                 output_dir = self.master.ivs2.hdd_output_dir
@@ -4882,26 +4920,7 @@ class PreferencesDialog(Dialog):
         self.aspect_width_str = tk.StringVar()
         self.plot_props = PlottingProps(ivs2=master.ivs2)
         title = "{} Preferences".format(APP_NAME)
-        # Disable some (but not all) main window functions
-        self.constrain_master()
         Dialog.__init__(self, master=master, title=title)
-
-    # -------------------------------------------------------------------------
-    def constrain_master(self):
-        """Method to disable some of the functionality of the master while the
-           Preferences dialog is running
-        """
-        # Currently the only constraint is that the Preferences button
-        # is disabled, preventing multiple Preferences dialogs from
-        # being opened concurrently.
-        self.master.preferences_button.state(["disabled"])
-
-    # -------------------------------------------------------------------------
-    def restore_master(self):
-        """Method to re-enable the functionality of the master that was
-           disabled by constrain_master
-        """
-        self.master.preferences_button.state(["!disabled"])
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -5557,7 +5576,7 @@ value now.
             self.relay_active_high_str.set("Disabled")
             if self.master.ivs2.relay_active_high:
                 self.relay_active_high_str.set("Enabled")
-            tkmsg.showerror(message=error_str)
+            tkmsg_showerror(self.master, message=error_str)
         elif self.master.ivs2.arduino_sketch_supports_active_high_relay:
             warning_str = """
 WARNING: Changing the "Relay is
@@ -5572,7 +5591,7 @@ trigger pin. It should NEVER be
 checked for an IV Swinger 2 that
 uses SSRs or damage could result!
 """
-            tkmsg.showwarning(message=warning_str)
+            tkmsg_showwarning(self.master, message=warning_str)
         else:
             error_str = """
 ERROR: This version of the Arduino
@@ -5581,7 +5600,7 @@ only. Changing this value has no
 effect. Please upgrade.
 """
             self.relay_active_high_str.set("Disabled")
-            tkmsg.showerror(message=error_str)
+            tkmsg_showerror(self.master, message=error_str)
 
     # -------------------------------------------------------------------------
     def show_arduino_help(self):
@@ -5714,7 +5733,7 @@ effect. Please upgrade.
 
     # -------------------------------------------------------------------------
     def show_arduino_error_dialog(self, err_str):
-        tkmsg.showerror(message=err_str)
+        tkmsg_showerror(self.master, message=err_str)
 
     # -------------------------------------------------------------------------
     def revert(self):
@@ -5751,9 +5770,6 @@ effect. Please upgrade.
             self.master.redisplay_img(reprocess_adc=reprocess_adc)
             self.plot_props.update_prop_vals()
 
-        # Restore master
-        self.restore_master()
-
     # -------------------------------------------------------------------------
     def apply(self):
         """Override apply() method of parent to apply new values to properties
@@ -5766,9 +5782,6 @@ effect. Please upgrade.
         self.plotting_apply()
         self.looping_apply()
         self.arduino_apply()
-
-        # Restore master
-        self.restore_master()
 
     # -------------------------------------------------------------------------
     def plotting_apply(self):
@@ -5937,7 +5950,7 @@ effect. Please upgrade.
 ERROR: The relay_active_high value could not be
 written to Arduino EEPROM.
 """
-                    tkmsg.showerror('ERROR', error_msg)
+                    tkmsg_showerror(self.master, error_msg)
 
         # Apply and save the config if anything changed
         if arduino_opt_changed:
@@ -6040,7 +6053,8 @@ class PlottingHelpDialog(Dialog):
     def __init__(self, master=None):
         title = "Plotting Help"
         Dialog.__init__(self, master=master, title=title,
-                        has_cancel_button=False, return_ok=True)
+                        has_cancel_button=False, return_ok=True,
+                        parent_is_modal=True)
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -6184,7 +6198,8 @@ class LoopingHelpDialog(Dialog):
     def __init__(self, master=None):
         title = "Looping Help"
         Dialog.__init__(self, master=master, title=title,
-                        has_cancel_button=False, return_ok=True)
+                        has_cancel_button=False, return_ok=True,
+                        parent_is_modal=True)
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -6215,7 +6230,8 @@ class ArduinoHelpDialog(Dialog):
     def __init__(self, master=None):
         title = "Arduino Help"
         Dialog.__init__(self, master=master, title=title,
-                        has_cancel_button=False, return_ok=True)
+                        has_cancel_button=False, return_ok=True,
+                        parent_is_modal=True)
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -6586,7 +6602,8 @@ class LoopRateLimit(ttk.Checkbutton):
         if self.loop_rate_limit.get() == "On":
             curr_loop_delay = self.gui.props.loop_delay
             prompt_str = "Enter seconds to delay between loops:"
-            new_loop_delay = tksd.askinteger(title="Loop delay",
+            new_loop_delay = tksd_askinteger(self.gui,
+                                             title="Loop delay",
                                              prompt=prompt_str,
                                              initialvalue=curr_loop_delay)
             if new_loop_delay:
@@ -6637,7 +6654,8 @@ class LoopSaveResults(ttk.Checkbutton):
             self.value_label_obj.destroy()
         if self.loop_save_results.get() == "On":
             self.gui.props.loop_save_results = True
-            include_graphs = tkmsg.askyesno("Include graphs?",
+            include_graphs = tkmsg_askyesno(self.gui,
+                                            "Include graphs?",
                                             "Default is to save CSV files "
                                             "only. Do you want to save PDFs"
                                             " and GIFs too?",
