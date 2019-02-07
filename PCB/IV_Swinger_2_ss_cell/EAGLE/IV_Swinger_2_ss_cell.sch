@@ -20407,7 +20407,7 @@ blocks</text>
 <text x="198.12" y="121.92" size="2.54" layer="97" rot="R90">Arduino Analog Header</text>
 <text x="198.12" y="78.74" size="2.54" layer="97" rot="R90">Arduino Power Header</text>
 <text x="205.74" y="154.94" size="2.54" layer="97">Female Header</text>
-<text x="235.966" y="6.604" size="2.54" layer="97">SSRC-A</text>
+<text x="235.966" y="6.604" size="2.54" layer="97">SSRC-B</text>
 <text x="149.606" y="26.924" size="1.778" layer="97">This is an Arduino shield PCB for the IV Swinger 2.  This is a version for 
 PV cells that uses four on-board SPST solid state relays instead of the 
 two external SPDT electromechanical relays. </text>
@@ -21045,10 +21045,10 @@ bypass diode (15SQ045)</text>
 <net name="N20" class="0">
 <segment>
 <pinref part="SSR4" gate="G$1" pin="K"/>
-<wire x1="106.68" y1="101.6" x2="106.68" y2="175.26" width="0.1524" layer="91"/>
-<label x="38.354" y="175.768" size="1.778" layer="95"/>
-<pinref part="A2" gate="G$1" pin="7"/>
-<wire x1="35.56" y1="175.26" x2="106.68" y2="175.26" width="0.1524" layer="91"/>
+<label x="38.354" y="150.368" size="1.778" layer="95"/>
+<pinref part="A1" gate="G$1" pin="10"/>
+<wire x1="35.56" y1="149.86" x2="106.68" y2="149.86" width="0.1524" layer="91"/>
+<wire x1="106.68" y1="149.86" x2="106.68" y2="101.6" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="N23" class="0">
