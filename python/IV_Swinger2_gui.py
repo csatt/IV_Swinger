@@ -429,6 +429,7 @@ the log file to csatt1@gmail.com.  Thank you!
         self._overlay_dir = None
         self._overlay_mode = False
         self._redisplay_after_axes_unlock = True
+        self._current_run_displayed = False
         self.zero_voc_str = """
 ERROR: Voc is zero volts
 
@@ -1290,6 +1291,9 @@ value on the Arduino tab of Preferences
             self.ivs2.clean_up_after_failure(self.ivs2.hdd_output_dir)
             return rc
 
+        # Clear current_run_displayed flag
+        self.props.current_run_displayed = True
+
         # Capture the start time
         loop_start_time = dt.datetime.now()
 
@@ -1345,6 +1349,7 @@ value on the Arduino tab of Preferences
         if rc == RC_SUCCESS:
             # Update the image pane with the new curve GIF
             self.display_img(self.ivs2.current_img)
+            self.props.current_run_displayed = True
         elif (loop_mode and
               not self.props.loop_stop_on_err and
               (rc == RC_ZERO_ISC or rc == RC_ZERO_VOC or
@@ -1756,6 +1761,20 @@ class GraphicalUserInterfaceProps(object):
         if value not in set([True, False]):
             raise ValueError("redisplay_after_axes_unlock must be boolean")
         self.master._redisplay_after_axes_unlock = value
+
+    # ---------------------------------
+    @property
+    def current_run_displayed(self):
+        """True if the current run is displayed on the screen (as opposed to the
+           splash screen, or an older run).
+        """
+        return self.master._current_run_displayed
+
+    @current_run_displayed.setter
+    def current_run_displayed(self, value):
+        if value not in set([True, False]):
+            raise ValueError("current_run_displayed must be boolean")
+        self.master._current_run_displayed = value
 
 
 # GUI Configuration class
@@ -2242,6 +2261,10 @@ class ResultsWizard(tk.Toplevel):
             self.overlay_select_actions(selection)
         elif IV_Swinger2.is_date_time_str(selection):
             self.non_overlay_select_actions(selection)
+        # Clear the flag that indicates that the current run is displayed on
+        # the screen. No exception is made if the selected run is the current
+        # run.
+        self.master.props.current_run_displayed = False
 
     # -------------------------------------------------------------------------
     def overlay_select_actions(self, selection):
@@ -3736,10 +3759,12 @@ class MenuBar(tk.Menu):
         #   Enabled only if:
         #     Wizard not active
         #     Arduino is ready
-        #     Splash image is not showing
+        #     Current run is displayed
+        #     Data points are valid
         if (self.master.results_wiz is None and
                 self.master.ivs2.arduino_ready and
-                not self.master.img_pane.splash_img_showing):
+                self.master.props.current_run_displayed and
+                len(self.master.ivs2.data_points) > 1):
             kwargs = {"state": "normal"}
         else:
             kwargs = {"state": "disabled"}
@@ -3750,11 +3775,11 @@ class MenuBar(tk.Menu):
         #   Enabled only if:
         #     Wizard not active
         #     Arduino is ready
-        #     Splash image is not showing
+        #     Current run is displayed
         #     Irradiance value is valid
         if (self.master.results_wiz is None and
                 self.master.ivs2.arduino_ready and
-                not self.master.img_pane.splash_img_showing and
+                self.master.props.current_run_displayed and
                 self.master.ivs2.irradiance is not None):
             kwargs = {"state": "normal"}
         else:
@@ -4262,7 +4287,7 @@ stored on the IV Swinger 2 hardware:
        its own calibration
      - A given IV Swinger 2 only needs to be calibrated once, and that
        calibration will apply for any laptop it is used with
-NOTE: the "Vref (+5V)" calibration should be performed BEFORE curent and
+NOTE: the "Vref (+5V)" calibration should be performed BEFORE current and
       voltage calibration.
 """
         vref_heading = """
