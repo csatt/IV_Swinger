@@ -25,6 +25,7 @@ askfloat -- get a float from the user
 askstring -- get a string from the user
 '''
 
+import sys
 from Tkinter import *
 
 class Dialog(Toplevel):
@@ -111,10 +112,16 @@ class Dialog(Toplevel):
 
         box = Frame(self)
 
-        w = Button(box, text="OK", width=10, command=self.ok, default=ACTIVE)
-        w.pack(side=LEFT, padx=5, pady=5)
-        w = Button(box, text="Cancel", width=10, command=self.cancel)
-        w.pack(side=LEFT, padx=5, pady=5)
+        if sys.platform == "win32":  # Windows
+            w = Button(box, text="OK", width=10, command=self.ok, default=ACTIVE)
+            w.pack(side=LEFT, padx=5, pady=5)
+            w = Button(box, text="Cancel", width=10, command=self.cancel)
+            w.pack(side=LEFT, padx=5, pady=5)
+        else:
+            w = Button(box, text="Cancel", width=10, command=self.cancel)
+            w.pack(side=LEFT, padx=5, pady=5)
+            w = Button(box, text="OK", width=10, command=self.ok, default=ACTIVE)
+            w.pack(side=LEFT, padx=5, pady=5)
 
         self.bind("<Return>", self.ok)
         self.bind("<Escape>", self.cancel)
