@@ -506,6 +506,7 @@ value on the Arduino tab of Preferences
         """
         if self.win_sys == "aqua":  # Mac
             self.create_menu_bar()
+            self.update_idletasks()
 
     # -------------------------------------------------------------------------
     def get_dialog_width(self, dialog):
