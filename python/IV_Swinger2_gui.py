@@ -104,7 +104,7 @@ import Tkinter as tk
 import tkFileDialog
 import tkFont
 import tkMessageBox as tkmsg
-import tkSimpleDialog as tksd
+import myTkSimpleDialog as tksd
 import traceback
 from ScrolledText import ScrolledText as ScrolledText
 from Tkconstants import N, S, E, W, LEFT, HORIZONTAL, Y, BOTH
@@ -506,7 +506,6 @@ value on the Arduino tab of Preferences
         """
         if self.win_sys == "aqua":  # Mac
             self.create_menu_bar()
-            self.update_idletasks()
 
     # -------------------------------------------------------------------------
     def get_dialog_width(self, dialog):

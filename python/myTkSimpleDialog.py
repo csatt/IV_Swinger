@@ -83,6 +83,7 @@ class Dialog(Toplevel):
         # wait for window to appear on screen before calling grab_set
         self.wait_visibility()
         self.grab_set()
+        self.update_idletasks()
         self.wait_window(self)
 
     def destroy(self):
