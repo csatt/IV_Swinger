@@ -1486,6 +1486,19 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         self.max_x = self.ivsp_ivse.plot_max_x
         self.max_y = self.ivsp_ivse.plot_max_y
 
+        # Log MPP (single curve only)
+        if len(self.csv_proc.csv_files) == 1:
+            mpp_amps = self.csv_proc.plt_mpp_amps[0]
+            mpp_volts = self.csv_proc.plt_mpp_volts[0]
+            mpp_ohms = mpp_volts / mpp_amps
+            mpp_watts = mpp_volts * mpp_amps
+            print_str = ("Maximum power point (MPP): "
+                         "Amps: {:.6f}   Volts: {:.6f}   "
+                         "Ohms: {:.6f}   Watts: {:.6f}"
+                         .format(mpp_amps, mpp_volts,
+                                 mpp_ohms, mpp_watts))
+            self.logger.log(print_str)
+
 
 #  Main IV Swinger 2 class
 #
