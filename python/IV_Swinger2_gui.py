@@ -6450,8 +6450,21 @@ class ImagePane(ttk.Label):
     def display_splash_img(self):
         """Method to display the splash image"""
         self.img_file = os.path.join(self.master.app_dir, SPLASH_IMG)
-        self.display_img()
-        self.splash_img_showing = True
+        if not os.path.exists(self.img_file):
+            err_msg = """
+FATAL ERROR: file {} does not exist
+
+This is most likely a problem with the
+installation. Please make sure that you
+have write permission to the application
+folder. An Administrator account should
+be used for the install.
+""".format(self.img_file)
+            tkmsg_showerror(self.master, message=err_msg)
+            exit()
+        else:
+            self.display_img()
+            self.splash_img_showing = True
 
     # -------------------------------------------------------------------------
     def display_error_img(self, text="ERROR"):
