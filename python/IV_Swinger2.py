@@ -4457,7 +4457,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
         # Create logs directory
         if not os.path.exists(self.logs_dir):
-            os.makedirs(self.logs_dir)
+            try:
+                os.makedirs(self.logs_dir)
+            except OSError:
+                print "ERROR: could not create {}".format(self.logs_dir)
+                return
 
         # Create the logger
         leaf_name = "log_{}.txt".format(date_time_str)
