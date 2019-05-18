@@ -173,11 +173,10 @@ V_CAL_DEFAULT = 1.0
 I_CAL_DEFAULT = 1.0
 SECOND_RELAY_CAL_DEFAULT = 1.0
 DYN_BIAS_CAL_DEFAULT = False
-PYRANO_CAL_DEFAULT = 4.2572  # W/m^2/mV
+PYRANO_CAL_DEFAULT = 4.3    # X coefficient (slope if A=0): W/m^2/mV
+PYRANO_CAL_A_DEFAULT = 0.0  # X^2 coefficient: W/m^2/mV^2
 PHOTODIODE_NOMINAL_DEG_C_DEFAULT = 25.0
-PHOTODIODE_PCT_PER_DEG_C_DEFAULT = 0.124  # determined empirically
-PHOTODIODE_NOMINAL_MV = 188  # determined empirically
-PHOTODIODE_ADJ_PPM = 700  # determined empirically
+PHOTODIODE_PCT_PER_DEG_C_DEFAULT = 0.16  # determined empirically, YMMV
 # Default resistor values
 R1_DEFAULT = 150000.0   # R1 = 150k nominal
 R1_DEFAULT_BUG = 180000.0   # This was a bug
@@ -621,6 +620,12 @@ class Configuration(object):
         # Pyranometer
         args = (section, "pyranometer", CFG_FLOAT, self.ivs2.pyrano_cal)
         self.ivs2.pyrano_cal = self.apply_one(*args)
+        args = (section, "pyranometer a coeff", CFG_FLOAT,
+                self.ivs2.pyrano_cal_a)
+        self.ivs2.pyrano_cal_a = self.apply_one(*args)
+        args = (section, "pyranometer pct per degc", CFG_FLOAT,
+                self.ivs2.photodiode_pct_per_deg_c)
+        self.ivs2.photodiode_pct_per_deg_c = self.apply_one(*args)
 
         # Second relay
         args = (section, "second relay", CFG_FLOAT,
@@ -928,6 +933,9 @@ class Configuration(object):
         self.cfg_set(section, "current", self.ivs2.i_cal)
         self.cfg_set(section, "vref", self.ivs2.adc_vref)
         self.cfg_set(section, "pyranometer", self.ivs2.pyrano_cal)
+        self.cfg_set(section, "pyranometer a coeff", self.ivs2.pyrano_cal_a)
+        self.cfg_set(section, "pyranometer pct per degc",
+                     self.ivs2.photodiode_pct_per_deg_c)
         self.cfg_set(section, "second relay", self.ivs2.second_relay_cal)
         self.cfg_set(section, "r1 ohms", self.ivs2.vdiv_r1)
         self.cfg_set(section, "r2 ohms", self.ivs2.vdiv_r2)
@@ -1547,11 +1555,13 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._second_relay_cal = SECOND_RELAY_CAL_DEFAULT
         self._i_cal = I_CAL_DEFAULT
         self._pyrano_cal = PYRANO_CAL_DEFAULT
+        self._pyrano_cal_a = PYRANO_CAL_A_DEFAULT
         self._irradiance = None
         self._photodiode_nominal_deg_c = PHOTODIODE_NOMINAL_DEG_C_DEFAULT
         self._photodiode_pct_per_deg_c = PHOTODIODE_PCT_PER_DEG_C_DEFAULT
         self._photodiode_temp_scaling_factor = 1.0
         self._photodiode_deg_c = None
+        self._scaled_photodiode_millivolts = 0.0
         self._relay_active_high = RELAY_ACTIVE_HIGH_DEFAULT
         self._plot_title = None
         self._current_img = None
@@ -1700,12 +1710,22 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # ---------------------------------
     @property
     def pyrano_cal(self):
-        """Property to get the pyranometer calibration value"""
+        """Property to get the pyranometer calibration (slope) value"""
         return self._pyrano_cal
 
     @pyrano_cal.setter
     def pyrano_cal(self, value):
         self._pyrano_cal = value
+
+    # ---------------------------------
+    @property
+    def pyrano_cal_a(self):
+        """Property to get the pyranometer calibration A coefficient value"""
+        return self._pyrano_cal_a
+
+    @pyrano_cal_a.setter
+    def pyrano_cal_a(self, value):
+        self._pyrano_cal_a = value
 
     # ---------------------------------
     @property
@@ -1768,6 +1788,18 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     @photodiode_deg_c.setter
     def photodiode_deg_c(self, value):
         self._photodiode_deg_c = value
+
+    # ---------------------------------
+    @property
+    def scaled_photodiode_millivolts(self):
+        """Property to get the pyranometer photodiode's temperature-scaled
+           millivolt reading.
+        """
+        return self._scaled_photodiode_millivolts
+
+    @scaled_photodiode_millivolts.setter
+    def scaled_photodiode_millivolts(self, value):
+        self._scaled_photodiode_millivolts = value
 
     # ---------------------------------
     @property
@@ -2863,6 +2895,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             multiplier = self.photodiode_pct_per_deg_c / 100
             self.photodiode_temp_scaling_factor = temp_diff * multiplier + 1.0
             self.photodiode_deg_c = deg_c
+            log_str = ("TMP36: pct_per_deg_c = {}  temp_diff = {}  "
+                       .format(self.photodiode_pct_per_deg_c, temp_diff))
+            log_str += ("scaling_factor = {}"
+                        .format(self.photodiode_temp_scaling_factor))
+            self.logger.log(log_str)
 
     # -------------------------------------------------------------------------
     def convert_ads1115_val_to_deg_c(self, raw_val):
@@ -2878,6 +2915,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         tmp36_mv_per_deg_c = 10        # from datasheet
         deg_c = ((tmp36_millivolts - tmp36_offset_millivolts) /
                  tmp36_mv_per_deg_c)
+
+        # Log
+        log_str = ("TMP36: raw_val = {} = {} mV = {} deg C"
+                   .format(raw_val, tmp36_millivolts, deg_c))
+        self.logger.log(log_str)
 
         # Return value
         return deg_c
@@ -2897,14 +2939,15 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         str = "Irradiance: ** ERROR **\n"
         if match:
             raw_val = int(match.group(1))
-            irrad = self.convert_ads1115_val_to_w_per_m_squared(raw_val,
-                                                                True)
-            str = "Irradiance: {} W/m^2".format(irrad)
-            self.irradiance = irrad
+            mv, irr = self.convert_ads1115_val_to_w_per_m_squared(raw_val,
+                                                                  True)
+            str = "Irradiance: {} W/m^2".format(irr)
+            self.scaled_photodiode_millivolts = mv
+            self.irradiance = irr
             if self.photodiode_temp_scaling_factor != 1.0:
-                irrad = self.convert_ads1115_val_to_w_per_m_squared(raw_val,
-                                                                    False)
-                str += " ({} @ {} deg C)".format(irrad, self.photodiode_deg_c)
+                mv, irr = self.convert_ads1115_val_to_w_per_m_squared(raw_val,
+                                                                      False)
+                str += " ({} @ {} deg C)".format(irr, self.photodiode_deg_c)
             str += "\n"
         return str
 
@@ -2929,19 +2972,40 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             temp_scaling = 1.0
         scaled_photodiode_millivolts = photodiode_millivolts * temp_scaling
 
-        # Next apply an adjustment for an empirically observed error in
-        # the photodiode sensitivity, where it reads slightly low at
-        # higher irradiances and slightly high at lower irradiances.
-        adjusted_millivolts = (scaled_photodiode_millivolts *
-                               (1.0 + (scaled_photodiode_millivolts -
-                                       PHOTODIODE_NOMINAL_MV) *
-                                PHOTODIODE_ADJ_PPM / 1000000.0))
-
         # Then convert millivolts to irradiance
-        w_per_m_squared = adjusted_millivolts * self.pyrano_cal
+        #
+        # Polynomial curve:
+        #
+        #   y = Ax^2 + Bx
+        #
+        #   x: scaled_photodiode_millivolts
+        #   A: pyrano_cal_a
+        #   B: pyrano_cal
+        #   y: w_per_m_squared (irradiance)
+        #
+        # If A is 0, scaling is linear.  Intercept is always zero.
+        #
+        w_per_m_squared = ((self.pyrano_cal_a *
+                            scaled_photodiode_millivolts ** 2) +
+                           (self.pyrano_cal *
+                            scaled_photodiode_millivolts))
+
+        # Log
+        log_str = ("Photodiode: raw_val = {} = {} mV"
+                   .format(raw_val, photodiode_millivolts))
+        self.logger.log(log_str)
+        log_str = ("Photodiode: temp_scaling = {}, scaled mV = {}"
+                   .format(temp_scaling, scaled_photodiode_millivolts))
+        self.logger.log(log_str)
+        log_str = ("Photodiode: pyrano_cal = {}, pyrano_cal_a = {}"
+                   .format(self.pyrano_cal, self.pyrano_cal_a))
+        self.logger.log(log_str)
+        log_str = ("Photodiode: w_per_m_squared = {}"
+                   .format(w_per_m_squared))
+        self.logger.log(log_str)
 
         # Return value rounded to nearest integer W/m^2
-        return int(round(w_per_m_squared))
+        return scaled_photodiode_millivolts, int(round(w_per_m_squared))
 
     # -------------------------------------------------------------------------
     def update_irradiance(self, new_irradiance):

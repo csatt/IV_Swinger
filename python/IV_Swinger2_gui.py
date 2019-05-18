@@ -3992,8 +3992,16 @@ bias battery calibration was enabled.
                                        prompt=prompt_str,
                                        initialvalue=curr_irradiance)
         if new_irradiance:
-            new_pyrano_cal = (self.master.ivs2.pyrano_cal *
-                              (new_irradiance / curr_irradiance))
+            pyrano_cal = self.master.ivs2.pyrano_cal
+            pyrano_cal_a = self.master.ivs2.pyrano_cal_a
+            mv = self.master.ivs2.scaled_photodiode_millivolts
+            irrad_diff = new_irradiance - curr_irradiance
+            # Keep pyrano_cal_a value. The following equation returns
+            # the calibration value that results in the observed
+            # irradiance.
+            new_pyrano_cal = ((pyrano_cal_a * mv * irrad_diff +
+                              new_irradiance * pyrano_cal) /
+                              curr_irradiance)
             self.master.ivs2.pyrano_cal = new_pyrano_cal
             self.master.config.cfg_set("Calibration", "pyranometer",
                                        new_pyrano_cal)
@@ -4004,7 +4012,7 @@ bias battery calibration was enabled.
 
     # -------------------------------------------------------------------------
     def update_values_in_eeprom(self):
-        if self.master.ivs2.arduino_sketch_ver_lt("1.1.0"):
+        if not self.master.ivs2.arduino_sketch_supports_eeprom_config:
             warning_str = """
 WARNING: Calibration values cannot be stored on the IV Swinger 2 hardware with
 this version of the Arduino software. Please upgrade.
