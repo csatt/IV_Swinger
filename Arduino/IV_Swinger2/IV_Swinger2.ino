@@ -164,7 +164,7 @@
  * when the pins controlling them are activated or deactivated since
  * nothing is connected to those pins in the other versions.
  */
-#define VERSION "1.3.7"        // Version of this Arduino sketch
+#define VERSION "1.3.7+"        // Version of this Arduino sketch
 
 // Uncomment one or more of the following to enable the associated
 // feature. Note, however, that enabling these features uses more of the
@@ -199,6 +199,8 @@
 #define ADS1115_SRAM 224
 #define ADS1115_IRRADIANCE_POLLING_LOOPS 10
 #define ADS1115_TEMP_POLLING_LOOPS 5
+#define MAX_STABLE_TEMP_ERR_PPM 5000    // 5000 = 0.5%
+#define MAX_STABLE_IRRAD_ERR_PPM 10000  // 10000 = 1%
 #else
 #define ADS1115_SRAM 0
 #endif
@@ -805,39 +807,96 @@ void loop()
   // Report results on serial port
   //
 #ifdef ADS1115_PYRANOMETER_SUPPORTED
-  int16_t ads1115_val;
-  long ads1115_val_sum, ads1115_val_avg;
+  int16_t ads1115_val, retries;
+  long ads1115_val_sum, ads1115_val_avg, ppm_error_from_avg;
+  bool ads1115_present, tmp36_present, found_stable_value;
+
   // Pyranometer temperature (TMP36)
   ads1115.setGain(GAIN_TWO);  // -2 V to 2 V
   ads1115_val_sum = 0;
-  for (int ii = 0; ii < ADS1115_TEMP_POLLING_LOOPS; ii++) {
-    ads1115_val = ads1115.readADC_SingleEnded(2);
-    if (ads1115_val == -1) { // Value of -1 indicates no ADS1115 is present
-      ads1115_val_sum = 0;
-      break;
+  ads1115_val_avg = 0;
+  ads1115_present = true;
+  tmp36_present = true;
+  found_stable_value = false;
+  retries = 0;
+  while (!found_stable_value && (retries < 20)) {
+    for (int ii = 0; ii < ADS1115_TEMP_POLLING_LOOPS; ii++) {
+      ads1115_val = ads1115.readADC_SingleEnded(2);
+      if (ads1115_val == -1) {
+        // Value of -1 indicates no ADS1115 is present
+        ads1115_present = false;
+        found_stable_value = true;
+        break;
+      }
+      if (ads1115_val < 4000) {
+        // Values less than 250mV (-25 deg C) are assumed to be noise,
+        // meaning there is no TMP36 connected to A2
+        tmp36_present = false;
+        found_stable_value = true;
+        break;
+      }
+      ads1115_val_sum += ads1115_val;
     }
-    ads1115_val_sum += ads1115_val;
+    if (ads1115_present && tmp36_present) {
+      ads1115_val_avg = ads1115_val_sum / ADS1115_TEMP_POLLING_LOOPS;
+      found_stable_value = true;
+      ads1115_val_sum = 0;
+      for (int ii = 0; ii < ADS1115_TEMP_POLLING_LOOPS; ii++) {
+        ads1115_val = ads1115.readADC_SingleEnded(2);
+        ppm_error_from_avg =
+          (1000000 * abs(ads1115_val - ads1115_val_avg)) /
+          abs(ads1115_val_avg);
+        if (ppm_error_from_avg > MAX_STABLE_TEMP_ERR_PPM) {
+          // If any value is more than MAX_STABLE_TEMP_ERR_PPM from the
+          // average, we don't have a stable value
+          found_stable_value = false;
+          retries++;
+          break;
+        }
+      }
+    }
   }
-  ads1115_val_avg = ads1115_val_sum / ADS1115_TEMP_POLLING_LOOPS;
-  if (ads1115_val_avg > 4000) {  // Ignore if < 250 mV (-25 deg C) 
+  if (ads1115_present && tmp36_present && found_stable_value) {
     Serial.print(F("ADS1115 (pyranometer temp sensor) raw value: "));
-    Serial.println(ads1115_val);
+    Serial.println(ads1115_val_avg);
+  } else if (ads1115_present && tmp36_present) {
+    Serial.print(F("WARNING: TMP36 pyranometer temp sensor not stable"));
   }
   // Irradiance (PDB-C139)
-  ads1115.setGain(GAIN_EIGHT); // -512 mV to 512 mV
-  ads1115_val_sum = 0;
-  for (int ii = 0; ii < ADS1115_IRRADIANCE_POLLING_LOOPS; ii++) {
-  ads1115_val = ads1115.readADC_Differential_0_1();
-    if (ads1115_val == -1) { // Value of -1 indicates no ADS1115 is present
+  if (ads1115_present) {
+    ads1115.setGain(GAIN_EIGHT); // -512 mV to 512 mV
+    ads1115_val_sum = 0;
+    ads1115_val_avg = 0;
+    found_stable_value = false;
+    retries = 0;
+    while (!found_stable_value && (retries < 20)) {
+      for (int ii = 0; ii < ADS1115_IRRADIANCE_POLLING_LOOPS; ii++) {
+        ads1115_val = ads1115.readADC_Differential_0_1();
+        ads1115_val_sum += ads1115_val;
+      }
+      ads1115_val_avg = ads1115_val_sum / ADS1115_IRRADIANCE_POLLING_LOOPS;
+      found_stable_value = true;
       ads1115_val_sum = 0;
-      break;
+      for (int ii = 0; ii < ADS1115_IRRADIANCE_POLLING_LOOPS; ii++) {
+        ads1115_val = ads1115.readADC_Differential_0_1();
+        ppm_error_from_avg =
+          (1000000 * abs(ads1115_val - ads1115_val_avg)) /
+          abs(ads1115_val_avg);
+        if (ppm_error_from_avg > MAX_STABLE_IRRAD_ERR_PPM) {
+          // If any value is more than MAX_STABLE_IRRAD_ERR_PPM from the
+          // average, we don't have a stable value
+          found_stable_value = false;
+          retries++;
+          break;
+        }
+      }
     }
-    ads1115_val_sum += ads1115_val;
   }
-  ads1115_val_avg = ads1115_val_sum / ADS1115_IRRADIANCE_POLLING_LOOPS;
-  if (ads1115_val_avg != 0) {
+  if (ads1115_present && found_stable_value) {
     Serial.print(F("ADS1115 (pyranometer photodiode) raw value: "));
     Serial.println(ads1115_val_avg);
+  } else if (ads1115_present) {
+    Serial.print(F("WARNING: pyranometer photodiode not stable"));
   }
 #endif
 #ifdef DS18B20_SUPPORTED
