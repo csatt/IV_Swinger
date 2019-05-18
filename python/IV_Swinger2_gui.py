@@ -334,6 +334,7 @@ class GraphicalUserInterface(ttk.Frame):
         self.win_sys = self.root.tk.call("tk", "windowingsystem")
         self.memory_monitor()
         self.ivs2 = IV_Swinger2.IV_Swinger2(app_data_dir)
+        self.check_app_data_dir()
         self.init_instance_vars()
         self.props = GraphicalUserInterfaceProps(self)
         self.app_dir = get_app_dir()
@@ -347,6 +348,36 @@ class GraphicalUserInterface(ttk.Frame):
         self.create_widgets()
         self.ivs2.log_initial_debug_info()
         self.usb_monitor()
+
+    # -------------------------------------------------------------------------
+    def check_app_data_dir(self):
+        """Check that directories can be created in the the parent of
+           app_data_dir and that files can be created in app_data_dir.
+           If not, display an error dialog and exit.
+        """
+        try:
+            app_data_parent = os.path.dirname(self.ivs2.app_data_dir)
+            dummy_dir = os.path.join(app_data_parent, "DUMMY_DIR")
+            os.makedirs(dummy_dir)
+            os.rmdir(dummy_dir)
+        except (IOError, OSError):
+            err_msg = """
+FATAL ERROR: This user does not have
+permission to create directories (folders) in
+{}""".format(app_data_parent)
+            tkmsg_showerror(self, err_msg)
+            exit()
+        try:
+            dummy_file = os.path.join(self.ivs2.app_data_dir, "DUMMY_FILE")
+            open(dummy_file, "a").close()
+            os.remove(dummy_file)
+        except (IOError, OSError):
+            err_msg = """
+FATAL ERROR: This user does not have
+permission to create files in
+{}""".format(self.ivs2.app_data_dir)
+            tkmsg_showerror(self, err_msg)
+            exit()
 
     # -------------------------------------------------------------------------
     def report_callback_exception(self, *args):
