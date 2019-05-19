@@ -72,6 +72,7 @@
 #
 import argparse
 import ConfigParser
+import datetime as dt
 import difflib
 import glob
 import io
@@ -109,6 +110,7 @@ RC_ZERO_VOC = -5
 RC_ZERO_ISC = -6
 RC_ISC_TIMEOUT = -7
 RC_NO_POINTS = -8
+RC_SSR_HOT = -9
 CFG_STRING = 0
 CFG_FLOAT = 1
 CFG_INT = 2
@@ -117,7 +119,7 @@ SKETCH_VER_LT = -1
 SKETCH_VER_EQ = 0
 SKETCH_VER_GT = 1
 SKETCH_VER_ERR = -2
-LATEST_SKETCH_VER = "1.3.7"
+LATEST_SKETCH_VER = "1.3.8"
 MIN_PT1_TO_VOC_RATIO_FOR_ISC = 0.20
 BATTERY_FOLDER_NAME = "Battery"
 
@@ -169,8 +171,12 @@ ADS1115_PGA_GAIN_TMP36 = 2     # See Arduino code (GAIN_TWO)
 ADS1115_PGA_GAIN_PDB_C139 = 8  # See Arduino code (GAIN_EIGHT)
 # Default calibration values
 NOMINAL_ADC_VREF = 5.0  # USB voltage = 5V
-V_CAL_DEFAULT = 1.0
-I_CAL_DEFAULT = 1.0
+V_CAL_DEFAULT = 1.0     # Slope
+V_CAL_B_DEFAULT = 0.0   # Intercept
+I_CAL_DEFAULT = 1.0     # Slope
+I_CAL_B_DEFAULT = 0.0   # Intercept
+SSR_I_CAL_ON_TIME = 3.0               # Arduino sketch: SSR_CAL_USECS
+SSR_I_CAL_MAX_CONTINUOUS_CURR = 6.75  # From CPC1718 datasheet
 SECOND_RELAY_CAL_DEFAULT = 1.0
 DYN_BIAS_CAL_DEFAULT = False
 PYRANO_CAL_DEFAULT = 4.3    # X coefficient (slope if A=0): W/m^2/mV
@@ -197,8 +203,10 @@ EEPROM_I_CAL_X1M_ADDR = 32
 EEPROM_V_BATT_X1M_ADDR = 36  # Obsolete
 EEPROM_R_BATT_X1M_ADDR = 40  # Obsolete
 EEPROM_RELAY_ACTIVE_HIGH_ADDR = 44
+EEPROM_V_CAL_B_X1M_ADDR = 48
+EEPROM_I_CAL_B_X1M_ADDR = 52
 EEPROM_VALID_VALUE = "123456.7890"
-EEPROM_VALID_COUNT = 10  # increment if any added (starts at addr 8)
+EEPROM_VALID_COUNT = 12  # increment if any added (starts at addr 8)
 # Debug constants
 DEBUG_CONFIG = False
 
@@ -610,12 +618,16 @@ class Configuration(object):
         section = "Calibration"
 
         # Voltage
-        args = (section, "voltage", CFG_FLOAT, self.ivs2.v_cal)
+        args = (section, "voltage", CFG_FLOAT, self.ivs2.v_cal)  # Slope
         self.ivs2.v_cal = self.apply_one(*args)
+        args = (section, "voltage intercept", CFG_FLOAT, self.ivs2.v_cal_b)
+        self.ivs2.v_cal_b = self.apply_one(*args)
 
         # Current
-        args = (section, "current", CFG_FLOAT, self.ivs2.i_cal)
+        args = (section, "current", CFG_FLOAT, self.ivs2.i_cal)  # Slope
         self.ivs2.i_cal = self.apply_one(*args)
+        args = (section, "current intercept", CFG_FLOAT, self.ivs2.i_cal_b)
+        self.ivs2.i_cal_b = self.apply_one(*args)
 
         # Pyranometer
         args = (section, "pyranometer", CFG_FLOAT, self.ivs2.pyrano_cal)
@@ -930,7 +942,9 @@ class Configuration(object):
         section = "Calibration"
         self.cfg.add_section(section)
         self.cfg_set(section, "voltage", self.ivs2.v_cal)
+        self.cfg_set(section, "voltage intercept", self.ivs2.v_cal_b)
         self.cfg_set(section, "current", self.ivs2.i_cal)
+        self.cfg_set(section, "current intercept", self.ivs2.i_cal_b)
         self.cfg_set(section, "vref", self.ivs2.adc_vref)
         self.cfg_set(section, "pyranometer", self.ivs2.pyrano_cal)
         self.cfg_set(section, "pyranometer a coeff", self.ivs2.pyrano_cal_a)
@@ -1552,8 +1566,12 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._adc_vref = NOMINAL_ADC_VREF
         self._dyn_bias_cal = DYN_BIAS_CAL_DEFAULT
         self._v_cal = V_CAL_DEFAULT
+        self._v_cal_b = V_CAL_B_DEFAULT
         self._second_relay_cal = SECOND_RELAY_CAL_DEFAULT
         self._i_cal = I_CAL_DEFAULT
+        self._i_cal_b = I_CAL_B_DEFAULT
+        self._ssr_cooling_start_time = dt.datetime.now()
+        self._ssr_cooling_period = 0
         self._pyrano_cal = PYRANO_CAL_DEFAULT
         self._pyrano_cal_a = PYRANO_CAL_A_DEFAULT
         self._irradiance = None
@@ -1600,6 +1618,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._aspect_width = ASPECT_WIDTH_DEFAULT
         self._second_relay_state = SECOND_RELAY_STATE_DEFAULT
         self._ds18b20_rom_codes = []
+        self._adv_cal_adc_val = "Unknown"
+        self._relay_type = "Unknown"
         # Configure logging and find serial ports
         self.configure_logging()
         self.find_serial_ports()
@@ -1680,12 +1700,22 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # ---------------------------------
     @property
     def v_cal(self):
-        """Property to get the voltage calibration value"""
+        """Property to get the voltage calibration (slope) value"""
         return self._v_cal
 
     @v_cal.setter
     def v_cal(self, value):
         self._v_cal = value
+
+    # ---------------------------------
+    @property
+    def v_cal_b(self):
+        """Property to get the voltage calibration intercept value"""
+        return self._v_cal_b
+
+    @v_cal_b.setter
+    def v_cal_b(self, value):
+        self._v_cal_b = value
 
     # ---------------------------------
     @property
@@ -1700,12 +1730,42 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # ---------------------------------
     @property
     def i_cal(self):
-        """Property to get the current calibration value"""
+        """Property to get the current calibration (slope) value"""
         return self._i_cal
 
     @i_cal.setter
     def i_cal(self, value):
         self._i_cal = value
+
+    # ---------------------------------
+    @property
+    def i_cal_b(self):
+        """Property to get the current calibration intercept value"""
+        return self._i_cal_b
+
+    @i_cal_b.setter
+    def i_cal_b(self, value):
+        self._i_cal_b = value
+
+    # ---------------------------------
+    @property
+    def ssr_cooling_start_time(self):
+        """Property to get the SSR cooling start time"""
+        return self._ssr_cooling_start_time
+
+    @ssr_cooling_start_time.setter
+    def ssr_cooling_start_time(self, value):
+        self._ssr_cooling_start_time = value
+
+    # ---------------------------------
+    @property
+    def ssr_cooling_period(self):
+        """Property to get the SSR cooling start time"""
+        return self._ssr_cooling_period
+
+    @ssr_cooling_period.setter
+    def ssr_cooling_period(self, value):
+        self._ssr_cooling_period = value
 
     # ---------------------------------
     @property
@@ -2238,6 +2298,28 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     # ---------------------------------
     @property
+    def adv_cal_adc_val(self):
+        """ADC value for advanced voltage or current calibration
+        """
+        return self._adv_cal_adc_val
+
+    @adv_cal_adc_val.setter
+    def adv_cal_adc_val(self, value):
+        self._adv_cal_adc_val = value
+
+    # ---------------------------------
+    @property
+    def relay_type(self):
+        """Relay type for advanced current calibration
+        """
+        return self._relay_type
+
+    @relay_type.setter
+    def relay_type(self, value):
+        self._relay_type = value
+
+    # ---------------------------------
+    @property
     def spi_clk_div(self):
         """Arduino: SPI bus clock divider value
         """
@@ -2395,15 +2477,29 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     @property
     def v_sat(self):
         """Saturation voltage"""
-        v_sat = ADC_MAX * self.v_mult * self.v_cal
+        v_sat = ADC_MAX * self.v_mult * self.v_cal + self.v_cal_b
         return v_sat
 
     # ---------------------------------
     @property
     def i_sat(self):
         """Saturation current"""
-        i_sat = ADC_MAX * self.i_mult * self.i_cal
+        i_sat = ADC_MAX * self.i_mult * self.i_cal + self.i_cal_b
         return i_sat
+
+    # ---------------------------------
+    @property
+    def v_cal_b_adc(self):
+        """Voltage calibration intercept ADC value"""
+        v_cal_b_adc = self.v_cal_b / self.v_mult
+        return v_cal_b_adc
+
+    # ---------------------------------
+    @property
+    def i_cal_b_adc(self):
+        """Current calibration intercept ADC value"""
+        i_cal_b_adc = self.i_cal_b / self.i_mult
+        return i_cal_b_adc
 
     # ---------------------------------
     @property
@@ -2451,6 +2547,14 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            relays with an active-high trigger pin.
         """
         return self.arduino_sketch_ver_ge("1.3.3")
+
+    # ---------------------------------
+    @property
+    def arduino_sketch_supports_ssr_adv_current_cal(self):
+        """True for Arduino sketch versions that have code to support
+           SSR advanced  current calibration.
+        """
+        return self.arduino_sketch_ver_ge("1.3.8")
 
     # ---------------------------------
     @property
@@ -2692,7 +2796,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                              ("{} {}".format(EEPROM_R_BATT_X1M_ADDR,
                                              0)),  # obsolete
                              ("{} {}".format(EEPROM_RELAY_ACTIVE_HIGH_ADDR,
-                                             int(self.relay_active_high)))]
+                                             int(self.relay_active_high))),
+                             ("{} {}".format(EEPROM_V_CAL_B_X1M_ADDR,
+                                             int(self.v_cal_b * 1000000.0))),
+                             ("{} {}".format(EEPROM_I_CAL_B_X1M_ADDR,
+                                             int(self.i_cal_b * 1000000.0)))]
             for config_value in config_values:
                 rc = self.send_one_config_msg_to_arduino("WRITE_EEPROM",
                                                          config_value)
@@ -2865,6 +2973,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # -------------------------------------------------------------------------
     def write_sensor_info_to_file(self, msg):
         """Method to write a sensor info string to the run info file"""
+        if self.run_info_filename is None:
+            return
         self.create_run_info_file()
         if msg.startswith("ADS1115 (pyranometer photodiode)"):
             str = self.translate_ads1115_msg_to_irradiance(msg)
@@ -3114,6 +3224,145 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         return rc
 
     # -------------------------------------------------------------------------
+    def request_adv_calibration_vals(self):
+        """Method to request an IV curve from the Arduino for the purpose of
+        getting the Voc or Isc values for an advanced calibration. This
+        is used for the advanced voltage calibration (EMR or SSR) and
+        for the EMR current calibration.  It is not used for the SSR
+        current calibration.
+        """
+        # If the Arduino code isn't ready, fail
+        if not self.arduino_ready:
+            return RC_FAILURE
+
+        # Send "go" message to Arduino
+        rc = self.send_msg_to_arduino("Go")
+        if rc != RC_SUCCESS:
+            return rc
+
+        # Receive ADC data from Arduino and store in adc_pairs property
+        # (list of tuples)
+        rc = self.receive_data_from_arduino()
+        if rc != RC_SUCCESS:
+            return rc
+
+        return RC_SUCCESS
+
+    # -------------------------------------------------------------------------
+    def get_adv_voltage_cal_adc_val(self):
+        """Method to extract the ADC value of the Voc point
+        """
+        self.reset_adv_cal_adc_val()
+        self.adv_cal_adc_val = self.adc_pairs[-1][0]
+
+        return RC_SUCCESS
+
+    # -------------------------------------------------------------------------
+    def reset_adv_cal_adc_val(self):
+        """Method to reset the value of the advanced calibration ADC value
+        """
+        self.adv_cal_adc_val = "Unknown"
+
+    # -------------------------------------------------------------------------
+    def get_adv_voltage_cal_volts(self):
+        """Method to convert the ADC value to volts (uncalibrated)
+        """
+        try:
+            int(self.adv_cal_adc_val)
+            volts = self.adv_cal_adc_val * self.v_mult
+            return round(volts, 3)
+        except ValueError:
+            return self.adv_cal_adc_val
+
+    # -------------------------------------------------------------------------
+    def get_emr_adv_current_cal_adc_val(self):
+        """Method to extract the ADC value of the Isc point used for EMR
+           advanced current calibration
+        """
+        self.reset_adv_cal_adc_val()
+        isc_ch1 = self.create_new_isc_point(self.adc_pairs,
+                                            replace=False)
+        self.adv_cal_adc_val = isc_ch1
+
+        return RC_SUCCESS
+
+    # -------------------------------------------------------------------------
+    def get_adv_current_cal_amps(self):
+        """Method to convert the ADC value to amps (uncalibrated)
+        """
+        try:
+            int(self.adv_cal_adc_val)
+            amps = self.adv_cal_adc_val * self.i_mult
+            return round(amps, 3)
+        except ValueError:
+            return self.adv_cal_adc_val
+
+    # -------------------------------------------------------------------------
+    def request_ssr_adv_current_calibration_val(self):
+        """Method to send the Arduino a config message that tells it to
+           configure the SSRs to pass current around the load capacitors
+           and the bleed resistor (if there is one) for three seconds
+           and return the ADC value for the channel measuring current in
+           this state. This is used for SSR advanced current calibration.
+        """
+        if not self.arduino_sketch_supports_ssr_adv_current_cal:
+            return RC_FAILURE
+        elapsed_since_prev = dt.datetime.now() - self.ssr_cooling_start_time
+        if elapsed_since_prev.total_seconds() < self.ssr_cooling_period:
+            return RC_SSR_HOT
+        rc = self.send_msg_to_arduino("Config: DO_SSR_CURR_CAL ")
+        if rc != RC_SUCCESS:
+            return rc
+        self.msg_from_arduino = "None"
+        while self.msg_from_arduino != unicode("Config processed\n"):
+            rc = self.receive_msg_from_arduino()
+            if rc != RC_SUCCESS:
+                return rc
+            if self.msg_from_arduino.startswith("SSR current calibration"):
+                self.get_ssr_adv_current_cal_adc_val(self.msg_from_arduino)
+
+        return RC_SUCCESS
+
+    # -------------------------------------------------------------------------
+    def get_ssr_adv_current_cal_adc_val(self, msg):
+        """Method to extract the ADC value from the Arduino reply to the
+           SSR advanced current calibration request. Also calculate the
+           required SSR cooling period and update property.
+        """
+        self.reset_adv_cal_adc_val()
+        adc_val_re = re.compile("ADC value: (\d+)(\S*)")
+        match = adc_val_re.search(msg)
+        if match:
+            self.adv_cal_adc_val = int(match.group(1))
+            # Calculate the required cooling period for the SSR. The
+            # idea is that we want the average SSR power dissipation to
+            # be less than or equal to the continuous power dissipation
+            # at its maximum rated continuous current. Power is
+            # proportional to the square of the current. The maximum
+            # duty cycle can be calculated, and from that, the cooling
+            # period.  At 10 amps, the cooling period is 3.58
+            # seconds. Below 6.75 amps, the cooling period is negative,
+            # which means no cooling is needed.
+            uncal_amps = self.get_adv_current_cal_amps()
+            cooling_period = (SSR_I_CAL_ON_TIME *
+                              ((uncal_amps ** 2) /
+                               (SSR_I_CAL_MAX_CONTINUOUS_CURR ** 2) - 1))
+            self.ssr_cooling_period = cooling_period
+            self.ssr_cooling_start_time = dt.datetime.now()
+
+        adc_val_re = re.compile("ADC saturated")
+        match = adc_val_re.search(msg)
+        if match:
+            self.adv_cal_adc_val = "Saturated"
+
+        adc_val_re = re.compile("ADC not stable")
+        match = adc_val_re.search(msg)
+        if match:
+            self.adv_cal_adc_val = "Unstable"
+
+        return RC_SUCCESS
+
+    # -------------------------------------------------------------------------
     def get_arduino_sketch_ver(self, msg):
         """Method to extract the version number of the Arduino sketch from the
            message containing it
@@ -3268,6 +3517,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 self.relay_active_high = False
             else:
                 self.relay_active_high = True
+        elif eeprom_addr == EEPROM_V_CAL_B_X1M_ADDR:
+            self.v_cal_b = float(eeprom_value) / 1000000.0
+        elif eeprom_addr == EEPROM_I_CAL_B_X1M_ADDR:
+            self.i_cal_b = float(eeprom_value) / 1000000.0
         else:
             warn_str = ("WARNING: EEPROM value not "
                         "supported by this version of the application: {}"
@@ -3852,8 +4105,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         for adc_pair in adc_pairs:
             ch0_adc = adc_pair[0]  # voltage value
             ch1_adc = adc_pair[1]  # current value
-            calibrated_ch0_adc = ch0_adc * self.v_cal
-            calibrated_ch1_adc = ch1_adc * self.i_cal
+            calibrated_ch0_adc = ch0_adc * self.v_cal + self.v_cal_b_adc
+            calibrated_ch1_adc = ch1_adc * self.i_cal + self.i_cal_b_adc
             calibrated_adc_pairs.append((calibrated_ch0_adc,
                                          calibrated_ch1_adc))
         return calibrated_adc_pairs

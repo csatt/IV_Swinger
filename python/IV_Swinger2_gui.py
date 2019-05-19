@@ -78,11 +78,13 @@
 #
 #   ImgSizeCombo(), ResultsWizard(), MenuBar(),
 #   Dialog(), GlobalHelpDialog(), CalibrationHelpDialog(),
-#   DownlevelArduinoSketchDialog(), ResistorValuesDialog(),
-#   PreferencesDialog(), PlottingProps(), PlottingHelpDialog(),
-#   SpiClkCombo(), LoopingHelpDialog(), ArduinoHelpDialog(),
-#   OverlayHelpDialog(), ImagePane(), GoStopButton(), PlotPower(),
-#   LockAxes(), LoopMode(), LoopRateLimit(), LoopSaveResults()
+#   AdvSsrCurrentCalHelpDialog(), AdvEmrCurrentCalHelpDialog(),
+#   AdvVoltageCalHelpDialog DownlevelArduinoSketchDialog(),
+#   ResistorValuesDialog(), BiasBatteryDialog(), PreferencesDialog(),
+#   PlottingProps(), PlottingHelpDialog(), SpiClkCombo(),
+#   LoopingHelpDialog(), ArduinoHelpDialog(), OverlayHelpDialog(),
+#   ImagePane(), GoStopButton(), PlotPower(), LockAxes(), LoopMode(),
+#   LoopRateLimit(), LoopSaveResults()
 #
 #      These classes are the "widgets" of the GUI.  Most are very simple
 #      (buttons, menus, basic dialogs, etc). The ResultsWizard() and
@@ -107,7 +109,7 @@ import tkMessageBox as tkmsg
 import myTkSimpleDialog as tksd
 import traceback
 from ScrolledText import ScrolledText as ScrolledText
-from Tkconstants import N, S, E, W, LEFT, HORIZONTAL, Y, BOTH
+from Tkconstants import N, S, E, W, LEFT, RIGHT, HORIZONTAL, Y, BOTH
 from PIL import Image, ImageTk
 from send2trash import send2trash
 import IV_Swinger2
@@ -127,6 +129,7 @@ RC_ZERO_VOC = IV_Swinger2.RC_ZERO_VOC
 RC_ZERO_ISC = IV_Swinger2.RC_ZERO_ISC
 RC_ISC_TIMEOUT = IV_Swinger2.RC_ISC_TIMEOUT
 RC_NO_POINTS = IV_Swinger2.RC_NO_POINTS
+RC_SSR_HOT = IV_Swinger2.RC_SSR_HOT
 CFG_STRING = IV_Swinger2.CFG_STRING
 CFG_FLOAT = IV_Swinger2.CFG_FLOAT
 CFG_INT = IV_Swinger2.CFG_INT
@@ -176,6 +179,8 @@ SPLASH_IMG = "Splash_Screen.png"
 BLANK_IMG = "Blank_Screen.png"
 TITLEBAR_ICON = "IV_Swinger2.ico"  # Windows
 HELP_DIALOG_FONT = "Arial"
+HELP_DIALOG_MIN_HEIGHT_PIXELS = 360
+HELP_DIALOG_MAX_HEIGHT_PIXELS = 2000
 WIZARD_MIN_HEIGHT_PIXELS = 250  # pixels
 WIZARD_TREE_HEIGHT = 100  # rows
 WIZARD_TREE_WIDTH = 300  # pixels
@@ -546,13 +551,14 @@ value on the Arduino tab of Preferences
         return width
 
     # -------------------------------------------------------------------------
-    def set_dialog_geometry(self, dialog, min_height=None):
+    def set_dialog_geometry(self, dialog, min_height=None, max_height=None):
         """Method to set the size and position of a dialog. If min_height is
-           specified, the window will be sized to that value initially
-           with a fixed maximum height of its height when this method
-           was called. This is used for the Results Wizard. Otherwise,
-           the height and width are not changed, only the
-           offsets. This is used for other dialogs.
+           specified, the window will be sized to that value initially.
+           The max_height parameter is only relevant if min_height is
+           specified; if max_height is not specified, the height when
+           this method was called will be used as the maximum. If
+           min_height is not specified, the height and width are not
+           changed, only the offsets (position).
         """
         # Run update_idletasks to get the geometry manager to size the
         # window to fit the widgets
@@ -566,11 +572,12 @@ value on the Arduino tab of Preferences
             # the width that it comes up. This is a workaround for the
             # fact that (at least on Mac) the "resizable" option
             # doesn't work for width only.
-            max_height = dialog.winfo_height()
+            if max_height is None:
+                max_height = dialog.winfo_height()
             dialog.minsize(width, min_height)
             dialog.maxsize(width, max_height)
 
-        # Calculate offset of wizard from the root window. If there
+        # Calculate offset of dialog from the root window. If there
         # are enough screen pixels to the left of the root window,
         # then put it there (with 10 pixels of overlap). Second choice
         # is to the right of the root window. Last choice is whichever
@@ -3754,10 +3761,14 @@ class MenuBar(tk.Menu):
         self.menubar.add_cascade(menu=self.calibrate_menu, label="Calibrate")
         self.calibrate_menu.add_command(label="Vref (+5V)",
                                         command=self.get_vref_cal_value)
-        self.calibrate_menu.add_command(label="Voltage Calibration",
+        self.calibrate_menu.add_command(label="Voltage - basic",
                                         command=self.get_v_cal_value)
-        self.calibrate_menu.add_command(label="Current Calibration",
+        self.calibrate_menu.add_command(label="Current - basic",
                                         command=self.get_i_cal_value)
+        self.calibrate_menu.add_command(label="Voltage - advanced",
+                                        command=self.get_v_cal_value_adv)
+        self.calibrate_menu.add_command(label="Current - advanced",
+                                        command=self.get_i_cal_value_adv)
         self.calibrate_menu.add_command(label="Resistors",
                                         command=self.get_resistor_values)
         self.calibrate_menu.add_command(label="Pyranometer",
@@ -3771,7 +3782,8 @@ class MenuBar(tk.Menu):
 
     # -------------------------------------------------------------------------
     def update_calibrate_menu(self):
-        # Vref, Resistors, Bias battery, Invalidate EEPROM
+        # Vref, Current/Voltage - advanced, Resistors, Bias battery, Invalidate
+        # EEPROM
         #
         #   Enabled only if:
         #     Wizard not active
@@ -3782,10 +3794,13 @@ class MenuBar(tk.Menu):
         else:
             kwargs = {"state": "disabled"}
         self.calibrate_menu.entryconfig("Vref (+5V)", **kwargs)
+        self.calibrate_menu.entryconfig("Voltage - advanced", **kwargs)
+        self.calibrate_menu.entryconfig("Current - advanced", **kwargs)
         self.calibrate_menu.entryconfig("Resistors", **kwargs)
         self.calibrate_menu.entryconfig("Bias Battery", **kwargs)
         self.calibrate_menu.entryconfig("Invalidate Arduino EEPROM", **kwargs)
-        # Voltage, Current
+
+        # Voltage/Current - basic
         #
         #   Enabled only if:
         #     Wizard not active
@@ -3799,8 +3814,9 @@ class MenuBar(tk.Menu):
             kwargs = {"state": "normal"}
         else:
             kwargs = {"state": "disabled"}
-        self.calibrate_menu.entryconfig("Voltage Calibration", **kwargs)
-        self.calibrate_menu.entryconfig("Current Calibration", **kwargs)
+        self.calibrate_menu.entryconfig("Voltage - basic", **kwargs)
+        self.calibrate_menu.entryconfig("Current - basic", **kwargs)
+
         # Pyranometer
         #
         #   Enabled only if:
@@ -3962,17 +3978,28 @@ bias battery calibration was enabled.
             tkmsg_showerror(self.master, message=err_msg)
             return
 
+        if not self.master.ivs2.battery_bias:
+            v_cal_b = self.master.ivs2.v_cal_b
+            if v_cal_b != 0.0:
+                warn_msg = """
+WARNING: An advanced voltage
+calibration is active.
+Performing a basic calibration
+may degrade results.
+"""
+                tkmsg_showwarning(self.master, message=warn_msg)
+
         data_points = self.master.ivs2.data_points
         curr_voc = round(data_points[-1][IV_Swinger2.VOLTS_INDEX], 5)
         prompt_str = "Enter measured Voc value:"
         new_voc = tksd_askfloat(self.master,
-                                title="Voltage Calibration",
+                                title="Voltage Calibration - basic",
                                 prompt=prompt_str,
                                 initialvalue=curr_voc)
         if new_voc:
             if not self.master.ivs2.battery_bias:
                 # Normal case: just scale v_cal proportionally
-                adj_ratio = new_voc / curr_voc
+                adj_ratio = (new_voc - v_cal_b) / (curr_voc - v_cal_b)
                 new_v_cal = self.master.ivs2.v_cal * adj_ratio
                 self.master.ivs2.v_cal = new_v_cal
                 self.master.config.cfg_set("Calibration", "voltage", new_v_cal)
@@ -3998,21 +4025,39 @@ bias battery calibration was enabled.
 
     # -------------------------------------------------------------------------
     def get_i_cal_value(self):
+        i_cal_b = self.master.ivs2.i_cal_b
+        if i_cal_b != 0.0:
+            warn_msg = """
+WARNING: An advanced current
+calibration is active.
+Performing a basic calibration
+may degrade results.
+"""
+            tkmsg_showwarning(self.master, message=warn_msg)
         data_points = self.master.ivs2.data_points
         curr_isc = round(data_points[0][IV_Swinger2.AMPS_INDEX], 5)
         prompt_str = "Enter measured Isc value:"
         new_isc = tksd_askfloat(self.master,
-                                title="Current Calibration",
+                                title="Current Calibration - basic",
                                 prompt=prompt_str,
                                 initialvalue=curr_isc)
         if new_isc:
-            new_i_cal = self.master.ivs2.i_cal * (new_isc / curr_isc)
+            new_i_cal = (self.master.ivs2.i_cal *
+                         (new_isc - i_cal_b) / (curr_isc - i_cal_b))
             self.master.ivs2.i_cal = new_i_cal
             self.master.config.cfg_set("Calibration", "current", new_i_cal)
             # Update value in EEPROM
             self.update_values_in_eeprom()
             # Redisplay the image with the new settings (saves config)
             self.master.redisplay_img(reprocess_adc=True)
+
+    # -------------------------------------------------------------------------
+    def get_v_cal_value_adv(self):
+        AdvVoltageCalDialog(self.master)
+
+    # -------------------------------------------------------------------------
+    def get_i_cal_value_adv(self):
+        AdvCurrentCalDialog(self.master)
 
     # -------------------------------------------------------------------------
     def get_pyrano_cal_value(self):
@@ -4114,7 +4159,8 @@ class Dialog(tk.Toplevel):
     # Initializer
     def __init__(self, master=None, title=None, has_ok_button=True,
                  has_cancel_button=True, return_ok=False, ok_label="OK",
-                 resizable=False, parent_is_modal=False):
+                 resizable=False, parent_is_modal=False,
+                 min_height=None, max_height=None):
         tk.Toplevel.__init__(self, master=master)
         self.master = master
         self.win_sys = self.master.tk.call("tk", "windowingsystem")
@@ -4131,19 +4177,34 @@ class Dialog(tk.Toplevel):
         self.snapshot_values = {}
         self.curr_values = {}
         self.parent_is_modal = parent_is_modal
+        self.min_height = min_height
+        self.max_height = max_height
 
         # Snapshot current values for revert
         self.snapshot()
 
         # Create body frame
         body = ttk.Frame(self)
+
         # Call body method to create body contents
         self.body(body)
-        body.grid(column=0, row=0, sticky=(N, S, E, W))
+        body.pack(fill=BOTH, expand=True)
+
         # Add button box with OK and Cancel buttons
         self.buttonbox(body)
         self.protocol("WM_DELETE_WINDOW", self.cancel)
-        self.master.set_dialog_geometry(self)
+
+        # Set the dialog position and size
+        self.master.set_dialog_geometry(self,
+                                        min_height=self.min_height,
+                                        max_height=self.max_height)
+
+        # Map Ctrl-A and Cmd-A (Mac) to select-all for Text widgets
+        # (which includes ScrolledText)
+        self.master.bind_class("Text", "<Control-a>", self.selectall)
+        self.master.bind_class("Text", "<Command-a>", self.selectall)
+
+        # Wait for dialog to be closed before returning control
         self.wait_window(self)
 
     # -------------------------------------------------------------------------
@@ -4167,7 +4228,7 @@ class Dialog(tk.Toplevel):
         self.update_idletasks()
 
         # Layout
-        box.grid(column=0, row=1, sticky=(E))
+        box.pack(side=RIGHT)
         if sys.platform == "win32":  # Windows
             ok_col = 0
             cancel_col = 1
@@ -4210,6 +4271,10 @@ class Dialog(tk.Toplevel):
         pass  # override
 
     # -------------------------------------------------------------------------
+    def selectall(self, event):
+        event.widget.tag_add("sel", "1.0", "end")
+
+    # -------------------------------------------------------------------------
     def close(self, event=None):
         # put focus back to the master window
         self.master.focus_set()
@@ -4228,7 +4293,10 @@ class GlobalHelpDialog(Dialog):
     def __init__(self, master=None):
         title = "IV Swinger 2 Help"
         Dialog.__init__(self, master=master, title=title,
-                        has_cancel_button=False, return_ok=True)
+                        has_cancel_button=False, return_ok=True,
+                        resizable=True,
+                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -4290,7 +4358,7 @@ to make incremental changes. However, when the Results Wizard is closed,
 the preferences revert to those that were in effect before it was opened.
 """
         font = HELP_DIALOG_FONT
-        self.text = ScrolledText(master, height=30, borderwidth=10)
+        self.text = ScrolledText(master, height=1, borderwidth=10)
         self.text.tag_configure("body_tag", font=font)
         self.text.tag_configure("heading_tag", font=font, underline=True)
         self.text.insert("end", help_text_intro, ("body_tag"))
@@ -4300,7 +4368,7 @@ the preferences revert to those that were in effect before it was opened.
         self.text.insert("end", help_text_2, ("body_tag"))
         self.text.insert("end", help_heading_3, ("heading_tag"))
         self.text.insert("end", help_text_3, ("body_tag"))
-        self.text.grid()
+        self.text.pack(fill=BOTH, expand=True)
 
 
 # Calibration help dialog class
@@ -4313,19 +4381,28 @@ class CalibrationHelpDialog(Dialog):
     def __init__(self, master=None):
         title = "Calibration Help"
         Dialog.__init__(self, master=master, title=title,
-                        has_cancel_button=False, return_ok=True)
+                        has_cancel_button=False, return_ok=True,
+                        resizable=True,
+                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
 
     # Create body, which is just a Text widget
     def body(self, master):
         help_text_1 = """
-Voltage and current calibration are performed by "correcting" the open circuit
-voltage (Voc) and short circuit current (Isc) values of a given IV curve with
-values that are measured with a digital multimeter (DMM).  The calibration is
-stored on the IV Swinger 2 hardware:
+Basic voltage and current calibration are performed by "correcting" the open
+circuit voltage (Voc) and short circuit current (Isc) values of a given IV
+curve with values that are measured with a digital multimeter (DMM).  The
+calibration is stored on the IV Swinger 2 hardware:
+
      - One laptop can be used with different IV Swinger 2's and each will have
        its own calibration
      - A given IV Swinger 2 only needs to be calibrated once, and that
        calibration will apply for any laptop it is used with
+
+Advanced voltage and current calibration provide more accuracy and, for
+SSR-based IV Swinger 2's, may be performed indoors with a DC power supply
+instead of a PV module or cell.
+
 NOTE: the "Vref (+5V)" calibration should be performed BEFORE current and
       voltage calibration.
 """
@@ -4336,13 +4413,13 @@ Vref (+5V):"""
   swing curves (even if the IV Swinger 2 has already been calibrated using a
   different laptop). It must be done before a laptop is used to perform voltage
   and current calibrations. Measure the voltage between the GND and +5V pins on
-  the PCB, PermaProto, or Arduino. It is stored on the laptop, not on the IV
-  Swinger 2 hardware. [The +5V is supplied by the laptop via USB, so it is a
-  characteristic of the laptop, not the IV Swinger 2 hardware.]
+  the PCB, PermaProto, or Arduino. The calibration is stored on the laptop, not
+  on the IV Swinger 2 hardware. [The +5V is supplied by the laptop via USB, so
+  it is a characteristic of the laptop, not the IV Swinger 2 hardware.]
 """
-        voltage_heading = """
-Voltage calibration:"""
-        voltage_help_text = """
+        voltage_basic_heading = """
+Voltage - basic:"""
+        voltage_basic_help_text = """
   1. Connect the DMM to the IV Swinger 2 binding posts with the PV
      module/cell connected normally
   2. Set the DMM to measure DC voltage
@@ -4352,9 +4429,12 @@ Voltage calibration:"""
   The curve will be regenerated with Voc calibrated to this value, and future
   curves will be generated using the new calibration.
 """
-        current_heading = """
-Current calibration (a bit trickier):"""
-        current_help_text = """
+        current_basic_heading = """
+Current - basic (a bit trickier):"""
+        current_basic_help_text = """
+NOTE: if your IV Swinger 2 is SSR-based, the advanced current calibration is
+recommended since it is not only more accurate, but it is easier.
+
 This must be done on a very clear day, preferably near noon - otherwise the Isc
 value fluctuates too much. You need one additional piece of equipment: a
 standard 15A single-pole light switch with a short wire connected to each
@@ -4362,25 +4442,40 @@ screw.
 
   1. Connect the red DMM lead to the "A" DMM input and set it to measure DC
      current
-  2. Disconnect the PV+ lead from the red (+) IV Swinger 2 binding post
-  3. Connect the DMM in series between the PV+ lead and the red (+) IV Swinger
-     2 binding post
-  4. With the light switch in the OFF position, connect one wire to each
+  2. Connect the red DMM probe to the PV+ lead
+  3. Connect the black DMM lead to the "COM" DMM input
+  4. Connect the black DMM probe to the IV Swinger 2 red binding post
+  5. Connect the IV Swinger 2 black binding post to the PV- lead
+  6. With the light switch in the OFF position, connect one wire to each
      binding post
-  5. Swing an IV curve
-  6. Flip the light switch ON - this will short the binding posts to each
+  7. Swing an IV curve
+  8. Flip the light switch ON - this will short the binding posts to each
      other
-  7. Note the DMM value - if it is fluctuating by more than a few mA, wait for
+  9. Note the DMM value - if it is fluctuating by more than a few mA, wait for
      a better day to calibrate
-  8. Flip the light switch OFF
-  9. Enter the noted DMM value in the Current Calibration dialog and hit OK
+ 10. Flip the light switch OFF
+ 11. Enter the noted DMM value in the Current Calibration dialog and hit OK
 
   The curve will be regenerated with Isc calibrated to this value, and future
-  curves will be generated using the new calibration. Repeat steps 5 - 9 to
+  curves will be generated using the new calibration. Repeat steps 7 - 11 to
   confirm/adjust.
 
   Note that the light switch will eventually be damaged by this procedure due
   to arcing (the 15A rating is for AC, not DC).
+"""
+        voltage_adv_heading = """
+Voltage - advanced:"""
+        voltage_adv_help_text = """
+There is separate help for advanced voltage calibration. Select the "Voltage -
+advanced" menu entry and then click on the "Help" button in the dialog that
+opens.
+"""
+        current_adv_heading = """
+Current - advanced"""
+        current_adv_help_text = """
+There is separate help for advanced current calibration. Select the "Current -
+advanced" menu entry and select the relay type (EMR or SSR). Then click on the
+"Help" button in the dialog that opens.
 """
         resistors_heading = """
 Resistors:"""
@@ -4422,16 +4517,20 @@ Invalidate Arduino EEPROM:"""
   2 hardware that is being used for the first time. It invalidates all
   calibration values that have been saved in the hardware."""
         font = HELP_DIALOG_FONT
-        self.text = ScrolledText(master, height=30, borderwidth=10)
+        self.text = ScrolledText(master, height=1, borderwidth=10)
         self.text.tag_configure("body_tag", font=font)
         self.text.tag_configure("heading_tag", font=font, underline=True)
         self.text.insert("end", help_text_1, ("body_tag"))
         self.text.insert("end", vref_heading, ("heading_tag"))
         self.text.insert("end", vref_help_text, ("body_tag"))
-        self.text.insert("end", voltage_heading, ("heading_tag"))
-        self.text.insert("end", voltage_help_text, ("body_tag"))
-        self.text.insert("end", current_heading, ("heading_tag"))
-        self.text.insert("end", current_help_text, ("body_tag"))
+        self.text.insert("end", voltage_basic_heading, ("heading_tag"))
+        self.text.insert("end", voltage_basic_help_text, ("body_tag"))
+        self.text.insert("end", current_basic_heading, ("heading_tag"))
+        self.text.insert("end", current_basic_help_text, ("body_tag"))
+        self.text.insert("end", voltage_adv_heading, ("heading_tag"))
+        self.text.insert("end", voltage_adv_help_text, ("body_tag"))
+        self.text.insert("end", current_adv_heading, ("heading_tag"))
+        self.text.insert("end", current_adv_help_text, ("body_tag"))
         self.text.insert("end", resistors_heading, ("heading_tag"))
         self.text.insert("end", resistors_help_text, ("body_tag"))
         self.text.insert("end", pyrano_heading, ("heading_tag"))
@@ -4440,7 +4539,362 @@ Invalidate Arduino EEPROM:"""
         self.text.insert("end", bias_battery_help_text, ("body_tag"))
         self.text.insert("end", invalidate_eeprom_heading, ("heading_tag"))
         self.text.insert("end", invalidate_eeprom_help_text, ("body_tag"))
-        self.text.grid()
+        self.text.pack(fill=BOTH, expand=True)
+
+
+# Advanced SSR current calibration help dialog class
+#
+class AdvSsrCurrentCalHelpDialog(Dialog):
+    """Extension of the generic Dialog class used for the SSR-only advanced
+    current calibration Help dialog
+    """
+    # Initializer
+    def __init__(self, master=None):
+        title = "Advanced Current Calibration Help (SSR)"
+        Dialog.__init__(self, master=master, title=title,
+                        has_cancel_button=False, return_ok=True,
+                        parent_is_modal=True,
+                        resizable=True,
+                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
+
+    # -------------------------------------------------------------------------
+    def body(self, master):
+        """Create body, which is just a Text widget"""
+        help_text_1 = """
+This current calibration method works on IV Swinger 2 hardware with
+solid-state relays (SSRs) only. It is easier to perform and more
+accurate than the basic current calibration or the advanced current
+calibration for hardware with electromagnetic relays (EMRs).
+
+Connections:
+
+  1. Connect the red digital multimeter (DMM) lead to the "A" DMM input
+     and set it to measure DC current
+
+  2. Connect the red DMM probe to the red (+) terminal of a DC power
+     supply
+
+  3. Connect the black DMM lead to the "COM" DMM input
+
+  4. Connect the black DMM probe to the IV Swinger 2 red binding post
+
+  5. Connect the IV Swinger 2 black binding post to the black (-)
+     terminal of the DC power supply
+
+  The DC power supply is now connected to the IV Swinger 2 with the DMM
+  in series on the positive side.
+
+  NOTE: A PV module or cell may be used instead of the DC power
+        supply. Using a DC power supply is preferable, however,
+        because its current is adjustable and more stable. That
+        is not to mention the obvious advantage that it can be
+        done indoors at any time of day in any weather.
+
+Calibration:
+
+  1. Turn on the DC power supply
+
+  2. Click on the "Get Point 1" button
+
+  3. Look at the DMM display and note the value (you have 3 seconds)
+
+  4. Adjust the DC power supply current so that the DMM reads
+     approximately 2 A (or 20% of the maximum value you expect to ever
+     measure). You may repeat the previous two steps to make this
+     adjustment.
+
+  5. Enter the final noted DMM measured Point 1 value in the text entry
+     box
+
+  6. Repeat steps 2 - 5 for Point 2. Shoot for a current around 8 A (or
+     80% of the maximum value you expect to ever measure).
+
+  7. Click the "Calibrate" button
+
+  8. Adjust the DC power supply current to an arbitrary value
+
+  9. Click the "Test" button
+
+ 10. Enter the DMM value in the text entry box and hit Enter
+
+ 11. Note the Error value (mA and %)
+
+ 12. Repeat steps 8 - 11 as many times as desired. Use different DC
+     power supply adjustments to test points throughout the desired
+     current range.
+
+ 13. If you are unhappy with the calibration, repeat steps 2 - 12.
+
+ 14. Click OK when you are happy with the calibration. Clicking Cancel
+     or closing the dialog window discards the calibration.
+
+  NOTE 1: To avoid damage to the SSRs, a short cooling off period is
+     enforced for currents above 6.75 amps.
+
+  NOTE 2: Unlike the basic calibration, the advanced calibration does
+     not require an IV curve to be swung before the calibration.
+     However, it also does not recalibrate and redisplay the most recent
+     curve the way the basic calibration does.
+
+  NOTE 3: The Test button feature may be used without performing a new
+     calibration.
+
+  NOTE 4: The slope and intercept values may be manually entered to
+     override the calculated values. But you should have a good reason
+     if you do this.
+"""
+        font = HELP_DIALOG_FONT
+        self.text = ScrolledText(master, height=1, borderwidth=10)
+        self.text.tag_configure("body_tag", font=font)
+        self.text.tag_configure("heading_tag", font=font, underline=True)
+        self.text.insert("end", help_text_1, ("body_tag"))
+        self.text.pack(fill=BOTH, expand=True)
+
+
+# Advanced EMR current calibration help dialog class
+#
+class AdvEmrCurrentCalHelpDialog(Dialog):
+    """Extension of the generic Dialog class used for the EMR-only advanced
+    current calibration Help dialog
+    """
+    # Initializer
+    def __init__(self, master=None):
+        title = "Advanced Current Calibration Help (EMR)"
+        Dialog.__init__(self, master=master, title=title,
+                        has_cancel_button=False, return_ok=True,
+                        parent_is_modal=True,
+                        resizable=True,
+                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
+
+    # -------------------------------------------------------------------------
+    def body(self, master):
+        """Create body, which is just a Text widget"""
+        help_text_1 = """
+This current calibration method works on IV Swinger 2 hardware with
+electromechanical relays (EMRs). Its advantage over the basic current
+calibration is that uses two points instead of just one. This can
+improve the accuracy of the calibration over the complete range.
+
+Required conditions:
+
+  The calibration must be done on a very clear day, preferably near
+  noon.
+
+Additional equipment:
+
+  Standard 15A single-pole light switch with a short wire connected to
+  each screw
+
+  NOTE: This process *WILL* destroy the switch after some number of
+  measurements. An alternative is a knife switch or other switch rated
+  for DC current. Othwerwise, buy in bulk if you plan on calibrating
+  often.
+
+Connections:
+
+  1. Connect the red digital multimeter (DMM) lead to the "A" DMM input
+     and set it to measure DC current
+
+  2. Connect the red DMM probe to the PV+ lead
+
+  3. Connect the black DMM lead to the "COM" DMM input
+
+  4. Connect the black DMM probe to the IV Swinger 2 red binding post
+
+  5. Connect the IV Swinger 2 black binding post to the PV- lead
+
+  6. With the light switch in the OFF position, connect one wire to each
+     binding post
+
+  The PV module/cell is now connected to the IV Swinger 2 with the DMM
+  in series on the positive side. The switch, when turned on, shorts the
+  PV+ to the PV- through the DMM.
+
+  NOTE: Unlike the calibration for the SSR-based designs, using a DC
+        power supply is not possible; it MUST be done with a PV
+        module/cell
+
+Calibration:
+
+  1. Prop the PV so that the sun is hitting it at a very oblique angle
+     (shoot for an angle of about 80 degrees off of perpendicular).
+
+  2. Click on the "Get Point 1" button.
+
+  3. Adjust the angle of the PV until the current is approximately 2 A
+     (or 20% of the maximum value you expect to ever measure). If you
+     get an error, try increasing the angle.
+
+  4. Click on the "Get Point 1" button several more times, checking that
+     the value is not changing by more than a few mA. If it is, then try
+     increasing the angle of the PV a bit more or wait for a better day
+     to calibrate.
+
+  5. Flip the light switch ON
+
+  6. Look at the DMM display and enter the DMM measured Point 1 value in
+     the text entry box
+
+  7. Flip the light switch OFF. [If the DMM current does not drop to
+     zero, your switch is fried.]
+
+  8. Repeat steps 1 - 7 for Point 2. Shoot for a current around 8 A (or
+     80% of the maximum value you expect to ever measure). A good
+     starting point is an angle of about 35 degrees off of
+     perpendicular.
+
+  9. Click the "Calibrate" button
+
+ 10. Prop the PV at an arbitrary angle to the sun
+
+ 11. Click the "Test" button
+
+ 12. Flip the light switch ON
+
+ 13. Enter the DMM value in the text entry box and hit Enter
+
+ 14. Note the Error value (mA and %)
+
+ 15. Flip the light switch OFF. [If the DMM current does not drop to
+     zero, your switch is fried.]
+
+ 16. Repeat steps 10 - 15 as many times as desired (or until your switch
+     fries, which may happen first). Use different PV angles to test
+     points throughout the desired current range.
+
+ 17. If you are unhappy with the calibration, repeat steps 1 - 17.
+
+ 18. Click OK when you are happy with the calibration. Clicking Cancel
+     or closing the dialog window discards the calibration.
+
+  NOTE 1: Unlike the basic calibration, the advanced calibration does
+     not require an IV curve to be swung before the calibration.
+     However, it also does not recalibrate or redisplay the most recent
+     curve the way the basic calibration does.
+
+  NOTE 2: The Test button feature may be used without performing a new
+     calibration.
+
+  NOTE 3: The switch will last a lot longer if the PV is shaded whenever
+     it is turned ON or OFF. However, there may be small changes in the
+     irradiance in the time that it takes to do that, affecting the
+     accuracy of the calibration.
+
+  NOTE 4: The slope and intercept values may be manually entered to
+     override the calculated values. But you should have a good reason
+     if you do this.
+"""
+        font = HELP_DIALOG_FONT
+        self.text = ScrolledText(master, height=1, borderwidth=10)
+        self.text.tag_configure("body_tag", font=font)
+        self.text.tag_configure("heading_tag", font=font, underline=True)
+        self.text.insert("end", help_text_1, ("body_tag"))
+        self.text.pack(fill=BOTH, expand=True)
+
+
+# Advanced voltage calibration help dialog class
+#
+class AdvVoltageCalHelpDialog(Dialog):
+    """Extension of the generic Dialog class used for the advanced voltage
+    calibration Help dialog
+    """
+    # Initializer
+    def __init__(self, master=None):
+        title = "Advanced Voltage Calibration Help (EMR)"
+        Dialog.__init__(self, master=master, title=title,
+                        has_cancel_button=False, return_ok=True,
+                        parent_is_modal=True,
+                        resizable=True,
+                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
+
+    # -------------------------------------------------------------------------
+    def body(self, master):
+        """Create body, which is just a Text widget"""
+        help_text_1 = """
+This voltage calibration method works on all types of IV Swinger 2
+hardware.  Its advantage over the basic current calibration is that uses
+two points instead of just one. This can improve the accuracy of the
+calibration over the complete range.
+
+A DC power supply is required to perform this calibration. This is
+because the Voc of a PV module or cell is not controllable. The DC power
+supply should be able to generate voltages up to about 80% of the
+maximum Voc that you expect to be measuring.
+
+Connections:
+
+  1. Connect the red digital multimeter (DMM) lead to the "V" DMM input
+     and set it to measure DC voltage
+
+  2. Connect the red DMM probe to the IV Swinger 2 red binding post
+
+  3. Connect the black DMM lead to the "COM" DMM input
+
+  4. Connect the black DMM probe to the IV Swinger 2 black binding post
+
+  5. Connect the IV Swinger 2 red binding post to the red (+) terminal
+     of the DC power supply
+
+  6. Connect the IV Swinger 2 black binding post to the black (-)
+     terminal of the DC power supply
+
+Calibration:
+
+  1. Turn on the DC power supply
+
+  2. Adjust the DC power supply voltage so that the DMM reads
+     approximately 20% of the maximum value you expect to ever
+     measure.
+
+  3. Click on the "Get Point 1" button.
+
+  4. Look at the DMM display and enter the DMM measured Point 1 value in
+     the text entry box. This value should be the same as it was before
+     you clicked on the button.
+
+  5. Repeat steps 2 - 4 for Point 2. Shoot for a voltage around 80% of
+     the maximum value you expect to ever measure.
+
+  6. Click the "Calibrate" button
+
+  7. Adjust the DC power supply voltage to an arbitrary value
+
+  8. Click the "Test" button
+
+  9. Enter the DMM value in the text entry box and hit Enter
+
+ 10. Note the Error value (mV and %)
+
+ 11. Repeat steps 7 - 10 as many times as desired. Use different DC
+     power supply adjustments to test points throughout the desired
+     voltage range.
+
+ 12. If you are unhappy with the calibration, repeat steps 2 - 11.
+
+ 13. Click OK when you are happy with the calibration. Clicking Cancel
+     or closing the dialog window discards the calibration.
+
+  NOTE 1: Unlike the basic calibration, the advanced calibration does
+     not require an IV curve to be swung before the calibration.
+     However, it also does not recalibrate or redisplay the most recent
+     curve the way the basic calibration does.
+
+  NOTE 2: The Test button feature may be used without performing a new
+     calibration.
+
+  NOTE 3: The slope and intercept values may be manually entered to
+     override the calculated values. But you should have a good reason
+     if you do this.
+"""
+        font = HELP_DIALOG_FONT
+        self.text = ScrolledText(master, height=1, borderwidth=10)
+        self.text.tag_configure("body_tag", font=font)
+        self.text.tag_configure("heading_tag", font=font, underline=True)
+        self.text.insert("end", help_text_1, ("body_tag"))
+        self.text.pack(fill=BOTH, expand=True)
 
 
 # Downlevel Arduino sketch dialog class
@@ -4453,13 +4907,21 @@ class DownlevelArduinoSketchDialog(Dialog):
     def __init__(self, master=None):
         title = "Downlevel Arduino Code"
         Dialog.__init__(self, master=master, title=title,
-                        has_cancel_button=False, return_ok=True)
+                        has_cancel_button=False, return_ok=True,
+                        resizable=True,
+                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
         self.master = master
 
     # Create body, which is just a Text widget
     def body(self, master):
 
         app_version_text = self.master.version
+        url = ("\n          https://raw.githubusercontent.com/"
+               "csatt/IV_Swinger/")
+        url += app_version_text
+        url += ("/Arduino/IV_Swinger2/IV_Swinger2.ino")
+
         heading_text = "** ATTENTION **\n\n"
         text_1 = """
 The Arduino software ("sketch") on the IV Swinger 2 hardware that is currently
@@ -4487,11 +4949,8 @@ Here is the procedure:
 
       - Use your browser to go to:
 """
-        text_5 = ("\n          https://raw.githubusercontent.com/"
-                  "csatt/IV_Swinger/")
-        text_6 = app_version_text
-        text_7 = ("/Arduino/IV_Swinger2/IV_Swinger2.ino")
-        text_8 = """
+        text_5 = url
+        text_6 = """
 
       - Use your browser's "Save As" to save IV_Swinger.ino to the Arduino
         sketchbook folder found above (make sure your browser doesn't add an
@@ -4509,7 +4968,8 @@ Here is the procedure:
         Click on arrow button or select "Upload" from "Sketch" menu.
 """
         font = HELP_DIALOG_FONT
-        self.text = ScrolledText(master, width=95, height=30, borderwidth=10)
+        self.text = ScrolledText(master, width=len(url)-12, height=1,
+                                 borderwidth=10)
         self.text.tag_configure("heading_tag", font=font, underline=True)
         self.text.tag_configure("body_tag", font=font)
         self.text.insert("end", heading_text, ("heading_tag"))
@@ -4519,9 +4979,761 @@ Here is the procedure:
         self.text.insert("end", text_4, ("body_tag"))
         self.text.insert("end", text_5, ("body_tag"))
         self.text.insert("end", text_6, ("body_tag"))
-        self.text.insert("end", text_7, ("body_tag"))
-        self.text.insert("end", text_8, ("body_tag"))
-        self.text.grid()
+        self.text.pack(fill=BOTH, expand=True)
+
+
+# Advanced calibration dialog
+#
+class AdvCalDialog(Dialog):
+    """Extension of the generic Dialog class used for the advanced
+    calibration dialogs. This class is used for both the advanced
+    current and the advanced voltage calibration dialogs.
+    """
+    # Initializer
+    def __init__(self, master=None, type="None"):
+        self.master = master
+        self.type = type
+        title = "{} Calibration - advanced".format(self.type)
+        self.relay_type = tk.StringVar()
+        self.pt_1_uncal_value = tk.StringVar()
+        self.pt_1_dmm_value = tk.StringVar()
+        self.pt_2_uncal_value = tk.StringVar()
+        self.pt_2_dmm_value = tk.StringVar()
+        self.slope = tk.StringVar()
+        self.intercept = tk.StringVar()
+        self.test_dmm_value = tk.StringVar()
+        self.test_cal_value = tk.StringVar()
+        self.test_err = tk.StringVar()
+        self.ssr_mode = "Unknown"
+        self.x1 = "Unknown"  # Point 1 uncalibrated value
+        self.y1 = "Unknown"  # Point 1 DMM value
+        self.x2 = "Unknown"  # Point 2 uncalibrated value
+        self.y2 = "Unknown"  # Point 2 DMM value
+        if self.type_is_current():
+            self.m = self.master.ivs2.i_cal    # Slope
+            self.b = self.master.ivs2.i_cal_b  # Intercept
+            self.unit_abbrev = "A"
+        else:
+            self.m = self.master.ivs2.v_cal    # Slope
+            self.b = self.master.ivs2.v_cal_b  # Intercept
+            self.unit_abbrev = "V"
+        self.test_dmm_units = "Unknown"     # Test: DMM amps/volts
+        self.test_cal_units = "Unknown"     # Test: Calibrated amps/volts
+        # Clear out old ADC value from IVS2
+        self.master.ivs2.reset_adv_cal_adc_val()
+        Dialog.__init__(self, master=master, title=title)
+
+    # -------------------------------------------------------------------------
+    def type_is_current(self):
+        if self.type == "Current":
+            return True
+        return False
+
+    # -------------------------------------------------------------------------
+    def body(self, master):
+        frame = ttk.Frame(master)
+
+        # Add label with description text
+        if self.type_is_current():
+            desc_text = """
+This current calibration uses two calibrated points to obtain both a
+slope and an intercept for the calibration equation. It also supports
+manual entry of the slope and intercept and it supports testing the
+calibration values before committing them. Both EMR-based and SSR-based
+IVS2s are supported, but an external switch is required for EMR-based
+IVS2s."""
+        else:
+            desc_text = """
+This voltage calibration uses two calibrated points to obtain both a
+slope and an intercept for the calibration equation. It also supports
+manual entry of the slope and intercept, and it supports testing the
+calibration values before committing them."""
+        desc_label = ttk.Label(master=frame, text=desc_text)
+
+        # Add label and relay type radio buttons in their own container
+        # box
+        relay_type_radio_button_box = ttk.Frame(master=frame, padding=10)
+        relay_type_label = ttk.Label(relay_type_radio_button_box,
+                                     text="Relay type (required): ")
+        ssr_radio_button = ttk.Radiobutton(relay_type_radio_button_box,
+                                           text="Solid-state (SSR)",
+                                           variable=self.relay_type,
+                                           value="SSR")
+        emr_radio_button = ttk.Radiobutton(relay_type_radio_button_box,
+                                           text="Electromechanical (EMR)",
+                                           variable=self.relay_type,
+                                           value="EMR")
+        self.relay_type.set(self.master.ivs2.relay_type)
+
+        # Add Help button in its own container box
+        help_button_box = ttk.Frame(master=frame, padding=10)
+        help_button = ttk.Button(help_button_box,
+                                 text="Help", width=8,
+                                 command=self.show_adv_cal_help)
+
+        ################
+        #  Point 1
+        ################
+        # Add point 1 button and label in a container box
+        pt_1_button_box = ttk.Frame(master=frame, padding=10)
+        pt_1_button = ttk.Button(pt_1_button_box,
+                                 text="Get Point 1",
+                                 command=self.get_pt_1_uncal_value)
+        pt_1_uncal_value_label = ttk.Label(pt_1_button_box,
+                                           textvariable=self.pt_1_uncal_value)
+        self.update_uncal_value(pt_1=True)
+
+        # Add DMM labels and entry in their own container box
+        pt_1_dmm_entry_box = ttk.Frame(master=frame)
+        pt_1_dmm_label1 = ttk.Label(master=pt_1_dmm_entry_box,
+                                    text="DMM measured Point 1 value: ")
+        pt_1_dmm_entry = ttk.Entry(pt_1_dmm_entry_box,
+                                   width=9,
+                                   textvariable=self.pt_1_dmm_value)
+        pt_1_dmm_entry.bind("<Return>", self.apply_pt_1_dmm_value)
+        pt_1_dmm_label2 = ttk.Label(master=pt_1_dmm_entry_box,
+                                    text="{}  ".format(self.unit_abbrev))
+
+        ################
+        #  Point 2
+        ################
+        # Add point 2 button and label in a container box
+        pt_2_button_box = ttk.Frame(master=frame, padding=10)
+        pt_2_button = ttk.Button(pt_2_button_box,
+                                 text="Get Point 2",
+                                 command=self.get_pt_2_uncal_value)
+        pt_2_uncal_value_label = ttk.Label(pt_2_button_box,
+                                           textvariable=self.pt_2_uncal_value)
+        self.update_uncal_value(pt_1=False)
+
+        # Add DMM labels and entry in their own container box
+        pt_2_dmm_entry_box = ttk.Frame(master=frame)
+        pt_2_dmm_label1 = ttk.Label(master=pt_2_dmm_entry_box,
+                                    text="DMM measured Point 2 value: ")
+        pt_2_dmm_entry = ttk.Entry(pt_2_dmm_entry_box,
+                                   width=9,
+                                   textvariable=self.pt_2_dmm_value)
+        pt_2_dmm_entry.bind("<Return>", self.apply_pt_2_dmm_value)
+        pt_2_dmm_label2 = ttk.Label(master=pt_2_dmm_entry_box,
+                                    text="{}  ".format(self.unit_abbrev))
+
+        ################
+        #  Calibrate
+        ################
+        # Add calibrate button in its own container box
+        calibrate_button_box = ttk.Frame(master=frame, padding=10)
+        calibrate_button = ttk.Button(calibrate_button_box,
+                                      text="Calibrate",
+                                      command=self.calibrate)
+
+        # Add slope labels and entry in their own container box
+        slope_entry_box = ttk.Frame(master=frame)
+        slope_label = ttk.Label(master=slope_entry_box,
+                                text="Slope: ")
+        slope_entry = ttk.Entry(slope_entry_box,
+                                width=9,
+                                textvariable=self.slope)
+        slope_entry.bind("<Return>", self.apply_slope)
+        self.slope_warning = ttk.Label(master=slope_entry_box,
+                                       text="")
+        self.update_slope()
+
+        # Add intercept labels and entry in their own container box
+        intercept_entry_box = ttk.Frame(master=frame)
+        intercept_label = ttk.Label(master=intercept_entry_box,
+                                    text="Intercept: ")
+        intercept_entry = ttk.Entry(intercept_entry_box,
+                                    width=9,
+                                    textvariable=self.intercept)
+        intercept_entry.bind("<Return>", self.apply_intercept)
+        self.intercept_warning = ttk.Label(master=intercept_entry_box,
+                                           text="")
+        self.update_intercept()
+
+        ################
+        #  Test
+        ################
+        # Add test button in its own container box
+        test_button_box = ttk.Frame(master=frame, padding=10)
+        test_button = ttk.Button(test_button_box,
+                                 text="Test",
+                                 command=self.get_test_uncal_value)
+
+        # Add calibrated value label
+        test_cal_value_label = ttk.Label(master=frame,
+                                         textvariable=self.test_cal_value)
+        self.update_test_cal_value()
+
+        # Add DMM labels and entry in their own container box
+        test_entry_box = ttk.Frame(master=frame)
+        test_label1 = ttk.Label(master=test_entry_box,
+                                text="DMM measured value: ")
+        test_entry = ttk.Entry(test_entry_box,
+                               width=9,
+                               textvariable=self.test_dmm_value)
+        test_entry.bind("<Return>", self.apply_test_dmm_value)
+        test_label2 = ttk.Label(master=test_entry_box,
+                                text="{}  ".format(self.unit_abbrev))
+
+        # Add test error label in its own container box
+        test_err_label = ttk.Label(master=frame,
+                                   textvariable=self.test_err)
+        self.update_test_err_val()
+
+        # Layout
+        separators = [ttk.Separator(master=frame, orient=HORIZONTAL)
+                      for ii in range(6)]
+        row = 0
+        sp = 0
+        desc_label.grid(column=0, row=row, sticky=W)
+        row += 1
+        if self.type_is_current():
+            separators[sp].grid(column=0, row=row, sticky=(E, W))
+            sp += 1
+            row += 1
+            relay_type_radio_button_box.grid(column=0, row=row,
+                                             sticky=(S, W), pady=4)
+            relay_type_label.grid(column=0, row=0, sticky=(S, W), pady=4)
+            ssr_radio_button.grid(column=0, row=1, sticky=(S, W), pady=4)
+            emr_radio_button.grid(column=0, row=2, sticky=(S, W), pady=4)
+            row += 1
+        separators[sp].grid(column=0, row=row, sticky=(E, W))
+        sp += 1
+        row += 1
+        help_button_box.grid(column=0, row=row, sticky=(S, W), pady=4)
+        help_button.grid(column=0, row=0, sticky=W)
+        row += 1
+        separators[sp].grid(column=0, row=row, sticky=(E, W))
+        sp += 1
+        row += 1
+        pt_1_button_box.grid(column=0, row=row, sticky=(S, W), pady=4)
+        pt_1_button.grid(column=0, row=0, sticky=W)
+        pt_1_uncal_value_label.grid(column=1, row=0, sticky=W)
+        row += 1
+        pt_1_dmm_entry_box.grid(column=0, row=row, sticky=(S, W), pady=4)
+        pt_1_dmm_label1.grid(column=0, row=0, sticky=W)
+        pt_1_dmm_entry.grid(column=1, row=0, sticky=W)
+        pt_1_dmm_label2.grid(column=2, row=0, sticky=W)
+        row += 1
+        separators[sp].grid(column=0, row=row, sticky=(E, W))
+        sp += 1
+        row += 1
+        pt_2_button_box.grid(column=0, row=row, sticky=(S, W), pady=4)
+        pt_2_button.grid(column=0, row=0, sticky=W)
+        pt_2_uncal_value_label.grid(column=1, row=0, sticky=W)
+        row += 1
+        pt_2_dmm_entry_box.grid(column=0, row=row, sticky=(S, W), pady=4)
+        pt_2_dmm_label1.grid(column=0, row=0, sticky=W)
+        pt_2_dmm_entry.grid(column=1, row=0, sticky=W)
+        pt_2_dmm_label2.grid(column=2, row=0, sticky=W)
+        row += 1
+        separators[sp].grid(column=0, row=row, sticky=(E, W))
+        sp += 1
+        row += 1
+        calibrate_button_box.grid(column=0, row=row, sticky=(S, W), pady=4)
+        calibrate_button.grid(column=0, row=0, sticky=W)
+        row += 1
+        slope_entry_box.grid(column=0, row=row, sticky=(S, W), pady=4)
+        slope_label.grid(column=0, row=0, sticky=W)
+        slope_entry.grid(column=1, row=0, sticky=W)
+        self.slope_warning.grid(column=2, row=0, sticky=W)
+        row += 1
+        intercept_entry_box.grid(column=0, row=row, sticky=(S, W), pady=4)
+        intercept_label.grid(column=0, row=0, sticky=W)
+        intercept_entry.grid(column=1, row=0, sticky=W)
+        self.intercept_warning.grid(column=2, row=0, sticky=W)
+        row += 1
+        separators[sp].grid(column=0, row=row, sticky=(E, W))
+        sp += 1
+        row += 1
+        test_button_box.grid(column=0, row=row, sticky=(S, W), pady=4)
+        test_button.grid(column=0, row=0, sticky=W)
+        row += 1
+        test_cal_value_label.grid(column=0, row=row, sticky=W)
+        row += 1
+        test_entry_box.grid(column=0, row=row, sticky=(S, W), pady=4)
+        test_label1.grid(column=0, row=0, sticky=W)
+        test_entry.grid(column=1, row=0, sticky=W)
+        test_label2.grid(column=2, row=0, sticky=W)
+        row += 1
+        test_err_label.grid(column=0, row=row, sticky=W)
+        frame.pack()
+
+    # ------------------------------------------------------------------------
+    def show_adv_cal_help(self):
+        """Display advanced current/voltage calibration help"""
+        if self.type_is_current():
+            if not self.relay_type_is_valid():
+                return RC_FAILURE
+            if self.ssr_mode:
+                AdvSsrCurrentCalHelpDialog(self.master)
+            else:
+                AdvEmrCurrentCalHelpDialog(self.master)
+        else:
+            AdvVoltageCalHelpDialog(self.master)
+
+    # ------------------------------------------------------------------------
+    def relay_type_is_valid(self):
+        """Check that the relay type has been set properly"""
+        relay_type = self.relay_type.get()
+
+        if relay_type == "Unknown":
+            error_msg = """
+ERROR: Please indicate the relay type (SSR/EMR) above"""
+            tkmsg.showerror(message=error_msg)
+            return False
+
+        if (relay_type == "SSR" and not
+                self.master.ivs2.arduino_sketch_supports_ssr_adv_current_cal):
+            error_msg = """
+ERROR: The Arduino sketch does not support
+SSR current calibration. You must update it
+to use this feature"""
+            tkmsg.showerror(message=error_msg)
+            return False
+
+        # As a side-effect, set the self.ssr_mode attribute
+        # appropriately
+        if relay_type == "SSR":
+            self.ssr_mode = True
+        else:
+            self.ssr_mode = False
+        self.master.ivs2.relay_type = relay_type
+
+        return True
+
+    # -------------------------------------------------------------------------
+    def get_pt_1_uncal_value(self):
+        """Method to get the uncalibrated value for point 1 from the hardware,
+           set the x1 attribute with its value, and update the label
+           after the button.
+        """
+        self.pt_1_dmm_value.set("")
+        rc = self.get_uncal_value()
+        if rc == RC_SUCCESS:
+            if self.type_is_current():
+                uncal_value_str = self.master.ivs2.get_adv_current_cal_amps()
+            else:
+                uncal_value_str = self.master.ivs2.get_adv_voltage_cal_volts()
+            try:
+                uncal_value = float(uncal_value_str)
+                self.update_uncal_value(pt_1=True)
+                if uncal_value > 0.0:
+                    self.x1 = uncal_value
+                else:
+                    error_msg = """
+ERROR: Hardware measured value must be greater than zero"""
+                    tkmsg.showerror(message=error_msg)
+            except ValueError:
+                error_msg = """
+ERROR: Hardware measured value must be valid"""
+                tkmsg.showerror(message=error_msg)
+
+    # -------------------------------------------------------------------------
+    def get_pt_2_uncal_value(self):
+        """Method to get the uncalibrated value for point 2 from the hardware,
+           set the x2 attribute with its value, and update the label
+           after the button.
+        """
+        self.pt_2_dmm_value.set("")
+        rc = self.get_uncal_value()
+        if rc == RC_SUCCESS:
+            if self.type_is_current():
+                uncal_value_str = self.master.ivs2.get_adv_current_cal_amps()
+            else:
+                uncal_value_str = self.master.ivs2.get_adv_voltage_cal_volts()
+            try:
+                uncal_value = float(uncal_value_str)
+                self.update_uncal_value(pt_1=False)
+                if uncal_value > 0.0:
+                    self.x2 = uncal_value
+                else:
+                    error_msg = """
+ERROR: Hardware measured value must be greater than zero"""
+                    tkmsg.showerror(message=error_msg)
+            except ValueError:
+                error_msg = """
+ERROR: Hardware measured value must be valid"""
+                tkmsg.showerror(message=error_msg)
+
+    # -------------------------------------------------------------------------
+    def get_uncal_value(self):
+        """Method to get the uncalibrated value from the hardware
+        """
+        if self.type_is_current() and not self.relay_type_is_valid():
+            return RC_FAILURE
+        if self.type_is_current() and self.ssr_mode:
+            rc = self.master.ivs2.request_ssr_adv_current_calibration_val()
+            if rc == RC_SSR_HOT:
+                error_msg = """
+ERROR: SSR needs another moment
+to cool down - try again"""
+                tkmsg.showerror(message=error_msg)
+                return rc
+            if rc != RC_SUCCESS:
+                error_msg = """
+ERROR: Failed to send advanced SSR current
+calibration request to Arduino"""
+                tkmsg.showerror(message=error_msg)
+                return rc
+        else:
+            rc = self.master.ivs2.request_adv_calibration_vals()
+            if rc != RC_SUCCESS:
+                error_msg = """
+ERROR: Failed to send advanced
+calibration request to Arduino"""
+                tkmsg.showerror(message=error_msg)
+                return rc
+            if self.type_is_current():
+                self.master.ivs2.get_emr_adv_current_cal_adc_val()
+            else:
+                self.master.ivs2.get_adv_voltage_cal_adc_val()
+
+        return RC_SUCCESS
+
+    # -------------------------------------------------------------------------
+    def update_uncal_value(self, pt_1=True):
+        """Method to update the value displayed for the point 1 or point 2
+           uncalibrated value.
+        """
+        try:
+            adc = int(self.master.ivs2.adv_cal_adc_val)
+            if self.type_is_current():
+                units = float(self.master.ivs2.get_adv_current_cal_amps())
+            else:
+                units = float(self.master.ivs2.get_adv_voltage_cal_volts())
+            val_str = "{:0.3f} {}  (ADC={})".format(units,
+                                                    self.unit_abbrev,
+                                                    adc)
+        except ValueError:
+            if self.type_is_current():
+                val_str = self.master.ivs2.get_adv_current_cal_amps()
+            else:
+                val_str = self.master.ivs2.get_adv_voltage_cal_volts()
+        str = "Uncalibrated value:  {}".format(val_str)
+        if pt_1:
+            self.pt_1_uncal_value.set(str)
+        else:
+            self.pt_2_uncal_value.set(str)
+
+    # -------------------------------------------------------------------------
+    def apply_pt_1_dmm_value(self, event=None):
+        """Method to get the user-entered measured value from the DMM entry box
+           for point 1 and apply it to the y1 attribute if it is a valid
+           floating point number.
+        """
+        try:
+            self.y1 = float(self.pt_1_dmm_value.get())
+            if self.y1 == 0.0:
+                error_msg = """
+ERROR: A non-zero value must be entered
+for the DMM measured Point 1 value"""
+                tkmsg.showerror(message=error_msg)
+                return RC_FAILURE
+            if event is None:
+                str = ("{} cal point 1 (uncal, dmm): {}, {:.6f}"
+                       .format(self.type, self.x1, self.y1))
+                self.master.ivs2.logger.log(str)
+        except ValueError:
+            error_msg = """
+ERROR: A numerical value must be entered
+for the DMM measured Point 1 value"""
+            tkmsg.showerror(message=error_msg)
+            return RC_FAILURE
+        return RC_SUCCESS
+
+    # -------------------------------------------------------------------------
+    def apply_pt_2_dmm_value(self, event=None):
+        """Method to get the user-entered measured value from the DMM entry box
+           for point 2 and apply it to the y2 attribute if it is a valid
+           floating point number.
+        """
+        try:
+            self.y2 = float(self.pt_2_dmm_value.get())
+            if self.y2 == 0.0:
+                error_msg = """
+ERROR: A non-zero value must be entered
+for the DMM measured Point 2 value"""
+                tkmsg.showerror(message=error_msg)
+                return RC_FAILURE
+            if event is None:
+                str = ("{} cal point 2 (uncal, dmm): {}, {:.6f}"
+                       .format(self.type, self.x2, self.y2))
+                self.master.ivs2.logger.log(str)
+        except ValueError:
+            error_msg = """
+ERROR: A numerical value must be entered
+for the DMM measured Point 2 value"""
+            tkmsg.showerror(message=error_msg)
+            return RC_FAILURE
+        return RC_SUCCESS
+
+    # -------------------------------------------------------------------------
+    def calibrate(self, event=None):
+        """Method to calculate the slope and intercept based on the
+           uncalibrated and measured values of point 1 and point 2
+           and to update their values in the entry boxes.
+        """
+        # Check that both points have been measured by the hardware
+        if self.x1 == "Unknown" or self.x2 == "Unknown":
+            error_msg = """
+ERROR: Cannot calibrate until both
+point 1 and point 2 have been measured"""
+            tkmsg.showerror(message=error_msg)
+            return
+
+        # Check that same uncalibrated value was not measured for both
+        # points. This is an error because it would cause a
+        # divide-by-zero exception.
+        if self.x1 == self.x2:
+            error_msg = """
+ERROR: Point 1 and point 2 may not
+have the same uncalibrated value"""
+            tkmsg.showerror(message=error_msg)
+            return
+
+        # Apply the DMM measured values
+        rc = self.apply_pt_1_dmm_value(None)
+        if rc != RC_SUCCESS:
+            return
+        rc = self.apply_pt_2_dmm_value(None)
+        if rc != RC_SUCCESS:
+            return
+
+        # Check that the DMM-measured values are not the same
+        if self.y1 == self.y2:
+            error_msg = """
+ERROR: Point 1 and point 2 may not
+have the same measured value"""
+            tkmsg.showerror(message=error_msg)
+            return
+
+        # Check that the DMM-measured values are at least 3:1
+        # one way or the other. This is a warning condition,
+        # not an error.
+        if ((self.y1 < self.y2 and self.y2 / self.y1 < 3) or
+                (self.y2 < self.y1 and self.y1 / self.y2 < 3)):
+            warning_msg = """
+WARNING: There should be at least a
+3:1 ratio between the two points for
+good results"""
+            tkmsg.showwarning(message=warning_msg)
+
+        # Calculate slope (m) and intercept (b)
+        self.m = (self.y2 - self.y1)/(self.x2 - self.x1)
+        self.b = self.y1 - (self.m * self.x1)
+
+        # Update values in entries
+        self.update_slope()
+        self.update_intercept()
+
+    # -------------------------------------------------------------------------
+    def apply_slope(self, event=None):
+        """Method to get the maunually entered value from the slope entry box
+        """
+        try:
+            m = float(self.slope.get())
+            if m != self.m:
+                msg_str = """
+Are you sure you want to manually set the slope value?"""
+                answer_is_yes = tkmsg_askyesno(self.master,
+                                               "Set slope?", msg_str,
+                                               default=tkmsg.NO)
+                if answer_is_yes:
+                    self.m = m
+                else:
+                    return RC_FAILURE
+        except ValueError:
+            error_msg = """
+ERROR: A numerical value must be entered
+for the slope"""
+            tkmsg.showerror(message=error_msg)
+            return RC_FAILURE
+        return RC_SUCCESS
+
+    # -------------------------------------------------------------------------
+    def update_slope(self):
+        """Method to update the value in the slope entry box
+        """
+        self.slope.set("{}".format(round(self.m, 6)))
+        # Check that slope is between 0.85 and 1.15
+        if self.m < 0.85 or self.m > 1.15:
+            self.slope_warning["text"] = "  ** WARNING **"
+            warning_msg = """
+WARNING: Slope {}
+doesn't look right. It should be between
+0.85 and 1.15 (and that is being generous)""".format(round(self.m, 6))
+            tkmsg.showwarning(message=warning_msg)
+        else:
+            self.slope_warning["text"] = ""
+
+    # -------------------------------------------------------------------------
+    def apply_intercept(self, event=None):
+        """Method to get the maunually entered value from the intercept
+           entry box
+        """
+        try:
+            b = float(self.intercept.get())
+            if b != self.b:
+                msg_str = """
+Are you sure you want to manually set the intercept value?"""
+                answer_is_yes = tkmsg_askyesno(self.master,
+                                               "Set intercept?", msg_str,
+                                               default=tkmsg.NO)
+                if answer_is_yes:
+                    self.b = b
+                else:
+                    return RC_FAILURE
+        except ValueError:
+            error_msg = """
+ERROR: A numerical value must be entered
+for the intercept"""
+            tkmsg.showerror(message=error_msg)
+            return RC_FAILURE
+        return RC_SUCCESS
+
+    # -------------------------------------------------------------------------
+    def update_intercept(self):
+        """Method to update the value in the intercept entry box
+        """
+        self.intercept.set("{}".format(round(self.b, 6)))
+        # Check that intercept is between 0 and 0.5
+        if self.b < 0.0 or self.b > 0.5:
+            self.intercept_warning["text"] = "  ** WARNING **"
+            warning_msg = """
+WARNING: Intercept {}
+doesn't look right. It should be between
+0.0 and 0.5""".format(round(self.b, 6))
+            tkmsg.showwarning(message=warning_msg)
+        else:
+            self.intercept_warning["text"] = ""
+
+    # -------------------------------------------------------------------------
+    def get_test_uncal_value(self):
+        """Method to get the uncalibrated test value from the hardware and
+           update the label.
+        """
+        self.test_dmm_value.set("")
+        rc = self.get_uncal_value()
+        if rc == RC_SUCCESS:
+            self.update_test_cal_value()
+
+    # -------------------------------------------------------------------------
+    def update_test_cal_value(self):
+        """Method to update the value in the calibrated value label
+        """
+        if self.type_is_current():
+            uncal_units_str = self.master.ivs2.get_adv_current_cal_amps()
+        else:
+            uncal_units_str = self.master.ivs2.get_adv_voltage_cal_volts()
+        try:
+            uncal_units = float(uncal_units_str)
+            self.test_cal_units = self.m * uncal_units + self.b
+            val_str = "{:0.3f} {}".format(self.test_cal_units,
+                                          self.unit_abbrev)
+        except ValueError:
+            val_str = uncal_units_str
+        str = "Calibrated value:  {}".format(val_str)
+        self.test_cal_value.set(str)
+
+    # -------------------------------------------------------------------------
+    def apply_test_dmm_value(self, event=None):
+        """Method to get the user-entered measured value from the test DMM
+           entry box and apply it to the test_dmm_units attribute and update
+           the test error label if it is a valid floating point number
+        """
+        if self.test_cal_units == "Unknown":
+            error_msg = """
+ERROR: The test must be run before
+entering a DMM measured value"""
+            tkmsg.showerror(message=error_msg)
+            return RC_FAILURE
+        if self.type_is_current():
+            uncal_units_str = self.master.ivs2.get_adv_current_cal_amps()
+        else:
+            uncal_units_str = self.master.ivs2.get_adv_voltage_cal_volts()
+        try:
+            self.test_dmm_units = float(self.test_dmm_value.get())
+            self.update_test_err_val()
+            uncal_units = float(uncal_units_str)
+            str = ("{} cal test (uncal, dmm): {}, {:.6f}"
+                   .format(self.type, uncal_units, self.test_dmm_units))
+            self.master.ivs2.logger.log(str)
+        except ValueError:
+            error_msg = """
+ERROR: A numerical value must be entered
+for the DMM measured test value"""
+            tkmsg.showerror(message=error_msg)
+            return RC_FAILURE
+        return RC_SUCCESS
+
+    # -------------------------------------------------------------------------
+    def update_test_err_val(self):
+        """Method to update the values in the test error label
+        """
+        try:
+            test_cal_milliunits = round(self.test_cal_units, 3) * 1000
+            test_dmm_milliunits = round(self.test_dmm_units, 3) * 1000
+            test_err_milliunits = test_cal_milliunits - test_dmm_milliunits
+            err_sign = ""
+            if test_err_milliunits > 0:
+                err_sign = "+"
+            if test_dmm_milliunits != 0:
+                test_err_pct = ((test_cal_milliunits /
+                                 test_dmm_milliunits) - 1) * 100
+                str = ("Error:  {}{} m{}  ({}{} %)"
+                       .format(err_sign, int(test_err_milliunits),
+                               self.unit_abbrev,
+                               err_sign, round(test_err_pct, 3)))
+            else:
+                str = ("Error:  {}{} m{}  (infinite %)"
+                       .format(err_sign, int(test_err_milliunits),
+                               self.unit_abbrev))
+        except TypeError:
+            str = "Error:  Unknown"
+        self.test_err.set(str)
+
+    # -------------------------------------------------------------------------
+    def apply(self):
+        """Override apply() method of parent to update the calibration values
+        """
+        if self.type_is_current():
+            self.master.ivs2.i_cal = self.m
+            self.master.config.cfg_set("Calibration", "current", self.m)
+            self.master.ivs2.i_cal_b = self.b
+            self.master.config.cfg_set("Calibration", "current intercept",
+                                       self.b)
+        else:
+            self.master.ivs2.v_cal = self.m
+            self.master.config.cfg_set("Calibration", "voltage", self.m)
+            self.master.ivs2.v_cal_b = self.b
+            self.master.config.cfg_set("Calibration", "voltage intercept",
+                                       self.b)
+
+        # Update values in EEPROM
+        self.master.menu_bar.update_values_in_eeprom()
+
+
+# Advanced current calibration dialog
+#
+class AdvCurrentCalDialog(AdvCalDialog):
+    """Extension of the AdvCalDialog class used for the advanced
+    current calibration dialog
+    """
+    # Initializer
+    def __init__(self, master=None):
+        AdvCalDialog.__init__(self, master=master, type="Current")
+
+
+# Advanced voltage calibration dialog
+#
+class AdvVoltageCalDialog(AdvCalDialog):
+    """Extension of the AdvCalDialog class used for the advanced
+    voltage calibration dialog
+    """
+    # Initializer
+    def __init__(self, master=None):
+        AdvCalDialog.__init__(self, master=master, type="Voltage")
 
 
 # Resistor values dialog class
@@ -4616,7 +5828,7 @@ class ResistorValuesDialog(Dialog):
         restore_box.grid(column=2, row=row, sticky=W, pady=pady,
                          columnspan=2)
         restore.grid(column=0, row=0, sticky=W)
-        frame.grid()
+        frame.pack()
 
     # -------------------------------------------------------------------------
     def restore_defaults(self, event=None):
@@ -4830,7 +6042,7 @@ performed immediately before EVERY curve is swung."""
         dyn_cal_enable_label.grid(column=1, row=0, sticky=W)
         dyn_cal_enable_off_rb.grid(column=2, row=0, sticky=W)
         dyn_cal_enable_on_rb.grid(column=3, row=0, sticky=W)
-        frame.grid()
+        frame.pack()
 
     # -------------------------------------------------------------------------
     def revert(self):
@@ -5001,7 +6213,7 @@ class PreferencesDialog(Dialog):
         self.populate_plotting_tab()
         self.populate_looping_tab()
         self.populate_arduino_tab()
-        self.nb.grid()
+        self.nb.pack()
 
     # -------------------------------------------------------------------------
     def populate_plotting_tab(self):
@@ -6119,7 +7331,10 @@ class PlottingHelpDialog(Dialog):
         title = "Plotting Help"
         Dialog.__init__(self, master=master, title=title,
                         has_cancel_button=False, return_ok=True,
-                        parent_is_modal=True)
+                        parent_is_modal=True,
+                        resizable=True,
+                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -6224,11 +7439,11 @@ Series resistance compensation (milliohms):
   bias modes.
 """
         font = HELP_DIALOG_FONT
-        self.text = ScrolledText(master, height=30, borderwidth=10)
+        self.text = ScrolledText(master, height=1, borderwidth=10)
         self.text.tag_configure("body_tag", font=font)
         self.text.tag_configure("heading_tag", font=font, underline=True)
         self.text.insert("end", help_text_1, ("body_tag"))
-        self.text.grid()
+        self.text.pack(fill=BOTH, expand=True)
 
 
 # SPI clock combobox class
@@ -6264,7 +7479,10 @@ class LoopingHelpDialog(Dialog):
         title = "Looping Help"
         Dialog.__init__(self, master=master, title=title,
                         has_cancel_button=False, return_ok=True,
-                        parent_is_modal=True)
+                        parent_is_modal=True,
+                        resizable=True,
+                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -6278,11 +7496,11 @@ closed and restored the next time it is opened.  The second is to choose
 whether or not looping should stop on non-fatal errors.
 """
         font = HELP_DIALOG_FONT
-        self.text = ScrolledText(master, height=15, borderwidth=10)
+        self.text = ScrolledText(master, height=1, borderwidth=10)
         self.text.tag_configure("body_tag", font=font)
         self.text.tag_configure("heading_tag", font=font, underline=True)
         self.text.insert("end", help_text_1, ("body_tag"))
-        self.text.grid()
+        self.text.pack(fill=BOTH, expand=True)
 
 
 # Arduino help dialog class
@@ -6296,7 +7514,10 @@ class ArduinoHelpDialog(Dialog):
         title = "Arduino Help"
         Dialog.__init__(self, master=master, title=title,
                         has_cancel_button=False, return_ok=True,
-                        parent_is_modal=True)
+                        parent_is_modal=True,
+                        resizable=True,
+                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -6350,11 +7571,11 @@ Relay is active-high:
   result.
 """
         font = HELP_DIALOG_FONT
-        self.text = ScrolledText(master, height=30, borderwidth=10)
+        self.text = ScrolledText(master, height=1, borderwidth=10)
         self.text.tag_configure("body_tag", font=font)
         self.text.tag_configure("heading_tag", font=font, underline=True)
         self.text.insert("end", help_text_1, ("body_tag"))
-        self.text.grid()
+        self.text.pack(fill=BOTH, expand=True)
 
 
 # Overlay help dialog class
@@ -6367,7 +7588,10 @@ class OverlayHelpDialog(Dialog):
     def __init__(self, master=None):
         title = "Overlay Help"
         Dialog.__init__(self, master=master, title=title,
-                        has_cancel_button=False, return_ok=True)
+                        has_cancel_button=False, return_ok=True,
+                        resizable=True,
+                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -6424,7 +7648,7 @@ overlay is finalized, only the images are saved; it is not possible to modify
 an overlay after it is finalized.
 """
         font = HELP_DIALOG_FONT
-        self.text = ScrolledText(master, height=30, borderwidth=10)
+        self.text = ScrolledText(master, height=1, borderwidth=10)
         self.text.tag_configure("body_tag", font=font)
         self.text.tag_configure("heading_tag", font=font, underline=True)
         self.text.insert("end", help_text_intro, ("body_tag"))
@@ -6438,7 +7662,7 @@ an overlay after it is finalized.
         self.text.insert("end", help_text_4, ("body_tag"))
         self.text.insert("end", help_heading_5, ("heading_tag"))
         self.text.insert("end", help_text_5, ("body_tag"))
-        self.text.grid()
+        self.text.pack(fill=BOTH, expand=True)
 
 
 # Image pane class

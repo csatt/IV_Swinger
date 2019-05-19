@@ -164,7 +164,7 @@
  * when the pins controlling them are activated or deactivated since
  * nothing is connected to those pins in the other versions.
  */
-#define VERSION "1.3.7+"        // Version of this Arduino sketch
+#define VERSION "1.3.8"        // Version of this Arduino sketch
 
 // Uncomment one or more of the following to enable the associated
 // feature. Note, however, that enabling these features uses more of the
@@ -221,6 +221,7 @@
 #define CLK_DIV SPI_CLOCK_DIV8 // SPI clock divider ratio
 #define SERIAL_BAUD 57600      // Serial port baud rate
 #define ADC_MAX 4096.0         // Max count of ADC (2^^num_bits)
+#define ADC_SAT (ADC_MAX-1)    // ADC saturation count
 #define ADC_CS_PIN 10          // Arduino pin used for ADC chip select
 #define RELAY_PIN 2            // Arduino pin used to activate relay (or SSR1)
 #define ONE_WIRE_BUS 3         // Arduino pin used for one-wire bus (DS18B20)
@@ -259,6 +260,8 @@
 #define AVG_WEIGHT (int) ((TOTAL_WEIGHT + 1) / 2)
 #define EEPROM_VALID_VALUE 123456.7890    // Must match IV_Swinger2.py
 #define EEPROM_RELAY_ACTIVE_HIGH_ADDR 44  // Must match IV_Swinger2.py
+#define SSR_CAL_USECS 3000000   // Microseconds to perform SSR current cal
+#define SSR_CAL_RD_USECS 100000 // Microseconds to read/average current
 
 // Compile-time assertion macros (from Stack Overflow)
 #define COMPILER_ASSERT(predicate) _impl_CASSERT_LINE(predicate,__LINE__)
@@ -299,6 +302,7 @@ const static char write_eeprom_str[] PROGMEM = "WRITE_EEPROM";
 const static char dump_eeprom_str[] PROGMEM = "DUMP_EEPROM";
 const static char relay_state_str[] PROGMEM = "RELAY_STATE";
 const static char second_relay_state_str[] PROGMEM = "SECOND_RELAY_STATE";
+const static char do_ssr_curr_cal_str[] PROGMEM = "DO_SSR_CURR_CAL";
 
 #ifdef DS18B20_SUPPORTED
 // Global setup for DS18B20 temperature sensor
@@ -896,7 +900,7 @@ void loop()
     Serial.print(F("ADS1115 (pyranometer photodiode) raw value: "));
     Serial.println(ads1115_val_avg);
   } else if (ads1115_present) {
-    Serial.print(F("WARNING: pyranometer photodiode not stable"));
+    Serial.println(F("WARNING: pyranometer photodiode not stable"));
   }
 #endif
 #ifdef DS18B20_SUPPORTED
@@ -1049,6 +1053,8 @@ void process_config_msg(char * msg) {
     set_relay_state((bool)atoi(config_val));
   } else if (strcmp_P(config_type, second_relay_state_str) == 0) {
     set_second_relay_state((bool)atoi(config_val));
+  } else if (strcmp_P(config_type, do_ssr_curr_cal_str) == 0) {
+    do_ssr_curr_cal();
   } else {
     Serial.print(F("ERROR: Unknown config type: "));
     Serial.println(config_type);
@@ -1134,6 +1140,73 @@ void set_second_relay_state(bool active) {
   } else { 
     digitalWrite(SECOND_RELAY_PIN, relay_inactive);
     digitalWrite(SSR6_PIN, SSR6_ACTIVE);
+  }
+}
+
+void do_ssr_curr_cal() {
+  bool result_valid = true;
+  int adc_ch1_val;
+  long adc_ch1_val_sum, adc_ch1_val_avg, adc_ch1_val_avg_cnt;
+  long start_usecs, elapsed_usecs;
+
+  // Activate SSR3/4
+  digitalWrite(SSR3_PIN, SSR3_ACTIVE);  // module version
+  digitalWrite(SSR4_PIN, SSR4_ACTIVE);  // cell version
+  // Deactivate SSR2
+  digitalWrite(SSR2_PIN, SSR2_INACTIVE);  // module version
+  // Activate SSR1
+  digitalWrite(RELAY_PIN, relay_active);
+
+  // Loop for SSR_CAL_USECS microseconds
+  //
+  // In the last SSR_CAL_RD_USECS of the loop, read CH1 (current) and
+  // keep a running total to be used to obtain an average. During this
+  // time, if any ADC value is saturated, flag the result as invalid.
+  start_usecs = micros();
+  elapsed_usecs = 0;
+  adc_ch1_val_sum = 0;
+  adc_ch1_val_avg_cnt = 0;
+  while ((elapsed_usecs < SSR_CAL_USECS) && result_valid) {
+    if (elapsed_usecs > (SSR_CAL_USECS - SSR_CAL_RD_USECS)) {
+      adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
+      adc_ch1_val_sum += adc_ch1_val;
+      adc_ch1_val_avg_cnt++;
+      if (adc_ch1_val == ADC_SAT) {
+        Serial.print(F("SSR current calibration: ADC saturated"));
+        result_valid = false;
+      }
+    }
+    elapsed_usecs = micros() - start_usecs;
+  }
+  // If the result is valid so far (ADC not saturated), compute the
+  // average.
+  //
+  // Check that the difference between the average value and the final
+  // value does not exceed isc_stable_adc.
+  if (result_valid) {
+    adc_ch1_val_avg = adc_ch1_val_avg_cnt ?
+      adc_ch1_val_sum / adc_ch1_val_avg_cnt : 0;
+    if (abs(adc_ch1_val_avg - adc_ch1_val) > isc_stable_adc) {
+      Serial.print(F("SSR current calibration ADC not stable.  Avg: "));
+      Serial.print(adc_ch1_val_avg);
+      Serial.print(F("  Last: "));
+      Serial.println(adc_ch1_val);
+      result_valid = false;
+    }
+  }
+
+  // Deactivate SSR1
+  digitalWrite(RELAY_PIN, relay_inactive);
+  // Activate SSR2
+  digitalWrite(SSR2_PIN, SSR2_ACTIVE);
+  // Deactivate SSR3/4
+  digitalWrite(SSR3_PIN, SSR3_INACTIVE);
+  digitalWrite(SSR4_PIN, SSR4_INACTIVE);
+
+  // If the result is valid, print result (average ADC value)
+  if (result_valid) {
+    Serial.print(F("SSR current calibration ADC value: "));
+    Serial.println(adc_ch1_val_avg);
   }
 }
 
