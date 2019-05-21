@@ -595,7 +595,7 @@ class Configuration(object):
         else:
             port_attached = False
             for serial_port in self.ivs2.serial_ports:
-                if cfg_value in str(serial_port):
+                if cfg_value in serial_port.device:
                     port_attached = True
                     break
             if port_attached:
@@ -2609,13 +2609,17 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """
 
         # If one of the serial ports has "uino" (Arduino, Genuino, etc.)
-        # in the name, choose that one. Note that this will choose the
-        # first one if more than one Arduino is connected.
+        # in the description or manufacturer field, choose that
+        # one. Note that this will choose the first one if more than one
+        # Arduino is connected.
         if self.usb_port is None:
             for serial_port in self.serial_ports:
-                if ("uino" in str(serial_port) or
-                        "Generic CDC" in str(serial_port)):  # Elegoo now
-                    self.usb_port = str(serial_port).split(" ")[0]
+                device = serial_port.device
+                description = serial_port.description
+                manufacturer = serial_port.manufacturer
+                if ((description is not None and "uino" in description) or
+                        (manufacturer is not None and "uino" in manufacturer)):
+                    self.usb_port = device
                     break
 
     # -------------------------------------------------------------------------
@@ -2625,8 +2629,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """
         serial_ports = list(serial.tools.list_ports.comports())
         for serial_port in serial_ports:
-            port_id = str(serial_port).split(" ")[0]
-            if port_id == self.usb_port:
+            device = serial_port.device
+            if device == self.usb_port:
                 return False
         return True
 

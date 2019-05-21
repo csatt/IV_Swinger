@@ -371,7 +371,7 @@ FATAL ERROR: This user does not have
 permission to create directories (folders) in
 {}""".format(app_data_parent)
             tkmsg_showerror(self, err_msg)
-            exit()
+            sys.exit()
         try:
             dummy_file = os.path.join(self.ivs2.app_data_dir, "DUMMY_FILE")
             open(dummy_file, "a").close()
@@ -382,7 +382,7 @@ FATAL ERROR: This user does not have
 permission to create files in
 {}""".format(self.ivs2.app_data_dir)
             tkmsg_showerror(self, err_msg)
-            exit()
+            sys.exit()
 
     # -------------------------------------------------------------------------
     def report_callback_exception(self, *args):
@@ -2942,6 +2942,12 @@ class ResultsWizard(tk.Toplevel):
                                    prompt=prompt_str,
                                    initialvalue=init_val)
         if new_title:
+            try:
+                str(new_title)
+            except UnicodeEncodeError:
+                err_str = ("ERROR: Title must be ASCII")
+                tkmsg_showerror(self.master, message=err_str)
+                return
             if self.master.props.overlay_mode:
                 self.overlay_title = new_title
                 self.plot_overlay_and_display()
@@ -3747,11 +3753,17 @@ class MenuBar(tk.Menu):
             self.usb_port_menu.delete(0, index2)
         # Populate
         self.selected_port.set(self.master.ivs2.usb_port)
-        for serial_port_full_str in self.master.ivs2.serial_ports:
-            serial_port = str(serial_port_full_str).split(" ")[0]
-            self.usb_port_menu.add_radiobutton(label=serial_port_full_str,
+        for serial_port in self.master.ivs2.serial_ports:
+            device = serial_port.device
+            label_part2 = u''
+            if serial_port.manufacturer is not None:
+                label_part2 = u' ' + serial_port.manufacturer
+            elif serial_port.description is not None:
+                label_part2 = u' ' + serial_port.description
+            label = device + label_part2
+            self.usb_port_menu.add_radiobutton(label=label,
                                                variable=self.selected_port,
-                                               value=serial_port,
+                                               value=device,
                                                command=self.select_serial)
 
     # -------------------------------------------------------------------------
@@ -7716,7 +7728,7 @@ folder. An Administrator account should
 be used for the install.
 """.format(self.img_file)
             tkmsg_showerror(self.master, message=err_msg)
-            exit()
+            sys.exit()
         else:
             self.display_img()
             self.splash_img_showing = True
