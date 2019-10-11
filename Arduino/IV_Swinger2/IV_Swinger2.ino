@@ -1140,6 +1140,8 @@ void set_second_relay_state(bool active) {
 void do_ssr_curr_cal() {
   bool result_valid = true;
   int adc_ch1_val;
+  int adc_ch1_val_min = ADC_SAT;
+  int adc_ch1_val_max = 0;
   long adc_ch1_val_sum, adc_ch1_val_avg, adc_ch1_val_avg_cnt;
   long start_usecs, elapsed_usecs;
 
@@ -1169,22 +1171,28 @@ void do_ssr_curr_cal() {
         Serial.print(F("SSR current calibration: ADC saturated"));
         result_valid = false;
       }
+      if (adc_ch1_val < adc_ch1_val_min)
+        adc_ch1_val_min = adc_ch1_val;
+      if (adc_ch1_val > adc_ch1_val_max)
+        adc_ch1_val_max = adc_ch1_val;
     }
     elapsed_usecs = micros() - start_usecs;
   }
   // If the result is valid so far (ADC not saturated), compute the
   // average.
   //
-  // Check that the difference between the average value and the final
-  // value does not exceed isc_stable_adc.
+  // Check that the difference between the min and max values is less
+  // than 1% of the average.
   if (result_valid) {
     adc_ch1_val_avg = adc_ch1_val_avg_cnt ?
       adc_ch1_val_sum / adc_ch1_val_avg_cnt : 0;
-    if (abs(adc_ch1_val_avg - adc_ch1_val) > isc_stable_adc) {
+    if (((adc_ch1_val_max - adc_ch1_val_min) * 100) > adc_ch1_val_avg) {
       Serial.print(F("SSR current calibration ADC not stable.  Avg: "));
       Serial.print(adc_ch1_val_avg);
-      Serial.print(F("  Last: "));
-      Serial.println(adc_ch1_val);
+      Serial.print(F("  Min: "));
+      Serial.print(adc_ch1_val_min);
+      Serial.print(F("  Max: "));
+      Serial.println(adc_ch1_val_max);
       result_valid = false;
     }
   }
