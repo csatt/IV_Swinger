@@ -668,24 +668,26 @@ void loop()
 
   // Calculate the minimum scaled adc delta value. This is the Manhattan
   // distance between the Isc point and the Voc point divided by the
-  // maximum number of points (minus 2 for safety). This guarantees that
-  // we won't run out of memory before the complete curve is
-  // captured. However, it will usually result in a number of captured
-  // points that is a fair amount lower than max_iv_points. The
-  // max_iv_points value is how many points there -would- be if -all-
-  // points were the minimum distance apart. But some points will be
-  // farther apart than the minimum distance. One reason is simply
-  // because, unless max_iv_points is set to a very small number, there
-  // are portions of the curve where the limiting factor is the rate
-  // that the measurements can be taken; even without discarding
+  // maximum number of points. This guarantees that we won't run out of
+  // memory before the complete curve is captured. However, it will
+  // usually result in a number of captured points that is a fair amount
+  // lower than max_iv_points. The max_iv_points value is how many
+  // points there -would- be if -all- points were the minimum distance
+  // apart, -and- the the actual distance between the ISC point and the
+  // VOC point were equal to the Manhattan distance. But some points
+  // will be farther apart than the minimum distance. One reason is
+  // simply because, unless max_iv_points is set to a very small number,
+  // there are portions of the curve where the limiting factor is the
+  // rate that the measurements can be taken; even without discarding
   // measurements, the points are farther apart than the minimum. The
   // other reason is that it is unlikely that a measurement comes at
-  // exactly the mimimum distance from the previously recorded
+  // exactly the minimum distance from the previously recorded
   // measurement, so the first one that does satisfy the requirement may
   // have overshot the minimum by nearly a factor of 2:1 in the worst
-  // case.
+  // case. And, of course, the actual IV curve is always shorter than
+  // the Manhattan distance.
   min_manhattan_distance = (unsigned int) ((isc_adc * i_scale) +
-                            (voc_adc * v_scale)) / (max_iv_points - 2);
+                            (voc_adc * v_scale)) / max_iv_points;
 
   // Proceed to read remaining points on IV curve. Compensate for the
   // fact that time passes between I and V measurements by using a
