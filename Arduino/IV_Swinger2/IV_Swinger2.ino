@@ -662,6 +662,20 @@ void loop()
       }
     }
   }
+  if (max_isc_poll < 0) {
+    // Special debug case (negative max_isc_poll). Just poll until a
+    // non-zero current is found
+    poll_timeout = true;
+    for (ii = 0; ii < MAX_ISC_POLL; ii++) {
+      adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
+      if (adc_ch1_val) {
+        poll_timeout = false;
+        adc_ch0_val = read_adc(VOLTAGE_CH);  // Read CH0 (voltage)
+        adc_ch1_val_prev_prev = 2048;
+        break;
+      }
+    }
+  }
   if (poll_timeout)
     Serial.println(F("Polling for stable Isc timed out"));
 
