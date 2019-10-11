@@ -172,12 +172,10 @@
 // accordingly to prevent running out of memory.
 //#define DS18B20_SUPPORTED
 //#define ADS1115_PYRANOMETER_SUPPORTED
-//#define CAPTURE_UNFILTERED_NOISE_FLOOR  // Debug only
 //#define CAPTURE_UNFILTERED_ISC_POLL     // Debug only
 //#define CAPTURE_UNFILTERED_POST_ISC     // Debug only
 
-#if defined(CAPTURE_UNFILTERED_NOISE_FLOOR) || \
-    defined(CAPTURE_UNFILTERED_ISC_POLL) || \
+#if defined(CAPTURE_UNFILTERED_ISC_POLL) || \
     defined(CAPTURE_UNFILTERED_POST_ISC)
 #define CAPTURE_UNFILTERED
 #endif
@@ -490,12 +488,7 @@ void loop()
     // The ADC noise floor is the value read from the ADC when it
     // "should" be zero.  At this point, we know that the actual current
     // is zero because the circuit is open, so whatever value is read on
-    // CH1 is the noise floor value.  IVS2 implementations that are
-    // targeted for low power PV cells need a very high gain
-    // amplification of the voltage across the shunt resistor, which
-    // results in a very high noise floor that has been observed to
-    // cycle up and down.  Here we identify the top and bottom values of
-    // that cycling.
+    // CH1 is the noise floor value.
     if (adc_ch1_val < min_adc_noise_floor) {
       min_adc_noise_floor = adc_ch1_val;
     }
@@ -517,23 +510,6 @@ void loop()
     }
   }
   
-  if (max_adc_noise_floor - min_adc_noise_floor > 10) {
-    // If the noise floor is cycling by more than 10 ADC units, we
-    // attempt to catch it at a point that is near the bottom
-    for (ii = 0; ii < VOC_POLLING_LOOPS; ii++) {
-      adc_ch0_val = read_adc(VOLTAGE_CH);  // Read CH0 (voltage)
-      adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
-#ifdef CAPTURE_UNFILTERED_NOISE_FLOOR
-      if (unfiltered_index < MAX_UNFILTERED_POINTS) {
-        unfiltered_adc_ch1_vals[unfiltered_index] = adc_ch1_val;
-        unfiltered_adc_ch0_vals[unfiltered_index++] = adc_ch0_val;
-      }
-#endif
-      if (adc_ch1_val <= min_adc_noise_floor + 5) {
-        break;
-      }
-    }
-  }
   adc_noise_floor = min_adc_noise_floor;
   // Increase minimum Isc ADC value by noise floor
   min_isc_adc += adc_noise_floor;
