@@ -401,10 +401,10 @@ void setup()
     Serial.print(ii+1);
     Serial.print(F(" is 0x"));
     for (int jj = 7; jj >= 0; jj--) {
-      if (rom_code[jj] < 16) Serial.print('0');
+      if (rom_code[jj] < 16) Serial.print(F("0"));
       Serial.print(rom_code[jj], HEX);
     }
-    Serial.println("");
+    Serial.println(F(""));
   }
 #endif
 }
