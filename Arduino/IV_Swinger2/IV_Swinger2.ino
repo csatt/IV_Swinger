@@ -917,8 +917,10 @@ void loop()
   }
 #endif
   // CH1 ADC noise floor
-  Serial.print(F("CH1 ADC noise floor:"));
-  Serial.println(adc_noise_floor);
+  Serial.print(F("CH1 ADC noise floor (min):"));
+  Serial.println(min_adc_noise_floor);
+  Serial.print(F("CH1 ADC noise floor (max):"));
+  Serial.println(max_adc_noise_floor);
   // Isc point
   Serial.print(F("Isc CH0:0"));
   Serial.print(F(" CH1:"));
