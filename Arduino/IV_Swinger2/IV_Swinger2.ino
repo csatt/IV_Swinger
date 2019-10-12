@@ -164,7 +164,7 @@
  * when the pins controlling them are activated or deactivated since
  * nothing is connected to those pins in the other versions.
  */
-#define VERSION "1.3.8"        // Version of this Arduino sketch
+#define VERSION "1.3.9"        // Version of this Arduino sketch
 
 // Uncomment one or more of the following to enable the associated
 // feature. Note, however, that enabling these features uses more of the
