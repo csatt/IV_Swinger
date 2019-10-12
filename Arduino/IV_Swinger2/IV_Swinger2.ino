@@ -368,7 +368,6 @@ void setup()
       }
       else if (strstr_P(incoming_msg, config_str)) {
         process_config_msg(incoming_msg);
-        Serial.println(F("Config processed"));
       }
     }
   }
@@ -455,7 +454,6 @@ void loop()
       }
       else if (strstr_P(incoming_msg, config_str)) {
         process_config_msg(incoming_msg);
-        Serial.println(F("Config processed"));
       }
     }
   }
@@ -977,7 +975,15 @@ bool get_host_msg(char * msg) {
         Serial.println(msg);
         break;
       } else {
-        msg[char_num++] = c;
+        if (char_num == (MAX_MSG_LEN - 1)) {
+          msg[char_num] = '\0';
+          Serial.print(F("ERROR: Host message too long: "));
+          Serial.print(msg);
+          Serial.println(F("...."));
+          break;
+        } else {
+          msg[char_num++] = c;
+        }
       }
       msg_timer = MSG_TIMER_TIMEOUT;
     } else {
@@ -994,65 +1000,152 @@ void process_config_msg(char * msg) {
   char *config_val;
   char *config_val2;
   int ii = 0;
+  int num_args = 0;
+  int exp_args;
   int eeprom_addr;
   float eeprom_value;
+  bool wrong_arg_cnt = false;
   substr = strtok(msg, " ");  // "Config:"
   while (substr != NULL) {
     substr = strtok(NULL, " ");
-    if (ii == 0) {
-      config_type = substr;
-    } else if (ii == 1) {
-      config_val = substr;
-    } else if (ii == 2) {
-      config_val2 = substr;
-    } else if (substr != NULL) {
-      Serial.println(F("ERROR: Too many fields in config message"));
-      break;
+    if (substr != NULL) {
+      if (ii == 0) {
+        config_type = substr;
+      } else if (ii == 1) {
+        config_val = substr;
+        num_args = 1;
+      } else if (ii == 2) {
+        config_val2 = substr;
+        num_args = 2;
+      } else if (substr != NULL) {
+        Serial.println(F("ERROR: Too many fields in config message"));
+        Serial.println(F("Config not processed"));
+        return;
+      }
     }
     ii++;
   }
   if (strcmp_P(config_type, clk_div_str) == 0) {
-    clk_div = atoi(config_val);
-    SPI.setClockDivider(clk_div);
+    exp_args = 1;
+    if (num_args == exp_args) {
+      clk_div = atoi(config_val);
+      SPI.setClockDivider(clk_div);
+    } else {
+      wrong_arg_cnt = true;
+    }
   } else if (strcmp_P(config_type, max_iv_points_str) == 0) {
-    max_iv_points = atoi(config_val);
-    if (max_iv_points > MAX_IV_POINTS) {
-      max_iv_points = MAX_IV_POINTS;
+    exp_args = 1;
+    if (num_args == exp_args) {
+      max_iv_points = atoi(config_val);
+      if (max_iv_points > MAX_IV_POINTS) {
+        max_iv_points = MAX_IV_POINTS;
+      }
+    } else {
+      wrong_arg_cnt = true;
     }
   } else if (strcmp_P(config_type, min_isc_adc_str) == 0) {
-    min_isc_adc = atoi(config_val);
+    exp_args = 1;
+    if (num_args == exp_args) {
+      min_isc_adc = atoi(config_val);
+    } else {
+      wrong_arg_cnt = true;
+    }
   } else if (strcmp_P(config_type, max_isc_poll_str) == 0) {
-    max_isc_poll = atoi(config_val);
+    exp_args = 1;
+    if (num_args == exp_args) {
+      max_isc_poll = atoi(config_val);
+    } else {
+      wrong_arg_cnt = true;
+    }
   } else if (strcmp_P(config_type, isc_stable_adc_str) == 0) {
-    isc_stable_adc = atoi(config_val);
+    exp_args = 1;
+    if (num_args == exp_args) {
+      isc_stable_adc = atoi(config_val);
+    } else {
+      wrong_arg_cnt = true;
+    }
   } else if (strcmp_P(config_type, max_discards_str) == 0) {
-    max_discards = atoi(config_val);
+    exp_args = 1;
+    if (num_args == exp_args) {
+      max_discards = atoi(config_val);
+    } else {
+      wrong_arg_cnt = true;
+    }
   } else if (strcmp_P(config_type, aspect_height_str) == 0) {
-    aspect_height = atoi(config_val);
+    exp_args = 1;
+    if (num_args == exp_args) {
+      aspect_height = atoi(config_val);
+    } else {
+      wrong_arg_cnt = true;
+    }
   } else if (strcmp_P(config_type, aspect_width_str) == 0) {
-    aspect_width = atoi(config_val);
+    exp_args = 1;
+    if (num_args == exp_args) {
+      aspect_width = atoi(config_val);
+    } else {
+      wrong_arg_cnt = true;
+    }
   } else if (strcmp_P(config_type, write_eeprom_str) == 0) {
-    eeprom_addr = atoi(config_val);
-    eeprom_value = atof(config_val2);
-    EEPROM.put(eeprom_addr, eeprom_value);
-    if (eeprom_addr == EEPROM_RELAY_ACTIVE_HIGH_ADDR) {
-      relay_active = (eeprom_value == LOW) ? LOW : HIGH;
-      relay_inactive = (relay_active == LOW) ? HIGH : LOW;
-      digitalWrite(RELAY_PIN, relay_inactive);
-      digitalWrite(SECOND_RELAY_PIN, relay_inactive);
+    exp_args = 2;
+    if (num_args == exp_args) {
+      eeprom_addr = atoi(config_val);
+      eeprom_value = atof(config_val2);
+      EEPROM.put(eeprom_addr, eeprom_value);
+      if (eeprom_addr == EEPROM_RELAY_ACTIVE_HIGH_ADDR) {
+        relay_active = (eeprom_value == LOW) ? LOW : HIGH;
+        relay_inactive = (relay_active == LOW) ? HIGH : LOW;
+        digitalWrite(RELAY_PIN, relay_inactive);
+        digitalWrite(SECOND_RELAY_PIN, relay_inactive);
+      }
+    } else {
+      wrong_arg_cnt = true;
     }
   } else if (strcmp_P(config_type, dump_eeprom_str) == 0) {
-    dump_eeprom();
+    exp_args = 0;
+    if (num_args == exp_args) {
+      dump_eeprom();
+    } else {
+      wrong_arg_cnt = true;
+    }
   } else if (strcmp_P(config_type, relay_state_str) == 0) {
-    set_relay_state((bool)atoi(config_val));
+    exp_args = 1;
+    if (num_args == exp_args) {
+      set_relay_state((bool)atoi(config_val));
+    } else {
+      wrong_arg_cnt = true;
+    }
   } else if (strcmp_P(config_type, second_relay_state_str) == 0) {
-    set_second_relay_state((bool)atoi(config_val));
+    exp_args = 1;
+    if (num_args == exp_args) {
+      set_second_relay_state((bool)atoi(config_val));
+    } else {
+      wrong_arg_cnt = true;
+    }
   } else if (strcmp_P(config_type, do_ssr_curr_cal_str) == 0) {
-    do_ssr_curr_cal();
+    exp_args = 0;
+    if (num_args == exp_args) {
+      do_ssr_curr_cal();
+    } else {
+      wrong_arg_cnt = true;
+    }
   } else {
     Serial.print(F("ERROR: Unknown config type: "));
     Serial.println(config_type);
+    Serial.println(F("Config not processed"));
+    return;
   }
+  if (wrong_arg_cnt) {
+    Serial.print(F("ERROR: Expected "));
+    Serial.print(exp_args);
+    Serial.print(F(" args for config type "));
+    Serial.print(config_type);
+    Serial.print(F(", got  "));
+    Serial.println(num_args);
+    Serial.println(F("Config not processed"));
+    return;
+  }
+  Serial.println(F("Config processed"));
+  return;
 }
 
 void dump_eeprom() {
