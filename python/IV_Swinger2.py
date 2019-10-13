@@ -49,8 +49,8 @@
 # code (if not for that fact, it might even have made more sense to use
 # a different language than Python for IVS2). The IV_Swinger2 class in
 # this module extends the IV_Swinger class, allowing code re-use where
-# it makes sense. The IV_Singer_plotter module is also imported and used
-# for plotting the results.
+# it makes sense. The IV_Swinger_plotter module is also imported and
+# used for plotting the results.
 #
 # The Raspberry Pi (RPi) is the compute platform for IVS1.  On IVS1, the
 # Python code runs on the RPi; it controls the IV Swinger hardware,
@@ -678,7 +678,7 @@ class Configuration(object):
         # Shunt resistor
         #
         # For "legacy" reasons, the shunt resistor is specified by two values:
-        # max volts and max amps.  It's resistance is max_volts/max_amps.  The
+        # max volts and max amps.  Its resistance is max_volts/max_amps.  The
         # max_amps value is hardcoded to 10A, so we just keep the value of
         # max_volts in the config.
         args = (section, "shunt max volts", CFG_FLOAT,
