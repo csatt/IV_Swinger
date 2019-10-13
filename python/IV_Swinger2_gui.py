@@ -101,6 +101,7 @@ except ImportError:
     pass
 import shutil
 import sys
+import tempfile
 import ttk
 import Tkinter as tk
 import tkFileDialog
@@ -319,6 +320,32 @@ def tksd_askfloat(master, title, prompt, initialvalue):
                            initialvalue=initialvalue)
     master.mac_grayed_menu_workaround()
     return answer
+
+
+def handle_early_exception():
+    """Global function that prints the stack trace for an early exception
+       (i.e. detected before mainloop() is started) to a temporary file
+       and opens that file for the user in the system viewer. This is
+       only for a frozen executable (e.g. built with pyinstaller);
+       otherwise the exception info is just printed to the console.
+    """
+    err_msg = "Unexpected error: {}\n".format(sys.exc_info()[0])
+    err_msg += traceback.format_exc()
+    if not getattr(sys, "frozen", False):
+        print err_msg
+        return
+    tmp_file = tempfile.NamedTemporaryFile(delete=False)
+    err_msg += "\n"
+    err_msg += """
+-----------------------------------------------------------
+Please copy/paste the above and send it to csatt1@gmail.com
+
+Alternately, you may attach this file:
+{}
+""".format(tmp_file.name)
+    with open(tmp_file.name, "a") as f:
+        f.write(err_msg)
+    IV_Swinger2.sys_view_file(tmp_file.name)
 
 
 #################
@@ -8016,8 +8043,11 @@ class LoopSaveResults(ttk.Checkbutton):
 ############
 def main():
     """Main function"""
-    gui = GraphicalUserInterface()
-    gui.run()
+    try:
+        gui = GraphicalUserInterface()
+        gui.run()
+    except:
+        handle_early_exception()
 
 
 # Boilerplate main() call
