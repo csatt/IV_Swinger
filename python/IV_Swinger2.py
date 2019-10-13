@@ -2841,7 +2841,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         try:
             self._sio.write(unicode("{}\n".format(msg)))
         except (serial.SerialException) as e:
-            self.logger.print_and_log("send_msg_to_arduino: ({})".format(e))
+            err_str = "ERROR: send_msg_to_arduino: ({})".format(e)
+            self.logger.print_and_log(err_str)
             return RC_SERIAL_EXCEPTION
 
         return RC_SUCCESS
