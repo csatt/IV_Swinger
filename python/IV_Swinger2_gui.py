@@ -1618,6 +1618,11 @@ bias was actually applied.
         if self.ivs2.hdd_output_dir is not None:
             self.ivs2.clean_up_files(self.ivs2.hdd_output_dir)
         IV_Swinger2.close_plots()
+        # Log configuration differences relative to starting values
+        self.config.log_cfg_diffs()
+        # Add newline to end of log file
+        self.ivs2.logger.terminate_log()
+        # Close the app
         self.root.destroy()
 
     # -------------------------------------------------------------------------
@@ -1635,8 +1640,6 @@ bias was actually applied.
         self.start_on_top()
         self.root.protocol("WM_DELETE_WINDOW", self.close_gui)
         self.root.mainloop()
-        self.config.log_cfg_diffs()
-        self.ivs2.logger.terminate_log()
 
 
 # GUI properties class
