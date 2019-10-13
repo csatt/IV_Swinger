@@ -247,7 +247,7 @@ def get_app_dir():
 def tkmsg_showinfo(master, message):
     """Global function that creates a tkMessageBox object and calls
        its showinfo method, passing the message from the caller. The
-       purpose if this is to add the workaround for the Mac grayed
+       purpose of this is to add the workaround for the Mac grayed
        menu bug.
     """
     tkmsg.showinfo(message=message)
@@ -257,7 +257,7 @@ def tkmsg_showinfo(master, message):
 def tkmsg_showwarning(master, message):
     """Global function that creates a tkMessageBox object and calls
        its showwarning method, passing the message from the caller. The
-       purpose if this is to add the workaround for the Mac grayed
+       purpose of this is to add the workaround for the Mac grayed
        menu bug.
     """
     tkmsg.showwarning(message=message)
@@ -267,7 +267,7 @@ def tkmsg_showwarning(master, message):
 def tkmsg_showerror(master, message):
     """Global function that creates a tkMessageBox object and calls
        its showerror method, passing the message from the caller. The
-       purpose if this is to add the workaround for the Mac grayed
+       purpose of this is to add the workaround for the Mac grayed
        menu bug.
     """
     tkmsg.showerror(message=message)
@@ -277,7 +277,7 @@ def tkmsg_showerror(master, message):
 def tkmsg_askyesno(master, title, message, default):
     """Global function that creates a tkMessageBox object and calls
        its askyesno method, passing the args from the caller. The
-       purpose if this is to add the workaround for the Mac grayed
+       purpose of this is to add the workaround for the Mac grayed
        menu bug.
     """
     answer = tkmsg.askyesno(title, message=message, default=default)
@@ -288,7 +288,7 @@ def tkmsg_askyesno(master, title, message, default):
 def tksd_askstring(master, title, prompt, initialvalue):
     """Global function that creates a tkSimpleDialog object and calls
        its askstring method, passing the args from the caller. The
-       purpose if this is to add the workaround for the Mac grayed
+       purpose of this is to add the workaround for the Mac grayed
        menu bug.
     """
     answer = tksd.askstring(title=title, prompt=prompt,
@@ -300,7 +300,7 @@ def tksd_askstring(master, title, prompt, initialvalue):
 def tksd_askinteger(master, title, prompt, initialvalue):
     """Global function that creates a tkSimpleDialog object and calls
        its askinteger method, passing the args from the caller. The
-       purpose if this is to add the workaround for the Mac grayed
+       purpose of this is to add the workaround for the Mac grayed
        menu bug.
     """
     answer = tksd.askinteger(title=title, prompt=prompt,
@@ -312,7 +312,7 @@ def tksd_askinteger(master, title, prompt, initialvalue):
 def tksd_askfloat(master, title, prompt, initialvalue):
     """Global function that creates a tkSimpleDialog object and calls
        its askfloat method, passing the args from the caller. The
-       purpose if this is to add the workaround for the Mac grayed
+       purpose of this is to add the workaround for the Mac grayed
        menu bug.
     """
     answer = tksd.askfloat(title=title, prompt=prompt,
