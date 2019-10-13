@@ -2899,7 +2899,7 @@ class ResultsWizard(tk.Toplevel):
                    .format(num_copied["overlays"],
                            num_copied["runs"],
                            os.path.join(self.copy_dest, APP_NAME)))
-        tkmsg_showerror(self.master, message=msg_str)
+        tkmsg_showinfo(self.master, message=msg_str)
 
     # -------------------------------------------------------------------------
     def change_title(self, event=None):
