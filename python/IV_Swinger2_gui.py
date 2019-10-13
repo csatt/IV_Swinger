@@ -2100,7 +2100,7 @@ class ResultsWizard(tk.Toplevel):
         self.master.root.after(100, self.populate_tree)
         tt_text = ("Click on path at the top to change. Shift-click and "
                    "Control-click can be used to select multiple runs "
-                   "for copying or overlaying.")
+                   "for overlaying, updating, deleting or copying.")
         Tooltip(self.tree, text=tt_text, **TOP_TT_KWARGS)
         self.tree.pack(side=LEFT)
         self.treescroll.pack(side=LEFT, fill=Y)
