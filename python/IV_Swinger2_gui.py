@@ -345,7 +345,7 @@ class GraphicalUserInterface(ttk.Frame):
         self.app_dir = get_app_dir()
         self.get_version()
         self.set_grid()
-        self.config = Configuration(gui=self, ivs2=self.ivs2)
+        self.config = Configuration(gui=self)
         self.config.get()
         self.start_to_right()
         self.set_style()
@@ -1823,10 +1823,10 @@ class Configuration(IV_Swinger2.Configuration):
     """
 
     # Initializer
-    def __init__(self, gui=None, ivs2=None):
+    def __init__(self, gui=None):
         self.gui = gui
-        self.ivs2 = ivs2
-        IV_Swinger2.Configuration.__init__(self, ivs2)
+        self.ivs2 = gui.ivs2
+        IV_Swinger2.Configuration.__init__(self, self.ivs2)
 
     # -------------------------------------------------------------------------
     def apply_all(self):
