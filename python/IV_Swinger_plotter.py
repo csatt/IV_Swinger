@@ -159,7 +159,7 @@ class PrintAndOrLog(object):
 
     @staticmethod
     def print_and_log_msg(logger, msg_str):
-        """Method to either print only or print or log a message. The message is
+        """Method to either print only or print and log a message. The message is
         printed and logged if there is a logger. Otherwise it is just
         printed.
         """
@@ -474,7 +474,7 @@ class CsvFileProcessor(object):
         """Method to process a single CSV file"""
 
         msg_str = "Processing: {}".format(csv_filename)
-        self.print_or_log_msg(msg_str)
+        PrintAndOrLog.print_or_log_msg(self.logger, msg_str)
 
         # Create a CSV parser object and get the data points
         csv_parser = CsvParser(csv_filename, self.logger)
@@ -545,15 +545,6 @@ class CsvFileProcessor(object):
         """Method to process all the CSV files"""
         for csv_filename in self.csv_files:
             self.proc_one_csv_file(csv_filename)
-
-    def print_or_log_msg(self, msg_str):
-        """Method to either print or log a message. The message is just logged
-        if there is a logger. Otherwise it is printed.
-        """
-        if self.logger is None:
-            print msg_str
-        else:
-            self.logger.log(msg_str)
 
     @property
     def plt_data_point_files(self):
