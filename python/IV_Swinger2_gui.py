@@ -7001,6 +7001,8 @@ effect. Please upgrade.
             if max_iv_points > MAX_IV_POINTS_MAX:
                 err_str += ("\n  Max IV points must be no more than {}"
                             .format(MAX_IV_POINTS_MAX))
+            if max_iv_points < 1:
+                err_str += "\n  Max IV points must greater than 0"
             if min_isc_adc > ADC_MAX:
                 err_str += ("\n  Min Isc ADC must be no more than {}"
                             .format(ADC_MAX))
