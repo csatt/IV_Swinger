@@ -388,11 +388,12 @@ permission to create files in
     def report_callback_exception(self, *args):
         """Override the parent class's method of the same name. This method is
            called whenever there is an exception in the code run by the
-           mainloop() - i.e. everything. Without this override, the
-           exception is printed to stderr, but doesn't crash the
-           program. That makes it completely silent when the program is
-           started from an icon. We at least need it to get logged, and
-           also to inform the user.
+           mainloop() - i.e. everything after the GUI actually comes
+           up. Without this override, the exception is printed to
+           stderr, but doesn't crash the program. That makes it
+           completely silent when the program is started from an
+           icon. We at least need it to get logged and also to inform
+           the user.
         """
         self.ivs2.logger.print_and_log("Unexpected error: {}"
                                        .format(sys.exc_info()[0]))
