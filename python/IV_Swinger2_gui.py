@@ -2516,12 +2516,12 @@ class ResultsWizard(tk.Toplevel):
                 shortcut = ws.CreateShortcut(desktop_shortcut_path)
                 if len(shortcut.TargetPath) > 0:
                     curr_value = shortcut.TargetPath
-                    if curr_value == self.results_dir:
+                    if curr_value == self.master.ivs2.app_data_dir:
                         result = EXISTS_SAME
                     else:
                         result = EXISTS_DIFFERENT
                 else:
-                    shortcut.TargetPath = self.results_dir
+                    shortcut.TargetPath = self.master.ivs2.app_data_dir
                     shortcut.Save()
                     result = CREATED
             except:
@@ -2531,13 +2531,14 @@ class ResultsWizard(tk.Toplevel):
             if os.path.exists(desktop_shortcut_path):
                 if os.path.islink(desktop_shortcut_path):
                     curr_value = os.readlink(desktop_shortcut_path)
-                    if curr_value == self.results_dir:
+                    if curr_value == self.master.ivs2.app_data_dir:
                         result = EXISTS_SAME
                     else:
                         result = EXISTS_DIFFERENT
             else:
                 try:
-                    os.symlink(self.results_dir, desktop_shortcut_path)
+                    os.symlink(self.master.ivs2.app_data_dir,
+                               desktop_shortcut_path)
                     result = CREATED
                 except:
                     result = FAILED
