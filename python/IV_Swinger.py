@@ -3296,14 +3296,6 @@ class IV_Swinger(object):
             "mpp_volts list must be same size as sd_data_point_filenames list"
 
     # -------------------------------------------------------------------------
-    def pyplot_supports_gif(self):
-        """Method to determine if plotting to GIF is supported by pyplot
-           (platform dependent). Returns True if plotting to GIF is
-           supported, and False if it is not.
-        """
-        return "gif" in plt.gcf().canvas.get_supported_filetypes()
-
-    # -------------------------------------------------------------------------
     def set_figure_size(self):
         """Method to set the plotter figure size"""
 
