@@ -5339,7 +5339,8 @@ ERROR: Hardware measured value must be greater than zero"""
                     tkmsg.showerror(message=error_msg)
             except ValueError:
                 error_msg = """
-ERROR: Hardware measured value must be valid"""
+ERROR: Hardware returned invalid measured value ("{}")
+""".format(uncal_value_str)
                 tkmsg.showerror(message=error_msg)
 
     # -------------------------------------------------------------------------
