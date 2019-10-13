@@ -5387,15 +5387,18 @@ to cool down - try again"""
             if rc != RC_SUCCESS:
                 error_msg = """
 ERROR: Failed to send advanced SSR current
-calibration request to Arduino"""
+calibration request to Arduino
+(rc = {})""".format(rc)
                 tkmsg.showerror(message=error_msg)
                 return rc
         else:
             rc = self.master.ivs2.request_adv_calibration_vals()
             if rc != RC_SUCCESS:
+                if self.type_is_current() or rc != RC_ISC_TIMEOUT:
                 error_msg = """
 ERROR: Failed to send advanced
-calibration request to Arduino"""
+calibration request to Arduino
+(rc = {})""".format(rc)
                 tkmsg.showerror(message=error_msg)
                 return rc
             if self.type_is_current():
