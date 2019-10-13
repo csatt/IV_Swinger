@@ -399,7 +399,10 @@ permission to create files in
         self.ivs2.logger.print_and_log(traceback.format_exc())
         exception_msg = """
 An internal error has occurred.  Please send
-the log file to csatt1@gmail.com.  Thank you!
+the log file to csatt1@gmail.com.
+
+Use "View Log File" on the "File" menu.
+The file name is near the top.
 """
         tkmsg_showerror(self, exception_msg)
 
