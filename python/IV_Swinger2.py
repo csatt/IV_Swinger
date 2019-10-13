@@ -2627,7 +2627,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """Method to determine if the USB port connected to the Arduino has
            been disconnected
         """
-        serial_ports = list(serial.tools.list_ports.comports())
+        serial_ports = serial.tools.list_ports.comports()
         for serial_port in serial_ports:
             device = serial_port.device
             if device == self.usb_port:
