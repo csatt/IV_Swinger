@@ -3173,7 +3173,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # -------------------------------------------------------------------------
     def log_msg_from_arduino(self, msg):
         """Method to log a message from the Arduino"""
-        log_msg = "Arduino: {}".format(msg.rstrip())
+        log_msg = u"Arduino: {}".format(msg.rstrip())
         self.logger.log(log_msg)
 
     # -------------------------------------------------------------------------
