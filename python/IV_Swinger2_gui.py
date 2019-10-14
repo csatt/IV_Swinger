@@ -5769,6 +5769,25 @@ for the DMM measured test value"""
         self.test_err.set(str)
 
     # -------------------------------------------------------------------------
+    def validate(self):
+        """Override validate() method of parent to sanity check the calibration
+           values.
+        """
+        if self.m < 0.85 or self.m > 1.15:
+            error_msg = """
+ERROR: Slope {} is not between
+0.85 and 1.15. Cannot commit.""".format(round(self.m, 6))
+            tkmsg.showerror(message=error_msg)
+            return False
+        if self.b < -0.5 or self.b > 0.5:
+            error_msg = """
+ERROR: Intercept {} is not between
+-0.5 and +0.5. Cannot commit.""".format(round(self.b, 6))
+            tkmsg.showerror(message=error_msg)
+            return False
+        return True
+
+    # -------------------------------------------------------------------------
     def apply(self):
         """Override apply() method of parent to update the calibration values
         """
