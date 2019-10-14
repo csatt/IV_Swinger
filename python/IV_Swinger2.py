@@ -4639,6 +4639,12 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            corrections, and convert the values to volts, amps, watts,
            and ohms; and write those values to a CSV file
         """
+        # Check that at least two points exist
+        if len(self.adc_pairs) < 2:
+            err_str = "ERROR: Fewer than two points recorded (A)"
+            self.logger.print_and_log(err_str)
+            return RC_NO_POINTS
+
         # Determine ADC offset values
         self.get_adc_offsets(self.adc_pairs)
 
@@ -4669,7 +4675,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 adc_pairs = self.adc_pairs
             self.adc_pairs_corrected = self.apply_battery_bias(adc_pairs)
             if len(self.adc_pairs_corrected) < 2:
-                err_str = "ERROR: Fewer than two points recorded"
+                err_str = "ERROR: Fewer than two points recorded (B)"
                 self.logger.print_and_log(err_str)
                 return RC_NO_POINTS
         else:
