@@ -1119,10 +1119,20 @@ value on the Arduino tab of Preferences
         if cfg_v_cal != self.ivs2.v_cal:
             self.config.cfg_set(section, option, self.ivs2.v_cal)
             config_changed = True
+        option = "voltage intercept"
+        cfg_v_cal_b = self.config.cfg.get(section, option)
+        if cfg_v_cal_b != self.ivs2.v_cal_b:
+            self.config.cfg_set(section, option, self.ivs2.v_cal_b)
+            config_changed = True
         option = "current"
         cfg_i_cal = self.config.cfg.get(section, option)
         if cfg_i_cal != self.ivs2.i_cal:
             self.config.cfg_set(section, option, self.ivs2.i_cal)
+            config_changed = True
+        option = "current intercept"
+        cfg_i_cal_b = self.config.cfg.get(section, option)
+        if cfg_i_cal_b != self.ivs2.i_cal_b:
+            self.config.cfg_set(section, option, self.ivs2.i_cal_b)
             config_changed = True
         if config_changed:
             self.save_config()
