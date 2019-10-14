@@ -3489,7 +3489,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # -------------------------------------------------------------------------
     def process_eeprom_value(self):
         """Method to process one EEPROM value returned by the Arduino"""
-        eeprom_re = re.compile("EEPROM addr: (\d+)\s+value: (\d+\.\d+)")
+        eeprom_re = re.compile("EEPROM addr: (\d+)\s+value: (-*\d+\.\d+)")
         match = eeprom_re.search(self.msg_from_arduino)
         if match:
             eeprom_addr = int(match.group(1))
