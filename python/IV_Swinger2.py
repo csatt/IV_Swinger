@@ -2632,6 +2632,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             device = serial_port.device
             if device == self.usb_port:
                 return False
+        warn_str = ("WARNING: USB port {} disconnected".format(self.usb_port))
+        self.logger.print_and_log(warn_str)
         return True
 
     # -------------------------------------------------------------------------
