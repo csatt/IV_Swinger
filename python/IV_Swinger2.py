@@ -2655,6 +2655,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """Method to reset the Arduino and establish communication to it
            over USB
         """
+        # Return failure if the USB port is disconnected
+        if self.usb_port_disconnected():
+            return RC_FAILURE
 
         # Set up to talk to Arduino via USB (this resets the Arduino)
         if self._ser is not None and self._ser.is_open:
