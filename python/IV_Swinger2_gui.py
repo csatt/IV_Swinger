@@ -5672,13 +5672,13 @@ for the intercept"""
         """Method to update the value in the intercept entry box
         """
         self.intercept.set("{}".format(round(self.b, 6)))
-        # Check that intercept is between 0 and 0.5
-        if self.b < 0.0 or self.b > 0.5:
+        # Check that intercept is between -0.5 and 0.5
+        if self.b < -0.5 or self.b > 0.5:
             self.intercept_warning["text"] = "  ** WARNING **"
             warning_msg = """
 WARNING: Intercept {}
 doesn't look right. It should be between
-0.0 and 0.5""".format(round(self.b, 6))
+-0.5 and +0.5""".format(round(self.b, 6))
             tkmsg.showwarning(message=warning_msg)
         else:
             self.intercept_warning["text"] = ""
