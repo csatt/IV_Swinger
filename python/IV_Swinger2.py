@@ -2836,6 +2836,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             rc = self.receive_msg_from_arduino()
             if rc != RC_SUCCESS:
                 return rc
+            if self.msg_from_arduino == unicode("Config not processed\n"):
+                return RC_FAILURE
 
         return RC_SUCCESS
 
@@ -3189,6 +3191,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             rc = self.receive_msg_from_arduino()
             if rc != RC_SUCCESS:
                 return rc
+            if self.msg_from_arduino == unicode("Config not processed\n"):
+                return RC_FAILURE
             if self.msg_from_arduino.startswith("EEPROM addr"):
                 rc = self.process_eeprom_value()
                 self.eeprom_values_received = True
@@ -3333,6 +3337,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             rc = self.receive_msg_from_arduino()
             if rc != RC_SUCCESS:
                 return rc
+            if self.msg_from_arduino == unicode("Config not processed\n"):
+                return RC_FAILURE
             if self.msg_from_arduino.startswith("SSR current calibration"):
                 self.get_ssr_adv_current_cal_adc_val(self.msg_from_arduino)
 
