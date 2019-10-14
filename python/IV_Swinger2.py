@@ -2666,6 +2666,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         try:
             self._ser = serial.Serial(self.usb_port, self.usb_baud,
                                       timeout=self.serial_timeout)
+            # Close and re-open. This appears to prevent the message
+            # timeout when the USB cable is reconnected after being
+            # disconnected
+            self._ser.close()
+            self._ser.open()
         except (serial.SerialException) as e:
             self.logger.print_and_log("ERROR: reset_arduino: ({})".format(e))
             return RC_SERIAL_EXCEPTION
