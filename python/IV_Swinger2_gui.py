@@ -4048,6 +4048,13 @@ may degrade results.
 
         data_points = self.master.ivs2.data_points
         curr_voc = round(data_points[-1][IV_Swinger2.VOLTS_INDEX], 5)
+        if curr_voc <= v_cal_b:
+            err_msg = """
+ERROR: Voc must be larger than
+{} to perform voltage calibration.
+""".format(v_cal_b)
+            tkmsg_showerror(self.master, message=err_msg)
+            return
         prompt_str = "Enter measured Voc value:"
         new_voc = tksd_askfloat(self.master,
                                 title="Voltage Calibration - basic",
@@ -4093,6 +4100,13 @@ may degrade results.
             tkmsg_showwarning(self.master, message=warn_msg)
         data_points = self.master.ivs2.data_points
         curr_isc = round(data_points[0][IV_Swinger2.AMPS_INDEX], 5)
+        if curr_isc <= i_cal_b:
+            err_msg = """
+ERROR: Isc must be larger than
+{} to perform current calibration.
+""".format(i_cal_b)
+            tkmsg_showerror(self.master, message=err_msg)
+            return
         prompt_str = "Enter measured Isc value:"
         new_isc = tksd_askfloat(self.master,
                                 title="Current Calibration - basic",
