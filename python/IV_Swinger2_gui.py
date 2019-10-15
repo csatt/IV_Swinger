@@ -241,7 +241,7 @@ def get_app_dir():
     """
     if getattr(sys, "frozen", False):
         return os.path.abspath(os.path.dirname(sys.executable))
-    elif __file__:
+    else:
         return os.path.abspath(os.path.dirname(__file__))
 
 
@@ -3207,6 +3207,8 @@ class ResultsWizard(tk.Toplevel):
                 self.plot_overlay_and_display()
                 self.add_new_overlay_to_tree()
 
+        return RC_SUCCESS
+
     # -------------------------------------------------------------------------
     def sort_overlaid_runs(self, chron=False):
         """Method to sort the runs selected to be overlaid. Initially runs are
@@ -5385,6 +5387,8 @@ calibration values before committing them."""
                 AdvEmrCurrentCalHelpDialog(self.master)
         else:
             AdvVoltageCalHelpDialog(self.master)
+
+        return RC_SUCCESS
 
     # ------------------------------------------------------------------------
     def relay_type_is_valid(self):
