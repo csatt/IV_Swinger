@@ -51,21 +51,21 @@ class Tooltip:
         self.offset_left = offset_left
         self.widget = widget
         self.text = text
-        self.widget.bind("<Enter>", self.onEnter)
-        self.widget.bind("<Leave>", self.onLeave)
-        self.widget.bind("<ButtonPress>", self.onLeave)
+        self.widget.bind("<Enter>", self.on_enter)
+        self.widget.bind("<Leave>", self.on_leave)
+        self.widget.bind("<ButtonPress>", self.on_leave)
         self.bg = bg
         self.pad = pad
         self.id = None
         self.tw = None
 
-    def onEnter(self, event=None):
+    def on_enter(self, event=None):
         self.schedule()
         total_staytime = self.staytime * max(len(self.text), 30)
         canceltime = self.waittime + total_staytime
         self.widget.after(canceltime, self.hide)
 
-    def onLeave(self, event=None):
+    def on_leave(self, event=None):
         self.unschedule()
         self.hide()
 

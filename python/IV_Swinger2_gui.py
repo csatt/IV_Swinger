@@ -2588,10 +2588,6 @@ class ResultsWizard(tk.Toplevel):
         # Define shortcut name
         desktop_shortcut_path = os.path.join(desktop_path, "IV_Swinger2")
 
-        CREATED = 0
-        EXISTS_SAME = 1
-        EXISTS_DIFFERENT = 2
-        FAILED = 3
         result = None
 
         if sys.platform == "win32":
@@ -2604,44 +2600,44 @@ class ResultsWizard(tk.Toplevel):
                 if len(shortcut.TargetPath) > 0:
                     curr_value = shortcut.TargetPath
                     if curr_value == self.master.ivs2.app_data_dir:
-                        result = EXISTS_SAME
+                        result = "EXISTS_SAME"
                     else:
-                        result = EXISTS_DIFFERENT
+                        result = "EXISTS_DIFFERENT"
                 else:
                     shortcut.TargetPath = self.master.ivs2.app_data_dir
                     shortcut.Save()
-                    result = CREATED
+                    result = "CREATED"
             except:
-                result = FAILED
+                result = "FAILED"
         else:
             # For Mac or Linux, just create a symlink
             if os.path.exists(desktop_shortcut_path):
                 if os.path.islink(desktop_shortcut_path):
                     curr_value = os.readlink(desktop_shortcut_path)
                     if curr_value == self.master.ivs2.app_data_dir:
-                        result = EXISTS_SAME
+                        result = "EXISTS_SAME"
                     else:
-                        result = EXISTS_DIFFERENT
+                        result = "EXISTS_DIFFERENT"
             else:
                 try:
                     os.symlink(self.master.ivs2.app_data_dir,
                                desktop_shortcut_path)
-                    result = CREATED
+                    result = "CREATED"
                 except:
-                    result = FAILED
+                    result = "FAILED"
 
-        if result == CREATED:
+        if result == "CREATED":
             msg_str = "Shortcut created:\n  {}".format(desktop_shortcut_path)
-        elif result == EXISTS_SAME:
+        elif result == "EXISTS_SAME":
             msg_str = "Shortcut already exists"
-        elif result == EXISTS_DIFFERENT:
+        elif result == "EXISTS_DIFFERENT":
             msg_str = ("ERROR: Shortcut\n  {}"
                        "\nalready exists, but its target is:\n  {}"
                        "\ninstead of:\n  {}"
                        .format(desktop_shortcut_path,
                                curr_value,
                                self.results_dir))
-        elif result == FAILED:
+        elif result == "FAILED":
             msg_str = "ERROR: could not create shortcut"
         else:
             msg_str = "ERROR: Programming bug"
