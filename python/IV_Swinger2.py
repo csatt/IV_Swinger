@@ -4807,9 +4807,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     # -------------------------------------------------------------------------
     def clean_up_file(self, f):
-            os.remove(f)
-            msg_str = "Removed {}".format(f)
-            self.logger.log(msg_str)
+        os.remove(f)
+        msg_str = "Removed {}".format(f)
+        self.logger.log(msg_str)
 
 
 ############

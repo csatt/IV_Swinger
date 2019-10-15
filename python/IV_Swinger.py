@@ -3914,7 +3914,7 @@ class IV_Swinger(object):
             self.ax2.set_ylabel("Power (watts)", fontsize=fontsize)
             fontsize = self.ticklabel_fontsize * self.font_scale
             for yticklabel in self.ax2.get_yticklabels():
-                    yticklabel.set_fontsize(fontsize)
+                yticklabel.set_fontsize(fontsize)
             name = "Power Curve"
         # Plot the power curve on ax2
         self.ax2.plot(interp_volts, interp_watts,
