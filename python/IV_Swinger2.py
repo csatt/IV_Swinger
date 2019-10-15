@@ -119,7 +119,7 @@ SKETCH_VER_LT = -1
 SKETCH_VER_EQ = 0
 SKETCH_VER_GT = 1
 SKETCH_VER_ERR = -2
-LATEST_SKETCH_VER = "1.3.8" # 1.3.9 has nothing compelling
+LATEST_SKETCH_VER = "1.3.8"  # 1.3.9 has nothing compelling
 MIN_PT1_TO_VOC_RATIO_FOR_ISC = 0.20
 BATTERY_FOLDER_NAME = "Battery"
 
@@ -1430,10 +1430,10 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
                 try:
                     with open(run_info_filename, "r") as f:
                         temp_format_str = "Temperature at sensor "
-                        temp_format_str += "#\d+ is ([-+]?\d*\.\d+|\d+) "
+                        temp_format_str += r"#\d+ is ([-+]?\d*\.\d+|\d+) "
                         temp_format_str += "degrees Celsius"
                         temp_re = re.compile(temp_format_str)
-                        irrad_format_str = "Irradiance: (\d+) W/m\^2"
+                        irrad_format_str = r"Irradiance: (\d+) W/m\^2"
                         irrad_re = re.compile(irrad_format_str)
                         info_added = False
                         for line in f.read().splitlines():
@@ -2906,8 +2906,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         # pairs.  Also capture sensor messages.
         self.adc_pairs = []
         self.unfiltered_adc_pairs = []
-        adc_re = re.compile("CH0:(\d+)\s+CH1:(\d+)")
-        unfiltered_adc_re_str = "Unfiltered CH0:(\d+)\s+Unfiltered CH1:(\d+)"
+        adc_re = re.compile(r"CH0:(\d+)\s+CH1:(\d+)")
+        unfiltered_adc_re_str = r"Unfiltered CH0:(\d+)\s+Unfiltered CH1:(\d+)"
         unfiltered_adc_re = re.compile(unfiltered_adc_re_str)
         for msg in received_msgs:
             if msg.startswith("Polling for stable Isc timed out"):
@@ -3011,8 +3011,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            measured photodiode value to produce the
            temperature-corrected photodiode value.
         """
-        ads1115_re_str = "ADS1115 \(pyranometer temp sensor\) "
-        ads1115_re_str += "raw value: (\d+)"
+        ads1115_re_str = r"ADS1115 \(pyranometer temp sensor\) "
+        ads1115_re_str += r"raw value: (\d+)"
         ads1115_re = re.compile(ads1115_re_str)
         match = ads1115_re.search(msg)
         if match:
@@ -3059,8 +3059,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            temperature compensation, the uncompensated value is also
            printed with the sensor temperature.
         """
-        ads1115_re_str = "ADS1115 \(pyranometer photodiode\) "
-        ads1115_re_str += "raw value: (-?\d+)"
+        ads1115_re_str = r"ADS1115 \(pyranometer photodiode\) "
+        ads1115_re_str += r"raw value: (-?\d+)"
         ads1115_re = re.compile(ads1115_re_str)
         match = ads1115_re.search(msg)
         str = "Irradiance: ** ERROR **\n"
@@ -3138,8 +3138,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def update_irradiance(self, new_irradiance):
         """Method to update the irradiance value(s) in the sensor info file"""
         new_lines = []
-        irrad_re = re.compile("Irradiance: (\d+) W/m\^2")
-        ext_irrad_re = re.compile("(\d+) @ (\S+) deg C")
+        irrad_re = re.compile(r"Irradiance: (\d+) W/m\^2")
+        ext_irrad_re = re.compile(r"(\d+) @ (\S+) deg C")
         try:
             with open(self.run_info_filename, "r") as f:
                 for line in f.read().splitlines():
@@ -3351,7 +3351,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            required SSR cooling period and update property.
         """
         self.reset_adv_cal_adc_val()
-        adc_val_re = re.compile("ADC value: (\d+)(\S*)")
+        adc_val_re = re.compile(r"ADC value: (\d+)(\S*)")
         match = adc_val_re.search(msg)
         if match:
             self.adv_cal_adc_val = int(match.group(1))
@@ -3388,7 +3388,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """Method to extract the version number of the Arduino sketch from the
            message containing it
         """
-        sketch_ver_re = re.compile("sketch version (\d+)\.(\d+)\.(\d+)(\S*)")
+        sketch_ver_re = re.compile(r"sketch version (\d+)\.(\d+)\.(\d+)(\S*)")
         match = sketch_ver_re.search(msg)
         if match:
             self._arduino_ver_major = int(match.group(1))
@@ -3410,7 +3410,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
               SKETCH_VER_EQ: if sketch version is equal
               SKETCH_VER_GT: if sketch version is greater
         """
-        test_ver_re = re.compile("(\d+)\.(\d+)\.(\d+)")
+        test_ver_re = re.compile(r"(\d+)\.(\d+)\.(\d+)")
         match = test_ver_re.search(test_version)
         if match:
             test_ver_major = int(match.group(1))
@@ -3489,7 +3489,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # -------------------------------------------------------------------------
     def process_eeprom_value(self):
         """Method to process one EEPROM value returned by the Arduino"""
-        eeprom_re = re.compile("EEPROM addr: (\d+)\s+value: (-*\d+\.\d+)")
+        eeprom_re = re.compile(r"EEPROM addr: (\d+)\s+value: (-*\d+\.\d+)")
         match = eeprom_re.search(self.msg_from_arduino)
         if match:
             eeprom_addr = int(match.group(1))

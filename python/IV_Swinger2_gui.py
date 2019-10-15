@@ -577,7 +577,7 @@ value on the Arduino tab of Preferences
     # -------------------------------------------------------------------------
     def get_dialog_width(self, dialog):
         """Method to parse the width of a dialog from its current geometry"""
-        m = re.match("(\d+)x(\d+)",  dialog.geometry())
+        m = re.match(r"(\d+)x(\d+)",  dialog.geometry())
         width = int(m.group(1))
         return width
 
@@ -614,9 +614,9 @@ value on the Arduino tab of Preferences
         # is to the right of the root window. Last choice is whichever
         # side has more space, overlapping root window by as much as
         # necessary to leave 10 pixels of screen.
-        m = re.match(".*([-+]\d+)([-+]\d+)", self.root.geometry())
+        m = re.match(r".*([-+]\d+)([-+]\d+)", self.root.geometry())
         left_pixels_avail = int(m.group(1))
-        m = re.match("(\d+)x(\d+)", self.root.geometry())
+        m = re.match(r"(\d+)x(\d+)", self.root.geometry())
         root_width = int(m.group(1))
         right_pixels_avail = (self.winfo_screenwidth() - left_pixels_avail -
                               root_width)
@@ -1148,7 +1148,7 @@ value on the Arduino tab of Preferences
         res_str = self.resolution_str.get()
 
         # The first number in the input is x_pixels
-        res_re = re.compile("(\d+)")
+        res_re = re.compile(r"(\d+)")
         match = res_re.search(res_str)
         if match:
             # Use x_pixels, calculate y_pixels
@@ -1188,7 +1188,7 @@ value on the Arduino tab of Preferences
     # -------------------------------------------------------------------------
     def get_curr_x_pixels(self):
         res_str = self.resolution_str.get()
-        res_re = re.compile("(\d+)")
+        res_re = re.compile(r"(\d+)")
         match = res_re.search(res_str)
         x_pixels = int(match.group(1))
         return x_pixels
@@ -1267,7 +1267,7 @@ value on the Arduino tab of Preferences
     # -------------------------------------------------------------------------
     def pdf_permission_denied(self, e):
         exception_str = "({})".format(e)
-        pdf_permission_denied_re = re.compile("Permission denied:.*\.pdf'")
+        pdf_permission_denied_re = re.compile(r"Permission denied:.*\.pdf'")
         return pdf_permission_denied_re.search(exception_str)
 
     # -------------------------------------------------------------------------
@@ -2808,7 +2808,7 @@ class ResultsWizard(tk.Toplevel):
         # whole day groupings to the selected_runs list.
         for selection in selections:
             individual_run = IV_Swinger2.is_date_time_str(selection)
-            is_date_group = re.compile("^(\d{6})$").search(selection)
+            is_date_group = re.compile(r"^(\d{6})$").search(selection)
             if individual_run:
                 selected_runs.append(os.path.join(self.results_dir, selection))
             elif (include_whole_days and is_date_group and not

@@ -418,7 +418,7 @@ class DateTimeStr(object):
         """Method to parse the date/time string from a leaf file name or
         other string
         """
-        dt_file_re = re.compile("(\d{6}_\d{2}_\d{2}_\d{2})")
+        dt_file_re = re.compile(r"(\d{6}_\d{2}_\d{2}_\d{2})")
         match = dt_file_re.search(input_str)
         if match:
             return match.group(1)
@@ -429,7 +429,7 @@ class DateTimeStr(object):
     def is_date_time_str(input_str):
         """Method to test if a given string is a date/time string
         """
-        dt_file_re = re.compile("^(\d{6}_\d{2}_\d{2}_\d{2})$")
+        dt_file_re = re.compile(r"^(\d{6}_\d{2}_\d{2}_\d{2})$")
         match = dt_file_re.search(input_str)
         if match:
             return True
