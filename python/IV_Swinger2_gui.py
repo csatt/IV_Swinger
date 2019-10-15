@@ -597,7 +597,7 @@ value on the Arduino tab of Preferences
     # -------------------------------------------------------------------------
     def get_dialog_width(self, dialog):
         """Method to parse the width of a dialog from its current geometry"""
-        m = re.match(r"(\d+)x(\d+)",  dialog.geometry())
+        m = re.match(r"(\d+)x(\d+)", dialog.geometry())
         width = int(m.group(1))
         return width
 
@@ -2135,23 +2135,23 @@ class ResultsWizard(tk.Toplevel):
 
         # Add button tooltips
         tt_text = "Expand all date groupings"
-        Tooltip(expand_button, text=tt_text,  **TOP_TT_KWARGS)
+        Tooltip(expand_button, text=tt_text, **TOP_TT_KWARGS)
         tt_text = "Collapse all date groupings"
         Tooltip(collapse_button, text=tt_text, **TOP_TT_KWARGS)
         tt_text = "Change the title of the current plot"
-        Tooltip(title_button, text=tt_text,  **TOP_TT_KWARGS)
+        Tooltip(title_button, text=tt_text, **TOP_TT_KWARGS)
         tt_text = "Combine up to 8 curves on the same plot"
-        Tooltip(overlay_button, text=tt_text,  **TOP_TT_KWARGS)
+        Tooltip(overlay_button, text=tt_text, **TOP_TT_KWARGS)
         tt_text = "Open the PDF in a viewer"
-        Tooltip(pdf_button, text=tt_text,  **TOP_TT_KWARGS)
+        Tooltip(pdf_button, text=tt_text, **TOP_TT_KWARGS)
         tt_text = ("Apply current plotting options (including size) to all "
                    "selected runs.  IMPORTANT: Select runs BEFORE making "
                    "changes to plotting options.")
-        Tooltip(update_button, text=tt_text,  **TOP_TT_KWARGS)
+        Tooltip(update_button, text=tt_text, **TOP_TT_KWARGS)
         tt_text = "Send one or more runs or overlays to trash"
-        Tooltip(delete_button, text=tt_text,  **TOP_TT_KWARGS)
+        Tooltip(delete_button, text=tt_text, **TOP_TT_KWARGS)
         tt_text = "Copy one or more runs or overlays to USB or elsewhere"
-        Tooltip(copy_button, text=tt_text,  **TOP_TT_KWARGS)
+        Tooltip(copy_button, text=tt_text, **TOP_TT_KWARGS)
 
         # Pack buttons into containing box
         expand_button.pack()
@@ -2564,7 +2564,7 @@ class ResultsWizard(tk.Toplevel):
         self.shortcut_button["text"] = "Make desktop shortcut"
         self.shortcut_button["command"] = self.make_shortcut
         tt_text = "Create a desktop shortcut to results folder"
-        Tooltip(self.shortcut_button, text=tt_text,  **TOP_TT_KWARGS)
+        Tooltip(self.shortcut_button, text=tt_text, **TOP_TT_KWARGS)
 
     # -------------------------------------------------------------------------
     def config_import_button(self):
@@ -2573,7 +2573,7 @@ class ResultsWizard(tk.Toplevel):
         self.shortcut_button["command"] = self.import_results
         tt_text = ("Import results to {} from {}"
                    .format(self.master.ivs2.app_data_dir, self.results_dir))
-        Tooltip(self.shortcut_button, text=tt_text,  **TOP_TT_KWARGS)
+        Tooltip(self.shortcut_button, text=tt_text, **TOP_TT_KWARGS)
 
     # -------------------------------------------------------------------------
     def make_shortcut(self, event=None):
