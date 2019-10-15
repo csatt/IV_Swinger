@@ -1214,6 +1214,11 @@ class IV_Swinger(object):
         self._gnuplot_command = "gnuplot"
         self._filehandle = None
         self._output_line = None
+        self.mp_kwargs = None
+        self.logger = None
+        self.beeper = None
+        self.lock = None
+        self.lcd = None
         # exception message queue
         self.exc_queue = Queue.Queue()
 

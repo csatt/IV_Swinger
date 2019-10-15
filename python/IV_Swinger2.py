@@ -1620,6 +1620,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._ds18b20_rom_codes = []
         self._adv_cal_adc_val = "Unknown"
         self._relay_type = "Unknown"
+        self.msg_from_arduino = "None"
+        self.eeprom_values_received = False
+        self.hdd_unfiltered_adc_pairs_csv_filename = None
+        self.hdd_csv_data_point_filename = None
+        self.hdd_adc_pairs_csv_filename = None
         # Configure logging and find serial ports
         self.configure_logging()
         self.find_serial_ports()

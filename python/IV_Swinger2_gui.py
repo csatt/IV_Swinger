@@ -370,6 +370,26 @@ class GraphicalUserInterface(ttk.Frame):
         self.init_instance_vars()
         self.props = GraphicalUserInterfaceProps(self)
         self.app_dir = get_app_dir()
+        self.go_button = None
+        self.go_button_box = None
+        self.go_button_status_label = None
+        self.i_range_entry = None
+        self.img_file = None
+        self.img_pane = None
+        self.img_size_combo = None
+        self.loop_mode_cb = None
+        self.loop_rate_cb = None
+        self.loop_save_cb = None
+        self.plot_power_cb = None
+        self.preferences_button = None
+        self.prefs_results_bb = None
+        self.range_lock_cb = None
+        self.results_button = None
+        self.results_wiz = None
+        self.stop_button = None
+        self.swing_loop_id = None
+        self.v_range_entry = None
+        self.version_label = None
         self.get_version()
         self.set_grid()
         self.config = Configuration(gui=self)
@@ -1995,11 +2015,34 @@ class ResultsWizard(tk.Toplevel):
         self.master = master
         self.title("Results Wizard")
         self.results_dir = self.master.ivs2.app_data_dir
+        self.chron_dir = None
         self.copy_dest = None
-        self.selected_csv_files = []
-        self.overlay_img = None
+        self.dates = None
+        self.done_button = None
+        self.ivp = None
+        self.label_all_iscs_cb = None
+        self.label_all_mpps_cb = None
+        self.label_all_vocs_cb = None
+        self.mpp_watts_only_cb = None
+        self.overlaid_runs = None
+        self.overlay_cancel_button = None
+        self.overlay_finish_button = None
+        self.overlay_help_button = None
         self.overlay_iid = None
+        self.overlay_img = None
         self.overlay_title = None
+        self.overlay_widget_box = None
+        self.overlay_widget_buttonbox = None
+        self.overlay_widget_cb_box = None
+        self.overlay_widget_label = None
+        self.overlay_widget_treeview = None
+        self.overlays_reordered = None
+        self.right_buttonbox = None
+        self.selected_csv_files = []
+        self.shortcut_button = None
+        self.tree = None
+        self.treebox = None
+        self.treescroll = None
 
         # Tie this window to master
         self.transient(self.master)
@@ -7776,6 +7819,9 @@ class ImagePane(ttk.Label):
         self.master = master
         self.font = tkFont.Font(family='TkDefaultFont')
         self.img_file = None
+        self.current_img = None
+        self.image = None
+        self.splash_img_showing = False
         self.display_splash_img()
 
     # -------------------------------------------------------------------------
