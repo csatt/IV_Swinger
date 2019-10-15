@@ -5453,12 +5453,12 @@ calibration request to Arduino
             rc = self.master.ivs2.request_adv_calibration_vals()
             if rc != RC_SUCCESS:
                 if self.type_is_current() or rc != RC_ISC_TIMEOUT:
-                error_msg = """
+                    error_msg = """
 ERROR: Failed to send advanced
 calibration request to Arduino
 (rc = {})""".format(rc)
-                tkmsg.showerror(message=error_msg)
-                return rc
+                    tkmsg.showerror(message=error_msg)
+                    return rc
             if self.type_is_current():
                 self.master.ivs2.get_emr_adv_current_cal_adc_val()
             else:
