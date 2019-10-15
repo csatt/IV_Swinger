@@ -4450,14 +4450,12 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         return RC_SUCCESS
 
     # -------------------------------------------------------------------------
-    def swing_iv_curve(self, loop_mode=False, subdir="", process_adc=True):
-        """Method to generate and plot an IV curve. This overrides the
-           method in the IV_Swinger base class, but is completely
-           different. The actual swinging of the IV curve is done by the
-           Arduino. This method triggers the Arduino, receives the data
-           points from it, converts the results to
-           volts/amps/watts/ohms, writes the values to a CSV file, and
-           plots the results to both PDF and GIF files.
+    def swing_curve(self, loop_mode=False, subdir="", process_adc=True):
+        """Method to generate and plot an IV curve. The actual swinging of the
+           IV curve is done by the Arduino. This method triggers the
+           Arduino, receives the data points from it, converts the
+           results to volts/amps/watts/ohms, writes the values to a CSV
+           file, and plots the results to both PDF and GIF files.
 
            If the "subdir" parameter value is something other than "",
            it specifies the name of a subdirectory for the output files.
@@ -4466,7 +4464,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            to False by the caller, no processing of the ADC values is
            performed, i.e. no corrections, no conversion to
            volts/amps/watts/ohms, and no plotting of results.
-           """
+
+        """
         # Generate the date/time string from the current time
         while True:
             date_time_str = IV_Swinger.DateTimeStr.get_date_time_str()
@@ -4596,8 +4595,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self.second_relay_state = SECOND_RELAY_OFF
 
         # Swing the IV curve
-        rc = self.swing_iv_curve(subdir=BATTERY_FOLDER_NAME,
-                                 process_adc=gen_graphs)
+        rc = self.swing_curve(subdir=BATTERY_FOLDER_NAME,
+                              process_adc=gen_graphs)
         if rc != RC_SUCCESS:
             return restore_all_and_return(rc)
 
@@ -4839,7 +4838,7 @@ def main():
     ivs2.log_initial_debug_info()
 
     # Swing the curve
-    rc = ivs2.swing_iv_curve()
+    rc = ivs2.swing_curve()
 
     if rc == RC_SUCCESS:
         # Update the config
@@ -4865,7 +4864,7 @@ def main():
         ivs2.clean_up_files(ivs2.hdd_output_dir)
     else:
         # Log error
-        fail_str = "swing_iv_curve() FAILED: "
+        fail_str = "swing_curve() FAILED: "
         if rc == RC_BAUD_MISMATCH:
             ivs2.logger.print_and_log("{}{}".format(fail_str,
                                                     "baud mismatch"))

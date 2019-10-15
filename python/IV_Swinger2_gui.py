@@ -1421,7 +1421,7 @@ value on the Arduino tab of Preferences
                           not self.props.loop_save_graphs):
             self.ivs2.generate_pdf = False
         self.config.remove_axes_and_title()
-        rc = self.ivs2.swing_iv_curve(loop_mode=loop_mode)
+        rc = self.ivs2.swing_curve(loop_mode=loop_mode)
         self.config.add_axes_and_title()
         self.ivs2.generate_pdf = True
 
