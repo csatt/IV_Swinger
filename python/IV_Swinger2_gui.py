@@ -1310,7 +1310,7 @@ value on the Arduino tab of Preferences
         # Create the Preferences dialog
         PreferencesDialog(self)
 
-        # FIXME: There's a weird bug where the button takes its "pressed"
+        # There's a weird bug where the button takes its "pressed"
         # appearance and never turns back to its normal appearance when the
         # dialog is closed. The current workaround is to re-create the button
         # (actually the whole box containing both buttons) and then destroy the
