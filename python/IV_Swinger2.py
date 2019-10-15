@@ -3422,11 +3422,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             test_ver_minor = int(match.group(2))
             test_ver_patch = int(match.group(3))
             if (self._arduino_ver_major < test_ver_major or
-                (self._arduino_ver_major == test_ver_major and
-                 self._arduino_ver_minor < test_ver_minor) or
-                (self._arduino_ver_major == test_ver_major and
-                 self._arduino_ver_minor == test_ver_minor and
-                 self._arduino_ver_patch < test_ver_patch)):
+                    (self._arduino_ver_major == test_ver_major and
+                     self._arduino_ver_minor < test_ver_minor) or
+                    (self._arduino_ver_major == test_ver_major and
+                     self._arduino_ver_minor == test_ver_minor and
+                     self._arduino_ver_patch < test_ver_patch)):
                 return SKETCH_VER_LT
             elif (self._arduino_ver_major == test_ver_major and
                   self._arduino_ver_minor == test_ver_minor and

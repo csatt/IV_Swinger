@@ -1294,8 +1294,8 @@ value on the Arduino tab of Preferences
     def save_config(self):
         copy_dir = None
         if (not self.props.suppress_cfg_file_copy and
-            (self.props.loop_save_results or
-             not self.props.loop_mode_active)):
+                (self.props.loop_save_results or
+                 not self.props.loop_mode_active)):
             copy_dir = self.ivs2.hdd_output_dir
         else:
             copy_dir = None
@@ -4190,7 +4190,7 @@ ERROR: Isc must be larger than
             # the calibration value that results in the observed
             # irradiance.
             new_pyrano_cal = ((pyrano_cal_a * mv * irrad_diff +
-                              new_irradiance * pyrano_cal) /
+                               new_irradiance * pyrano_cal) /
                               curr_irradiance)
             self.master.ivs2.pyrano_cal = new_pyrano_cal
             self.master.config.cfg_set("Calibration", "pyranometer",
