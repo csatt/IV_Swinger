@@ -2720,7 +2720,8 @@ class ResultsWizard(tk.Toplevel):
             options["message"] = options["title"]
         self.copy_dest = tkFileDialog.askdirectory(**options)
         self.master.mac_grayed_menu_workaround()
-        if self.copy_dest is "":  # Cancel
+        if not self.copy_dest:  # Cancel
+            print "HELLO"
             return RC_FAILURE
 
         # If leaf directory is named IV_Swinger2, assume the user meant
