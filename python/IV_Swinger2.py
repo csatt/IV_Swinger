@@ -2880,7 +2880,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 err_str = "ERROR: Probable baud mismatch on USB"
                 self.logger.print_and_log(err_str)
                 return RC_BAUD_MISMATCH
-            if len(self.msg_from_arduino) > 0:
+            if self.msg_from_arduino:
                 self.log_msg_from_arduino(self.msg_from_arduino)
                 return RC_SUCCESS
             msg_timer -= 1
@@ -2967,7 +2967,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                     f.write("#\n")
                     f.write("{}".format(run_date_time))
                     f.write("{}".format(boilerplate))
-                    if len(self._ds18b20_rom_codes):
+                    if self._ds18b20_rom_codes:
                         for msg in self._ds18b20_rom_codes:
                             f.write("{}".format(msg))
             except (IOError, OSError) as e:
@@ -3939,7 +3939,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             new_isc_ch1_vals.append(new_isc_ch1_val)
             if pt1_num > first_pt1 + 15:
                 break
-        if len(new_isc_ch1_vals):
+        if new_isc_ch1_vals:
             total_increase = 0
             total_decrease = 0
             prev_new_isc_ch1_val = 0
@@ -4534,7 +4534,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                                          self.adc_pairs)
 
         # Write Unfiltered ADC pairs (if any) to CSV file
-        if len(self.unfiltered_adc_pairs):
+        if self.unfiltered_adc_pairs:
             unfiltered_adc_csv = self.hdd_unfiltered_adc_pairs_csv_filename
             self.write_adc_pairs_to_csv_file(unfiltered_adc_csv,
                                              self.unfiltered_adc_pairs)

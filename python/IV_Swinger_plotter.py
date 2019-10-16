@@ -265,7 +265,7 @@ class CommandLineProcessor(object):
     @property
     def csv_files(self):
         """Property to get the CSV file names"""
-        if not len(self._csv_files):
+        if not self._csv_files:
             for arg in self.args.csv_files_or_dirs:
                 if os.path.isfile(arg):
                     self._csv_files.append(arg)

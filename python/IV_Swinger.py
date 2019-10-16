@@ -3763,7 +3763,7 @@ class IV_Swinger(object):
         interp_amps = []
         interp_watts = []
         for line in f.read().splitlines():
-            if len(line):
+            if line:
                 volts, amps, watts = line.split()
                 if first_data_set:
                     measured_volts.append(float(volts))

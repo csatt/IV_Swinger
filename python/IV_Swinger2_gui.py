@@ -471,7 +471,7 @@ The file name is near the top.
                     self.ivs2.logger.print_and_log(err_str)
                     return
                 version = lines[0]
-                if len(version) == 0 or version[0] != "v":
+                if not version or version[0] != "v":
                     err_str = ("ERROR: {} has invalid version: {}"
                                .format(VERSION_FILE, version))
                     self.ivs2.logger.print_and_log(err_str)
@@ -2226,7 +2226,7 @@ class ResultsWizard(tk.Toplevel):
                 self.populate_runs(subdir)
 
         # If there are no overlays or run directories, insert a dummy item
-        if not self.tree.exists("overlays") and not len(self.dates):
+        if not self.tree.exists("overlays") and not self.dates:
             self.tree.insert("", "end", "err_msg", text="NO RUNS HERE")
 
         # Set the column #0 heading
@@ -2375,7 +2375,7 @@ class ResultsWizard(tk.Toplevel):
     def select(self, event=None):
         """Method to handle a select event from the Treeview"""
         selections = self.tree.selection()
-        if not len(selections):
+        if not selections:
             return
         # If multiple items are selected, last one (oldest) is
         # displayed
@@ -2540,10 +2540,10 @@ class ResultsWizard(tk.Toplevel):
             options["message"] = options["title"]
         dir = tkFileDialog.askdirectory(**options)
         self.master.mac_grayed_menu_workaround()
-        if len(dir):
+        if dir:
             self.results_dir = dir
             self.populate_tree()
-            if not self.tree.exists("overlays") and not len(self.dates):
+            if not self.tree.exists("overlays") and not self.dates:
                 # If there are no overlays or runs in the specified folder, but
                 # there is a subfolder named IV_Swinger2 or the parent
                 # directory is named IV_Swinger2, then assume the user meant to
@@ -2597,7 +2597,7 @@ class ResultsWizard(tk.Toplevel):
             try:
                 ws = win32com.client.Dispatch("wscript.shell")
                 shortcut = ws.CreateShortcut(desktop_shortcut_path)
-                if len(shortcut.TargetPath) > 0:
+                if shortcut.TargetPath:
                     curr_value = shortcut.TargetPath
                     if curr_value == self.master.ivs2.app_data_dir:
                         result = "EXISTS_SAME"
@@ -2653,7 +2653,7 @@ class ResultsWizard(tk.Toplevel):
         import_overlays = self.get_selected_overlays()
 
         # Import everything if nothing is selected
-        if not len(import_runs) and not len(import_overlays):
+        if not import_runs and not import_overlays:
             # Get the list of runs to import from the current tree
             import_runs = []
             for date in self.dates:
@@ -2747,7 +2747,7 @@ class ResultsWizard(tk.Toplevel):
         selected_overlays = self.get_selected_overlays()
 
         # Display error dialog and return if nothing is selected
-        if not len(selected_runs) and not len(selected_overlays):
+        if not selected_runs and not selected_overlays:
             tkmsg_showerror(self.master,
                             message="ERROR: no runs or overlays are selected")
             return
@@ -2802,7 +2802,7 @@ class ResultsWizard(tk.Toplevel):
         selected_overlays = self.get_selected_overlays()
 
         # Display error dialog and return if nothing is selected
-        if not len(selected_runs) and not len(selected_overlays):
+        if not selected_runs and not selected_overlays:
             tkmsg_showerror(self.master,
                             message="ERROR: no runs or overlays are selected")
             return
@@ -2905,7 +2905,7 @@ class ResultsWizard(tk.Toplevel):
             if os.path.exists(dest_dir):
                 existing_dest_dirs.append(dest_dir)
 
-        if len(existing_dest_dirs):
+        if existing_dest_dirs:
             if len(existing_dest_dirs) > 10:
                 # If more than 10 found, just prompt with the count found
                 msg_str = ("{} folders to be copied exist in {}\n"
@@ -2999,7 +2999,7 @@ class ResultsWizard(tk.Toplevel):
             prompt_str = "Enter new run title"
             selected_overlays = self.get_selected_overlays()
             # Display error dialog and return if any overlays are selected
-            if len(selected_overlays):
+            if selected_overlays:
                 tkmsg_showerror(self.master,
                                 message=("ERROR: cannot change title on "
                                          "completed overlays"))
@@ -3088,7 +3088,7 @@ class ResultsWizard(tk.Toplevel):
         """
         # Display error dialog and return if any overlays are selected
         selected_overlays = self.get_selected_overlays()
-        if len(selected_overlays):
+        if selected_overlays:
             tkmsg_showerror(self.master,
                             message="ERROR: overlays cannot be updated")
             return
@@ -3103,7 +3103,7 @@ class ResultsWizard(tk.Toplevel):
         # oldest to newest). Display error dialog and return if no
         # runs are selected
         selected_runs = sorted(self.get_selected_runs())
-        if not len(selected_runs):
+        if not selected_runs:
             tkmsg_showerror(self.master,
                             message="ERROR: no runs are selected")
             return
@@ -3181,7 +3181,7 @@ class ResultsWizard(tk.Toplevel):
             return RC_FAILURE
 
         # Check for none selected
-        if not self.master.props.overlay_mode and not len(self.overlaid_runs):
+        if not self.master.props.overlay_mode and not self.overlaid_runs:
             info_str = ("Select at least one run to begin an overlay")
             tkmsg_showerror(self.master, message=info_str)
             return RC_FAILURE
@@ -3197,7 +3197,7 @@ class ResultsWizard(tk.Toplevel):
 
         # If anything is selected, create the overlay and display the
         # result
-        if len(self.overlaid_runs):
+        if self.overlaid_runs:
             rc = self.get_selected_csv_files(self.overlaid_runs)
             if rc == RC_SUCCESS:
                 self.plot_overlay_and_display()
@@ -3768,7 +3768,7 @@ class ResultsWizard(tk.Toplevel):
                 # Default name: date@time
                 date_time = self.date_at_time_from_dts(dts)
                 self.ivp.curve_names.append(date_time)
-        if len(self.ivp.curve_names) == 0:
+        if not self.ivp.curve_names:
             self.ivp.curve_names = None
 
 
