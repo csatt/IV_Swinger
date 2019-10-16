@@ -2501,7 +2501,7 @@ class IV_Swinger(object):
                 # printed.
                 voc_volts_history.append(voc_volts)
                 # trim to newest voc_settle_count entries
-                del voc_volts_history[:-self.voc_settle_count]
+                del voc_volts_history[:-int(self.voc_settle_count)]
                 voc_volts_history_std = numpy.std(voc_volts_history)
 
                 if (voc_amps == 0 and
