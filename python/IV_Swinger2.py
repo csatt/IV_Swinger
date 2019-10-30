@@ -215,31 +215,50 @@ DEBUG_CONFIG = False
 #   Global functions   #
 ########################
 def get_date_time_str():
+    """Global function to get the current date/time string using the static
+       method of the same name from the DateTimeStr class of the
+       IV_Swinger module.
+    """
     return IV_Swinger.DateTimeStr.get_date_time_str()
 
 
 def extract_date_time_str(input_str):
+    """Global function to parse the date/time string from a leaf file name
+       or other string using the static method of the same name from the
+       DateTimeStr class of the IV_Swinger module.
+    """
     return IV_Swinger.DateTimeStr.extract_date_time_str(input_str)
 
 
 def is_date_time_str(input_str):
+    """Global function to test if a given string is a date/time string using
+       the static method of the same name from the DateTimeStr class of
+       the IV_Swinger module.
+    """
     return IV_Swinger.DateTimeStr.is_date_time_str(input_str)
 
 
 def xlate_date_time_str(date_time_str):
+    """Global function to translate a date_time_str from yymmdd_hh_mm_ss
+       format to a more readable format using the static method of the
+       same name from the DateTimeStr class of the IV_Swinger module.
+    """
     return IV_Swinger.DateTimeStr.xlate_date_time_str(date_time_str)
 
 
 def close_plots():
+    """Global function to close all plots using the static method of the
+       same name from the IV_Swinger class of the IV_Swinger module.
+
+    """
     IV_Swinger.IV_Swinger.close_plots()
 
 
 def sys_view_file(file):
-    """Method to use an OS-specific application to view a file, based on
-       its file type/extension. e.g. a .txt file will be opened
-       using a text editor, a PDF file will be opened with
-       whatever is normally used to view PDFs (Acrobat reader,
-       Preview, etc.)
+    """Global function to use an OS-specific application to view a file,
+       based on its file type/extension. e.g. a .txt file will be opened
+       using a text editor, a PDF file will be opened with whatever is
+       normally used to view PDFs (Acrobat reader, Preview, etc.)
     """
     if sys.platform == "darwin":
         # Mac
@@ -253,6 +272,10 @@ def sys_view_file(file):
 
 
 def gen_dbg_str(str):
+    """Global function to use when debugging. The supplied string is
+       printed, along with the file name and line number where it is
+       found in the code.
+    """
     cf = currentframe()
     fi = getframeinfo(cf)
     dbg_str = "DEBUG({}, line {}): {}".format(fi.filename,
@@ -353,6 +376,9 @@ class Configuration(object):
 
     # -------------------------------------------------------------------------
     def cfg_dump(self, dump_header=None):
+        """Method to print the current configuration to the console and to the
+           log file. Used for debugging configuration problems.
+        """
         if dump_header is not None:
             self.ivs2.logger.print_and_log("DUMP: {}".format(dump_header))
         for section in self.cfg.sections():
@@ -995,12 +1021,18 @@ class Configuration(object):
 
     # -------------------------------------------------------------------------
     def add_axes_and_title(self):
+        """Method to add the plot_max_x, plot_max_y and plot_title values to the
+           configuration
+        """
         self.cfg_set("Plotting", "plot max x", self.ivs2.plot_max_x)
         self.cfg_set("Plotting", "plot max y", self.ivs2.plot_max_y)
         self.cfg_set("Plotting", "title", self.ivs2.plot_title)
 
     # -------------------------------------------------------------------------
     def remove_axes_and_title(self):
+        """Method to remove the plot_max_x, plot_max_y and plot_title values
+           from the configuration
+        """
         if not self.ivs2.plot_lock_axis_ranges:
             if (self.cfg.has_option("Plotting", "plot max x")):
                 self.cfg.remove_option("Plotting", "plot max x")
@@ -1967,7 +1999,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # ---------------------------------
     @property
     def logs_dir(self):
-        """ Directory on where log files are written"""
+        """Directory to which log files are written"""
         logs_dir = "{}/logs".format(self.app_data_dir)
         return logs_dir
 
@@ -3250,10 +3282,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # -------------------------------------------------------------------------
     def request_adv_calibration_vals(self):
         """Method to request an IV curve from the Arduino for the purpose of
-        getting the Voc or Isc values for an advanced calibration. This
-        is used for the advanced voltage calibration (EMR or SSR) and
-        for the EMR current calibration.  It is not used for the SSR
-        current calibration.
+           getting the Voc or Isc values for an advanced calibration. This
+           is used for the advanced voltage calibration (EMR or SSR) and
+           for the EMR current calibration.  It is not used for the SSR
+           current calibration.
         """
         # If the Arduino code isn't ready, fail
         if not self.arduino_ready:
@@ -4310,8 +4342,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     # -------------------------------------------------------------------------
     def log_meter_debug_info(self):
-        """Method to write some voltmeter and ammeter related derived properties
-           to the log file
+        """Method to write some voltmeter and ammeter related derived
+           properties to the log file
         """
         self.logger.log("---------------------------------------")
         self.logger.log("adc_inc = {}".format(self.adc_inc))
@@ -4358,10 +4390,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # -------------------------------------------------------------------------
     def write_adc_pairs_to_csv_file(self, filename, adc_pairs):
         """Method to write each pair of readings from the ADC to a CSV
-        file. This file is not used for the current run, but may be used
-        later for debug or for regenerating the data points after
-        algorithm improvements. It is the only history of the raw
-        readings.
+           file. This file is not used for the current run, but may be used
+           later for debug or for regenerating the data points after
+           algorithm improvements. It is the only history of the raw
+           readings.
         """
         with open(filename, "w") as f:
             # Write headings
@@ -4469,7 +4501,6 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            to False by the caller, no processing of the ADC values is
            performed, i.e. no corrections, no conversion to
            volts/amps/watts/ohms, and no plotting of results.
-
         """
         # Generate the date/time string from the current time
         while True:
@@ -4567,6 +4598,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         restore_second_relay_state = [self.second_relay_state]
 
         def restore_all_and_return(rc):
+            """Local function to restore all of the relevant properties to their
+               starting values when the method was called
+            """
             self.max_iv_points = restore_max_iv_points[0]
             self.isc_stable_adc = restore_isc_stable_adc[0]
             self.max_discards = restore_max_discards[0]
@@ -4618,7 +4652,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # -------------------------------------------------------------------------
     def get_csv_filenames(self, dir, date_time_str):
         """Method to derive the names of the CSV files (ADC pairs and data
-        points) and set the corresponding instance variables.
+           points) and set the corresponding instance variables.
         """
         # Create the leaf file names
         adc_pairs_csv_leaf_name = "adc_pairs_{}.csv".format(date_time_str)
@@ -4773,6 +4807,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def clean_up_files(self, dir, loop_mode=False,
                        loop_save_results=False,
                        loop_save_graphs=False):
+        """Method to remove all temporary files"""
         # Return without doing anything if directory doesn't exist
         if not os.path.exists(dir):
             return
@@ -4807,6 +4842,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     # -------------------------------------------------------------------------
     def clean_up_file(self, f):
+        """Method to remove one file and log its removal"""
         os.remove(f)
         msg_str = "Removed {}".format(f)
         self.logger.log(msg_str)

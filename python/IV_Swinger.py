@@ -416,7 +416,7 @@ class DateTimeStr(object):
     @staticmethod
     def extract_date_time_str(input_str):
         """Method to parse the date/time string from a leaf file name or
-        other string
+           other string
         """
         dt_file_re = re.compile(r"(\d{6}_\d{2}_\d{2}_\d{2})")
         match = dt_file_re.search(input_str)
@@ -439,7 +439,7 @@ class DateTimeStr(object):
     @staticmethod
     def xlate_date_time_str(date_time_str):
         """Method to translate a date_time_str from yymmdd_hh_mm_ss
-        format to a more readable format
+           format to a more readable format
         """
         yymmdd, hh, mm, ss = date_time_str.split("_")
         date = "{}/{}/{}".format(yymmdd[2:4], yymmdd[4:6], yymmdd[0:2])
@@ -492,13 +492,13 @@ class BeepGenerator(object):
 
     def generate_beep(self, on_time=0.2, off_time=0.1, stop_event=None):
         """Method to activate the piezo buzzer to generate a loud
-        beep. When called in a loop, the beep pulses in a warning
-        pattern. The on_time arg is the amount of time in seconds that
-        the buzzer is on (0.1 second resolution) and the off_time arg is
-        the amount of time in seconds to wait after turning it off.  If
-        the stop_event arg is not None, it must be a threading.Event()
-        object in which case it is checked every 0.1 second during the
-        on time and off time and if set, the method returns immediately.
+           beep. When called in a loop, the beep pulses in a warning
+           pattern. The on_time arg is the amount of time in seconds that
+           the buzzer is on (0.1 second resolution) and the off_time arg is
+           the amount of time in seconds to wait after turning it off.  If
+           the stop_event arg is not None, it must be a threading.Event()
+           object in which case it is checked every 0.1 second during the
+           on time and off time and if set, the method returns immediately.
         """
         # Calculate number of 0.1 second loops for both on and off
         on_loops = 1
@@ -607,24 +607,24 @@ class ScrollingMessage(StoppableThread):
 
     def scrolling_message(self, text, repeat_count=0):
         """Method to display a longer message on the 16x2 LCD display.
-        The message must be 80 or fewer characters, and if it contains a
-        \n, there must be 40 or fewer characters before and after the
-        \n.  The 16x2 LCD display has memory for 40 characters per line,
-        but only shows 16.  This method scrolls the message left once
-        (unless repeat_count is non-zero) so that the whole message can
-        be read. If the caller doesn't include a \n, the first line will
-        contain the first 40 characters and the second will contain the
-        remainder, with the split not necesssarily coming between words.
-        If the beep arg is set, sound the beep once per repetition.  If
-        the stop_event arg is not None, it must be a threading.Event()
-        object in which case it is checked during the scrolling and if
-        set, the display is returned to the home position and the method
-        returns immediately.  If the lock arg is not None, it must be a
-        threading.Lock() object in which case it is acquired and
-        released around each LCD object method call.  The first of these
-        is blocking, but the others are non-blocking.  For those that
-        are non-blocking, the method returns if the lock is not
-        acquired.
+           The message must be 80 or fewer characters, and if it contains a
+           \n, there must be 40 or fewer characters before and after the
+           \n.  The 16x2 LCD display has memory for 40 characters per line,
+           but only shows 16.  This method scrolls the message left once
+           (unless repeat_count is non-zero) so that the whole message can
+           be read. If the caller doesn't include a \n, the first line will
+           contain the first 40 characters and the second will contain the
+           remainder, with the split not necesssarily coming between words.
+           If the beep arg is set, sound the beep once per repetition.  If
+           the stop_event arg is not None, it must be a threading.Event()
+           object in which case it is checked during the scrolling and if
+           set, the display is returned to the home position and the method
+           returns immediately.  If the lock arg is not None, it must be a
+           threading.Lock() object in which case it is acquired and
+           released around each LCD object method call.  The first of these
+           is blocking, but the others are non-blocking.  For those that
+           are non-blocking, the method returns if the lock is not
+           acquired.
         """
 
         # Init variables
@@ -739,6 +739,9 @@ class ScrollingMessage(StoppableThread):
                 time.sleep(ScrollingMessage.lcd_scroll_delay)
 
     def run(self):
+        """Method to run the ScrollingMessage thread. Overrides
+           threading.Thread run() method.
+        """
         text_list = [self.text]
         if type(self.text) is list:
             text_list = self.text
@@ -768,6 +771,9 @@ class SoundWarning(StoppableThread):
         self.beeper = BeepGenerator()
 
     def run(self):
+        """Method to run the SoundWarning thread. Overrides
+           threading.Thread run() method.
+        """
         while not self.stop_event.is_set():
             self.beeper.generate_beep(self.on_time, self.off_time,
                                       self.stop_event)
@@ -818,11 +824,11 @@ class Interpolator(object):
     @property
     def linear_interpolated_curve(self):
         """List of tuples that contains all of the given points plus
-        points that are interpolated between the given points using
-        linear interpolation. Since the only purpose of linear
-        interpolation is to more accurately locate the MPP, the
-        interpolation is only performed for the segments before and
-        after the measured point with the highest power.
+           points that are interpolated between the given points using
+           linear interpolation. Since the only purpose of linear
+           interpolation is to more accurately locate the MPP, the
+           interpolation is only performed for the segments before and
+           after the measured point with the highest power.
         """
         if self._linear_interpolated_curve is None:
             self._linear_interpolated_curve = []
@@ -874,8 +880,8 @@ class Interpolator(object):
     @property
     def spline_interpolated_curve(self):
         """List of tuples that contain all of the given points plus all
-        of the points that are interpolated between each of the given
-        points using centripetal Catmull-Rom spline interpolation
+           of the points that are interpolated between each of the given
+           points using centripetal Catmull-Rom spline interpolation
         """
         if self._spline_interpolated_curve is None:
             self._spline_interpolated_curve = []
@@ -919,7 +925,7 @@ class Interpolator(object):
     @property
     def linear_interpolated_mpp(self):
         """(I, V, R, P) tuple of the maximum power point on the
-        linearly-interpolated curve
+           linearly-interpolated curve
         """
         if self._linear_interpolated_mpp is None:
             mpp_power = 0
@@ -936,7 +942,7 @@ class Interpolator(object):
     @property
     def spline_interpolated_mpp(self):
         """(I, V, R, P) tuple of the maximum power point on the
-        spline-interpolated curve
+           spline-interpolated curve
         """
         if self._spline_interpolated_mpp is None:
             mpp_power = 0
@@ -953,19 +959,18 @@ class Interpolator(object):
     # Methods
     def catmull_rom_spline(self, four_points, num_interp_points,
                            rerun_with_low_alpha=False):
-        """
-        Method mostly borrowed from the Wikipedia article on centripetal
-        Catmull-Rom splines.
+        """Method mostly borrowed from the Wikipedia article on centripetal
+           Catmull-Rom splines.
 
-        The first parameter is a list of four (x,y) point pairs that
-        will be used for this interpolation. The interpolation is only
-        done between the middle two points and num_interp_points is the
-        number of points that will be interpolated between those two
-        points.
+           The first parameter is a list of four (x,y) point pairs that
+           will be used for this interpolation. The interpolation is only
+           done between the middle two points and num_interp_points is the
+           number of points that will be interpolated between those two
+           points.
 
-        The method returns a list of interpolated points starting with
-        the second given point and ending with the third given point
-        (both are included).
+           The method returns a list of interpolated points starting with
+           the second given point and ending with the third given point
+           (both are included).
         """
         # Convert the points to numpy so that we can do array multiplication
         p_0, p_1, p_2, p_3 = map(numpy.array, [four_points[0],
@@ -989,6 +994,7 @@ class Interpolator(object):
 
         # Local function to calculate t sub i+1 (aka t_j)
         def t_j(t_i, p_i, p_j):
+            """Local function to calculate t sub i+1 (aka t_j)"""
             x_i, y_i = p_i
             x_j, y_j = p_j
             t_j = math.hypot(x_j - x_i, y_j - y_i) ** alpha + t_i
@@ -1072,19 +1078,18 @@ class Interpolator(object):
         return p1_p2_points
 
     def catmull_rom_chain(self, vi_points_list):
-        """
-        Method mostly borrowed from the Wikipedia article on centripetal
-        Catmull-Rom splines.
+        """Method mostly borrowed from the Wikipedia article on centripetal
+           Catmull-Rom splines.
 
-        Calculate centripetal Catmull-Rom for a list of points and
-        return the combined curve.
+           Calculate centripetal Catmull-Rom for a list of points and
+           return the combined curve.
 
-        The input is a list of lists, where each sublist is an [V, I]
-        pair.
+           The input is a list of lists, where each sublist is an [V, I]
+           pair.
 
-        The method returns the interpolated curve in the form of a list
-        of [V, I] lists. Note that the curve begins with the second
-        point in the input list and ends with the second-to-last point.
+           The method returns the interpolated curve in the form of a list
+           of [V, I] lists. Note that the curve begins with the second
+           point in the input list and ends with the second-to-last point.
         """
         interpolated_curve = []
         for first_point_num in xrange(len(vi_points_list) - 3):
@@ -1103,14 +1108,12 @@ class Interpolator(object):
         return interpolated_curve
 
     def get_spline_num_interp_points(self, point1, point2):
-        """
-
-        Method to calculate the desired number of interpolated points
-        for a spline interpolation. The objective is to reduce
-        unnecessarily granular interpolation between closely-spaced
-        points. The algorithm shoots for a resolution equivalent to
-        1000x1000 for the whole curve, but with a max of 100 points
-        interpolated between any two points.
+        """Method to calculate the desired number of interpolated points
+           for a spline interpolation. The objective is to reduce
+           unnecessarily granular interpolation between closely-spaced
+           points. The algorithm shoots for a resolution equivalent to
+           1000x1000 for the whole curve, but with a max of 100 points
+           interpolated between any two points.
         """
         max_v = self.given_points[-1][VOLTS_INDEX]
         scaled_v_dist = (point2[0] - point1[0]) / max_v
@@ -1226,7 +1229,7 @@ class IV_Swinger(object):
     @property
     def shutdown_on_exit(self):
         """Boolean: whether to shut down the Raspberry Pi on an
-        exception or not
+           exception or not
         """
         return self._shutdown_on_exit
 
@@ -1239,9 +1242,9 @@ class IV_Swinger(object):
     @property
     def fine_mode(self):
         """FINE mode produces better results but wears out the HALF
-        relay faster.  However, with the adaptive algorithm that only
-        adds the half steps where the curve is bending, most runs only
-        add two extra points in FINE mode.
+           relay faster.  However, with the adaptive algorithm that only
+           adds the half steps where the curve is bending, most runs only
+           add two extra points in FINE mode.
         """
         return self._fine_mode
 
@@ -1254,7 +1257,7 @@ class IV_Swinger(object):
     @property
     def fine_mode_toggle(self):
         """ If fine_mode_toggle is True, the pushbutton can be used to
-        toggle the mode.
+           toggle the mode.
         """
         return self._fine_mode_toggle
 
@@ -1267,9 +1270,9 @@ class IV_Swinger(object):
     @property
     def loads_to_skip(self):
         """If loads_to_skip is non-zero, the first N load_pattern values
-        in COARSE_LOAD_LIST or FINE_LOAD_LIST are skipped. This mode is
-        for testing with small power supplies that have short-circuit
-        protection that triggers when small load values are used.
+           in COARSE_LOAD_LIST or FINE_LOAD_LIST are skipped. This mode is
+           for testing with small power supplies that have short-circuit
+           protection that triggers when small load values are used.
         """
         return self._loads_to_skip
 
@@ -1333,7 +1336,7 @@ class IV_Swinger(object):
     @property
     def idle_timeout_warning_seconds(self):
         """Number of seconds before the idle timeout that a warning is
-        issued
+           issued
         """
         return self._idle_timeout_warning_seconds
 
@@ -1374,7 +1377,7 @@ class IV_Swinger(object):
     @property
     def button_time_for_shutdown(self):
         """Amount of time in seconds that the pushbutton must be held
-        down in order for a shutdown to be initiated
+           down in order for a shutdown to be initiated
         """
         return self._button_time_for_shutdown
 
@@ -1412,8 +1415,8 @@ class IV_Swinger(object):
     @property
     def lcd_chars_per_scroll(self):
         """Number of characters to scroll on the LCD when displaying a
-        scrolling message. Must be integer divisor of 24
-        (1,2,3,4,6,8,12)
+           scrolling message. Must be integer divisor of 24
+           (1,2,3,4,6,8,12)
         """
         return self._lcd_chars_per_scroll
 
@@ -1472,7 +1475,7 @@ class IV_Swinger(object):
     @property
     def voc_settle_count(self):
         """Number of Voc measurements to keep when determining if the
-        value has settled
+           value has settled
         """
         return self._voc_settle_count
 
@@ -1483,7 +1486,7 @@ class IV_Swinger(object):
     @property
     def sps(self):
         """Samples per second with which to program the ADC. Must be one
-        of: 8, 16, 64, 128, 250, 475, 860
+           of: 8, 16, 64, 128, 250, 475, 860
         """
         return self._sps
 
@@ -1654,7 +1657,7 @@ class IV_Swinger(object):
     @property
     def amm_chp(self):
         """ADC channel connected to positive side of the ammeter shunt
-        resistor
+           resistor
         """
         return self._amm_chp
 
@@ -1665,7 +1668,7 @@ class IV_Swinger(object):
     @property
     def amm_chn(self):
         """ADC channel connected to negative side of the ammeter shunt
-        resistor
+           resistor
         """
         return self._amm_chn
 
@@ -1676,7 +1679,7 @@ class IV_Swinger(object):
     @property
     def use_gnuplot(self):
         """If True, gnuplot is used to plot the curve. If False, pyplot
-        is used to plot the curve
+           is used to plot the curve
         """
         return self._use_gnuplot
 
@@ -1710,7 +1713,7 @@ class IV_Swinger(object):
     @property
     def use_spline_interpolation(self):
         """If True, spline interpolation is used. If False, linear
-        interpolation is used.
+           interpolation is used.
         """
         return self._use_spline_interpolation
 
@@ -2021,7 +2024,7 @@ class IV_Swinger(object):
     @property
     def gp_font_scale(self):
         """Scaling factor to make gnuplot fonts the same size as pyplot
-        fonts
+           fonts
         """
         return self._gp_font_scale
 
@@ -2032,7 +2035,7 @@ class IV_Swinger(object):
     @property
     def gp_isc_voc_mpp_pointtype(self):
         """Gnuplot pointtype to use for Isc, Voc, and MPP points on
-        graph
+           graph
         """
         return self._gp_isc_voc_mpp_pointtype
 
@@ -2273,7 +2276,7 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def swizzle_msb(self, value):
         """Method to reverse the order of the bits in the upper byte of
-        a 16-bit value
+           a 16-bit value
         """
 
         msb = (value & 0xFF00) >> 8
@@ -2286,8 +2289,8 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def set_relays_to_pattern(self, load_pattern, io_extender):
         """Method to set the relays to the supplied load pattern,
-        performing the appropriate inversion (for active-low inputs) and
-        swizzling (for cabling quirk).
+           performing the appropriate inversion (for active-low inputs) and
+           swizzling (for cabling quirk).
         """
         # Due to the fact that the "B" outputs are in the reverse order
         # from the "A" outputs on the Slice of PI/O board, the upper
@@ -2297,7 +2300,7 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def prime_relays(self, io_extender):
         """Method to turn on each relay briefly (workaround for "weak"
-        relay issue.
+           relay issue.
         """
         prime_pattern = 0x8000
         while prime_pattern:
@@ -2309,8 +2312,8 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def prompt_and_wait_for_dpst_off(self):
         """Method to prompt the user to turn off the DPST switch and
-        poll until this occurs.  While polling, the warning pattern is
-        sounded.
+           poll until this occurs.  While polling, the warning pattern is
+           sounded.
         """
         # Create warning thread object
         warning_thread = SoundWarning(on_time=0.1, off_time=0.2)
@@ -2338,19 +2341,19 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def read_adc(self, adc, chP=0, chN=1, starting_pga=6144):
         """Wrapper method around the readADCDifferential method.  It
-        first uses different PGA gain values until it finds the optimal
-        range.  The optimal range is the largest one where the reading
-        is greater than 1/3 of the range (or the smallest range if none
-        of the larger ranges meets this criterion). Plus we need to
-        avoid using a range that is too small to accomodate the
-        reading. The assumption is that the ADC is most accurate when
-        the reading is near the middle of the range. If a reading is
-        slightly less than 1/3 of the range, it will be less than 2/3 of
-        the next smaller range and therefore not at risk for exceeding
-        that range. Once the optimal range has been determined, it takes
-        several readings and returns the average value, in volts.  This
-        obviously exploits the assumption for this application that the
-        voltage at the ADC is fairly stable.
+           first uses different PGA gain values until it finds the optimal
+           range.  The optimal range is the largest one where the reading
+           is greater than 1/3 of the range (or the smallest range if none
+           of the larger ranges meets this criterion). Plus we need to
+           avoid using a range that is too small to accomodate the
+           reading. The assumption is that the ADC is most accurate when
+           the reading is near the middle of the range. If a reading is
+           slightly less than 1/3 of the range, it will be less than 2/3 of
+           the next smaller range and therefore not at risk for exceeding
+           that range. Once the optimal range has been determined, it takes
+           several readings and returns the average value, in volts.  This
+           obviously exploits the assumption for this application that the
+           voltage at the ADC is fairly stable.
         """
 
         # Determine optimal PGA range and then sample voltage at that
@@ -2397,7 +2400,7 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def read_voc(self, adc):
         """Method to read the current Voc voltage, but return 0 for
-        voltages less than 300mV
+           voltages less than 300mV
         """
         voc_volts = self.vdiv_mult * self.read_adc(adc, self.vdiv_chp,
                                                    self.vdiv_chn, 6144)
@@ -2409,20 +2412,20 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def measure_voc(self, adc, msg_text):
         """Method to continually measure Voc (10 measurements/second).
-        Once a stable measurement is achieved, the user is prompted to
-        turn the DPST switch on.  Voc measurements continue to be taken
-        until this happens (or until the idle timeout time has passed in
-        which case the system is shut down).  The msg_text parameter
-        should be a string or a list of strings to prompt the user to
-        turn on the toggle switch once the Voc value is stable.  The
-        reason it isn't hardcoded is so the message that is displayed
-        for the first iteration can be different from the message
-        displayed for subsequent iterations.  The passed value of
-        msg_text gets overridden when the idle timeout is close to
-        expiring.  In that case, the number of seconds remaining is
-        counted down on the LCD display and when the timer expires the
-        system is shut down.  The only way for the user to avoid the
-        autoshutdown is to turn on the DPST switch.
+           Once a stable measurement is achieved, the user is prompted to
+           turn the DPST switch on.  Voc measurements continue to be taken
+           until this happens (or until the idle timeout time has passed in
+           which case the system is shut down).  The msg_text parameter
+           should be a string or a list of strings to prompt the user to
+           turn on the toggle switch once the Voc value is stable.  The
+           reason it isn't hardcoded is so the message that is displayed
+           for the first iteration can be different from the message
+           displayed for subsequent iterations.  The passed value of
+           msg_text gets overridden when the idle timeout is close to
+           expiring.  In that case, the number of seconds remaining is
+           counted down on the LCD display and when the timer expires the
+           system is shut down.  The only way for the user to avoid the
+           autoshutdown is to turn on the DPST switch.
         """
         # Initialize variables
         voc_volts = 0
@@ -2554,9 +2557,9 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def get_data_values_for_load_pattern(self, load_pattern, io_extender, adc):
         """Method to set the MCP23017 outputs (controlling the relays)
-        to the values based on the specified load pattern and to read
-        the current and voltage at that point.  Ohms and watts are
-        calculated and the four values are returned in a tuple.
+           to the values based on the specified load pattern and to read
+           the current and voltage at that point.  Ohms and watts are
+           calculated and the four values are returned in a tuple.
         """
         # Set the relays to the provided pattern
         self.set_relays_to_pattern(load_pattern, io_extender)
@@ -2633,12 +2636,12 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def open_circuit(self, load_pattern, io_extender):
         """Method to activate the OPEN relay to open the circuit, while
-        keeping the other relays as they were. Once the OPEN relay is
-        activated (and after a short delay), the other relays are
-        inactivated. The purpose of this is to avoid inactivating the
-        relays while current is flowing. This completely eliminates any
-        arcing on that side of the relay (the Normally Open, "NO" side),
-        which is the side without a snubber.
+           keeping the other relays as they were. Once the OPEN relay is
+           activated (and after a short delay), the other relays are
+           inactivated. The purpose of this is to avoid inactivating the
+           relays while current is flowing. This completely eliminates any
+           arcing on that side of the relay (the Normally Open, "NO" side),
+           which is the side without a snubber.
         """
         # Wait a short time
         time.sleep(self.time_between_measurements)
@@ -2661,11 +2664,11 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def get_base_loads(self, none_data_point, voc_volts):
         """Method to determine the "base load".  This is some combo of
-        the 50W power resistors to start with before adding the finer
-        grained heating coil loads.  The purpose is to center the
-        fine-grained points over the knee of the curve, where they do
-        the most good.  The method returns a list of the loads that need
-        to be activated before the finer grained loads are activated.
+           the 50W power resistors to start with before adding the finer
+           grained heating coil loads.  The purpose is to center the
+           fine-grained points over the knee of the curve, where they do
+           the most good.  The method returns a list of the loads that need
+           to be activated before the finer grained loads are activated.
         """
         base_loads = BASE_0_OHM
 
@@ -2712,20 +2715,20 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def swing_iv_curve(self, io_extender, adc, voc_volts):
         """Method to cycle through the load values using the relays,
-        taking a current and voltage measurement at each point.  The
-        results are returned in a list of 4-entry tuples
-        (amps,volts,ohms,watts). If the diag_mode property is set, the
-        relays are activated individually.  If the fine_mode property is
-        set, the load list containing all of the half and full steps is
-        used.  This wears out the HALF relay faster than the others, but
-        this is mitigated by skipping the half steps on parts of the
-        curve that are relatively straight lines.  If the fine_mode
-        property is not set, the load list with full steps (starting
-        with HALF) is used. An adaptive algorithm is used to determine a
-        "base load", i.e. one or more of the power resistors.  See the
-        documentation for the get_base_loads method for more
-        information. If the measured current is zero when the
-        load_pattern is NONE the method returns an empty list.
+           taking a current and voltage measurement at each point.  The
+           results are returned in a list of 4-entry tuples
+           (amps,volts,ohms,watts). If the diag_mode property is set, the
+           relays are activated individually.  If the fine_mode property is
+           set, the load list containing all of the half and full steps is
+           used.  This wears out the HALF relay faster than the others, but
+           this is mitigated by skipping the half steps on parts of the
+           curve that are relatively straight lines.  If the fine_mode
+           property is not set, the load list with full steps (starting
+           with HALF) is used. An adaptive algorithm is used to determine a
+           "base load", i.e. one or more of the power resistors.  See the
+           documentation for the get_base_loads method for more
+           information. If the measured current is zero when the
+           load_pattern is NONE the method returns an empty list.
         """
         # Diag mode - activate each relay alone
         if self.diag_mode:
@@ -2890,10 +2893,10 @@ class IV_Swinger(object):
     @staticmethod
     def get_max_watt_point_number(data_points):
         """Method to find and return the measured data point number with
-        the highest power.  The actual Maximum Power Point (MPP) is most
-        likely not exactly at this point, but somewhere between this
-        point and one of its neighbors and will be found later via
-        interpolation.
+           the highest power.  The actual Maximum Power Point (MPP) is most
+           likely not exactly at this point, but somewhere between this
+           point and one of its neighbors and will be found later via
+           interpolation.
         """
         max_watt_point_number = 0
 
@@ -2907,7 +2910,7 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def extrapolate_isc(self, data_points, max_watt_point_number):
         """Method to extrapolate the Isc value from the first two
-        measured data points.
+           measured data points.
         """
         if len(data_points) > 1:
             i1 = data_points[1][AMPS_INDEX]  # NONE data point
@@ -2980,7 +2983,7 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def write_csv_data_points_to_file(self, filename, data_points):
         """Method to write each of the CSV data points to the output
-        file.
+           file.
         """
         with open(filename, "w") as f:
             # Write headings
@@ -2997,8 +3000,8 @@ class IV_Swinger(object):
     def write_csv_data_to_file(self, open_filehandle, volts,
                                amps, watts, ohms):
         """Method to write the current voltage, current, watts, and ohms values
-        to an output file which the caller has opened and has passed the
-        filehandle.
+           to an output file which the caller has opened and has passed the
+           filehandle.
         """
         output_line = ("{:.6f},{:.6f},{:.6f},{:.6f}\n"
                        .format(volts, amps, watts, ohms))
@@ -3008,7 +3011,7 @@ class IV_Swinger(object):
     def write_plt_data_points_to_file(self, filename, data_points,
                                       new_data_set=False):
         """Method to write/append each of the plotter data points to the
-        output file.
+           output file.
         """
         with open(filename, "a") as f:
             # Add new data set delimiter
@@ -3032,10 +3035,10 @@ class IV_Swinger(object):
     def write_plt_data_to_file(self, open_filehandle, volts, amps,
                                watts, new_data_set=False):
         """Method to write/append the current voltage and current
-        readings to an output file which the caller has opened for
-        appending and has passed the filehandle.  If new_data_set=True,
-        then the other values are ignored and two blank lines are
-        appended to the file.
+           readings to an output file which the caller has opened for
+           appending and has passed the filehandle.  If new_data_set=True,
+           then the other values are ignored and two blank lines are
+           appended to the file.
         """
         output_line = "{:.6f} {:.6f} {:.6f}\n".format(volts, amps, watts)
         if new_data_set:
@@ -3105,18 +3108,18 @@ class IV_Swinger(object):
                           isc_amps, voc_volts, mpp_amps, mpp_volts, spline):
         """Method to generate the graph with gnuplot or pyplot.
 
-        The following parameters are lists:
+           The following parameters are lists:
 
-           sd_data_point_filenames
-           isc_amps
-           voc_volts
-           mpp_amps
-           mpp_volts
+              sd_data_point_filenames
+              isc_amps
+              voc_volts
+              mpp_amps
+              mpp_volts
 
-        The normal case is that these lists all have a length of 1 and a
-        single curve is plotted. Support for larger lists is included
-        for external post-processing software that uses this method to
-        plot multiple curves (up to 8) on the same graph.
+           The normal case is that these lists all have a length of 1 and a
+           single curve is plotted. Support for larger lists is included
+           for external post-processing software that uses this method to
+           plot multiple curves (up to 8) on the same graph.
         """
         # Set colors
         self.set_plot_colors()
@@ -3158,18 +3161,18 @@ class IV_Swinger(object):
                          isc_amps, voc_volts, mpp_amps, mpp_volts, spline):
         """Method to generate the graph with pyplot.
 
-        The following parameters are lists:
+           The following parameters are lists:
 
-           sd_data_point_filenames
-           isc_amps
-           voc_volts
-           mpp_amps
-           mpp_volts
+              sd_data_point_filenames
+              isc_amps
+              voc_volts
+              mpp_amps
+              mpp_volts
 
-        The normal case is that these lists all have a length of 1 and a
-        single curve is plotted. Support for larger lists is included
-        for external post-processing software that uses this method to
-        plot multiple curves (up to 8) on the same graph.
+           The normal case is that these lists all have a length of 1 and a
+           single curve is plotted. Support for larger lists is included
+           for external post-processing software that uses this method to
+           plot multiple curves (up to 8) on the same graph.
         """
         # Set the figure size
         self.set_figure_size()
@@ -3285,7 +3288,7 @@ class IV_Swinger(object):
                                      isc_amps, voc_volts, mpp_amps,
                                      mpp_volts):
         """Method to check the args passed to the plot_with_gnuplot or
-        plot_with_pyplot method
+           plot_with_pyplot method
         """
 
         max_len = len(self.plot_colors)
@@ -3371,7 +3374,7 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def set_x_range(self, voc_volts):
         """Method to set the plotter X axis range. Returns the maximum X
-        value
+           value
         """
         if self.plot_max_x is not None:
             max_x = self.plot_max_x
@@ -3406,7 +3409,7 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def set_y_range(self, isc_amps, mpp_amps):
         """Method to set the plotter Y axis range. Returns the maximum Y
-        value
+           value
         """
         if self.plot_max_y is not None:
             max_y = self.plot_max_y
@@ -3500,7 +3503,7 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def set_annotate_options(self):
         """Method to set the plotter annotation options (for Isc, Voc,
-        and MPP labels)
+           and MPP labels)
         """
         if self.fancy_labels:
             xytext_offset = 10
@@ -3702,7 +3705,7 @@ class IV_Swinger(object):
     def plot_points_and_curves(self, sd_data_point_filenames, mpp_amps,
                                mpp_volts, spline):
         """Method to read the data in each data point file and use
-        pyplot to plot the measured and interpolated curves
+           pyplot to plot the measured and interpolated curves
         """
         if self.use_gnuplot:
             (measured_volts,
@@ -3753,7 +3756,7 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def read_measured_and_interp_points(self, f):
         """Method to read the measured points and interpolated points
-        from the data point file
+           from the data point file
         """
         first_data_set = True
         measured_volts = []
@@ -4055,11 +4058,11 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def find_usb_drives_inner(self):
         """Inner method (used by find_usb_drives) to find all USB drives
-        and return the list.  USB drives look like directories under
-        /media.  But there could be directories under /media that are
-        not USB drives.  So filter out any that are not mount points.
-        It's also possible that a USB drive is write-protected so filter
-        those out too.
+           and return the list.  USB drives look like directories under
+           /media.  But there could be directories under /media that are
+           not USB drives.  So filter out any that are not mount points.
+           It's also possible that a USB drive is write-protected so filter
+           those out too.
         """
         # Get list of directories under /media (possible USB drives)
         slash_media_dir_glob = "/media/*"
@@ -4090,8 +4093,8 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def find_usb_drives(self, wait=True, display=False):
         """Method to find all USB drives and return the list. If the
-        "wait" arg is set to True and no USB drives are found, prompt
-        the user and wait until one is inserted (or time out).
+           "wait" arg is set to True and no USB drives are found, prompt
+           the user and wait until one is inserted (or time out).
         """
         # Find USB drives
         usb_drives = self.find_usb_drives_inner()
@@ -4171,8 +4174,8 @@ class IV_Swinger(object):
     def create_iv_swinger_dirs(self, base_dirs, include_csv=True,
                                include_pdf=True):
         """Method to create the IV_Swinger directories under the
-        specified base directories.  Returns the list of IV_swinger
-        directories.
+           specified base directories.  Returns the list of IV_swinger
+           directories.
         """
         iv_swinger_dirs = []
 
@@ -4218,13 +4221,13 @@ class IV_Swinger(object):
     def copy_files_to_usb(self, date_time_str, sd_output_dir,
                           sd_iv_swinger_dir):
         """Method to copy the files from the SD card /IV_Swinger
-        directory to the USB drives.  If no USB drive is found (or if
-        there are errors writing to all that are), the date/time string
-        is added to the file /IV_Swinger/pending_usb_copy.  If one or
-        more USB drives is found this time, any files from previous runs
-        that were never copied to USB (i.e. those listed in
-        /IV_Swinger/pending_usb_copy) are copied now - in addition to
-        the files for the current run.
+           directory to the USB drives.  If no USB drive is found (or if
+           there are errors writing to all that are), the date/time string
+           is added to the file /IV_Swinger/pending_usb_copy.  If one or
+           more USB drives is found this time, any files from previous runs
+           that were never copied to USB (i.e. those listed in
+           /IV_Swinger/pending_usb_copy) are copied now - in addition to
+           the files for the current run.
         """
         # Update tentative USB drives list
         _usb_drives = self.find_usb_drives(wait=False, display=False)
@@ -4337,7 +4340,7 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def check_for_thread_errors(self):
         """Method to check the exception message queue to see if a
-        thread has died, in which case the main thread must exit too.
+           thread has died, in which case the main thread must exit too.
         """
         try:
             thread_exc = self.exc_queue.get(block=False)
@@ -4350,7 +4353,7 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def run_meat(self, io_extender):
         """Method containing most of run(), run with exception
-        handling after io_extender object creation
+           handling after io_extender object creation
         """
         # Create ADS1115 ADC instance
         adc = Adafruit_ADS1x15.ADS1x15(ic=ADS1115)
@@ -4613,9 +4616,9 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def init_other_class_variables(self):
         """Method that initializes class variables in the supporting
-        classes based on this class' property values. This method, or an
-        equivalent, must be run before the PrintAndLog,
-        ScrollingMessage, and BeepGenerator classes are instantiated.
+           classes based on this class' property values. This method, or an
+           equivalent, must be run before the PrintAndLog,
+           ScrollingMessage, and BeepGenerator classes are instantiated.
         """
 
         # Init PrintAndLog class variable(s) from properties

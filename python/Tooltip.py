@@ -1,3 +1,4 @@
+"""Module to implement tooltips"""
 import ttk
 import Tkinter as tk
 
@@ -60,28 +61,36 @@ class Tooltip:
         self.tw = None
 
     def on_enter(self, event=None):
+        """Method to perform actions when mouse pointer enters the widget
+        """
         self.schedule()
         total_staytime = self.staytime * max(len(self.text), 30)
         canceltime = self.waittime + total_staytime
         self.widget.after(canceltime, self.hide)
 
     def on_leave(self, event=None):
+        """Method to perform actions when mouse pointer leaves the widget
+        """
         self.unschedule()
         self.hide()
 
     def schedule(self):
+        """Method to schedule showing the tooltip"""
         self.unschedule()
         self.id = self.widget.after(self.waittime, self.show)
 
     def unschedule(self):
+        """Method to cancel showing the tooltip"""
         id_ = self.id
         self.id = None
         if id_:
             self.widget.after_cancel(id_)
 
     def show(self):
+        """Method to show the tooltip"""
         def tip_pos_calculator(widget, label,
                                tip_delta=(70, 5), pad=(5, 3, 5, 3)):
+            """Local function to calculate the position of the tooltip"""
 
             w = widget
 
@@ -161,6 +170,7 @@ class Tooltip:
         self.tw.wm_geometry("+{}+{}".format(x, y))
 
     def hide(self):
+        """Method to remove the tooltip"""
         tw = self.tw
         if tw:
             tw.destroy()
@@ -172,6 +182,7 @@ if __name__ == '__main__':
     import random
 
     def further_text():
+        """Method to generate random dummy text, for standalone testing"""
         # texts generated at http://lorem-ipsum.perbang.dk/
         short_text = ('Lorem ipsum dolor sit amet, mauris tellus, '
                       'porttitor torquent eu. Magna aliquet lorem, '
@@ -225,6 +236,7 @@ if __name__ == '__main__':
         return '\nFurther info: ' + text
 
     def main_01(wraplength=200):
+        """Method for standalone testing"""
 
         # alias
         stuff = further_text
@@ -282,6 +294,7 @@ if __name__ == '__main__':
         root.mainloop()
 
     def main():
+        """Main method, for standalone testing"""
         print('Trying out three different wraplengths:')
         for i, wl in enumerate((200, 250, 400), 1):
             print(' ', i)

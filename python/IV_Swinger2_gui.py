@@ -356,7 +356,9 @@ Alternately, you may attach this file:
 # Tkinter/ttk GUI class
 #
 class GraphicalUserInterface(ttk.Frame):
-    """Provides GUI for user interaction with the IV Swinger 2"""
+    """Class that provides the GUI for user interaction with the
+       IV Swinger 2
+    """
 
     # Initializer
     def __init__(self, app_data_dir=None):
@@ -403,7 +405,7 @@ class GraphicalUserInterface(ttk.Frame):
 
     # -------------------------------------------------------------------------
     def check_app_data_dir(self):
-        """Check that directories can be created in the the parent of
+        """Method to check that directories can be created in the the parent of
            app_data_dir and that files can be created in app_data_dir.
            If not, display an error dialog and exit.
         """
@@ -433,12 +435,12 @@ permission to create files in
 
     # -------------------------------------------------------------------------
     def report_callback_exception(self, *args):
-        """Override the parent class's method of the same name. This method is
-           called whenever there is an exception in the code run by the
-           mainloop() - i.e. everything after the GUI actually comes
-           up. Without this override, the exception is printed to
-           stderr, but doesn't crash the program. That makes it
-           completely silent when the program is started from an
+        """Method to override the parent class's method of the same name. This
+           method is called whenever there is an exception in the code
+           run by the mainloop() - i.e. everything after the GUI
+           actually comes up. Without this override, the exception is
+           printed to stderr, but doesn't crash the program. That makes
+           it completely silent when the program is started from an
            icon. We at least need it to get logged and also to inform
            the user.
         """
@@ -456,11 +458,16 @@ The file name is near the top.
 
     # -------------------------------------------------------------------------
     def memory_monitor(self):
+        """Method to run the debug_memleak global function once per second"""
         debug_memleak("memory_monitor")
         self.after(1000, lambda: self.memory_monitor())
 
     # -------------------------------------------------------------------------
     def get_version(self):
+        """Method to open the version.txt file, read the version number
+           contained in it, and set the object's "version" attribute to
+           that value
+        """
         version_file = os.path.join(self.app_dir, VERSION_FILE)
         try:
             with open(version_file, "r") as f:
@@ -485,6 +492,7 @@ The file name is near the top.
 
     # -------------------------------------------------------------------------
     def init_instance_vars(self):
+        """Method to initialize the object's instance variables"""
         self.resolution_str = tk.StringVar()
         self.plot_power = tk.StringVar()
         self.v_range = tk.StringVar()
@@ -541,10 +549,15 @@ value on the Arduino tab of Preferences
 
     # -------------------------------------------------------------------------
     def get_adc_pairs_from_csv(self, adc_csv_file):
+        """Method to get the ADC pairs from the CSV file containing them. Just
+           a wrapper around the IV_Swinger2 class's
+           read_adc_pairs_from_csv_file() method.
+        """
         return self.ivs2.read_adc_pairs_from_csv_file(adc_csv_file)
 
     # -------------------------------------------------------------------------
     def set_root_options(self):
+        """Method to set options for the root Tk object"""
         # Override tkinter's report_callback_exception method
         self.root.report_callback_exception = self.report_callback_exception
         # Disable resizing, at least for now
@@ -559,6 +572,7 @@ value on the Arduino tab of Preferences
 
     # -------------------------------------------------------------------------
     def set_style(self):
+        """Method to configure a custom ttk style for certain widgets"""
         self.style = ttk.Style()
         font = ("TkDefaultFont {} bold italic"
                 .format(max(int(round(self.ivs2.x_pixels / 43.0)), 19)))
@@ -569,6 +583,7 @@ value on the Arduino tab of Preferences
 
     # -------------------------------------------------------------------------
     def set_grid(self):
+        """Method to configure the grid for the top level frame"""
         self.grid(column=0, row=0, sticky=(N, S, E, W))
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
@@ -678,6 +693,7 @@ value on the Arduino tab of Preferences
 
     # -------------------------------------------------------------------------
     def create_widgets(self):
+        """Method to create the main window's widgets"""
         total_cols = 12
         pad_cols = 2
         column = 1
@@ -859,7 +875,7 @@ value on the Arduino tab of Preferences
     # -------------------------------------------------------------------------
     def create_go_button_box(self):
         """Method to create the go button and its associated bindings, along
-        with the status label, both packed in a box
+           with the status label, both packed in a box
         """
         # Box around button and status label - this is gridded into the
         # main GUI window
@@ -1006,8 +1022,8 @@ value on the Arduino tab of Preferences
 
     # -------------------------------------------------------------------------
     def apply_new_ranges(self, event=None):
-        """Method to apply a new voltage or current range (max value on axis)
-           when entered by the user
+        """Method to apply a new voltage or current range (max value
+           on axis) when entered by the user
         """
         # Replace config from saved config of displayed image
         run_dir = self.ivs2.hdd_output_dir
@@ -1048,14 +1064,14 @@ value on the Arduino tab of Preferences
 
     # -------------------------------------------------------------------------
     def attempt_arduino_handshake(self, write_eeprom=False):
-        """This method is a "best-effort" attempt to reset the Arduino
-        and perform the initial handshake when the GUI comes up. If this
-        succeeds, there will be no delay when the go button is pressed
-        for the first time. If it fails, it might be because the IVS2
-        hardware is not connected yet, which isn't a requirement, so it
-        should fail silently. In that case, it retries itself once a
-        second.  If and when the IVS2 hardware is connected, it will
-        bring up the interface.
+        """Method which is a "best-effort" attempt to reset the Arduino and
+           perform the initial handshake when the GUI comes up. If this
+           succeeds, there will be no delay when the go button is
+           pressed for the first time. If it fails, it might be because
+           the IVS2 hardware is not connected yet, which isn't a
+           requirement, so it should fail silently. In that case, it
+           retries itself once a second.  If and when the IVS2 hardware
+           is connected, it will bring up the interface.
         """
         # Bail out now if Arduino ready flag is set
         if self.ivs2.arduino_ready:
@@ -1090,11 +1106,12 @@ value on the Arduino tab of Preferences
 
     # -------------------------------------------------------------------------
     def clear_go_button_status_label(self):
+        """Method to fill the go button's status label with space characters"""
         self.go_button_status_label["text"] = " " * 30
 
     # -------------------------------------------------------------------------
     def update_config_after_arduino_handshake(self):
-        """This method updates configuration values that can be changed as
+        """Method to update configuration values that can be changed as
            side-effects of the Arduino handshake: namely the USB port
            and the calibration values.
         """
@@ -1159,12 +1176,18 @@ value on the Arduino tab of Preferences
 
     # -------------------------------------------------------------------------
     def check_arduino_sketch_version(self):
+        """Method to check if the Arduino sketch is the latest version. If not,
+           then display the down-level sketch dialog.
+        """
         if self.ivs2.arduino_sketch_ver != "Unknown":
             if self.ivs2.arduino_sketch_ver_lt(LATEST_SKETCH_VER):
                 DownlevelArduinoSketchDialog(self)
 
     # -------------------------------------------------------------------------
     def update_img_size(self, event=None):
+        """Method to update the image size when the size is change via
+           the image size combo box.
+        """
         res_str = self.resolution_str.get()
 
         # The first number in the input is x_pixels
@@ -1207,6 +1230,9 @@ value on the Arduino tab of Preferences
 
     # -------------------------------------------------------------------------
     def get_curr_x_pixels(self):
+        """Method to get the current number of X dimension pixels from the image
+           size resolution string
+        """
         res_str = self.resolution_str.get()
         res_re = re.compile(r"(\d+)")
         match = res_re.search(res_str)
@@ -1215,6 +1241,10 @@ value on the Arduino tab of Preferences
 
     # -------------------------------------------------------------------------
     def redisplay_img(self, reprocess_adc=False):
+        """Method to redisplay the current image. This is used when the image
+           size has changed or when something else has changed that
+           requires regenerating and redisplaying the IV curve.
+        """
         # If we're still displaying a splash screen, update it to
         # the new size. If an IV curve is showing, regenerate it..
         if self.img_pane.splash_img_showing:
@@ -1286,12 +1316,21 @@ value on the Arduino tab of Preferences
 
     # -------------------------------------------------------------------------
     def pdf_permission_denied(self, e):
+        """Method to search an exception message for the pattern that indicates
+           that the problem is that permission to write a PDF was
+           denied.
+        """
         exception_str = "({})".format(e)
         pdf_permission_denied_re = re.compile(r"Permission denied:.*\.pdf'")
         return pdf_permission_denied_re.search(exception_str)
 
     # -------------------------------------------------------------------------
     def save_config(self):
+        """Method to save the current config to the .cfg file. This is mostly a
+           wrapper around the save() method of the Configuration class,
+           but it has code to determine whether or not to set the
+           copy_dir parameter.
+        """
         copy_dir = None
         if (not self.props.suppress_cfg_file_copy and
                 (self.props.loop_save_results or
@@ -1304,6 +1343,7 @@ value on the Arduino tab of Preferences
 
     # -------------------------------------------------------------------------
     def show_preferences(self, event=None):
+        """Method to open the Preferences dialog"""
         if self.preferences_button.instate(["disabled"]):
             # Mystery why this is necessary ...
             return
@@ -1325,12 +1365,16 @@ value on the Arduino tab of Preferences
 
     # -------------------------------------------------------------------------
     def results_actions(self, event=None):
+        """Method to open the Results Wizard"""
         if (self.results_wiz is None and
                 not self.results_button.instate(["disabled"])):
             self.results_wiz = ResultsWizard(self)
 
     # -------------------------------------------------------------------------
     def go_actions(self, event=None):
+        """Method to start swinging one or more IV curves when the go
+           button is pressed
+        """
         if self.go_button.instate(["disabled"]):
             # Mystery why this is necessary ...
             return
@@ -1357,14 +1401,16 @@ value on the Arduino tab of Preferences
 
     # -------------------------------------------------------------------------
     def reestablish_arduino_comm(self, write_eeprom=False):
+        """Method to re-establish communication with the Arduino"""
         self.ivs2.arduino_ready = False
         self.attempt_arduino_handshake(write_eeprom)
 
     # -------------------------------------------------------------------------
     def usb_monitor(self):
-        """This method runs every 500 milliseconds, checking if the USB cable
-           was disconnected. If communication had previously been established
-           with the Arduino, it attempts to reestablish communication.
+        """Method that runs every 500 milliseconds, checking if the USB cable
+           was disconnected. If communication had previously been
+           established with the Arduino, it attempts to reestablish
+           communication.
         """
         if self.ivs2.arduino_ready and self.ivs2.usb_port_disconnected():
             self.ivs2.arduino_ready = False
@@ -1376,14 +1422,18 @@ value on the Arduino tab of Preferences
 
     # -------------------------------------------------------------------------
     def swing_loop(self, loop_mode=False, first_loop=False):
-        """This method invokes the IVS2 object method to swing the IV
-        curve, and then it displays the generated GIF in the image
-        pane. In loop mode it ends by scheduling another call of itself
-        after the programmed delay. In that sense it appears to be a
-        loop. Unlike an actual loop, however, it is non-blocking.  This
-        is essential in order for the GUI not to lock up.
+        """Method that invokes the IVS2 object method to swing the IV curve,
+           and then displays the generated GIF in the image pane. In
+           loop mode it ends by scheduling another call of itself after
+           the programmed delay. In that sense it appears to be a
+           loop. Unlike an actual loop, however, it is non-blocking.
+           This is essential in order for the GUI not to lock up.
+
         """
         def show_error_dialog_clean_up_and_return(rc):
+            """Local function to show an error dialog and clean up after a
+               failure
+            """
             self.show_error_dialog(rc)
             if loop_mode:
                 self.stop_actions(event=None)
@@ -1488,6 +1538,10 @@ value on the Arduino tab of Preferences
 
     # -------------------------------------------------------------------------
     def display_img(self, img_file):
+        """Method to display an image (from a file) in the image pane. This
+           method does not do any scaling, so the image is displayed at
+           its native size.
+        """
         self.img_file = img_file
         new_img = tk.PhotoImage(file=img_file)
         self.img_pane.configure(image=new_img)
@@ -1500,6 +1554,10 @@ value on the Arduino tab of Preferences
 
     # -------------------------------------------------------------------------
     def display_screen_err_msg(self, rc):
+        """Method to display an error message in the image pane. This is used
+           for non-fatal errors that are detected while looping, when
+           the stop-on-error option is not enabled.
+        """
         dts = IV_Swinger2.extract_date_time_str(self.ivs2.hdd_output_dir)
         xlated = IV_Swinger2.xlate_date_time_str(dts)
         (xlated_date, xlated_time) = xlated
@@ -1519,14 +1577,12 @@ value on the Arduino tab of Preferences
 
     # -------------------------------------------------------------------------
     def add_stop_button(self):
-        """This method creates the stop button. The stop button is only
-        created when we're in loop mode. Its size and location are
-        the same as the go button, so it just covers up the go
-        button (from the user's point of view it just looks like
-        the label on the button changes). When the stop button is
-        pressed, the looping is stopped, and the button is
-        removed.
-
+        """Method to create the stop button. The stop button is only created
+           when we're in loop mode. Its size and location are the same
+           as the go button, so it just covers up the go button (from
+           the user's point of view it just looks like the label on the
+           button changes). When the stop button is pressed, the looping
+           is stopped, and the button is removed.
         """
         self.stop_button = GoStopButton(master=self.go_button_box, text="STOP")
         self.stop_button["width"] = self.go_button["width"]
@@ -1541,6 +1597,9 @@ value on the Arduino tab of Preferences
 
     # -------------------------------------------------------------------------
     def stop_actions(self, event=None):
+        """Method to stop looping and restore the normal buttons and
+           bindings
+        """
         # Restore normal bindings of return key and space bar
         self.root.bind("<Return>", self.go_actions)
         self.root.bind("<space>", self.go_actions)
@@ -1559,6 +1618,9 @@ value on the Arduino tab of Preferences
 
     # -------------------------------------------------------------------------
     def show_baud_mismatch_dialog(self):
+        """Method to display an error dialog on a (probable) baud mismatch
+           error
+        """
         baud_mismatch_str = """
 ERROR: Decode error on serial data from
 Arduino
@@ -1572,6 +1634,7 @@ the rate specified in Preferences.
 
     # -------------------------------------------------------------------------
     def show_timeout_dialog(self):
+        """Method to display an error dialog on an Arduino timeout"""
         timeout_str = """
 ERROR: Timed out waiting for message
 from Arduino
@@ -1587,6 +1650,7 @@ on the "USB Port" menu.
 
     # -------------------------------------------------------------------------
     def show_serial_exception_dialog(self):
+        """Method to display an error dialog on USB serial exception"""
         serial_exception_str = """
 ERROR: problem opening USB port to
 communicate with Arduino
@@ -1602,18 +1666,26 @@ on the "USB Port" menu.
 
     # -------------------------------------------------------------------------
     def show_zero_voc_dialog(self):
+        """Method to display an error dialog when Voc = 0"""
         tkmsg_showerror(self, message=self.zero_voc_str)
 
     # -------------------------------------------------------------------------
     def show_zero_isc_dialog(self):
+        """Method to display an error dialog when Isc = 0"""
         tkmsg_showerror(self, message=self.zero_isc_str)
 
     # -------------------------------------------------------------------------
     def show_isc_timeout_dialog(self):
+        """Method to display an error dialog when there is an Isc stable
+           timeout
+        """
         tkmsg_showerror(self, message=self.isc_timeout_str)
 
     # -------------------------------------------------------------------------
     def show_no_points_dialog(self):
+        """Method to display an error dialog when there are no points to
+           display
+        """
         no_points_str = """
 ERROR: No points to display
 
@@ -1624,6 +1696,9 @@ bias was actually applied.
 
     # -------------------------------------------------------------------------
     def show_error_dialog(self, rc):
+        """Method to call the appropriate error dialog method, based on the
+           value of the bad return code
+        """
         if rc == RC_BAUD_MISMATCH:
             self.show_baud_mismatch_dialog()
         elif rc == RC_TIMEOUT:
@@ -1641,6 +1716,9 @@ bias was actually applied.
 
     # -------------------------------------------------------------------------
     def start_on_top(self):
+        """Method to cause the app to open on top of other existing
+           applications' windows
+        """
         # Causes app to open on top of existing windows
         self.root.lift()
         self.root.attributes("-topmost", True)
@@ -1648,26 +1726,30 @@ bias was actually applied.
 
     # -------------------------------------------------------------------------
     def start_centered(self):
-        # Causes app to open centered (side-to-side) on screen, aligned
-        # to top (5 pixel overscan compensation)
+        """Method to cause app to open centered (side-to-side) on screen,
+           aligned to top (5 pixel overscan compensation)
+        """
         self.root.geometry("+{}+5".format((self.root.winfo_screenwidth()/2) -
                                           (self.ivs2.x_pixels/2)))
 
     # -------------------------------------------------------------------------
     def start_to_right(self):
-        # Causes app to open to the right of the screen (with 20 pixels
-        # left), aligned to top (5 pixel overscan compensation)
+        """Method to cause app to open to the right of the screen (with 20
+           pixels left), aligned to top (5 pixel overscan compensation)
+        """
         self.root.geometry("+{}+5".format(self.root.winfo_screenwidth() -
                                           self.ivs2.x_pixels - 20))
 
     # -------------------------------------------------------------------------
     def start_to_left(self):
-        # Causes app to open to the left of the screen, aligned to top
-        # (5 pixel overscan compensation)
+        """Method to cause app to open to the left of the screen, aligned to top
+           (5 pixel overscan compensation)
+        """
         self.root.geometry("+20+5")
 
     # -------------------------------------------------------------------------
     def close_gui(self):
+        """Method to perform actions needed when the GUI is closed"""
         # Clean up before closing
         if self.props.overlay_dir is not None:
             self.results_wiz.rm_overlay_if_unfinished()
@@ -1693,6 +1775,11 @@ bias was actually applied.
 
     # -------------------------------------------------------------------------
     def run(self):
+        """Method to run the GUI. It also schedules a call to
+           attempt_arduino_handshake() so that the go button is enabled
+           as early as possible if the hardware is connected when the
+           app is started. This method blocks until the GUI is closed.
+        """
         self.after(100, lambda: self.attempt_arduino_handshake())
         self.start_on_top()
         self.root.protocol("WM_DELETE_WINDOW", self.close_gui)
@@ -1715,7 +1802,7 @@ class GraphicalUserInterfaceProps(object):
     @property
     def restore_loop(self):
         """True if loop settings should be restored on next startup,
-        false otherwise
+           false otherwise
         """
         return self.master._restore_loop
 
@@ -1882,8 +1969,8 @@ class GraphicalUserInterfaceProps(object):
 # GUI Configuration class
 #
 class Configuration(IV_Swinger2.Configuration):
-    """Extends the IV_Swinger2 Configuration class to add the looping
-       configuration values
+    """Class that extends the IV_Swinger2 Configuration class to add the
+       looping configuration values
     """
 
     # Initializer
@@ -1894,7 +1981,7 @@ class Configuration(IV_Swinger2.Configuration):
 
     # -------------------------------------------------------------------------
     def apply_all(self):
-        """Extension of parent class method
+        """Method that is an extension of the parent class method
         """
         # Call parent method
         super(Configuration, self).apply_all()
@@ -1947,7 +2034,7 @@ class Configuration(IV_Swinger2.Configuration):
 
     # -------------------------------------------------------------------------
     def populate(self):
-        """Extension of parent class method
+        """Method that is an extension of the parent class method
         """
         # Call parent method
         super(Configuration, self).populate()
@@ -1965,7 +2052,7 @@ class Configuration(IV_Swinger2.Configuration):
 
     # -------------------------------------------------------------------------
     def get(self):
-        """Extension of parent class method
+        """Method that is an extension of the parent class method
         """
         # Call parent method
         super(Configuration, self).get()
@@ -1978,7 +2065,7 @@ class Configuration(IV_Swinger2.Configuration):
 # Image size combobox class
 #
 class ImgSizeCombo(ttk.Combobox):
-    """Combobox used to select image size"""
+    """Class that is the Combobox used to select image size"""
 
     # Initializer
     def __init__(self, master=None, textvariable=None):
@@ -2000,14 +2087,15 @@ class ImgSizeCombo(ttk.Combobox):
 # Results wizard class
 #
 class ResultsWizard(tk.Toplevel):
-    """Results wizard class. Unlike other dialogs that are extensions of
-       the generic Dialog class, this is NOT a "modal window", so it
-       does not completely block access to the main window. This is so
-       the user can still do things like changing preferences. However,
-       certain actions are disallowed in the main window such as the Go
-       button and the Results Wizard button since allowing those
-       actions while the results wizard is open is not useful or at
-       least the expected behavior if they were allowed is not obvious.
+    """Class that implements the Results wizard. Unlike other dialogs that
+       are extensions of the generic Dialog class, this is NOT a "modal
+       window", so it does not completely block access to the main
+       window. This is so the user can still do things like changing
+       preferences. However, certain actions are disallowed in the main
+       window such as the Go button and the Results Wizard button since
+       allowing those actions while the results wizard is open is not
+       useful or at least the expected behavior if they were allowed is
+       not obvious.
     """
     # Initializer
     def __init__(self, master=None):
@@ -2072,7 +2160,7 @@ class ResultsWizard(tk.Toplevel):
     # -------------------------------------------------------------------------
     def change_min_height(self, min_height):
         """Method to change the minimum height of the dialog to the specified
-        value
+           value
         """
         # Get current window width
         width = self.master.get_dialog_width(self)
@@ -2083,7 +2171,7 @@ class ResultsWizard(tk.Toplevel):
     # -------------------------------------------------------------------------
     def create_body(self, master):
         """Method to create the dialog body, which contains a Treeview widget
-        and some buttons
+           and some buttons
         """
         self.treeview(master)
         self.buttons(master)
@@ -2195,9 +2283,9 @@ class ResultsWizard(tk.Toplevel):
     # -------------------------------------------------------------------------
     def populate_tree(self):
         """Method to populate the Treeview. The top level is the date, and each
-        of those can be opened (expanded) to see the runs from that day.
-        There is also a top level item for the overlays, and it has all
-        of the overlays under it.
+           of those can be opened (expanded) to see the runs from that
+           day.  There is also a top level item for the overlays, and it
+           has all of the overlays under it.
         """
         # Remove any prior contents
         self.delete_all()
@@ -2529,8 +2617,8 @@ class ResultsWizard(tk.Toplevel):
 
     # -------------------------------------------------------------------------
     def change_folder(self, event=None):
-        """Method to handle the change folder event (click on treeview column
-           heading)
+        """Method to handle the change folder event (click on treeview
+           column heading)
         """
         options = {}
         options["initialdir"] = self.results_dir
@@ -2695,15 +2783,15 @@ class ResultsWizard(tk.Toplevel):
     # -------------------------------------------------------------------------
     def expand_all(self, event=None):
         """Method to expand/open all Treeview date groupings (click on
-        button)
+           button)
         """
         for date in self.dates:
             self.tree.item(date, open=True)
 
     # -------------------------------------------------------------------------
     def collapse_all(self, event=None):
-        """Method to collapse/close all Treeview date groupings (click on
-        button)
+        """Method to collapse/close all Treeview date groupings (click
+           on button)
         """
         for date in self.dates:
             self.tree.item(date, open=False)
@@ -2739,7 +2827,8 @@ class ResultsWizard(tk.Toplevel):
 
     # -------------------------------------------------------------------------
     def delete_selected(self, event=None):
-        """Method to send the selected runs and/or overlays to the trash
+        """Method to send the selected runs and/or overlays to the
+           trash
         """
         # Get the selected run(s) from the Treeview
         selected_runs = self.get_selected_runs()
@@ -2793,8 +2882,8 @@ class ResultsWizard(tk.Toplevel):
 
     # -------------------------------------------------------------------------
     def copy_selected(self, event=None):
-        """Method to copy the selected runs and/or overlays (to a USB drive or
-        elsewhere)
+        """Method to copy the selected runs and/or overlays (to a USB
+           drive or elsewhere)
         """
         # Get the selected run(s) from the Treeview
         selected_runs = self.get_selected_runs()
@@ -2893,8 +2982,8 @@ class ResultsWizard(tk.Toplevel):
     # -------------------------------------------------------------------------
     def copy_overwrite_precheck(self, selected_src_dirs):
         """Method to check if the selected runs/overlays already exist in the
-        destination directory, and if so, to ask user if they should be
-        overwritten or not
+           destination directory, and if so, to ask user if they should be
+           overwritten or not
         """
         overwrite = False
         existing_dest_dirs = []
@@ -2926,8 +3015,8 @@ class ResultsWizard(tk.Toplevel):
     # -------------------------------------------------------------------------
     def copy_dirs(self, src_dirs, overwrite):
         """Method to copy the specified directories to the destination,
-        overwriting or not, based on input parameter. Returns number of
-        runs copied.
+           overwriting or not, based on input parameter. Returns number of
+           runs copied.
         """
         num_copied = {"overlays": 0, "runs": 0}
         for src_dir in src_dirs:
@@ -2961,7 +3050,7 @@ class ResultsWizard(tk.Toplevel):
     # -------------------------------------------------------------------------
     def get_dest_dir(self, src_dir):
         """Method to derive the destination directory name from the source
-        directory name
+           directory name
         """
         if os.path.basename(os.path.dirname(src_dir)) == "overlays":
             dest_dir = os.path.join(self.copy_dest, APP_NAME,
@@ -2974,7 +3063,7 @@ class ResultsWizard(tk.Toplevel):
     # -------------------------------------------------------------------------
     def display_copy_summary(self, num_copied):
         """Method to display a message dialog with a count of how many runs
-        were copied
+           were copied
         """
         msg_str = ("Copied:\n"
                    "   {} overlays\n"
@@ -2987,8 +3076,8 @@ class ResultsWizard(tk.Toplevel):
 
     # -------------------------------------------------------------------------
     def change_title(self, event=None):
-        """Method to change the title of the selected run or of the current
-           overlay
+        """Method to change the title of the selected run or of the
+           current overlay
         """
         if self.master.props.overlay_mode:
             prompt_title_str = "Change overlay title"
@@ -3051,7 +3140,7 @@ class ResultsWizard(tk.Toplevel):
 
     # -------------------------------------------------------------------------
     def view_pdf(self, event=None):
-        """Callback method to view the PDF when the View PDF button
+        """Method to view the PDF when the View PDF button
            is pressed.
         """
         # If there is a PDF, it has the same name as the image being
@@ -3074,9 +3163,9 @@ class ResultsWizard(tk.Toplevel):
 
     # -------------------------------------------------------------------------
     def plot_graphs_to_pdf(self):
-        """Wrapper method around the IV_Swinger2_plotter method of
-           the same name. Adds option for user to retry if
-           the file is open in a viewer (Windows issue).
+        """Method that is a wrapper around the IV_Swinger2_plotter method of
+           the same name. Adds option for user to retry if the file is
+           open in a viewer (Windows issue).
         """
         self.master.retry_if_pdf_permission_denied(self.ivp.plot_graphs_to_pdf,
                                                    self.ivp.ivsp_ivse,
@@ -3084,7 +3173,7 @@ class ResultsWizard(tk.Toplevel):
 
     # -------------------------------------------------------------------------
     def update_selected(self, event=None):
-        """Callback method to update the selected runs when the Update button
+        """Method to update the selected runs when the Update button
            is pressed.
         """
         # Display error dialog and return if any overlays are selected
@@ -3404,7 +3493,7 @@ class ResultsWizard(tk.Toplevel):
 
     # -------------------------------------------------------------------------
     def overlay_label_changed_actions(self, event=None):
-        """Callback method for changes to the overlay label checkbuttons
+        """Method for changes to the overlay label checkbuttons
         """
         self.plot_overlay_and_display()
 
@@ -3457,7 +3546,7 @@ class ResultsWizard(tk.Toplevel):
 
     # -------------------------------------------------------------------------
     def chron_sort_overlays(self, event=None):
-        """Callback method to sort the overlays in the treeview chronologically
+        """Method to sort the overlays in the treeview chronologically
            when the heading is clicked. Order reverses each time it is
            called.
         """
@@ -3505,7 +3594,7 @@ class ResultsWizard(tk.Toplevel):
 
     # -------------------------------------------------------------------------
     def grab_overlay_curve(self, event=None):
-        """Callback method to select clicked curve in the treeview in
+        """Method to select clicked curve in the treeview in
            preparation for dragging to reorder
         """
         tv = event.widget
@@ -3514,7 +3603,7 @@ class ResultsWizard(tk.Toplevel):
 
     # -------------------------------------------------------------------------
     def move_overlay_curve(self, event=None):
-        """Callback method to drag the selected curve to a new position in the
+        """Method to drag the selected curve to a new position in the
            list
         """
         tv = event.widget
@@ -3528,7 +3617,7 @@ class ResultsWizard(tk.Toplevel):
 
     # -------------------------------------------------------------------------
     def update_overlay_order(self, event=None):
-        """Callback method to update the order of the overlay curves after a
+        """Method to update the order of the overlay curves after a
            drag-and-drop
         """
         if self.overlays_reordered:
@@ -3538,7 +3627,7 @@ class ResultsWizard(tk.Toplevel):
 
     # -------------------------------------------------------------------------
     def change_overlay_curve_name(self, event=None):
-        """Callback method to prompt the user to enter a new name for an
+        """Method to prompt the user to enter a new name for an
            overlay curve
         """
         tv = event.widget
@@ -3577,14 +3666,14 @@ class ResultsWizard(tk.Toplevel):
 
     # -------------------------------------------------------------------------
     def overlay_help(self, event=None):
-        """Callback method to display overlay help dialog when the Help button
+        """Method to display overlay help dialog when the Help button
            is pressed.
         """
         OverlayHelpDialog(self.master)
 
     # -------------------------------------------------------------------------
     def overlay_cancel(self, event=None):
-        """Callback method to perform actions when Cancel button is pressed.
+        """Method to perform actions when Cancel button is pressed.
            Overlay mode is exited and the widgets are removed. The runs
            are left selected.
         """
@@ -3606,7 +3695,7 @@ class ResultsWizard(tk.Toplevel):
 
     # -------------------------------------------------------------------------
     def overlay_finished(self, event=None):
-        """Callback method to perform actions when Finished button is pressed.
+        """Method to perform actions when Finished button is pressed.
            PDF is generated. Overlay mode is exited and the widgets are
            removed. The runs are de-selected and the overlay is selected
            and made visible, with the assumption that the user's next
@@ -3776,8 +3865,7 @@ class ResultsWizard(tk.Toplevel):
 # Menu bar class
 #
 class MenuBar(tk.Menu):
-    """Menu bar class"""
-
+    """Class that implements the menu bar"""
     # Initializer
     def __init__(self, master=None):
         tk.Menu.__init__(self, master=master)
@@ -3794,6 +3882,7 @@ class MenuBar(tk.Menu):
 
     # -------------------------------------------------------------------------
     def create_about_menu(self):
+        """Method to create the "About" menu"""
         if self.master.win_sys == "aqua":  # Mac
             self.about_menu = tk.Menu(self.menubar, name="apple")
             self.menubar.add_cascade(menu=self.about_menu)
@@ -3808,6 +3897,7 @@ class MenuBar(tk.Menu):
 
     # -------------------------------------------------------------------------
     def create_file_menu(self):
+        """Method to create the "File" menu"""
         self.file_menu = tk.Menu(self.menubar,
                                  postcommand=self.update_file_menu)
         self.menubar.add_cascade(menu=self.file_menu, label="File")
@@ -3820,6 +3910,7 @@ class MenuBar(tk.Menu):
 
     # -------------------------------------------------------------------------
     def update_file_menu(self):
+        """Method to update the "File" menu to enable/disable entries"""
         kwargs = {"state": "normal"}
         if (self.master.ivs2.hdd_output_dir is None or
                 not os.path.exists(self.master.ivs2.hdd_output_dir)):
@@ -3828,12 +3919,14 @@ class MenuBar(tk.Menu):
 
     # -------------------------------------------------------------------------
     def create_usb_port_menu(self):
+        """Method to create the "USB Port" menu"""
         self.usb_port_menu = tk.Menu(self.menubar,
                                      postcommand=self.update_usb_port_menu)
         self.menubar.add_cascade(menu=self.usb_port_menu, label="USB Port")
 
     # -------------------------------------------------------------------------
     def update_usb_port_menu(self):
+        """Method to update the "USB Port" menu to enable/disable entries"""
         # If already populated, clear it out
         index2 = self.usb_port_menu.index("end")
         if index2 is not None:
@@ -3855,6 +3948,7 @@ class MenuBar(tk.Menu):
 
     # -------------------------------------------------------------------------
     def create_calibrate_menu(self):
+        """Method to create the "Calibrate" menu"""
         self.calibrate_menu = tk.Menu(self.menubar,
                                       postcommand=self.update_calibrate_menu)
         self.menubar.add_cascade(menu=self.calibrate_menu, label="Calibrate")
@@ -3881,6 +3975,7 @@ class MenuBar(tk.Menu):
 
     # -------------------------------------------------------------------------
     def update_calibrate_menu(self):
+        """Method to update the "Calibrate" menu to enable/disable entries"""
         # Vref, Current/Voltage - advanced, Resistors, Bias battery, Invalidate
         # EEPROM
         #
@@ -3934,6 +4029,7 @@ class MenuBar(tk.Menu):
 
     # -------------------------------------------------------------------------
     def create_window_menu(self):
+        """Method to create the "Window" menu"""
         if self.master.win_sys == "aqua":  # Mac
             self.window_menu = tk.Menu(self.menubar, name="window")
             self.menubar.add_cascade(menu=self.window_menu, label="Window")
@@ -3942,6 +4038,7 @@ class MenuBar(tk.Menu):
 
     # -------------------------------------------------------------------------
     def create_help_menu(self):
+        """Method to create the "Help" menu"""
         if self.master.win_sys == "aqua":  # Mac
             self.help_menu = tk.Menu(self.menubar, name="help")
             self.menubar.add_cascade(menu=self.help_menu, label="Help")
@@ -3955,6 +4052,7 @@ class MenuBar(tk.Menu):
 
     # -------------------------------------------------------------------------
     def show_about_dialog(self):
+        """Method to show the "About" dialog"""
         version_str = "Version: {}\n\n".format(self.master.version)
         about_str = """
 IV Swinger and IV Swinger 2 are open
@@ -3987,6 +4085,11 @@ Copyright (C) 2017-2019  Chris Satterlee
 
     # -------------------------------------------------------------------------
     def view_log_file(self):
+        """Method to view a log file. A tkFileDialog is opened for the user to
+           select which log file to view. The default selection is
+           chosen using the get_initial_log_file_name method. The
+           selected file is then opened with the system file viewer.
+        """
         (dir, file) = os.path.split(self.master.ivs2.logger.log_file_name)
         options = {}
         options["defaultextension"] = ".txt"
@@ -4003,11 +4106,15 @@ Copyright (C) 2017-2019  Chris Satterlee
 
     # -------------------------------------------------------------------------
     def get_initial_log_file_name(self, dir, current_log):
-        # If the config file name has a date_time_str in its name, we're
-        # in the Results Wizard, and the relevant log file is the one
-        # that contains the info for the selected run.  That is the one
-        # that has a date_time_str that is older than or equal to the
-        # config file's, but the newest such log file.
+        """Method to choose the most likely log file as the default selection
+           for the view_log_file method.  If the config file name has a
+           date_time_str in its name, we're in the Results Wizard, and
+           the relevant log file is the one that contains the info for
+           the selected run.  That is the one that has a date_time_str
+           that is older than or equal to the config file's, but the
+           newest such log file. Otherwise, the current log file is the
+           default.
+        """
         cfg_filename = self.master.config.cfg_filename
         cfg_dts = IV_Swinger2.extract_date_time_str(cfg_filename)
         cfg_dir = os.path.dirname(cfg_filename)
@@ -4029,16 +4136,26 @@ Copyright (C) 2017-2019  Chris Satterlee
 
     # -------------------------------------------------------------------------
     def view_config_file(self):
+        """Method to open the current config file using the system file
+           viewer
+        """
         IV_Swinger2.sys_view_file(self.master.config.cfg_filename)
 
     # -------------------------------------------------------------------------
     def view_run_info_file(self):
+        """Method to open the current run info file using the system file
+           viewer
+        """
         self.master.ivs2.convert_sensor_to_run_info_file()
         self.master.ivs2.create_run_info_file()  # if it doesn't exist
         IV_Swinger2.sys_view_file(self.master.ivs2.run_info_filename)
 
     # -------------------------------------------------------------------------
     def select_serial(self):
+        """Method to change the USB port to the one selected. The Arduino
+           handshake is initiated using the new port. If that succeeds,
+           the configuration is updated with the new port.
+        """
         self.master.ivs2.usb_port = self.selected_port.get()
         self.master.ivs2.arduino_ready = False
         self.master.attempt_arduino_handshake()
@@ -4049,6 +4166,8 @@ Copyright (C) 2017-2019  Chris Satterlee
 
     # -------------------------------------------------------------------------
     def get_vref_cal_value(self):
+        """Method to get the Vref calibration value from the user and apply it
+        """
         curr_vref = self.master.ivs2.adc_vref
         prompt_str = "Enter measured voltage of +5V reference:"
         new_vref = tksd_askfloat(self.master,
@@ -4063,6 +4182,9 @@ Copyright (C) 2017-2019  Chris Satterlee
 
     # -------------------------------------------------------------------------
     def get_v_cal_value(self):
+        """Method to get the voltage calibration value from the user and apply
+           it (basic calibration)
+        """
         if self.master.ivs2.battery_bias and not self.master.ivs2.dyn_bias_cal:
             # If the battery bias mode is on, and we're NOT doing
             # dynamic bias battery calibration, we can't really do
@@ -4131,6 +4253,9 @@ ERROR: Voc must be larger than
 
     # -------------------------------------------------------------------------
     def get_i_cal_value(self):
+        """Method to get the current calibration value from the user and apply
+           it (basic calibration)
+        """
         i_cal_b = self.master.ivs2.i_cal_b
         if i_cal_b != 0.0:
             warn_msg = """
@@ -4166,14 +4291,23 @@ ERROR: Isc must be larger than
 
     # -------------------------------------------------------------------------
     def get_v_cal_value_adv(self):
+        """Method to get the voltage calibration values from the user and apply
+           them (advanced calibration)
+        """
         AdvVoltageCalDialog(self.master)
 
     # -------------------------------------------------------------------------
     def get_i_cal_value_adv(self):
+        """Method to get the current calibration values from the user and apply
+           them (advanced calibration)
+        """
         AdvCurrentCalDialog(self.master)
 
     # -------------------------------------------------------------------------
     def get_pyrano_cal_value(self):
+        """Method to get the pyranometer calibration value from the user and
+           apply it
+        """
         curr_irradiance = self.master.ivs2.irradiance
         prompt_str = "Enter measured W/m^2 value:"
         new_irradiance = tksd_askfloat(self.master,
@@ -4201,6 +4335,7 @@ ERROR: Isc must be larger than
 
     # -------------------------------------------------------------------------
     def update_values_in_eeprom(self):
+        """Method to update the values in the Arduino EEPROM"""
         if not self.master.ivs2.arduino_sketch_supports_eeprom_config:
             warning_str = """
 WARNING: Calibration values cannot be stored on the IV Swinger 2 hardware with
@@ -4213,14 +4348,21 @@ this version of the Arduino software. Please upgrade.
 
     # -------------------------------------------------------------------------
     def get_resistor_values(self):
+        """Method to open the resistor values calibration dialog for the user to
+           enter the resistor values
+        """
         ResistorValuesDialog(self.master)
 
     # -------------------------------------------------------------------------
     def get_battery_bias(self):
+        """Method to open the dialog for the user to run a bias battery
+           calibration
+        """
         BiasBatteryDialog(self.master)
 
     # -------------------------------------------------------------------------
     def invalidate_arduino_eeprom(self):
+        """Method to invalidate the Arduino EEPROM"""
         if not self.master.ivs2.arduino_sketch_supports_dynamic_config:
             err_str = ("ERROR: The Arduino sketch does not support "
                        "invalidating the EEPROM. You must update it "
@@ -4246,10 +4388,12 @@ will exit.
 
     # -------------------------------------------------------------------------
     def show_calibration_help(self):
+        """Method the open the calibration help dialog"""
         CalibrationHelpDialog(self.master)
 
     # -------------------------------------------------------------------------
     def show_help(self):
+        """Method the open the global help dialog"""
         GlobalHelpDialog(self.master)
 
 
@@ -4257,17 +4401,19 @@ will exit.
 # http://effbot.org/tkinterbook/tkinter-dialog-windows.htm)
 #
 class Dialog(tk.Toplevel):
-    """Toplevel class used for dialogs. This is a so-called "modal window".
-    This means that when it comes up, access to the main window is
-    disabled until this window is closed. Focus is directed to this
-    window when it opens, and is returned to the main window when it is
-    closed. This class is intended to be extended by subclasses.  This
-    class provides the modal behavior and the standard OK and/or Cancel
-    buttons. Placeholder methods to create the body and perform the
-    appropriate actions when the OK or Cancel button is pressed are
-    provided for the subclass to override. A placeholder function to
-    validate the input before applying it is also provided for optional
-    override.
+    """Class that is used for dialogs, derived from the Tkinter Toplevel
+       class. This is a so-called "modal window".  This means that when
+       it comes up, access to the main window is disabled until this
+       window is closed. Focus is directed to this window when it opens,
+       and is returned to the main window when it is closed. This class
+       is intended to be extended by subclasses.  This class provides
+       the modal behavior and the standard OK and/or Cancel
+       buttons. Placeholder methods to create the body and perform the
+       appropriate actions when the OK or Cancel button is pressed are
+       provided for the subclass to override. A placeholder function to
+       validate the input before applying it is also provided for
+       optional override.
+
     """
     # Initializer
     def __init__(self, master=None, title=None, has_ok_button=True,
@@ -4322,13 +4468,16 @@ class Dialog(tk.Toplevel):
 
     # -------------------------------------------------------------------------
     def body(self, master):
-        # Create dialog body. This method should be overridden.
+        """Method to create the dialog body. This method should be
+           overridden.
+        """
         pass
 
     # -------------------------------------------------------------------------
     def buttonbox(self, master):
-        # Add standard button box. Override if you don't want the
-        # standard buttons.
+        """Method to add the standard button box. Override if you don't want
+           the standard buttons.
+        """
         box = ttk.Frame(master)
         if self.return_ok:
             ok = ttk.Button(box, text=self.ok_label, width=10, command=self.ok,
@@ -4355,6 +4504,7 @@ class Dialog(tk.Toplevel):
 
     # -------------------------------------------------------------------------
     def ok(self, event=None):
+        """Method that runs when the OK button is pressed"""
         if not self.validate():
             return
         self.withdraw()
@@ -4364,31 +4514,48 @@ class Dialog(tk.Toplevel):
 
     # -------------------------------------------------------------------------
     def cancel(self, event=None):
+        """Method that runs when the Cancel button is pressed"""
         self.revert()
         self.close()
 
     # -------------------------------------------------------------------------
     def snapshot(self):
-        pass  # override
+        """Method that snapshots current values for revert. Should be
+           overridden to do what is appropriate for the derived class.
+        """
+        pass
 
     # -------------------------------------------------------------------------
     def validate(self):
-        return True  # override
+        """Method that checks values entered in the dialog for validity. Should
+           be overridden to do what is appropriate for the derived
+           class. Returns False if a check fails and True if all pass.
+        """
+        return True
 
     # -------------------------------------------------------------------------
     def revert(self):
-        pass  # override
+        """Method that reverts values from the snapthos. Should be overridden
+           to do what is appropriate for the derived class.
+        """
+        pass
 
     # -------------------------------------------------------------------------
     def apply(self):
-        pass  # override
+        """Method that "commits" the changes made in the dialog. Should be
+           overridden to do what is appropriate for the derived
+           class.
+        """
+        pass
 
     # -------------------------------------------------------------------------
     def selectall(self, event):
+        """Method to select all text in a Text or ScrolledText widget"""
         event.widget.tag_add("sel", "1.0", "end")
 
     # -------------------------------------------------------------------------
     def close(self, event=None):
+        """Method to close the dialog"""
         # put focus back to the master window
         self.master.focus_set()
         self.destroy()
@@ -4399,8 +4566,8 @@ class Dialog(tk.Toplevel):
 # Global help dialog class
 #
 class GlobalHelpDialog(Dialog):
-    """Extension of the generic Dialog class used for the global Help
-    dialog
+    """Class that is extended from the generic Dialog class and is used for
+       the global Help dialog
     """
     # Initializer
     def __init__(self, master=None):
@@ -4413,7 +4580,7 @@ class GlobalHelpDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def body(self, master):
-        """Create body, which is just a Text widget"""
+        """Method to create the dialog body, which is just a Text widget"""
         help_text_intro = """
 More specific help for the IV Swinger 2 app can be found in "tooltips" that
 appear when the mouse pointer is hovered over a control or set of controls,
@@ -4487,8 +4654,8 @@ the preferences revert to those that were in effect before it was opened.
 # Calibration help dialog class
 #
 class CalibrationHelpDialog(Dialog):
-    """Extension of the generic Dialog class used for the Calibration Help
-    dialog
+    """Class that is extended from the generic Dialog class and is used for
+       the Calibration Help dialog
     """
     # Initializer
     def __init__(self, master=None):
@@ -4499,8 +4666,8 @@ class CalibrationHelpDialog(Dialog):
                         min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
                         max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
 
-    # Create body, which is just a Text widget
     def body(self, master):
+        """Method to create the dialog body, which is just a Text widget"""
         help_text_1 = """
 Basic voltage and current calibration are performed by "correcting" the open
 circuit voltage (Voc) and short circuit current (Isc) values of a given IV
@@ -4658,8 +4825,8 @@ Invalidate Arduino EEPROM:"""
 # Advanced SSR current calibration help dialog class
 #
 class AdvSsrCurrentCalHelpDialog(Dialog):
-    """Extension of the generic Dialog class used for the SSR-only advanced
-    current calibration Help dialog
+    """Class that is extended from the generic Dialog class and is used for
+       the SSR-only advanced current calibration Help dialog
     """
     # Initializer
     def __init__(self, master=None):
@@ -4673,7 +4840,7 @@ class AdvSsrCurrentCalHelpDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def body(self, master):
-        """Create body, which is just a Text widget"""
+        """Method to create the dialog body, which is just a Text widget"""
         help_text_1 = """
 This current calibration method works on IV Swinger 2 hardware with
 solid-state relays (SSRs) only. It is easier to perform and more
@@ -4768,8 +4935,8 @@ Calibration:
 # Advanced EMR current calibration help dialog class
 #
 class AdvEmrCurrentCalHelpDialog(Dialog):
-    """Extension of the generic Dialog class used for the EMR-only advanced
-    current calibration Help dialog
+    """Class that is extended from the generic Dialog class and is used for
+       the EMR-only advanced current calibration Help dialog
     """
     # Initializer
     def __init__(self, master=None):
@@ -4783,7 +4950,7 @@ class AdvEmrCurrentCalHelpDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def body(self, master):
-        """Create body, which is just a Text widget"""
+        """Method to create the dialog body, which is just a Text widget"""
         help_text_1 = """
 This current calibration method works on IV Swinger 2 hardware with
 electromechanical relays (EMRs). Its advantage over the basic current
@@ -4910,8 +5077,8 @@ Calibration:
 # Advanced voltage calibration help dialog class
 #
 class AdvVoltageCalHelpDialog(Dialog):
-    """Extension of the generic Dialog class used for the advanced voltage
-    calibration Help dialog
+    """Class that is extended from the generic Dialog class and is used for
+       the advanced voltage calibration Help dialog
     """
     # Initializer
     def __init__(self, master=None):
@@ -4925,7 +5092,7 @@ class AdvVoltageCalHelpDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def body(self, master):
-        """Create body, which is just a Text widget"""
+        """Method to create the dialog body, which is just a Text widget"""
         help_text_1 = """
 This voltage calibration method works on all types of IV Swinger 2
 hardware.  Its advantage over the basic current calibration is that uses
@@ -5013,8 +5180,8 @@ Calibration:
 # Downlevel Arduino sketch dialog class
 #
 class DownlevelArduinoSketchDialog(Dialog):
-    """Extension of the generic Dialog class used for the downlevel
-       Arduino sketch dialog
+    """Class that is extended from the generic Dialog class and is used for
+       the downlevel Arduino sketch dialog
     """
     # Initializer
     def __init__(self, master=None):
@@ -5026,9 +5193,8 @@ class DownlevelArduinoSketchDialog(Dialog):
                         max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
         self.master = master
 
-    # Create body, which is just a Text widget
     def body(self, master):
-
+        """Method to create the dialog body, which is just a Text widget"""
         app_version_text = self.master.version
         url = ("\n          https://raw.githubusercontent.com/"
                "csatt/IV_Swinger/")
@@ -5098,9 +5264,9 @@ Here is the procedure:
 # Advanced calibration dialog
 #
 class AdvCalDialog(Dialog):
-    """Extension of the generic Dialog class used for the advanced
-    calibration dialogs. This class is used for both the advanced
-    current and the advanced voltage calibration dialogs.
+    """Class that is extended from the generic Dialog class and is used for
+       the advanced calibration dialogs. This class is used for both the
+       advanced current and the advanced voltage calibration dialogs.
     """
     # Initializer
     def __init__(self, master=None, type="None"):
@@ -5138,12 +5304,17 @@ class AdvCalDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def type_is_current(self):
+        """Method to test if the type attribute's value is "Current"
+        """
         if self.type == "Current":
             return True
         return False
 
     # -------------------------------------------------------------------------
     def body(self, master):
+        """Method to create the dialog's body frame (overrides the parent class
+           method)
+        """
         frame = ttk.Frame(master)
 
         # Add label with description text
@@ -5537,9 +5708,9 @@ calibration request to Arduino
 
     # -------------------------------------------------------------------------
     def apply_pt_1_dmm_value(self, event=None):
-        """Method to get the user-entered measured value from the DMM entry box
-           for point 1 and apply it to the y1 attribute if it is a valid
-           floating point number.
+        """Method to get the user-entered measured value from the DMM
+           entry box for point 1 and apply it to the y1 attribute if it
+           is a valid floating point number.
         """
         try:
             self.y1 = float(self.pt_1_dmm_value.get())
@@ -5563,9 +5734,9 @@ for the DMM measured Point 1 value"""
 
     # -------------------------------------------------------------------------
     def apply_pt_2_dmm_value(self, event=None):
-        """Method to get the user-entered measured value from the DMM entry box
-           for point 2 and apply it to the y2 attribute if it is a valid
-           floating point number.
+        """Method to get the user-entered measured value from the DMM
+           entry box for point 2 and apply it to the y2 attribute if it
+           is a valid floating point number.
         """
         try:
             self.y2 = float(self.pt_2_dmm_value.get())
@@ -5590,8 +5761,8 @@ for the DMM measured Point 2 value"""
     # -------------------------------------------------------------------------
     def calibrate(self, event=None):
         """Method to calculate the slope and intercept based on the
-           uncalibrated and measured values of point 1 and point 2
-           and to update their values in the entry boxes.
+           uncalibrated and measured values of point 1 and point 2 and
+           to update their values in the entry boxes.
         """
         # Check that both points have been measured by the hardware
         if self.x1 == "Unknown" or self.x2 == "Unknown":
@@ -5648,7 +5819,8 @@ good results"""
 
     # -------------------------------------------------------------------------
     def apply_slope(self, event=None):
-        """Method to get the maunually entered value from the slope entry box
+        """Method to get the maunually entered value from the slope
+           entry box
         """
         try:
             m = float(self.slope.get())
@@ -5688,8 +5860,8 @@ doesn't look right. It should be between
 
     # -------------------------------------------------------------------------
     def apply_intercept(self, event=None):
-        """Method to get the maunually entered value from the intercept
-           entry box
+        """Method to get the maunually entered value from the
+           intercept entry box
         """
         try:
             b = float(self.intercept.get())
@@ -5757,9 +5929,10 @@ doesn't look right. It should be between
 
     # -------------------------------------------------------------------------
     def apply_test_dmm_value(self, event=None):
-        """Method to get the user-entered measured value from the test DMM
-           entry box and apply it to the test_dmm_units attribute and update
-           the test error label if it is a valid floating point number
+        """Method to get the user-entered measured value from the test
+           DMM entry box and apply it to the test_dmm_units attribute
+           and update the test error label if it is a valid floating
+           point number
         """
         if self.test_cal_units == "Unknown":
             error_msg = """
@@ -5814,8 +5987,8 @@ for the DMM measured test value"""
 
     # -------------------------------------------------------------------------
     def validate(self):
-        """Override validate() method of parent to sanity check the calibration
-           values.
+        """Method to override validate() method of parent to sanity check the
+           calibration values.
         """
         if self.m < 0.85 or self.m > 1.15:
             error_msg = """
@@ -5833,7 +6006,8 @@ ERROR: Intercept {} is not between
 
     # -------------------------------------------------------------------------
     def apply(self):
-        """Override apply() method of parent to update the calibration values
+        """Method to override apply() method of parent to update the
+           calibration values
         """
         if self.type_is_current():
             self.master.ivs2.i_cal = self.m
@@ -5855,8 +6029,8 @@ ERROR: Intercept {} is not between
 # Advanced current calibration dialog
 #
 class AdvCurrentCalDialog(AdvCalDialog):
-    """Extension of the AdvCalDialog class used for the advanced
-    current calibration dialog
+    """Class that is extended from the AdvCalDialog class and is used for
+       the advanced current calibration dialog
     """
     # Initializer
     def __init__(self, master=None):
@@ -5866,8 +6040,8 @@ class AdvCurrentCalDialog(AdvCalDialog):
 # Advanced voltage calibration dialog
 #
 class AdvVoltageCalDialog(AdvCalDialog):
-    """Extension of the AdvCalDialog class used for the advanced
-    voltage calibration dialog
+    """Class that is extended from the AdvCalDialog class and is used for
+       the advanced voltage calibration dialog
     """
     # Initializer
     def __init__(self, master=None):
@@ -5877,8 +6051,8 @@ class AdvVoltageCalDialog(AdvCalDialog):
 # Resistor values dialog class
 #
 class ResistorValuesDialog(Dialog):
-    """Extension of the generic Dialog class used for the Resistor Values
-    dialog
+    """Class that is extended from the generic Dialog class and is used for
+       the Resistor Values dialog
     """
     # Initializer
     def __init__(self, master=None):
@@ -5893,6 +6067,9 @@ class ResistorValuesDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def body(self, master):
+        """Method to create the dialog's body frame (overrides the parent class
+           method)
+        """
         frame = ttk.Frame(master)
 
         # Add label and entry box to select R1 resistance
@@ -5970,7 +6147,7 @@ class ResistorValuesDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def restore_defaults(self, event=None):
-        """Restore resistor values to defaults"""
+        """Method to restore resistor values to defaults"""
         self.r1_str.set(str(R1_DEFAULT))
         self.r2_str.set(str(R2_DEFAULT))
         self.rf_str.set(str(RF_DEFAULT))
@@ -5979,7 +6156,7 @@ class ResistorValuesDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def snapshot(self):
-        """Override snapshot() method of parent to capture original
+        """Method that overrides snapshot() method of parent to capture original
            configuration and property values
         """
         # Snapshot config
@@ -5995,7 +6172,8 @@ class ResistorValuesDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def validate(self):
-        """Override validate() method of parent to check for legal values"""
+        """Method that overrides validate() method of parent to check for legal
+           values"""
         err_str = "ERROR:"
         try:
             r1_ohms = float(self.r1_str.get())
@@ -6024,12 +6202,13 @@ class ResistorValuesDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def show_resistor_error_dialog(self, err_str):
+        """Method to display an error dialog for bad resistor values"""
         tkmsg_showerror(self.master, message=err_str)
 
     # -------------------------------------------------------------------------
     def revert(self):
-        """Override revert() method of parent to apply original values to
-           properties and the config
+        """Method that overrides revert() method of parent to apply original
+           values to properties and the config
         """
         # Restore config
         self.master.config.save_snapshot()
@@ -6045,8 +6224,8 @@ class ResistorValuesDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def apply(self):
-        """Override apply() method of parent to apply new values to properties
-           and the config
+        """Method that overrides apply() method of parent to apply new values to
+           properties and the config
         """
         if not self.validate():
             return
@@ -6105,8 +6284,8 @@ class ResistorValuesDialog(Dialog):
 # Bias battery dialog class
 #
 class BiasBatteryDialog(Dialog):
-    """Extension of the generic Dialog class used for the Bias Battery
-    calibration dialog
+    """Class that is extended from the generic Dialog class and is used for
+       the Bias Battery calibration dialog
     """
     # Initializer
     def __init__(self, master=None):
@@ -6121,6 +6300,9 @@ class BiasBatteryDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def body(self, master):
+        """Method to create the dialog's body frame (overrides the parent class
+           method)
+        """
         frame = ttk.Frame(master)
 
         desc_text = """
@@ -6194,8 +6376,8 @@ performed immediately before EVERY curve is swung."""
 
     # -------------------------------------------------------------------------
     def apply(self):
-        """Override apply() method of parent to copy the new bias battery CSV
-           file to the parent directory
+        """Method to override apply() method of parent to copy the new bias
+           battery CSV file to the parent directory
         """
         # Propagate the dynamic calibration setting to the IVS2 property
         # and config if it has changed
@@ -6232,8 +6414,8 @@ performed immediately before EVERY curve is swung."""
 
     # -------------------------------------------------------------------------
     def calibrate_battery_bias(self):
-        """Swing an IV curve of the bias battery and generate a CSV file with
-           the corrected ADC values
+        """Method to swing an IV curve of the bias battery and generate a CSV
+           file with the corrected ADC values
         """
         if not self.master.ivs2.arduino_ready:
             err_str = ("ERROR: The IV Swinger 2 is not connected.")
@@ -6303,8 +6485,8 @@ the displayed curve:
 # Preferences dialog class
 #
 class PreferencesDialog(Dialog):
-    """Extension of the generic Dialog class used for the Preferences
-    dialog
+    """Class that is extended from the generic Dialog class and is used for
+       the Preferences dialog
     """
     # Initializer
     def __init__(self, master=None):
@@ -6339,7 +6521,7 @@ class PreferencesDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def body(self, master):
-        """Create body, which is a Notebook (tabbed frames)
+        """Method to create body, which is a Notebook (tabbed frames)
         """
         self.nb = ttk.Notebook(master)
         self.plotting_tab = ttk.Frame(self.nb)
@@ -6355,7 +6537,7 @@ class PreferencesDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def populate_plotting_tab(self):
-        """Add widgets to the Plotting tab"""
+        """Method to add widgets to the Plotting tab"""
         section = "Plotting"
         self.font_scale.set(self.master.config.cfg.getfloat(section,
                                                             "font scale"))
@@ -6684,7 +6866,7 @@ class PreferencesDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def turn_off_batt_bias(self, event=None):
-        """Turn off battery bias mode"""
+        """Method to turn off battery bias mode"""
         series_res_comp_ohms = self.master.ivs2.series_res_comp
         series_res_comp_milliohms = round(series_res_comp_ohms * 1000.0, 3)
         self.series_res_comp_milliohms_str.set(series_res_comp_milliohms)
@@ -6692,7 +6874,7 @@ class PreferencesDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def turn_on_batt_bias(self, event=None):
-        """Turn on battery bias mode"""
+        """Method to turn on battery bias mode"""
         series_res_comp_ohms = self.master.ivs2.bias_series_res_comp
         series_res_comp_milliohms = round(series_res_comp_ohms * 1000.0, 3)
         self.series_res_comp_milliohms_str.set(series_res_comp_milliohms)
@@ -6700,12 +6882,12 @@ class PreferencesDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def apply_new_series_res_comp(self, event=None):
-        """Apply new series resistance compensation value"""
+        """Method to apply new series resistance compensation value"""
         self.immediate_apply()
 
     # -------------------------------------------------------------------------
     def restore_plotting_defaults(self, event=None):
-        """Restore Plotting tab values to defaults"""
+        """Method to restore Plotting tab values to defaults"""
         self.fancy_labels.set(str(FANCY_LABELS_DEFAULT))
         self.interpolation_type.set(str(INTERPOLATION_TYPE_DEFAULT))
         self.font_scale.set(str(FONT_SCALE_DEFAULT))
@@ -6729,12 +6911,12 @@ class PreferencesDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def show_plotting_help(self):
-        """Display Plotting tab help"""
+        """Method to display Plotting tab help"""
         PlottingHelpDialog(self.master)
 
     # -------------------------------------------------------------------------
     def populate_looping_tab(self):
-        """Add widgets to the Looping tab"""
+        """Method to add widgets to the Looping tab"""
         # Add container box for widgets
         looping_widget_box = ttk.Frame(master=self.looping_tab, padding=20)
 
@@ -6787,12 +6969,12 @@ class PreferencesDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def show_looping_help(self):
-        """Display Looping tab help"""
+        """Method to display Looping tab help"""
         LoopingHelpDialog(self.master)
 
     # -------------------------------------------------------------------------
     def populate_arduino_tab(self):
-        """Add widgets to the Arduino tab"""
+        """Method to add widgets to the Arduino tab"""
         # Add container box for widgets
         arduino_widget_box = ttk.Frame(master=self.arduino_tab, padding=20)
 
@@ -6965,7 +7147,7 @@ class PreferencesDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def restore_arduino_defaults(self, event=None):
-        """Restore Arduino tab values to defaults"""
+        """Method to restore Arduino tab values to defaults"""
         self.spi_clk_str.set(str(SPI_COMBO_VALS[SPI_CLK_DEFAULT]))
         self.max_iv_points_str.set(str(MAX_IV_POINTS_DEFAULT))
         self.min_isc_adc_str.set(str(MIN_ISC_ADC_DEFAULT))
@@ -6978,7 +7160,7 @@ class PreferencesDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def relay_active_warn(self):
-        """Display a warning dialog when the relay active high
+        """Method to display a warning dialog when the relay active high
            checkbutton value is changed. Display an error dialog if the
            Arduino sketch is downlevel
         """
@@ -7019,12 +7201,12 @@ effect. Please upgrade.
 
     # -------------------------------------------------------------------------
     def show_arduino_help(self):
-        """Display Arduino tab help"""
+        """Method to display Arduino tab help"""
         ArduinoHelpDialog(self.master)
 
     # -------------------------------------------------------------------------
     def immediate_apply(self, event=None):
-        """Apply configuration immediately"""
+        """Method to apply configuration immediately"""
         try:
             event.widget.tk_focusNext().focus()  # move focus out
         except:
@@ -7034,31 +7216,31 @@ effect. Please upgrade.
 
     # -------------------------------------------------------------------------
     def round_font_scale(self, event=None):
-        """Emulate a resolution of 0.05 for font scale slider (no resolution
-           option in ttk Scale class)
+        """Method to emulate a resolution of 0.05 for font scale
+           slider (no resolution option in ttk Scale class)
         """
         new_val = round(20.0*float(self.font_scale.get()))/20.0
         self.font_scale.set(str(new_val))
 
     # -------------------------------------------------------------------------
     def round_line_scale(self, event=None):
-        """Emulate a resolution of 0.05 for line scale slider (no resolution
-           option in ttk Scale class)
+        """Method to emulate a resolution of 0.05 for line scale
+           slider (no resolution option in ttk Scale class)
         """
         new_val = round(20.0*float(self.line_scale.get()))/20.0
         self.line_scale.set(str(new_val))
 
     # -------------------------------------------------------------------------
     def round_point_scale(self, event=None):
-        """Emulate a resolution of 0.05 for point scale slider (no resolution
-           option in ttk Scale class)
+        """Method to emulate a resolution of 0.05 for point scale
+           slider (no resolution option in ttk Scale class)
         """
         new_val = round(20.0*float(self.point_scale.get()))/20.0
         self.point_scale.set(str(new_val))
 
     # -------------------------------------------------------------------------
     def snapshot(self):
-        """Override snapshot() method of parent to capture original
+        """Method to override snapshot() method of parent to capture original
            configuration and property values
         """
         # Snapshot config
@@ -7084,7 +7266,9 @@ effect. Please upgrade.
 
     # -------------------------------------------------------------------------
     def validate(self):
-        """Override validate() method of parent to check for legal values"""
+        """Method to override validate() method of parent to check for legal
+           values
+        """
         # Assumption: user is only changing values on one tab
         err_str = "ERROR:"
         # ----------------------- Plotting --------------------------
@@ -7150,12 +7334,13 @@ effect. Please upgrade.
 
     # -------------------------------------------------------------------------
     def show_arduino_error_dialog(self, err_str):
+        """Method to display an error dialog for bad Arduino values"""
         tkmsg_showerror(self.master, message=err_str)
 
     # -------------------------------------------------------------------------
     def revert(self):
-        """Override revert() method of parent to apply original values to
-           properties and the config
+        """Method to override revert() method of parent to apply original
+           values to properties and the config
         """
         # Restore config
         self.master.config.save_snapshot()
@@ -7189,8 +7374,8 @@ effect. Please upgrade.
 
     # -------------------------------------------------------------------------
     def apply(self):
-        """Override apply() method of parent to apply new values to properties
-           and the config
+        """Method to override apply() method of parent to apply new values to
+           properties and the config
         """
         if not self.validate():
             return
@@ -7202,7 +7387,7 @@ effect. Please upgrade.
 
     # -------------------------------------------------------------------------
     def plotting_apply(self):
-        """Apply plotting config"""
+        """Method to apply plotting config"""
         section = "Plotting"
         # Line type
         linear = (self.interpolation_type.get() == "Linear")
@@ -7285,7 +7470,7 @@ effect. Please upgrade.
 
     # -------------------------------------------------------------------------
     def looping_apply(self):
-        """Apply looping config"""
+        """Method to apply looping config"""
         section = "Looping"
         if self.master.config.cfg.has_section(section):
             looping_opt_changed = False
@@ -7311,7 +7496,7 @@ effect. Please upgrade.
 
     # -------------------------------------------------------------------------
     def arduino_apply(self):
-        """Apply Arduino config"""
+        """Method to apply Arduino config"""
         arduino_opt_changed = False
         section = "Arduino"
         option = "spi clock div"
@@ -7381,10 +7566,9 @@ written to Arduino EEPROM.
 # Plotting properties class
 #
 class PlottingProps(object):
-    """Plotting properties class. This class holds a copy of the state
-    of all of the properties related to plotting and provides a
-    method for comparing their current values with the current
-    copy.
+    """Class that holds a copy of the state of all of the properties related
+       to plotting and provides a method for comparing their current
+       values with the current copy.
     """
     # Initializer
     def __init__(self, ivs2):
@@ -7394,7 +7578,7 @@ class PlottingProps(object):
 
     # -------------------------------------------------------------------------
     def update_prop_vals(self):
-        """Capture current values of properties"""
+        """Method to capture current values of properties"""
         # Capture current properties
         self.prop_vals["linear"] = self.ivs2.linear
         self.prop_vals["fancy_labels"] = self.ivs2.fancy_labels
@@ -7413,8 +7597,8 @@ class PlottingProps(object):
 
     # -------------------------------------------------------------------------
     def prop_vals_changed(self):
-        """Compare current values of properties with previously captured values
-           to see if anything has changed
+        """Method to compare current values of properties with previously
+           captured values to see if anything has changed
         """
         return ((self.prop_vals["linear"] != self.ivs2.linear) or
                 (self.prop_vals["fancy_labels"] != self.ivs2.fancy_labels) or
@@ -7435,7 +7619,7 @@ class PlottingProps(object):
 
     # -------------------------------------------------------------------------
     def adc_prop_changed(self):
-        """Compare current values of correct_adc, fix_isc, fix_voc,
+        """Method to compare current values of correct_adc, fix_isc, fix_voc,
            comb_dupv_pts, reduce_noise, fix_overshoot, battery_bias,
            series_res_comp and bias_series_res_comp properties with
            previously captured values to see if any have changed
@@ -7454,8 +7638,8 @@ class PlottingProps(object):
 
     # -------------------------------------------------------------------------
     def battery_bias_prop_changed(self):
-        """Compare current value of battery_bias property with previously
-           captured value to see if it has changed
+        """Method to compare current value of battery_bias property with
+           previously captured value to see if it has changed
         """
         return (self.prop_vals["battery_bias"] != self.ivs2.battery_bias)
 
@@ -7463,8 +7647,8 @@ class PlottingProps(object):
 # Plotting help dialog class
 #
 class PlottingHelpDialog(Dialog):
-    """Extension of the generic Dialog class used for the Plotting Help
-    dialog
+    """Class that is extended from the generic Dialog class and is used for
+       the Plotting Help dialog
     """
     # Initializer
     def __init__(self, master=None):
@@ -7478,7 +7662,7 @@ class PlottingHelpDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def body(self, master):
-        """Create body, which is just a Text widget"""
+        """Method to create the dialog body, which is just a Text widget"""
         help_text_1 = """
 The configuration options on the Plotting tab control the appearance of the IV
 curve plot, both on screen and in the generated PDF. Changes made to these
@@ -7589,8 +7773,9 @@ Series resistance compensation (milliohms):
 # SPI clock combobox class
 #
 class SpiClkCombo(ttk.Combobox):
-    """Combobox used to select Arduino SPI clock frequency"""
-
+    """Class that implements the Combobox used to select Arduino SPI clock
+       frequency
+    """
     # Initializer
     def __init__(self, master=None, gui=None, textvariable=None):
         ttk.Combobox.__init__(self, master=master, textvariable=textvariable)
@@ -7611,8 +7796,8 @@ class SpiClkCombo(ttk.Combobox):
 # Looping help dialog class
 #
 class LoopingHelpDialog(Dialog):
-    """Extension of the generic Dialog class used for the Looping Help
-    dialog
+    """Class that is extended from the generic Dialog class and is used for
+       the Looping Help dialog
     """
     # Initializer
     def __init__(self, master=None):
@@ -7626,7 +7811,7 @@ class LoopingHelpDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def body(self, master):
-        """Create body, which is just a Text widget"""
+        """Method to create the dialog body, which is just a Text widget"""
         help_text_1 = """
 There are currently only two options on the Preferences Looping tab. The main
 options controlling looping behavior are on the main IV Swinger 2 window to
@@ -7646,8 +7831,8 @@ whether or not looping should stop on non-fatal errors.
 # Arduino help dialog class
 #
 class ArduinoHelpDialog(Dialog):
-    """Extension of the generic Dialog class used for the Arduino Help
-    dialog
+    """Class that is extended from the generic Dialog class and is used for
+       the Arduino Help dialog
     """
     # Initializer
     def __init__(self, master=None):
@@ -7661,7 +7846,7 @@ class ArduinoHelpDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def body(self, master):
-        """Create body, which is just a Text widget"""
+        """Method to create the dialog body, which is just a Text widget"""
         help_text_1 = """
 The configuration options on the Arduino tab are for advanced users who are
 familiar with the code that runs on the IV Swinger 2 Arduino microcontroller.
@@ -7721,8 +7906,8 @@ Relay is active-high:
 # Overlay help dialog class
 #
 class OverlayHelpDialog(Dialog):
-    """Extension of the generic Dialog class used for the Overlay Help
-    dialog
+    """Class that is extended from the generic Dialog class and is used for
+       the Overlay Help dialog
     """
     # Initializer
     def __init__(self, master=None):
@@ -7735,7 +7920,7 @@ class OverlayHelpDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def body(self, master):
-        """Create body, which is just a Text widget"""
+        """Method to create the dialog body, which is just a Text widget"""
         help_text_intro = """
 Up to 8 curves may be overlaid. The curves that are selected when the Overlay
 button is pressed are plotted and listed in the "Overlay Runs" pane.
@@ -7808,7 +7993,7 @@ an overlay after it is finalized.
 # Image pane class
 #
 class ImagePane(ttk.Label):
-    """Label class used for the image pane"""
+    """Class that implements the image pane"""
     # In Tkinter, the way to display an image is in a "Label" widget,
     # which makes it sound small. In our case it takes up the majority
     # of the GUI, so we'll call it a "pane" instead of a label. But it's
@@ -7876,8 +8061,9 @@ be used for the install.
 # Go/Stop button class
 #
 class GoStopButton(ttk.Button):
-    """Button class used for the go button and stop button"""
-
+    """Class that implements the Button widget used for the go button and
+       stop button
+    """
     # Initializer
     def __init__(self, master=None, text=None):
         ttk.Button.__init__(self, master=master)
@@ -7890,8 +8076,9 @@ class GoStopButton(ttk.Button):
 # Plot power checkbutton class
 #
 class PlotPower(ttk.Checkbutton):
-    """Checkbutton used to include the power curve on the plot"""
-
+    """Class that implements the Checkbutton widget used to choose whether
+       to include the power curve on the plot
+    """
     # Initializer
     def __init__(self, master=None, variable=None):
         ttk.Checkbutton.__init__(self, master=master, text="Plot Power",
@@ -7905,6 +8092,7 @@ class PlotPower(ttk.Checkbutton):
 
     # -------------------------------------------------------------------------
     def update_plot_power(self, event=None):
+        """Method to update and apply the plot power option"""
         # Replace config from saved config of displayed image
         run_dir = self.master.ivs2.hdd_output_dir
         config_dir = os.path.dirname(self.master.config.cfg_filename)
@@ -7942,8 +8130,8 @@ class PlotPower(ttk.Checkbutton):
 # Lock axes checkbutton class
 #
 class LockAxes(ttk.Checkbutton):
-    """Checkbutton used to lock axis ranges"""
-
+    """Class that implements the Checkbutton widget used to lock the axis ranges
+    """
     # Initializer
     def __init__(self, master=None, gui=None, variable=None, ivs2=None):
         ttk.Checkbutton.__init__(self, master=master, text="Lock",
@@ -7955,6 +8143,7 @@ class LockAxes(ttk.Checkbutton):
 
     # -------------------------------------------------------------------------
     def update_axis_lock(self, event=None):
+        """Method to update and apply the axis lock"""
         axes_are_locked = (self.axes_locked.get() == "Lock")
         # Update IVS2 property
         self.gui.ivs2.plot_lock_axis_ranges = axes_are_locked
@@ -7969,8 +8158,8 @@ class LockAxes(ttk.Checkbutton):
 # Loop mode checkbutton class
 #
 class LoopMode(ttk.Checkbutton):
-    """Checkbutton used to enable loop mode"""
-
+    """Class that implements the Checkbutton widget used to enable loop mode
+    """
     # Initializer
     def __init__(self, master=None, gui=None, variable=None,
                  rate_limit=None, save_results=None, lock_axes=None):
@@ -7990,6 +8179,7 @@ class LoopMode(ttk.Checkbutton):
 
     # -------------------------------------------------------------------------
     def update_loop_mode(self, event=None):
+        """Method to update and apply the loop mode option"""
         if self.loop_mode.get() == "On":
             self.gui.loop_mode.set("On")
             self.gui.props.loop_mode_active = True
@@ -8026,7 +8216,9 @@ class LoopMode(ttk.Checkbutton):
 # Loop rate limit checkbutton class
 #
 class LoopRateLimit(ttk.Checkbutton):
-    """Checkbutton used to rate limit loop mode"""
+    """Class that implements the Checkbutton widget used to rate limit loop
+       mode
+    """
 
     # Initializer
     def __init__(self, master=None, gui=None, variable=None):
@@ -8042,6 +8234,7 @@ class LoopRateLimit(ttk.Checkbutton):
 
     # -------------------------------------------------------------------------
     def update_loop_rate_limit(self, event=None):
+        """Method to update and apply the loop rate limit option"""
         if self.value_label_obj is not None:
             self.value_label_obj.destroy()
         if self.loop_rate_limit.get() == "On":
@@ -8071,6 +8264,7 @@ class LoopRateLimit(ttk.Checkbutton):
 
     # -------------------------------------------------------------------------
     def update_value_str(self):
+        """Method to update the string in the rate limit label"""
         value_str = "= {}s".format(self.gui.props.loop_delay)
         self.value_label_obj = ttk.Label(self.master, text=value_str)
         self.value_label_obj.pack(side=LEFT)
@@ -8079,8 +8273,9 @@ class LoopRateLimit(ttk.Checkbutton):
 # Loop save results checkbutton class
 #
 class LoopSaveResults(ttk.Checkbutton):
-    """Checkbutton used to enable/disable saving loop mode results"""
-
+    """Class that implements the Checkbutton widget used to enable/disable
+       saving loop mode results
+    """
     # Initializer
     def __init__(self, master=None, gui=None, variable=None):
         ttk.Checkbutton.__init__(self, master=master, text="Save Results",
@@ -8095,6 +8290,7 @@ class LoopSaveResults(ttk.Checkbutton):
 
     # -------------------------------------------------------------------------
     def update_loop_save_results(self, event=None):
+        """Method to update and apply the loop save results options"""
         if self.value_label_obj is not None:
             self.value_label_obj.destroy()
         if self.loop_save_results.get() == "On":
@@ -8120,6 +8316,7 @@ class LoopSaveResults(ttk.Checkbutton):
 
     # -------------------------------------------------------------------------
     def update_value_str(self):
+        """Method to update the string in the save results label"""
         if self.gui.props.loop_save_graphs:
             value_str = "(All)"
         else:

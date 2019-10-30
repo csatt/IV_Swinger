@@ -143,14 +143,13 @@ import IV_Swinger
 
 # The PrintAndOrLog class
 class PrintAndOrLog(object):
-    """Provides static methods to print and/or log messages, depending on
-    whether a logger is being used
+    """Class to provide static methods to print and/or log messages,
+       depending on whether a logger is being used
     """
-
     @staticmethod
     def print_or_log_msg(logger, msg_str):
         """Method to either print or log a message. The message is just logged
-        if there is a logger. Otherwise it is printed.
+           if there is a logger. Otherwise it is printed.
         """
         if logger is None:
             print msg_str
@@ -159,9 +158,9 @@ class PrintAndOrLog(object):
 
     @staticmethod
     def print_and_log_msg(logger, msg_str):
-        """Method to either print only or print and log a message. The message is
-        printed and logged if there is a logger. Otherwise it is just
-        printed.
+        """Method to either print only or print and log a message. The message
+           is printed and logged if there is a logger. Otherwise it is
+           just printed.
         """
         if logger is None:
             print msg_str
@@ -171,8 +170,8 @@ class PrintAndOrLog(object):
 
 class CommandLineProcessor(object):
     """Class to parse the command line args. The args property returns
-    the populated args namespace from argparse. The csv_files property
-    returns the list of CSV file names.
+       the populated args namespace from argparse. The csv_files property
+       returns the list of CSV file names.
     """
     def __init__(self):
         self._args = None
@@ -286,7 +285,7 @@ class CommandLineProcessor(object):
 
 class CsvParser(object):
     """Class to parse an IV Swinger-created CSV file and translate it to
-    (I, V, R, P) tuple data points.
+       (I, V, R, P) tuple data points.
     """
     def __init__(self, csv_filename, logger=None):
         self.csv_filename = csv_filename
@@ -296,8 +295,8 @@ class CsvParser(object):
     @property
     def data_points(self):
         """Opens the CSV file and parses the voltage, current, power,
-        and resistance values from each line and builds a data_points
-        list with each data point being a (I, V, R, P) tuple.
+           and resistance values from each line and builds a data_points
+           list with each data point being a (I, V, R, P) tuple.
         """
         if self._data_points == []:
             try:
@@ -332,9 +331,10 @@ class CsvParser(object):
 
 
 class IV_Swinger_extended(IV_Swinger.IV_Swinger):
-    """IV_Swinger derived class extended for plotting old data sets
-    (from CSV files) with the current interpolation, overlaying multiple
-    curves on one graph, and more.
+    """Class to extend the IV_Swinger class for plotting old data sets (from
+       CSV files) with the current interpolation, overlaying multiple
+       curves on one graph, and more.
+
     """
     def __init__(self):
         IV_Swinger.IV_Swinger.__init__(self)
@@ -371,9 +371,9 @@ class IV_Swinger_extended(IV_Swinger.IV_Swinger):
 
     def extrapolate_isc(self, data_points, max_watt_point_number):
         """If the --recalc_isc option is used, this method overrides the
-        extrapolate_isc method in the IV_Swinger module. This is only
-        useful if the code below is modified to be different from the
-        IV_Swinger module code.
+           extrapolate_isc method in the IV_Swinger module. This is only
+           useful if the code below is modified to be different from the
+           IV_Swinger module code.
         """
         i1 = data_points[1][IV_Swinger.AMPS_INDEX]  # NONE data point
         v1 = data_points[1][IV_Swinger.VOLTS_INDEX]
@@ -444,18 +444,18 @@ class IV_Swinger_extended(IV_Swinger.IV_Swinger):
 
 class CsvFileProcessor(object):
     """Class to process all CSV files. The command line args, the list
-    of CSV files, and an extended IV Swinger object are provided by the
-    user at object creation. The proc_all_csv_files method is called at
-    initialization; it uses the interpolator to generate the plotter
-    data point files and compute or extract the Isc, Voc, and MPP
-    values. It populates the results into the following attributes,
-    which are available externally via properties:
+       of CSV files, and an extended IV Swinger object are provided by the
+       user at object creation. The proc_all_csv_files method is called at
+       initialization; it uses the interpolator to generate the plotter
+       data point files and compute or extract the Isc, Voc, and MPP
+       values. It populates the results into the following attributes,
+       which are available externally via properties:
 
-        self._plt_data_point_files
-        self._plt_isc_amps
-        self._plt_voc_volts
-        self._plt_mpp_amps
-        self._plt_mpp_volts
+           self._plt_data_point_files
+           self._plt_isc_amps
+           self._plt_voc_volts
+           self._plt_mpp_amps
+           self._plt_mpp_volts
     """
     def __init__(self, args, csv_files, ivs_extended, logger=None):
         self.args = args
@@ -634,7 +634,7 @@ class IV_Swinger_plotter(object):
 
     def check_names(self, ivs_extended, csv_files):
         """Method to check that if curve names were specified, the
-        correct number were specified
+           correct number were specified
         """
         if ivs_extended.names is not None:
             assert len(ivs_extended.names) == len(csv_files), \
