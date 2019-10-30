@@ -241,8 +241,7 @@ def get_app_dir():
     """
     if getattr(sys, "frozen", False):
         return os.path.abspath(os.path.dirname(sys.executable))
-    else:
-        return os.path.abspath(os.path.dirname(__file__))
+    return os.path.abspath(os.path.dirname(__file__))
 
 
 def tkmsg_showinfo(master, message):
@@ -6197,8 +6196,7 @@ class ResistorValuesDialog(Dialog):
         if len(err_str) > len("ERROR:"):
             self.show_resistor_error_dialog(err_str)
             return False
-        else:
-            return True
+        return True
 
     # -------------------------------------------------------------------------
     def show_resistor_error_dialog(self, err_str):
@@ -7329,8 +7327,7 @@ effect. Please upgrade.
         if len(err_str) > len("ERROR:"):
             self.show_arduino_error_dialog(err_str)
             return False
-        else:
-            return True
+        return True
 
     # -------------------------------------------------------------------------
     def show_arduino_error_dialog(self, err_str):

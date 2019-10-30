@@ -557,18 +557,15 @@ class Configuration(object):
             elif config_type == CFG_STRING:
                 cfg_value = self.cfg.get(section, option)
                 return cfg_value
-            else:
-                return old_prop_val
         except ConfigParser.NoOptionError:
             err_str = "{} not found in cfg file".format(full_name)
             self.ivs2.logger.print_and_log(err_str)
             self.cfg_set(section, option, old_prop_val)
-            return old_prop_val
         except ValueError:
             err_str = "{} invalid in cfg file".format(full_name)
             self.ivs2.logger.print_and_log(err_str)
             self.cfg_set(section, option, old_prop_val)
-            return old_prop_val
+        return old_prop_val
 
     # -------------------------------------------------------------------------
     def apply_all(self):
@@ -2548,8 +2545,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                                           self._arduino_ver_patch,
                                           self._arduino_ver_opt_suffix)
             return ver_str
-        else:
-            return "Unknown"
+        return "Unknown"
 
     # ---------------------------------
     @property
@@ -2558,8 +2554,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """
         if self.arduino_sketch_ver_lt("1.1.0"):
             return 30
-        else:
-            return 35
+        return 35
 
     # ---------------------------------
     @property
@@ -3464,8 +3459,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                   self._arduino_ver_minor == test_ver_minor and
                   self._arduino_ver_patch == test_ver_patch):
                 return SKETCH_VER_EQ
-            else:
-                return SKETCH_VER_GT
+            return SKETCH_VER_GT
         else:
             err_str = "ERROR: Bad test version: {}".format(test_version)
             self.logger.print_and_log(err_str)
@@ -3478,8 +3472,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """
         if self.compare_arduino_sketch_ver(test_version) == SKETCH_VER_LT:
             return True
-        else:
-            return False
+        return False
 
     # -------------------------------------------------------------------------
     def arduino_sketch_ver_eq(self, test_version):
@@ -3488,8 +3481,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """
         if self.compare_arduino_sketch_ver(test_version) == SKETCH_VER_EQ:
             return True
-        else:
-            return False
+        return False
 
     # -------------------------------------------------------------------------
     def arduino_sketch_ver_gt(self, test_version):
@@ -3498,8 +3490,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """
         if self.compare_arduino_sketch_ver(test_version) == SKETCH_VER_GT:
             return True
-        else:
-            return False
+        return False
 
     # -------------------------------------------------------------------------
     def arduino_sketch_ver_le(self, test_version):
@@ -3509,8 +3500,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if (self.arduino_sketch_ver_lt(test_version) or
                 self.arduino_sketch_ver_eq(test_version)):
             return True
-        else:
-            return False
+        return False
 
     # -------------------------------------------------------------------------
     def arduino_sketch_ver_ge(self, test_version):
@@ -3520,8 +3510,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if (self.arduino_sketch_ver_gt(test_version) or
                 self.arduino_sketch_ver_eq(test_version)):
             return True
-        else:
-            return False
+        return False
 
     # -------------------------------------------------------------------------
     def process_eeprom_value(self):
@@ -3995,13 +3984,12 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 # start and continues to do so.
                 avg_increase = total_increase / float(len(new_isc_ch1_vals))
                 return new_isc_ch1_vals[0] - avg_increase
-            else:
-                # If the values are all decreasing, then add the average
-                # decrease to the first value.  This is the case where
-                # the curve is inflecting upward from the start and
-                # continues to do so.
-                avg_decrease = total_decrease / float(len(new_isc_ch1_vals))
-                return new_isc_ch1_vals[0] + avg_decrease
+            # If the values are all decreasing, then add the average
+            # decrease to the first value.  This is the case where
+            # the curve is inflecting upward from the start and
+            # continues to do so.
+            avg_decrease = total_decrease / float(len(new_isc_ch1_vals))
+            return new_isc_ch1_vals[0] + avg_decrease
         else:
             # Just return the existing Isc value if extrapolation was
             # not performed (shouldn't ever get here now).

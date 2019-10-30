@@ -422,8 +422,7 @@ class DateTimeStr(object):
         match = dt_file_re.search(input_str)
         if match:
             return match.group(1)
-        else:
-            return "No match"
+        return "No match"
 
     @staticmethod
     def is_date_time_str(input_str):
@@ -433,8 +432,7 @@ class DateTimeStr(object):
         match = dt_file_re.search(input_str)
         if match:
             return True
-        else:
-            return False
+        return False
 
     @staticmethod
     def xlate_date_time_str(date_time_str):
