@@ -265,7 +265,7 @@ def sys_view_file(file):
         subprocess.call(("open", file))
     elif sys.platform == "win32":
         # Windows
-        os.startfile(file)
+        os.startfile(file)  # pylint: disable=no-member
     else:
         # Linux
         subprocess.call(("xdg-open", file))
@@ -4407,7 +4407,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                         if line != expected_first_line:
                             err_str = ("ERROR: first line of ADC CSV is not {}"
                                        .format(expected_first_line))
-                            self.ivs2.logger.print_and_log(err_str)
+                            self.logger.print_and_log(err_str)
                             return []
                     else:
                         adc_pair = map(float, line.split(","))
@@ -4415,7 +4415,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                             err_str = ("ERROR: CSV line {} is not in "
                                        "expected CH0, CH1 format"
                                        .format(ii + 1))
-                            self.ivs2.logger.print_and_log(err_str)
+                            self.logger.print_and_log(err_str)
                             return []
                         adc_tuple = (adc_pair[0], adc_pair[1])
                         adc_pairs.append(adc_tuple)
