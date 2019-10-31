@@ -3758,6 +3758,9 @@ class IV_Swinger(object):
                 self.get_measured_points_kwargs()
                 self.add_measured_points_label()
 
+            if self.use_gnuplot and curve_num:
+                self.output_line += ", "
+
             # Plot interpolated curve first, so it is "under" the
             # measured points
             if self.plot_interpolated_curve:
@@ -3765,6 +3768,8 @@ class IV_Swinger(object):
                 self.plot_interp_points(curve_num, df,
                                         sd_data_point_filenames,
                                         interp_volts, interp_amps)
+                if self.use_gnuplot:
+                    self.output_line += ", "
 
             # Plot measured points
             self.plot_measured_points(curve_num, df,
@@ -3825,7 +3830,6 @@ class IV_Swinger(object):
         title_str = 'title "{}" '.format(measured_name)
         if self.use_gnuplot:
             if curve_num:
-                self.output_line += ", "
                 title_str = "notitle "
             self.output_line += ('"{}" index 0 {}linecolor rgb "{}" '
                                  'pointtype {} linewidth {}'
@@ -3861,8 +3865,8 @@ class IV_Swinger(object):
             if sys.platform == "darwin":
                 # On Mac @ sign is lost
                 interp_label = interp_label.replace("@", " at ")
-            self.output_line += (', "{}" index 1 with lines title "{}" '
-                                 'linecolor rgb "{}" linewidth {} linetype {} '
+            self.output_line += ('"{}" index 1 with lines title "{}" '
+                                 'linecolor rgb "{}" linewidth {} linetype {}'
                                  .format(df, interp_label,
                                          self.plot_colors[curve_num],
                                          (self.gp_interp_linewidth *
