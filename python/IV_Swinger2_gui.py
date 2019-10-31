@@ -115,6 +115,7 @@ from PIL import Image, ImageTk
 from send2trash import send2trash
 import IV_Swinger2
 from Tooltip import Tooltip
+from inspect import currentframe, getframeinfo
 
 #################
 #   Constants   #
@@ -234,6 +235,19 @@ def debug_memleak(str):
                        resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
 
 
+def gen_dbg_str(str):
+    """Global function to use when debugging. The supplied string is
+       returned, along with the file name and line number where it is
+       found in the code.
+    """
+    cf = currentframe()
+    fi = getframeinfo(cf)
+    dbg_str = "DEBUG({}, line {}): {}".format(fi.filename,
+                                              cf.f_back.f_lineno,
+                                              str)
+    return dbg_str
+
+
 def get_app_dir():
     """Global function to return the directory where the application is
        located, regardless of whether it is a script or a frozen
@@ -345,6 +359,49 @@ Alternately, you may attach this file:
     with open(tmp_file.name, "a") as f:
         f.write(err_msg)
     IV_Swinger2.sys_view_file(tmp_file.name)
+
+
+def get_dialog_width(dialog):
+    """Global function to parse the width of a dialog from its current
+       geometry
+    """
+    m = re.match(r"(\d+)x(\d+)", dialog.geometry())
+    width = int(m.group(1))
+    return width
+
+
+def pdf_permission_denied(e):
+    """Global function to search an exception message for the pattern that
+       indicates that the problem is that permission to write a PDF was
+       denied.
+    """
+    exception_str = "({})".format(e)
+    pdf_permission_denied_re = re.compile(r"Permission denied:.*\.pdf'")
+    return pdf_permission_denied_re.search(exception_str)
+
+
+def date_at_time_from_dts(dts):
+    """Global function to convert a date_time_str to date@time, e.g. from
+       170110_190017 to 01/10/17@19:00:17
+    """
+    (date, time_of_day) = IV_Swinger2.xlate_date_time_str(dts)
+    return("{}@{}".format(date, time_of_day))
+
+
+def grab_overlay_curve(event=None):
+    """Global function to select clicked curve in the treeview in
+       preparation for dragging to reorder
+    """
+    tv = event.widget
+    if tv.identify_row(event.y) not in tv.selection():
+        tv.selection_set(tv.identify_row(event.y))
+
+
+def selectall(event):
+    """Global function to select all text in a Text or ScrolledText
+       widget
+    """
+    event.widget.tag_add("sel", "1.0", "end")
 
 
 #################
@@ -609,13 +666,6 @@ value on the Arduino tab of Preferences
             self.create_menu_bar()
 
     # -------------------------------------------------------------------------
-    def get_dialog_width(self, dialog):
-        """Method to parse the width of a dialog from its current geometry"""
-        m = re.match(r"(\d+)x(\d+)", dialog.geometry())
-        width = int(m.group(1))
-        return width
-
-    # -------------------------------------------------------------------------
     def set_dialog_geometry(self, dialog, min_height=None, max_height=None):
         """Method to set the size and position of a dialog. If min_height is
            specified, the window will be sized to that value initially.
@@ -630,7 +680,7 @@ value on the Arduino tab of Preferences
         self.update_idletasks()
 
         # Get current window width
-        width = self.get_dialog_width(dialog)
+        width = get_dialog_width(dialog)
 
         if min_height is not None:
             # Disable width resizing by setting min and max width to
@@ -1297,7 +1347,7 @@ value on the Arduino tab of Preferences
         try:
             func(*args)
         except IOError as e:
-            if self.pdf_permission_denied(e):
+            if pdf_permission_denied(e):
                 err_str = ("({})"
                            "\n\n"
                            "PDF could not be written. If you have it open in "
@@ -1306,22 +1356,12 @@ value on the Arduino tab of Preferences
                 try:
                     func(*args)
                 except IOError as e:
-                    if self.pdf_permission_denied(e):
+                    if pdf_permission_denied(e):
                         err_str = ("({})"
                                    "\n\n"
                                    "PDF still could not be written. "
                                    "It will not be updated.".format(e))
                         tkmsg_showerror(self, message=err_str)
-
-    # -------------------------------------------------------------------------
-    def pdf_permission_denied(self, e):
-        """Method to search an exception message for the pattern that indicates
-           that the problem is that permission to write a PDF was
-           denied.
-        """
-        exception_str = "({})".format(e)
-        pdf_permission_denied_re = re.compile(r"Permission denied:.*\.pdf'")
-        return pdf_permission_denied_re.search(exception_str)
 
     # -------------------------------------------------------------------------
     def save_config(self):
@@ -1759,7 +1799,7 @@ bias was actually applied.
         # Log configuration differences relative to starting values
         self.config.log_cfg_diffs()
         # Add newline to end of log file
-        self.ivs2.logger.terminate_log()
+        IV_Swinger2.terminate_log()
         # Close the app
         self.root.destroy()
 
@@ -2162,7 +2202,7 @@ class ResultsWizard(tk.Toplevel):
            value
         """
         # Get current window width
-        width = self.master.get_dialog_width(self)
+        width = get_dialog_width(self)
 
         # Set minimum size using current width and requested height
         self.minsize(width, min_height)
@@ -2390,7 +2430,7 @@ class ResultsWizard(tk.Toplevel):
         run_dir = self.get_run_dir(subdir)
         cfg_file = os.path.join(run_dir, "{}.cfg".format(APP_NAME))
         if os.path.exists(cfg_file):
-            title = self.master.config.get_saved_title(cfg_file)
+            title = IV_Swinger2.get_saved_title(cfg_file)
         else:
             title = "   * no saved cfg *"
         if title == "None" or title is None:
@@ -3096,7 +3136,7 @@ class ResultsWizard(tk.Toplevel):
             sel_runs = self.get_selected_runs(include_whole_days=False)
             if len(sel_runs) == 1:
                 dts = IV_Swinger2.extract_date_time_str(sel_runs[0])
-                date_time = self.date_at_time_from_dts(dts)
+                date_time = date_at_time_from_dts(dts)
                 if (self.master.ivs2.plot_title is None):
                     init_val = "IV Swinger Plot for {}".format(date_time)
                 else:
@@ -3523,7 +3563,7 @@ class ResultsWizard(tk.Toplevel):
 
         # Register callbacks for drag-and-drop reordering
         self.overlay_widget_treeview.bind("<ButtonPress-1>",
-                                          self.grab_overlay_curve)
+                                          grab_overlay_curve)
 
         self.overlay_widget_treeview.bind("<B1-Motion>",
                                           self.move_overlay_curve)
@@ -3573,7 +3613,7 @@ class ResultsWizard(tk.Toplevel):
         # Add item for each selected run
         for run_dir in run_dirs:
             dts = os.path.basename(run_dir)
-            date_time = self.date_at_time_from_dts(dts)
+            date_time = date_at_time_from_dts(dts)
             if dts in self.master.props.overlay_names:
                 name = self.master.props.overlay_names[dts]
             else:
@@ -3582,23 +3622,6 @@ class ResultsWizard(tk.Toplevel):
                                                 text=date_time,
                                                 values=[name])
         self.overlays_reordered = False
-
-    # -------------------------------------------------------------------------
-    def date_at_time_from_dts(self, dts):
-        """Method to convert a date_time_str to date@time, e.g. from
-           170110_190017 to 01/10/17@19:00:17
-        """
-        (date, time_of_day) = IV_Swinger2.xlate_date_time_str(dts)
-        return("{}@{}".format(date, time_of_day))
-
-    # -------------------------------------------------------------------------
-    def grab_overlay_curve(self, event=None):
-        """Method to select clicked curve in the treeview in
-           preparation for dragging to reorder
-        """
-        tv = event.widget
-        if tv.identify_row(event.y) not in tv.selection():
-            tv.selection_set(tv.identify_row(event.y))
 
     # -------------------------------------------------------------------------
     def move_overlay_curve(self, event=None):
@@ -3632,7 +3655,7 @@ class ResultsWizard(tk.Toplevel):
         tv = event.widget
         dts = tv.identify_row(event.y)
         if IV_Swinger2.is_date_time_str(dts):
-            date_time = self.date_at_time_from_dts(dts)
+            date_time = date_at_time_from_dts(dts)
         else:
             # Double-click was somewhere else
             return
@@ -3855,7 +3878,7 @@ class ResultsWizard(tk.Toplevel):
                 self.ivp.curve_names.append(name)
             else:
                 # Default name: date@time
-                date_time = self.date_at_time_from_dts(dts)
+                date_time = date_at_time_from_dts(dts)
                 self.ivp.curve_names.append(date_time)
         if not self.ivp.curve_names:
             self.ivp.curve_names = None
@@ -4459,8 +4482,8 @@ class Dialog(tk.Toplevel):
 
         # Map Ctrl-A and Cmd-A (Mac) to select-all for Text widgets
         # (which includes ScrolledText)
-        self.master.bind_class("Text", "<Control-a>", self.selectall)
-        self.master.bind_class("Text", "<Command-a>", self.selectall)
+        self.master.bind_class("Text", "<Control-a>", selectall)
+        self.master.bind_class("Text", "<Command-a>", selectall)
 
         # Wait for dialog to be closed before returning control
         self.wait_window(self)
@@ -4525,7 +4548,7 @@ class Dialog(tk.Toplevel):
         pass
 
     # -------------------------------------------------------------------------
-    def validate(self):
+    def validate(self):  # pylint: disable=no-self-use
         """Method that checks values entered in the dialog for validity. Should
            be overridden to do what is appropriate for the derived
            class. Returns False if a check fails and True if all pass.
@@ -4546,11 +4569,6 @@ class Dialog(tk.Toplevel):
            class.
         """
         pass
-
-    # -------------------------------------------------------------------------
-    def selectall(self, event):
-        """Method to select all text in a Text or ScrolledText widget"""
-        event.widget.tag_add("sel", "1.0", "end")
 
     # -------------------------------------------------------------------------
     def close(self, event=None):

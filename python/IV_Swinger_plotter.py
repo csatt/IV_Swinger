@@ -141,6 +141,56 @@ import os
 import IV_Swinger
 
 
+########################
+#   Global functions   #
+########################
+def set_ivs_properties(args, ivs_extended):
+    """Global function to set the IV Swinger properties"""
+    # Set headless_mode to False if --interactive option is chosen
+    if args.interactive:
+        ivs_extended.headless_mode = False
+
+    # Choose interpolation type
+    if args.linear:
+        ivs_extended.use_spline_interpolation = False
+    else:
+        ivs_extended.use_spline_interpolation = True
+
+    # Set other properties based on commmand line options
+    ivs_extended.plot_power = args.plot_power
+    ivs_extended.plot_x_scale = (args.scale * args.plot_scale *
+                                 args.plot_x_scale)
+    ivs_extended.plot_y_scale = (args.scale * args.plot_scale *
+                                 args.plot_y_scale)
+    ivs_extended.font_scale = args.scale * args.font_scale
+    ivs_extended.point_scale = args.scale * args.point_scale
+    ivs_extended.line_scale = args.scale * args.line_scale
+    if args.max_x is not None:
+        ivs_extended.plot_max_x = args.max_x
+    if args.max_y is not None:
+        ivs_extended.plot_max_y = args.max_y
+    ivs_extended.plot_title = args.title
+    ivs_extended.names = args.name
+    ivs_extended.label_all_iscs = args.label_all_iscs
+    ivs_extended.label_all_vocs = args.label_all_vocs
+    ivs_extended.label_all_mpps = args.label_all_mpps
+    ivs_extended.mpp_watts_only = args.mpp_watts_only
+    ivs_extended.fancy_labels = args.fancy_labels
+
+
+def check_names(ivs_extended, csv_files):
+    """Global function to check that if curve names were specified, the
+       correct number were specified
+    """
+    if ivs_extended.names is not None:
+        assert len(ivs_extended.names) == len(csv_files), \
+            ("ERROR: {} names specified for {} curves"
+             .format(len(ivs_extended.names), len(csv_files)))
+
+
+#################
+#   Classes     #
+#################
 # The PrintAndOrLog class
 class PrintAndOrLog(object):
     """Class to provide static methods to print and/or log messages,
@@ -528,12 +578,12 @@ class CsvFileProcessor(object):
         plt_data_point_filename = ("plt_{}".format(fn_wo_suffix))
         if os.path.isfile(plt_data_point_filename):
             os.remove(plt_data_point_filename)
-        ivse.write_plt_data_points_to_file(plt_data_point_filename,
-                                           data_points,
-                                           new_data_set=False)
-        ivse.write_plt_data_points_to_file(plt_data_point_filename,
-                                           interp_points,
-                                           new_data_set=True)
+        IV_Swinger.write_plt_data_points_to_file(plt_data_point_filename,
+                                                 data_points,
+                                                 new_data_set=False)
+        IV_Swinger.write_plt_data_points_to_file(plt_data_point_filename,
+                                                 interp_points,
+                                                 new_data_set=True)
 
         self.plt_data_point_files.append(plt_data_point_filename)
         self.plt_isc_amps.append(isc_amps)
@@ -578,6 +628,7 @@ class IV_Swinger_plotter(object):
     def __init__(self):
         self._max_x = None
         self._max_y = None
+        self.cl_proc = None
 
     @property
     def max_x(self):
@@ -599,63 +650,21 @@ class IV_Swinger_plotter(object):
     def max_y(self, value):
         self._max_y = value
 
-    def set_ivs_properties(self, args, ivs_extended):
-        """Method to set the IV Swinger properties"""
-        # Set headless_mode to False if --interactive option is chosen
-        if args.interactive:
-            ivs_extended.headless_mode = False
-
-        # Choose interpolation type
-        if args.linear:
-            ivs_extended.use_spline_interpolation = False
-        else:
-            ivs_extended.use_spline_interpolation = True
-
-        # Set other properties based on commmand line options
-        ivs_extended.plot_power = args.plot_power
-        ivs_extended.plot_x_scale = (args.scale * args.plot_scale *
-                                     args.plot_x_scale)
-        ivs_extended.plot_y_scale = (args.scale * args.plot_scale *
-                                     args.plot_y_scale)
-        ivs_extended.font_scale = args.scale * args.font_scale
-        ivs_extended.point_scale = args.scale * args.point_scale
-        ivs_extended.line_scale = args.scale * args.line_scale
-        if args.max_x is not None:
-            ivs_extended.plot_max_x = args.max_x
-        if args.max_y is not None:
-            ivs_extended.plot_max_y = args.max_y
-        ivs_extended.plot_title = args.title
-        ivs_extended.names = args.name
-        ivs_extended.label_all_iscs = args.label_all_iscs
-        ivs_extended.label_all_vocs = args.label_all_vocs
-        ivs_extended.label_all_mpps = args.label_all_mpps
-        ivs_extended.mpp_watts_only = args.mpp_watts_only
-        ivs_extended.fancy_labels = args.fancy_labels
-
-    def check_names(self, ivs_extended, csv_files):
-        """Method to check that if curve names were specified, the
-           correct number were specified
-        """
-        if ivs_extended.names is not None:
-            assert len(ivs_extended.names) == len(csv_files), \
-                ("ERROR: {} names specified for {} curves"
-                 .format(len(ivs_extended.names), len(csv_files)))
-
     def run(self):
         """Main method to run the IV Swinger plotter"""
         # Get command line args
-        cl_proc = CommandLineProcessor()
-        args = cl_proc.args
+        self.cl_proc = CommandLineProcessor()
+        args = self.cl_proc.args
 
         # Get CSV file name(s) and/or directory name(s)
-        csv_files = cl_proc.csv_files
+        csv_files = self.cl_proc.csv_files
 
         # Create extended IV Swinger object
         ivs_extended = IV_Swinger_extended()
-        self.set_ivs_properties(args, ivs_extended)
+        set_ivs_properties(args, ivs_extended)
 
         # Check for correct number of --name options
-        self.check_names(ivs_extended, csv_files)
+        check_names(ivs_extended, csv_files)
 
         # Process all CSV files
         csv_proc = CsvFileProcessor(args, csv_files, ivs_extended)

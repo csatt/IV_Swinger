@@ -392,6 +392,172 @@ OHMS_INDEX = 2
 WATTS_INDEX = 3
 
 
+########################
+#   Global functions   #
+########################
+def turn_off_all_relays(io_extender):
+    """Global function to turn off all the relays"""
+    io_extender.write16(ALL_RELAYS_OFF)
+
+
+def swizzle_byte(byte):
+    """Global function to reverse the order of the bits in a byte"""
+    swizzled_byte = 0
+
+    for bit in xrange(8):
+        swizzled_byte |= ((byte & (1 << bit)) >> bit) << (7 - bit)
+
+    return swizzled_byte
+
+
+def swizzle_msb(value):
+    """Global function to reverse the order of the bits in the upper byte of
+       a 16-bit value
+    """
+    msb = (value & 0xFF00) >> 8
+    lsb = value & 0xFF
+
+    swizzled_msb = swizzle_byte(msb)
+
+    return (swizzled_msb << 8) | lsb
+
+
+def set_relays_to_pattern(load_pattern, io_extender):
+    """Global function to set the relays to the supplied load pattern,
+       performing the appropriate inversion (for active-low inputs) and
+       swizzling (for cabling quirk).
+    """
+    # Due to the fact that the "B" outputs are in the reverse order
+    # from the "A" outputs on the Slice of PI/O board, the upper
+    # byte is bit-swizzled.
+    io_extender.write16(swizzle_msb(~load_pattern))
+
+
+def prime_relays(io_extender):
+    """Global function to turn on each relay briefly (workaround for "weak"
+       relay issue.
+    """
+    prime_pattern = 0x8000
+    while prime_pattern:
+        set_relays_to_pattern(prime_pattern, io_extender)
+        time.sleep(0.02)
+        prime_pattern >>= 1
+    turn_off_all_relays(io_extender)
+
+
+def write_csv_data_to_file(open_filehandle, volts,
+                           amps, watts, ohms):
+    """Global function to write the current voltage, current, watts, and
+       ohms values to an output file which the caller has opened and has
+       passed the filehandle.
+    """
+    output_line = ("{:.6f},{:.6f},{:.6f},{:.6f}\n"
+                   .format(volts, amps, watts, ohms))
+    open_filehandle.write(output_line)
+
+
+def write_csv_data_points_to_file(filename, data_points):
+    """Global function to write each of the CSV data points to the output
+       file.
+    """
+    with open(filename, "w") as f:
+        # Write headings
+        f.write("Volts, Amps, Watts, Ohms\n")
+        # Write data points
+        for data_point in data_points:
+            write_csv_data_to_file(f,
+                                   data_point[VOLTS_INDEX],
+                                   data_point[AMPS_INDEX],
+                                   data_point[WATTS_INDEX],
+                                   data_point[OHMS_INDEX])
+
+
+def write_plt_data_to_file(open_filehandle, volts, amps,
+                           watts, new_data_set=False):
+    """Global function to write/append the current voltage and current
+       readings to an output file which the caller has opened for
+       appending and has passed the filehandle.  If new_data_set=True,
+       then the other values are ignored and two blank lines are
+       appended to the file.
+    """
+    output_line = "{:.6f} {:.6f} {:.6f}\n".format(volts, amps, watts)
+    if new_data_set:
+        # two blank lines signify a new data set to plotter
+        open_filehandle.write("\n")
+        open_filehandle.write("\n")
+    else:
+        open_filehandle.write(output_line)
+
+
+def write_plt_data_points_to_file(filename, data_points,
+                                  new_data_set=False):
+    """Global function to write/append each of the plotter data points to
+       the output file.
+    """
+    with open(filename, "a") as f:
+        # Add new data set delimiter
+        if new_data_set:
+            write_plt_data_to_file(f, 0, 0, 0, new_data_set=True)
+
+        prev_vals = ""
+        for data_point in data_points:
+            curr_vals = ("{:.6f} {:.6f} {:.6f}\n"
+                         .format(data_point[VOLTS_INDEX],
+                                 data_point[AMPS_INDEX],
+                                 data_point[WATTS_INDEX]))
+            if curr_vals != prev_vals:
+                write_plt_data_to_file(f,
+                                       data_point[VOLTS_INDEX],
+                                       data_point[AMPS_INDEX],
+                                       data_point[WATTS_INDEX])
+            prev_vals = curr_vals
+
+
+def pyplot_annotate_point(label_str, x, y, xtext, ytext, fontsize,
+                          bbox, arrowprops, textcoords="offset points"):
+    """Global function to add a label (Isc, Voc, MPP) to the plot
+    """
+    plt.annotate(label_str,
+                 xy=(x, y),
+                 xytext=(xtext, ytext),
+                 textcoords=textcoords,
+                 fontsize=fontsize,
+                 horizontalalignment="left",
+                 verticalalignment="bottom",
+                 bbox=bbox,
+                 arrowprops=arrowprops)
+
+
+def read_measured_and_interp_points(f):
+    """Global function to read the measured points and interpolated points
+       from the data point file
+    """
+    first_data_set = True
+    measured_volts = []
+    measured_amps = []
+    measured_watts = []
+    interp_volts = []
+    interp_amps = []
+    interp_watts = []
+    for line in f.read().splitlines():
+        if line:
+            volts, amps, watts = line.split()
+            if first_data_set:
+                measured_volts.append(float(volts))
+                measured_amps.append(float(amps))
+                measured_watts.append(float(watts))
+            else:
+                interp_volts.append(float(volts))
+                interp_amps.append(float(amps))
+                interp_watts.append(float(watts))
+        else:
+            # Blank lines delimit data sets
+            first_data_set = False
+
+    return (measured_volts, measured_amps, measured_watts,
+            interp_volts, interp_amps, interp_watts)
+
+
 #################
 #   Classes     #
 #################
@@ -453,7 +619,7 @@ class PrintAndLog(object):
     log_file_name = None
 
     def __init__(self):
-        if PrintAndLog.log_file_name is None:
+        if self.log_file_name is None:
             print "log_file_name class variable is not initialized!!"
             exit(-1)
 
@@ -462,7 +628,7 @@ class PrintAndLog(object):
 
         # Print to log file with timestamp
         date_time_str = DateTimeStr.get_date_time_str()
-        with open(PrintAndLog.log_file_name, "a") as f:
+        with open(self.log_file_name, "a") as f:
             f.write("\n{}: {}".format(date_time_str, print_str))
 
     def print_and_log(self, print_str):
@@ -484,7 +650,7 @@ class BeepGenerator(object):
     buzzer_gpio = None
 
     def __init__(self):
-        if BeepGenerator.buzzer_gpio is None:
+        if self.buzzer_gpio is None:
             print "buzzer_gpio class variable is not initialized!!"
             exit(-1)
 
@@ -508,7 +674,7 @@ class BeepGenerator(object):
             off_loops = int(off_time / 0.1)
 
         # Turn on buzzer
-        GPIO.output(BeepGenerator.buzzer_gpio, True)
+        GPIO.output(self.buzzer_gpio, True)
 
         # Wait for on_time
         for _ in xrange(on_loops):
@@ -518,7 +684,7 @@ class BeepGenerator(object):
             time.sleep(0.1)
 
         # Turn off buzzer
-        GPIO.output(BeepGenerator.buzzer_gpio, False)
+        GPIO.output(self.buzzer_gpio, False)
 
         # Wait for off_time
         for _ in xrange(off_loops):
@@ -2256,58 +2422,6 @@ class IV_Swinger(object):
         self.lcd.clear()
 
     # -------------------------------------------------------------------------
-    def turn_off_all_relays(self, io_extender):
-        """Method to turn off all the relays"""
-        io_extender.write16(ALL_RELAYS_OFF)
-
-    # -------------------------------------------------------------------------
-    def swizzle_byte(self, byte):
-        """Method to reverse the order of the bits in a byte"""
-
-        swizzled_byte = 0
-
-        for bit in xrange(8):
-            swizzled_byte |= ((byte & (1 << bit)) >> bit) << (7 - bit)
-
-        return swizzled_byte
-
-    # -------------------------------------------------------------------------
-    def swizzle_msb(self, value):
-        """Method to reverse the order of the bits in the upper byte of
-           a 16-bit value
-        """
-
-        msb = (value & 0xFF00) >> 8
-        lsb = value & 0xFF
-
-        swizzled_msb = self.swizzle_byte(msb)
-
-        return (swizzled_msb << 8) | lsb
-
-    # -------------------------------------------------------------------------
-    def set_relays_to_pattern(self, load_pattern, io_extender):
-        """Method to set the relays to the supplied load pattern,
-           performing the appropriate inversion (for active-low inputs) and
-           swizzling (for cabling quirk).
-        """
-        # Due to the fact that the "B" outputs are in the reverse order
-        # from the "A" outputs on the Slice of PI/O board, the upper
-        # byte is bit-swizzled.
-        io_extender.write16(self.swizzle_msb(~load_pattern))
-
-    # -------------------------------------------------------------------------
-    def prime_relays(self, io_extender):
-        """Method to turn on each relay briefly (workaround for "weak"
-           relay issue.
-        """
-        prime_pattern = 0x8000
-        while prime_pattern:
-            self.set_relays_to_pattern(prime_pattern, io_extender)
-            time.sleep(0.02)
-            prime_pattern >>= 1
-        self.turn_off_all_relays(io_extender)
-
-    # -------------------------------------------------------------------------
     def prompt_and_wait_for_dpst_off(self):
         """Method to prompt the user to turn off the DPST switch and
            poll until this occurs.  While polling, the warning pattern is
@@ -2560,7 +2674,7 @@ class IV_Swinger(object):
            calculated and the four values are returned in a tuple.
         """
         # Set the relays to the provided pattern
-        self.set_relays_to_pattern(load_pattern, io_extender)
+        set_relays_to_pattern(load_pattern, io_extender)
 
         # Pause for time_between_measurements (property) before taking
         # the voltage and current readings.
@@ -2977,74 +3091,6 @@ class IV_Swinger(object):
         self.logger.log("Isc Amps: {:.6f}".format(isc_amps))
 
         return (isc_amps, isc_volts, isc_ohms, isc_watts)
-
-    # -------------------------------------------------------------------------
-    def write_csv_data_points_to_file(self, filename, data_points):
-        """Method to write each of the CSV data points to the output
-           file.
-        """
-        with open(filename, "w") as f:
-            # Write headings
-            f.write("Volts, Amps, Watts, Ohms\n")
-            # Write data points
-            for data_point in data_points:
-                self.write_csv_data_to_file(f,
-                                            data_point[VOLTS_INDEX],
-                                            data_point[AMPS_INDEX],
-                                            data_point[WATTS_INDEX],
-                                            data_point[OHMS_INDEX])
-
-    # -------------------------------------------------------------------------
-    def write_csv_data_to_file(self, open_filehandle, volts,
-                               amps, watts, ohms):
-        """Method to write the current voltage, current, watts, and ohms values
-           to an output file which the caller has opened and has passed the
-           filehandle.
-        """
-        output_line = ("{:.6f},{:.6f},{:.6f},{:.6f}\n"
-                       .format(volts, amps, watts, ohms))
-        open_filehandle.write(output_line)
-
-    # -------------------------------------------------------------------------
-    def write_plt_data_points_to_file(self, filename, data_points,
-                                      new_data_set=False):
-        """Method to write/append each of the plotter data points to the
-           output file.
-        """
-        with open(filename, "a") as f:
-            # Add new data set delimiter
-            if new_data_set:
-                self.write_plt_data_to_file(f, 0, 0, 0, new_data_set=True)
-
-            prev_vals = ""
-            for data_point in data_points:
-                curr_vals = ("{:.6f} {:.6f} {:.6f}\n"
-                             .format(data_point[VOLTS_INDEX],
-                                     data_point[AMPS_INDEX],
-                                     data_point[WATTS_INDEX]))
-                if curr_vals != prev_vals:
-                    self.write_plt_data_to_file(f,
-                                                data_point[VOLTS_INDEX],
-                                                data_point[AMPS_INDEX],
-                                                data_point[WATTS_INDEX])
-                prev_vals = curr_vals
-
-    # -------------------------------------------------------------------------
-    def write_plt_data_to_file(self, open_filehandle, volts, amps,
-                               watts, new_data_set=False):
-        """Method to write/append the current voltage and current
-           readings to an output file which the caller has opened for
-           appending and has passed the filehandle.  If new_data_set=True,
-           then the other values are ignored and two blank lines are
-           appended to the file.
-        """
-        output_line = "{:.6f} {:.6f} {:.6f}\n".format(volts, amps, watts)
-        if new_data_set:
-            # two blank lines signify a new data set to plotter
-            open_filehandle.write("\n")
-            open_filehandle.write("\n")
-        else:
-            open_filehandle.write(output_line)
 
     # -------------------------------------------------------------------------
     def write_gnuplot_file(self, command_filename, data_filenames,
@@ -3542,9 +3588,9 @@ class IV_Swinger(object):
                                     int(6.25 * prev_isc_str_width) *
                                     self.font_scale)
                     ytext_offset = xytext_offset + 5
-                    self.pyplot_annotate_point(isc_str, 0, isc_amp,
-                                               xtext_offset, ytext_offset,
-                                               fontsize, bbox, arrowprops)
+                    pyplot_annotate_point(isc_str, 0, isc_amp,
+                                          xtext_offset, ytext_offset,
+                                          fontsize, bbox, arrowprops)
             prev_isc_str_width = len(isc_str)
 
     # -------------------------------------------------------------------------
@@ -3616,15 +3662,15 @@ class IV_Swinger(object):
                     base_y_off = 0.72
                     inc_y_off = 0.05
                     y_off = base_y_off - (ii * inc_y_off)
-                    self.pyplot_annotate_point(mpp_str, mpp_volts[ii], mpp_amp,
-                                               x_off, y_off,
-                                               fontsize, bbox, arrowprops,
-                                               textcoords="axes fraction")
+                    pyplot_annotate_point(mpp_str, mpp_volts[ii], mpp_amp,
+                                          x_off, y_off,
+                                          fontsize, bbox, arrowprops,
+                                          textcoords="axes fraction")
                 elif ii == 0:
                     x_off, y_off = xytext_offset + 5, xytext_offset + 5
-                    self.pyplot_annotate_point(mpp_str, mpp_volts[ii], mpp_amp,
-                                               x_off, y_off,
-                                               fontsize, bbox, arrowprops)
+                    pyplot_annotate_point(mpp_str, mpp_volts[ii], mpp_amp,
+                                          x_off, y_off,
+                                          fontsize, bbox, arrowprops)
 
     # -------------------------------------------------------------------------
     def plot_and_label_voc(self, voc_volts, xytext_offset, bbox, arrowprops):
@@ -3651,12 +3697,12 @@ class IV_Swinger(object):
             else:
                 self.pyplot_add_point(voc_volt, 0)
                 if not ii or self.label_all_vocs:
-                    self.pyplot_annotate_point(voc_str, voc_volt, 0,
-                                               xytext_offset + 5,
-                                               (xytext_offset + 5 +
-                                                ((nn - ii) * 20 *
-                                                 self.font_scale)),
-                                               fontsize, bbox, arrowprops)
+                    pyplot_annotate_point(voc_str, voc_volt, 0,
+                                          xytext_offset + 5,
+                                          (xytext_offset + 5 +
+                                           ((nn - ii) * 20 *
+                                            self.font_scale)),
+                                          fontsize, bbox, arrowprops)
 
     # -------------------------------------------------------------------------
     def pyplot_add_point(self, x, y):
@@ -3672,21 +3718,6 @@ class IV_Swinger(object):
                  markersize=markersize,
                  markeredgewidth=1,
                  clip_on=False)
-
-    # -------------------------------------------------------------------------
-    def pyplot_annotate_point(self, label_str, x, y, xtext, ytext, fontsize,
-                              bbox, arrowprops, textcoords="offset points"):
-        """Method to add a label (Isc, Voc, MPP) to the plot
-        """
-        plt.annotate(label_str,
-                     xy=(x, y),
-                     xytext=(xtext, ytext),
-                     textcoords=textcoords,
-                     fontsize=fontsize,
-                     horizontalalignment="left",
-                     verticalalignment="bottom",
-                     bbox=bbox,
-                     arrowprops=arrowprops)
 
     # -------------------------------------------------------------------------
     def gnuplot_label_point(self, label_str, x, y, xtext, ytext, fontsize):
@@ -3722,7 +3753,7 @@ class IV_Swinger(object):
                      measured_watts,
                      interp_volts,
                      interp_amps,
-                     interp_watts) = self.read_measured_and_interp_points(f)
+                     interp_watts) = read_measured_and_interp_points(f)
 
             # Put measured points label at top of legend
             if not self.use_gnuplot and not curve_num and self.point_scale:
@@ -3750,36 +3781,6 @@ class IV_Swinger(object):
         if self.use_gnuplot:
             self.output_line += "\n"
             self.filehandle.write(self.output_line)
-
-    # -------------------------------------------------------------------------
-    def read_measured_and_interp_points(self, f):
-        """Method to read the measured points and interpolated points
-           from the data point file
-        """
-        first_data_set = True
-        measured_volts = []
-        measured_amps = []
-        measured_watts = []
-        interp_volts = []
-        interp_amps = []
-        interp_watts = []
-        for line in f.read().splitlines():
-            if line:
-                volts, amps, watts = line.split()
-                if first_data_set:
-                    measured_volts.append(float(volts))
-                    measured_amps.append(float(amps))
-                    measured_watts.append(float(watts))
-                else:
-                    interp_volts.append(float(volts))
-                    interp_amps.append(float(amps))
-                    interp_watts.append(float(watts))
-            else:
-                # Blank lines delimit data sets
-                first_data_set = False
-
-        return (measured_volts, measured_amps, measured_watts,
-                interp_volts, interp_amps, interp_watts)
 
     # -------------------------------------------------------------------------
     def get_measured_points_kwargs(self):
@@ -4030,7 +4031,7 @@ class IV_Swinger(object):
                                   .format(reason_text))
 
         # Turn off all relays
-        self.turn_off_all_relays(io_extender)
+        turn_off_all_relays(io_extender)
 
         # Need user to turn off the DPST switch
         self.prompt_and_wait_for_dpst_off()
@@ -4054,46 +4055,44 @@ class IV_Swinger(object):
             GPIO.cleanup()
 
     # -------------------------------------------------------------------------
-    def find_usb_drives_inner(self):
-        """Inner method (used by find_usb_drives) to find all USB drives
-           and return the list.  USB drives look like directories under
-           /media.  But there could be directories under /media that are
-           not USB drives.  So filter out any that are not mount points.
-           It's also possible that a USB drive is write-protected so filter
-           those out too.
-        """
-        # Get list of directories under /media (possible USB drives)
-        slash_media_dir_glob = "/media/*"
-        slash_media_dirs = glob.glob(slash_media_dir_glob)
-
-        # Filter out any that are not actually mount points or are not
-        # writeable (and executable, which is necessary to add
-        # subdirectories/files).
-        usb_drives = []
-        for slash_media_dir in slash_media_dirs:
-            if (os.path.ismount(slash_media_dir) and
-                    os.access(slash_media_dir, os.W_OK | os.X_OK)):
-                # Instead of using os.path.ismount and os.access, could
-                # look in /proc/mounts and check that it is "rw"
-
-                # Check for duplicates
-                duplicate = False
-                for usb_drive in usb_drives:
-                    if os.path.samefile(usb_drive, slash_media_dir):
-                        duplicate = True
-
-                # Add to the list if not a duplicate
-                if not duplicate:
-                    usb_drives.append(slash_media_dir)
-
-        return usb_drives
-
-    # -------------------------------------------------------------------------
     def find_usb_drives(self, wait=True, display=False):
         """Method to find all USB drives and return the list. If the
            "wait" arg is set to True and no USB drives are found, prompt
            the user and wait until one is inserted (or time out).
         """
+        def find_usb_drives_inner(self):
+            """Local function to find all USB drives and return the list.  USB
+               drives look like directories under /media.  But there could
+               be directories under /media that are not USB drives.  So
+               filter out any that are not mount points.  It's also possible
+               that a USB drive is write-protected so filter those out too.
+            """
+            # Get list of directories under /media (possible USB drives)
+            slash_media_dir_glob = "/media/*"
+            slash_media_dirs = glob.glob(slash_media_dir_glob)
+
+            # Filter out any that are not actually mount points or are not
+            # writeable (and executable, which is necessary to add
+            # subdirectories/files).
+            usb_drives = []
+            for slash_media_dir in slash_media_dirs:
+                if (os.path.ismount(slash_media_dir) and
+                        os.access(slash_media_dir, os.W_OK | os.X_OK)):
+                    # Instead of using os.path.ismount and os.access, could
+                    # look in /proc/mounts and check that it is "rw"
+
+                    # Check for duplicates
+                    duplicate = False
+                    for usb_drive in usb_drives:
+                        if os.path.samefile(usb_drive, slash_media_dir):
+                            duplicate = True
+
+                    # Add to the list if not a duplicate
+                    if not duplicate:
+                        usb_drives.append(slash_media_dir)
+
+            return usb_drives
+
         # Find USB drives
         usb_drives = self.find_usb_drives_inner()
 
@@ -4357,7 +4356,7 @@ class IV_Swinger(object):
         adc = Adafruit_ADS1x15.ADS1x15(ic=ADS1115)
 
         # Turn off all relays
-        self.turn_off_all_relays(io_extender)
+        turn_off_all_relays(io_extender)
 
         # Find USB drives
         self.find_usb_drives(wait=True, display=False)
@@ -4381,7 +4380,7 @@ class IV_Swinger(object):
             # for a problem of unknown cause where some relays
             # especially near the end of the chain) sometimes fail to
             # stay in the activated position.  This seems to help.
-            # self.prime_relays(io_extender);
+            # prime_relays(io_extender);
 
             # Continually measure Voc while waiting for the DPST switch
             # to be turned ON
@@ -4480,7 +4479,7 @@ class IV_Swinger(object):
                 self.prompt_and_wait_for_dpst_off()
 
                 # Turn off all relays
-                self.turn_off_all_relays(io_extender)
+                turn_off_all_relays(io_extender)
 
                 # Clean up LCD after relay switching
                 self.reset_lcd()
@@ -4527,8 +4526,8 @@ class IV_Swinger(object):
                                                    plt_img_leaf_name)
 
                 # Write the CSV data points to the SD card file
-                self.write_csv_data_points_to_file(sd_csv_data_point_filename,
-                                                   data_points)
+                write_csv_data_points_to_file(sd_csv_data_point_filename,
+                                              data_points)
 
                 # Write the plotter data points to the SD card files
                 self.write_plt_data_points_to_file(sd_plt_data_point_filename,

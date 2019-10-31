@@ -273,7 +273,7 @@ def sys_view_file(file):
 
 def gen_dbg_str(str):
     """Global function to use when debugging. The supplied string is
-       printed, along with the file name and line number where it is
+       returned, along with the file name and line number where it is
        found in the code.
     """
     cf = currentframe()
@@ -282,6 +282,278 @@ def gen_dbg_str(str):
                                               cf.f_back.f_lineno,
                                               str)
     return dbg_str
+
+
+def write_csv_data_points_to_file(filename, data_points):
+    """Global function that is a wrapper around the IV_Swinger function of
+       the same name.
+    """
+    IV_Swinger.write_csv_data_points_to_file(filename, data_points)
+
+
+def get_saved_title(cfg_file):
+    """Global function to get the title configuration from the specified
+       .cfg file
+    """
+    my_cfg = ConfigParser.SafeConfigParser()
+    with open(cfg_file, "r") as cfg_fp:
+        # Read values from file
+        my_cfg.readfp(cfg_fp)
+        try:
+            # Get title config
+            title = my_cfg.get("Plotting", "title")
+        except ConfigParser.NoOptionError:
+            title = None
+    return title
+
+
+def terminate_log():
+    """Global function to add newline to end of log file"""
+    with open(IV_Swinger.PrintAndLog.log_file_name, "a") as f:
+        f.write("\n")
+
+
+def combine_dup_voltages(adc_pairs):
+    """Global function to combine consecutive points with duplicate voltages
+       (CH0 values) to a single point with the average of their current
+       (CH1) values
+    """
+    non_dup_adc_pairs = []
+    ch1_sum = 0
+    ch0_count = 0
+    last_pair_num = len(adc_pairs) - 1
+    for pair_num, adc_pair in enumerate(adc_pairs):
+        ch0_adc = adc_pair[0]
+        ch1_adc = adc_pair[1]
+        # If the CH0 value is the same as that of the next point,
+        # don't add the point to the new list; just accumulate the
+        # CH1 value and increment the count to calculate the
+        # average later.
+        if (pair_num < last_pair_num and
+                ch0_adc == adc_pairs[pair_num+1][0]):
+            # Add CH1 value to the CH1 sum and increment the
+            # CH0 count for the average calculation.
+            ch1_sum += ch1_adc
+            ch0_count += 1
+        else:
+            if ch0_count > 0:
+                # This is the last point in a sequence with
+                # duplicate CH0 values, so calculate the average CH1
+                # value and append the single point to the list
+                avg_ch1_adc = float(ch1_sum + ch1_adc) / (ch0_count + 1)
+                non_dup_adc_pairs.append((ch0_adc, avg_ch1_adc))
+                # Reset the sum and count variables
+                ch1_sum = 0
+                ch0_count = 0
+            else:
+                non_dup_adc_pairs.append((ch0_adc, ch1_adc))
+    return non_dup_adc_pairs
+
+
+def v_adj(adc_pairs):
+    """Global function to determine the voltage adjustment value"""
+    # Compensate for the effect where the curve intersects the
+    # voltage axis at a value greater than Voc. This is due to the
+    # fact that the reference voltage of the ADC droops when the
+    # relay is active.  A lower reference voltage has the effect of
+    # the ADC returning a higher value for a given voltage.  Since
+    # the Voc measurement is taken with the relay inactive, it is
+    # the "correct" value, so we just need to calculate a scaling
+    # factor that, when applied to the other points, results in the
+    # curve intersecting at the measured Voc point.
+
+    # Initialize v_adj to 1.0 (no adjustment) and just return that
+    # now if there are fewer than two points
+    v_adj = 1.0
+    if len(adc_pairs) < 2:
+        return v_adj
+
+    # Default assumption is that the extrapolated curve intercepts
+    # the V axis at the same voltage as the final measured point
+    avg_v_intercept = adc_pairs[-2][0]
+
+    # Now look at the four preceding points
+    v_intercepts = []
+    for adc_pair_index in [-6, -5, -4, -3]:
+        if len(adc_pairs) + adc_pair_index < 0:
+            continue
+        # If the point's ADC CH1 (current) value is more than 20% of
+        # Isc, skip to next (unless it is the last one)
+        if (adc_pair_index < -3 and
+                adc_pairs[adc_pair_index][1] >
+                (adc_pairs[0][1] * 0.2)):
+            continue
+        # Calculate V-intercept using the line determined by this
+        # point and the final measured point
+        v1 = float(adc_pairs[adc_pair_index][0])
+        i1 = float(adc_pairs[adc_pair_index][1])
+        v2 = float(adc_pairs[-2][0])
+        i2 = float(adc_pairs[-2][1])
+        delta_v = v2 - v1
+        delta_i = i1 - i2
+        if delta_v < 0.0 or delta_i <= 0.0:
+            # Throw out points that decrease in voltage or do not
+            # decrease in current
+            continue
+        v_intercept = (i1 * delta_v / delta_i) + v1
+        if not v_intercepts or abs(v_intercept - v_intercepts[-1]) <= 5:
+            # Keep v_intercepts only if they are different by 5 or
+            # less from their precedessors.  This assumes that the
+            # earlier ones are more reliable due to their greater
+            # distance from the V axis.
+            v_intercepts.append(v_intercept)
+    if v_intercepts:
+        avg_v_intercept = sum(v_intercepts) / float(len(v_intercepts))
+    voc_adc = adc_pairs[-1][0]
+    if avg_v_intercept:
+        v_adj = float(voc_adc) / float(avg_v_intercept)
+    return v_adj
+
+
+def rotation_at_point(adc_pairs, point, distance=1):
+    """Global function to calculate the angular rotation at a point on the
+       curve. The list of points and the point number of interest are
+       passed in.  By default, the angle is calculated using the
+       immediate neighbor points (distance=1), but setting this
+       parameter to a larger value calculates the angle using points at
+       that distance on either side from the specified point.
+    """
+    if point == 0:
+        return 0.0
+    if adc_pairs:
+        i_scale = (float(adc_pairs[-1][0]) /
+                   float(adc_pairs[0][1]))  # Voc/Isc
+    else:
+        i_scale = INFINITE_VAL
+    if distance < point:
+        pt1 = point - distance
+    else:
+        pt1 = 0
+    pt2 = point
+    if point + distance < len(adc_pairs):
+        pt3 = point + distance
+    else:
+        pt3 = len(adc_pairs) - 1
+    i1 = adc_pairs[pt1][1]
+    v1 = adc_pairs[pt1][0]
+    i2 = adc_pairs[pt2][1]
+    v2 = adc_pairs[pt2][0]
+    i3 = adc_pairs[pt3][1]
+    v3 = adc_pairs[pt3][0]
+    if v2 == v1:
+        if i2 > i1:
+            m12 = INFINITE_VAL
+        else:
+            m12 = -(INFINITE_VAL)
+    else:
+        m12 = i_scale * (i2 - i1) / (v2 - v1)
+    if v3 == v2:
+        if i2 > i1:
+            m23 = INFINITE_VAL
+        else:
+            m23 = -(INFINITE_VAL)
+    else:
+        m23 = i_scale * (i3 - i2) / (v3 - v2)
+    rot_degrees = (math.degrees(math.atan(m12)) -
+                   math.degrees(math.atan(m23)))
+    return rot_degrees
+
+
+def noise_reduction(adc_pairs, starting_rot_thresh=5.0,
+                    max_iterations=1, thresh_divisor=2.0,
+                    ppm_thresh=100):
+    """Global function to smooth out "bumps" in the curve. The trick is to
+       disambiguate between deviations (bad) and inflections
+       (normal). For each point on the curve, the rotation angle at that
+       point is calculated. If this angle exceeds a threshold, it is
+       either a deviation or an inflection. It is an inflection if the
+       rotation angle relative to several points away is actually larger
+       than the rotation angle relative to the neighbor points.
+       Inflections are left alone. Deviations are corrected by replacing
+       them with a point interpolated (linearly) between its
+       neighbors. This algorithm may be performed incrementally,
+       starting with a large threshold and then dividing that threshold
+       by some amount each time - in theory this should provide better
+       results because the larger deviations will be smoothed out first,
+       so it is more clear what is a deviation and what isn't.
+    """
+    adc_pairs_nr = adc_pairs[:]
+    num_points = len(adc_pairs)
+    rot_thresh = starting_rot_thresh
+    for ii in xrange(max_iterations):
+        # Calculate the distance (in points) of the "far" points for
+        # the inflection comparison.  It is 1/20 of the total number
+        # of points, but always at least 2.
+        dist = int(num_points / 20.0)
+        if dist < 2:
+            dist = 2
+        # Calculate the rotation at each point and then sort the
+        # list of (point, rot_degrees) tuples by the absolute value
+        # of the rotation angles.
+        rot_at_point = []
+        pairs_list = adc_pairs_nr
+        for point in xrange(num_points - 1):
+            rot_degrees = rotation_at_point(pairs_list, point)
+            rot_at_point.append((point, rot_degrees))
+        sorted_points = sorted(rot_at_point,
+                               key=lambda rot: abs(rot[1]), reverse=True)
+        # Iterate through the sorted points
+        max_corr_ppm = -1.0
+        for (point, _) in sorted_points:
+            pairs_list = adc_pairs_nr
+            rot_degrees = rotation_at_point(pairs_list, point)
+            if abs(rot_degrees) > rot_thresh:
+                deviation = True
+                if point >= dist and point < (num_points - dist):
+                    long_rot_degrees = rotation_at_point(pairs_list,
+                                                         point,
+                                                         dist)
+                    if ((long_rot_degrees > 0) and (rot_degrees > 0) and
+                            (long_rot_degrees > rot_degrees)):
+                        deviation = False
+                    if ((long_rot_degrees <= 0) and (rot_degrees < 0) and
+                            (long_rot_degrees < rot_degrees)):
+                        deviation = False
+                if deviation:
+                    curr_point = pairs_list[point]
+                    prev_point = pairs_list[point-1]
+                    next_point = pairs_list[point+1]
+                    if point > 1:
+                        ch0_adc_corrected = (prev_point[0] +
+                                             next_point[0]) / 2.0
+                    else:
+                        # Don't correct voltage of point 1.  Otherwise
+                        # it migrates toward the Isc point each
+                        # iteration, and that doesn't seem right since
+                        # the Isc point is extrapolated.
+                        ch0_adc_corrected = curr_point[0]
+                    ch1_adc_corrected = (prev_point[1] +
+                                         next_point[1]) / 2.0
+                    adc_pairs_nr[point] = (ch0_adc_corrected,
+                                           ch1_adc_corrected)
+
+                    # Calculate the PPM of the corrections so we
+                    # stop iterating early if the corrections have
+                    # become sufficiently small
+                    ch0_corr_ppm = 1000000.0 * abs(1.0 - curr_point[0] /
+                                                   ch0_adc_corrected)
+                    ch1_corr_ppm = 1000000.0 * abs(1.0 - curr_point[1] /
+                                                   ch1_adc_corrected)
+                    if ch0_corr_ppm > max_corr_ppm:
+                        max_corr_ppm = ch0_corr_ppm
+                    if ch1_corr_ppm > max_corr_ppm:
+                        max_corr_ppm = ch1_corr_ppm
+
+        # Stop iterating if the PPM of the maximum correction
+        # performed is less than the ppm_thresh parameter, but only
+        # if we've done at least one correction (as indicated by
+        # max_corr_ppm having its initial value of -1)
+        if max_corr_ppm > 0 and max_corr_ppm < ppm_thresh:
+            break
+
+        rot_thresh /= thresh_divisor
+
+    return adc_pairs_nr
 
 
 #################
@@ -505,21 +777,6 @@ class Configuration(object):
 
         # Apply plotting options to properties
         self.apply_plotting()
-
-    # -------------------------------------------------------------------------
-    def get_saved_title(self, cfg_file):
-        """Method to get the title configuration from the specified .cfg file
-        """
-        my_cfg = ConfigParser.SafeConfigParser()
-        with open(cfg_file, "r") as cfg_fp:
-            # Read values from file
-            my_cfg.readfp(cfg_fp)
-            try:
-                # Get title config
-                title = my_cfg.get("Plotting", "title")
-            except ConfigParser.NoOptionError:
-                title = None
-        return title
 
     # -------------------------------------------------------------------------
     def remove_obsolete_options(self):
@@ -1042,19 +1299,6 @@ class Configuration(object):
             self.ivs2.plot_title = None
 
 
-# The (extended) PrintAndLog class
-#
-class PrintAndLog(IV_Swinger.PrintAndLog):
-    """Provides printing and logging methods (extended from IV_Swinger)"""
-
-    # -------------------------------------------------------------------------
-    def terminate_log(self):
-        """Add newline to end of log file"""
-
-        with open(IV_Swinger.PrintAndLog.log_file_name, "a") as f:
-            f.write("\n")
-
-
 # IV Swinger2 plotter class
 #
 class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
@@ -1410,7 +1654,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
 
         self.args.gif = False
         self.args.png = False
-        self.set_ivs_properties(self.args, ivs)
+        IV_Swinger_plotter.set_ivs_properties(self.args, ivs)
         ivs.plot_graphs(self.args, csvp)
 
     # -------------------------------------------------------------------------
@@ -1425,7 +1669,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         # x_pixels property. The x_pixels property can be changed from a
         # combobox in the GUI.
         self.args.png = True
-        self.set_ivs_properties(self.args, ivs)
+        IV_Swinger_plotter.set_ivs_properties(self.args, ivs)
         default_dpi = 100.0
         default_x_pixels = 1100.0
         ivs.plot_dpi = default_dpi * (self.x_pixels/default_x_pixels)
@@ -1516,7 +1760,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
 
         # Create IV Swinger object (as extended in IV_Swinger_plotter)
         self.ivsp_ivse = IV_Swinger_plotter.IV_Swinger_extended()
-        self.set_ivs_properties(self.args, self.ivsp_ivse)
+        IV_Swinger_plotter.set_ivs_properties(self.args, self.ivsp_ivse)
         self.ivsp_ivse.logger = self.logger
         self.ivsp_ivse.v_sat = self.v_sat
         self.ivsp_ivse.i_sat = self.i_sat
@@ -3594,7 +3838,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
         # Combine points with the same voltage (use average current)
         if comb_dupv_pts:
-            adc_pairs_corrected = self.combine_dup_voltages(adc_pairs)
+            adc_pairs_corrected = combine_dup_voltages(adc_pairs)
         else:
             adc_pairs_corrected = adc_pairs[:]
 
@@ -3633,10 +3877,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 isc_ch1 = adc_pairs_corrected[1][1]
                 adc_pairs_corrected[0] = (0.0, isc_ch1)
             adc_pairs_for_nr = adc_pairs_corrected[:-1]  # exclude Voc
-            adc_pairs_nr = self.noise_reduction(adc_pairs_for_nr,
-                                                starting_rot_thresh=10.0,
-                                                max_iterations=40,
-                                                thresh_divisor=2.0)
+            adc_pairs_nr = noise_reduction(adc_pairs_for_nr,
+                                           starting_rot_thresh=10.0,
+                                           max_iterations=40,
+                                           thresh_divisor=2.0)
             # Tack Voc point back on
             adc_pairs_corrected = adc_pairs_nr + [adc_pairs_corrected[-1]]
 
@@ -3649,267 +3893,21 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
         # Adjust voltages to compensate for overshoot
         if fix_overshoot:
-            v_adj = self.v_adj(adc_pairs_corrected)
-            log_msg = "  v_adj = {}".format(v_adj)
+            v_adj_val = v_adj(adc_pairs_corrected)
+            log_msg = "  v_adj = {}".format(v_adj_val)
             self.logger.log(log_msg)
             adc_pairs_wo_overshoot = []
             voc_pair_num = len(adc_pairs_corrected) - 1  # last one is Voc
             for pair_num, adc_pair in enumerate(adc_pairs_corrected):
                 if pair_num == voc_pair_num:
-                    v_adj = 1.0
-                ch0_adc_wo_overshoot = adc_pair[0] * v_adj
+                    v_adj_val = 1.0
+                ch0_adc_wo_overshoot = adc_pair[0] * v_adj_val
                 ch1_adc_wo_overshoot = adc_pair[1]
                 adc_pairs_wo_overshoot.append((ch0_adc_wo_overshoot,
                                                ch1_adc_wo_overshoot))
             adc_pairs_corrected = adc_pairs_wo_overshoot[:]
 
         return adc_pairs_corrected
-
-    # -------------------------------------------------------------------------
-    def combine_dup_voltages(self, adc_pairs):
-        """Method to combine consecutive points with duplicate voltages (CH0
-           values) to a single point with the average of their current
-           (CH1) values
-        """
-        non_dup_adc_pairs = []
-        ch1_sum = 0
-        ch0_count = 0
-        last_pair_num = len(adc_pairs) - 1
-        for pair_num, adc_pair in enumerate(adc_pairs):
-            ch0_adc = adc_pair[0]
-            ch1_adc = adc_pair[1]
-            # If the CH0 value is the same as that of the next point,
-            # don't add the point to the new list; just accumulate the
-            # CH1 value and increment the count to calculate the
-            # average later.
-            if (pair_num < last_pair_num and
-                    ch0_adc == adc_pairs[pair_num+1][0]):
-                # Add CH1 value to the CH1 sum and increment the
-                # CH0 count for the average calculation.
-                ch1_sum += ch1_adc
-                ch0_count += 1
-            else:
-                if ch0_count > 0:
-                    # This is the last point in a sequence with
-                    # duplicate CH0 values, so calculate the average CH1
-                    # value and append the single point to the list
-                    avg_ch1_adc = float(ch1_sum + ch1_adc) / (ch0_count + 1)
-                    non_dup_adc_pairs.append((ch0_adc, avg_ch1_adc))
-                    # Reset the sum and count variables
-                    ch1_sum = 0
-                    ch0_count = 0
-                else:
-                    non_dup_adc_pairs.append((ch0_adc, ch1_adc))
-
-        return non_dup_adc_pairs
-
-    # -------------------------------------------------------------------------
-    def v_adj(self, adc_pairs):
-        """Method to determine the voltage adjustment value"""
-        # Compensate for the effect where the curve intersects the
-        # voltage axis at a value greater than Voc. This is due to the
-        # fact that the reference voltage of the ADC droops when the
-        # relay is active.  A lower reference voltage has the effect of
-        # the ADC returning a higher value for a given voltage.  Since
-        # the Voc measurement is taken with the relay inactive, it is
-        # the "correct" value, so we just need to calculate a scaling
-        # factor that, when applied to the other points, results in the
-        # curve intersecting at the measured Voc point.
-
-        # Initialize v_adj to 1.0 (no adjustment) and just return that
-        # now if there are fewer than two points
-        v_adj = 1.0
-        if len(adc_pairs) < 2:
-            return v_adj
-
-        # Default assumption is that the extrapolated curve intercepts
-        # the V axis at the same voltage as the final measured point
-        avg_v_intercept = adc_pairs[-2][0]
-
-        # Now look at the four preceding points
-        v_intercepts = []
-        for adc_pair_index in [-6, -5, -4, -3]:
-            if len(adc_pairs) + adc_pair_index < 0:
-                continue
-            # If the point's ADC CH1 (current) value is more than 20% of
-            # Isc, skip to next (unless it is the last one)
-            if (adc_pair_index < -3 and
-                    adc_pairs[adc_pair_index][1] >
-                    (adc_pairs[0][1] * 0.2)):
-                continue
-            # Calculate V-intercept using the line determined by this
-            # point and the final measured point
-            v1 = float(adc_pairs[adc_pair_index][0])
-            i1 = float(adc_pairs[adc_pair_index][1])
-            v2 = float(adc_pairs[-2][0])
-            i2 = float(adc_pairs[-2][1])
-            delta_v = v2 - v1
-            delta_i = i1 - i2
-            if delta_v < 0.0 or delta_i <= 0.0:
-                # Throw out points that decrease in voltage or do not
-                # decrease in current
-                continue
-            v_intercept = (i1 * delta_v / delta_i) + v1
-            if not v_intercepts or abs(v_intercept - v_intercepts[-1]) <= 5:
-                # Keep v_intercepts only if they are different by 5 or
-                # less from their precedessors.  This assumes that the
-                # earlier ones are more reliable due to their greater
-                # distance from the V axis.
-                v_intercepts.append(v_intercept)
-        if v_intercepts:
-            avg_v_intercept = sum(v_intercepts) / float(len(v_intercepts))
-        voc_adc = adc_pairs[-1][0]
-        if avg_v_intercept:
-            v_adj = float(voc_adc) / float(avg_v_intercept)
-        return v_adj
-
-    # -------------------------------------------------------------------------
-    def noise_reduction(self, adc_pairs, starting_rot_thresh=5.0,
-                        max_iterations=1, thresh_divisor=2.0,
-                        ppm_thresh=100):
-        """Method to smooth out "bumps" in the curve. The trick is to
-           disambiguate between deviations (bad) and inflections
-           (normal). For each point on the curve, the rotation angle at
-           that point is calculated. If this angle exceeds a threshold,
-           it is either a deviation or an inflection. It is an
-           inflection if the rotation angle relative to several points
-           away is actually larger than the rotation angle relative to
-           the neighbor points.  Inflections are left alone. Deviations
-           are corrected by replacing them with a point interpolated
-           (linearly) between its neighbors. This algorithm may be
-           performed incrementally, starting with a large threshold and
-           then dividing that threshold by some amount each time - in
-           theory this should provide better results because the larger
-           deviations will be smoothed out first, so it is more clear
-           what is a deviation and what isn't.
-        """
-        adc_pairs_nr = adc_pairs[:]
-        num_points = len(adc_pairs)
-        rot_thresh = starting_rot_thresh
-        for ii in xrange(max_iterations):
-            # Calculate the distance (in points) of the "far" points for
-            # the inflection comparison.  It is 1/20 of the total number
-            # of points, but always at least 2.
-            dist = int(num_points / 20.0)
-            if dist < 2:
-                dist = 2
-            # Calculate the rotation at each point and then sort the
-            # list of (point, rot_degrees) tuples by the absolute value
-            # of the rotation angles.
-            rot_at_point = []
-            pairs_list = adc_pairs_nr
-            for point in xrange(num_points - 1):
-                rot_degrees = self.rotation_at_point(pairs_list, point)
-                rot_at_point.append((point, rot_degrees))
-            sorted_points = sorted(rot_at_point,
-                                   key=lambda rot: abs(rot[1]), reverse=True)
-            # Iterate through the sorted points
-            max_corr_ppm = -1.0
-            for (point, _) in sorted_points:
-                pairs_list = adc_pairs_nr
-                rot_degrees = self.rotation_at_point(pairs_list, point)
-                if abs(rot_degrees) > rot_thresh:
-                    deviation = True
-                    if point >= dist and point < (num_points - dist):
-                        long_rot_degrees = self.rotation_at_point(pairs_list,
-                                                                  point,
-                                                                  dist)
-                        if ((long_rot_degrees > 0) and (rot_degrees > 0) and
-                                (long_rot_degrees > rot_degrees)):
-                            deviation = False
-                        if ((long_rot_degrees <= 0) and (rot_degrees < 0) and
-                                (long_rot_degrees < rot_degrees)):
-                            deviation = False
-                    if deviation:
-                        curr_point = pairs_list[point]
-                        prev_point = pairs_list[point-1]
-                        next_point = pairs_list[point+1]
-                        if point > 1:
-                            ch0_adc_corrected = (prev_point[0] +
-                                                 next_point[0]) / 2.0
-                        else:
-                            # Don't correct voltage of point 1.  Otherwise
-                            # it migrates toward the Isc point each
-                            # iteration, and that doesn't seem right since
-                            # the Isc point is extrapolated.
-                            ch0_adc_corrected = curr_point[0]
-                        ch1_adc_corrected = (prev_point[1] +
-                                             next_point[1]) / 2.0
-                        adc_pairs_nr[point] = (ch0_adc_corrected,
-                                               ch1_adc_corrected)
-
-                        # Calculate the PPM of the corrections so we
-                        # stop iterating early if the corrections have
-                        # become sufficiently small
-                        ch0_corr_ppm = 1000000.0 * abs(1.0 - curr_point[0] /
-                                                       ch0_adc_corrected)
-                        ch1_corr_ppm = 1000000.0 * abs(1.0 - curr_point[1] /
-                                                       ch1_adc_corrected)
-                        if ch0_corr_ppm > max_corr_ppm:
-                            max_corr_ppm = ch0_corr_ppm
-                        if ch1_corr_ppm > max_corr_ppm:
-                            max_corr_ppm = ch1_corr_ppm
-
-            # Stop iterating if the PPM of the maximum correction
-            # performed is less than the ppm_thresh parameter, but only
-            # if we've done at least one correction (as indicated by
-            # max_corr_ppm having its initial value of -1)
-            if max_corr_ppm > 0 and max_corr_ppm < ppm_thresh:
-                break
-
-            rot_thresh /= thresh_divisor
-
-        return adc_pairs_nr
-
-    # -------------------------------------------------------------------------
-    def rotation_at_point(self, adc_pairs, point, distance=1):
-        """Method to calculate the angular rotation at a point on the
-           curve. The list of points and the point number of
-           interest are passed in.  By default, the angle is
-           calculated using the immediate neighbor points
-           (distance=1), but setting this parameter to a larger
-           value calculates the angle using points at that distance
-           on either side from the specified point.
-        """
-        if point == 0:
-            return 0.0
-        if adc_pairs:
-            i_scale = (float(adc_pairs[-1][0]) /
-                       float(adc_pairs[0][1]))  # Voc/Isc
-        else:
-            i_scale = INFINITE_VAL
-        if distance < point:
-            pt1 = point - distance
-        else:
-            pt1 = 0
-        pt2 = point
-        if point + distance < len(adc_pairs):
-            pt3 = point + distance
-        else:
-            pt3 = len(adc_pairs) - 1
-        i1 = adc_pairs[pt1][1]
-        v1 = adc_pairs[pt1][0]
-        i2 = adc_pairs[pt2][1]
-        v2 = adc_pairs[pt2][0]
-        i3 = adc_pairs[pt3][1]
-        v3 = adc_pairs[pt3][0]
-        if v2 == v1:
-            if i2 > i1:
-                m12 = INFINITE_VAL
-            else:
-                m12 = -(INFINITE_VAL)
-        else:
-            m12 = i_scale * (i2 - i1) / (v2 - v1)
-        if v3 == v2:
-            if i2 > i1:
-                m23 = INFINITE_VAL
-            else:
-                m23 = -(INFINITE_VAL)
-        else:
-            m23 = i_scale * (i3 - i2) / (v3 - v2)
-        rot_degrees = (math.degrees(math.atan(m12)) -
-                       math.degrees(math.atan(m23)))
-        return rot_degrees
 
     # -------------------------------------------------------------------------
     def create_new_isc_point(self, adc_pairs, replace=True):
@@ -4022,9 +4020,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             for point in xrange(dist):
                 lrd_list.append(-999.0)
             for point in xrange(dist, num_points - 1 - dist):
-                long_rot_degrees = self.rotation_at_point(adc_pairs,
-                                                          point,
-                                                          dist)
+                long_rot_degrees = rotation_at_point(adc_pairs,
+                                                     point,
+                                                     dist)
                 if long_rot_degrees < prev_long_rot_degrees:
                     reduced_rotation_count += 1
                 else:
@@ -4692,11 +4690,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 # which are beyond the n.r. algorithm's ability to
                 # correct.  This n.r. can be coarser than the final
                 # n.r., however.
-                adc_pairs = self.noise_reduction(self.adc_pairs,
-                                                 starting_rot_thresh=5.0,
-                                                 max_iterations=40,
-                                                 thresh_divisor=4.0,
-                                                 ppm_thresh=4000)
+                adc_pairs = noise_reduction(self.adc_pairs,
+                                            starting_rot_thresh=5.0,
+                                            max_iterations=40,
+                                            thresh_divisor=4.0,
+                                            ppm_thresh=4000)
             else:
                 adc_pairs = self.adc_pairs
             self.adc_pairs_corrected = self.apply_battery_bias(adc_pairs)
@@ -4722,8 +4720,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self.convert_adc_values(self.adc_pairs_corrected)
 
         # Write CSV file
-        self.write_csv_data_points_to_file(self.hdd_csv_data_point_filename,
-                                           self.data_points)
+        write_csv_data_points_to_file(self.hdd_csv_data_point_filename,
+                                      self.data_points)
         return RC_SUCCESS
 
     # -------------------------------------------------------------------------
@@ -4773,7 +4771,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         leaf_name = "log_{}.txt".format(date_time_str)
         IV_Swinger.PrintAndLog.log_file_name = os.path.join(self.logs_dir,
                                                             leaf_name)
-        self.logger = PrintAndLog()
+        self.logger = IV_Swinger.PrintAndLog()
 
     # -------------------------------------------------------------------------
     def clean_up_after_failure(self, dir):
@@ -4883,7 +4881,7 @@ def main():
         # Print message and close the log file
         msg_str = "  Results in: {}".format(ivs2.hdd_output_dir)
         ivs2.logger.print_and_log(msg_str)
-        ivs2.logger.terminate_log()
+        terminate_log()
 
         # Open the PDF
         if os.path.exists(ivs2.pdf_filename):
