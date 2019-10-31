@@ -464,8 +464,7 @@ class IV_Swinger_extended(IV_Swinger.IV_Swinger):
                                    csv_proc.plt_isc_amps,
                                    csv_proc.plt_voc_volts,
                                    csv_proc.plt_mpp_amps,
-                                   csv_proc.plt_mpp_volts,
-                                   self.use_spline_interpolation)
+                                   csv_proc.plt_mpp_volts)
             msg_str = "Generated: {}".format(self.plt_img_filename)
             PrintAndOrLog.print_or_log_msg(self.logger, msg_str)
 
@@ -486,8 +485,7 @@ class IV_Swinger_extended(IV_Swinger.IV_Swinger):
                                        [isc_amps],
                                        [voc_volts],
                                        [mpp_amps],
-                                       [mpp_volts],
-                                       self.use_spline_interpolation)
+                                       [mpp_volts])
                 msg_str = "Generated: {}".format(self.plt_img_filename)
                 PrintAndOrLog.print_or_log_msg(self.logger, msg_str)
 

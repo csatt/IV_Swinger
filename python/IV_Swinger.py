@@ -3095,7 +3095,7 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def write_gnuplot_file(self, command_filename, data_filenames,
                            img_filename, isc_amps, voc_volts, mpp_amps,
-                           mpp_volts, spline):
+                           mpp_volts):
         """Method to write the gnuplot command file"""
 
         with open(command_filename, "w") as self.filehandle:
@@ -3140,7 +3140,7 @@ class IV_Swinger(object):
 
             # Plot the measured points and the interpolated curves
             self.plot_points_and_curves(data_filenames, mpp_amps,
-                                        mpp_volts, spline)
+                                        mpp_volts)
 
             # If not in headless mode, open interactive display
             if not self.headless_mode:
@@ -3149,7 +3149,7 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def plot_with_plotter(self, sd_gp_command_filename,
                           sd_data_point_filenames, sd_img_filename,
-                          isc_amps, voc_volts, mpp_amps, mpp_volts, spline):
+                          isc_amps, voc_volts, mpp_amps, mpp_volts):
         """Method to generate the graph with gnuplot or pyplot.
 
            The following parameters are lists:
@@ -3177,24 +3177,22 @@ class IV_Swinger(object):
         if self.use_gnuplot:
             self.plot_with_gnuplot(sd_gp_command_filename,
                                    sd_data_point_filenames, sd_img_filename,
-                                   isc_amps, voc_volts, mpp_amps, mpp_volts,
-                                   spline)
+                                   isc_amps, voc_volts, mpp_amps, mpp_volts)
         else:
             self.plot_with_pyplot(sd_data_point_filenames, sd_img_filename,
-                                  isc_amps, voc_volts, mpp_amps, mpp_volts,
-                                  spline)
+                                  isc_amps, voc_volts, mpp_amps, mpp_volts)
 
     # -------------------------------------------------------------------------
     def plot_with_gnuplot(self, sd_gp_command_filename,
                           sd_data_point_filenames, sd_img_filename,
-                          isc_amps, voc_volts, mpp_amps, mpp_volts, spline):
+                          isc_amps, voc_volts, mpp_amps, mpp_volts):
         """Method to generate the graph with gnuplot.
         """
         # Write the gnuplot command file
         self.write_gnuplot_file(sd_gp_command_filename,
                                 sd_data_point_filenames, sd_img_filename,
                                 isc_amps, voc_volts,
-                                mpp_amps, mpp_volts, spline)
+                                mpp_amps, mpp_volts)
 
         # Execute the gnuplot command file
         if isc_amps and voc_volts:
@@ -3202,7 +3200,7 @@ class IV_Swinger(object):
 
     # -------------------------------------------------------------------------
     def plot_with_pyplot(self, sd_data_point_filenames, sd_img_filename,
-                         isc_amps, voc_volts, mpp_amps, mpp_volts, spline):
+                         isc_amps, voc_volts, mpp_amps, mpp_volts):
         """Method to generate the graph with pyplot.
 
            The following parameters are lists:
@@ -3242,7 +3240,7 @@ class IV_Swinger(object):
 
         # Plot the measured points and the interpolated curves
         self.plot_points_and_curves(sd_data_point_filenames, mpp_amps,
-                                    mpp_volts, spline)
+                                    mpp_volts)
 
         # Plot and label Isc, MPP and Voc
         self.plot_labeled_points(isc_amps, mpp_amps, mpp_volts, voc_volts)
@@ -3732,7 +3730,7 @@ class IV_Swinger(object):
 
     # -------------------------------------------------------------------------
     def plot_points_and_curves(self, sd_data_point_filenames, mpp_amps,
-                               mpp_volts, spline):
+                               mpp_volts):
         """Method to read the data in each data point file and use
            pyplot to plot the measured and interpolated curves
         """
@@ -3766,8 +3764,7 @@ class IV_Swinger(object):
                 # Plot interpolated points
                 self.plot_interp_points(curve_num, df,
                                         sd_data_point_filenames,
-                                        interp_volts, interp_amps,
-                                        spline)
+                                        interp_volts, interp_amps)
 
             # Plot measured points
             self.plot_measured_points(curve_num, df,
@@ -3843,7 +3840,7 @@ class IV_Swinger(object):
 
     # -------------------------------------------------------------------------
     def plot_interp_points(self, curve_num, df, sd_data_point_filenames,
-                           interp_volts, interp_amps, spline):
+                           interp_volts, interp_amps):
         """Method to plot the interpolated points"""
         if self.line_scale == 0.0:
             # Skip plotting curve altogether if scale is zero
@@ -3865,7 +3862,7 @@ class IV_Swinger(object):
                 # On Mac @ sign is lost
                 interp_label = interp_label.replace("@", " at ")
             self.output_line += (', "{}" index 1 with lines title "{}" '
-                                 'linecolor rgb "{}" linewidth {} linetype {}'
+                                 'linecolor rgb "{}" linewidth {} linetype {} '
                                  .format(df, interp_label,
                                          self.plot_colors[curve_num],
                                          (self.gp_interp_linewidth *
