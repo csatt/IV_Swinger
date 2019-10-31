@@ -4197,8 +4197,8 @@ class IV_Swinger(object):
                         msg_text = ["Failed to make\ndirectory:",
                                     "{}".format(sub_dir)]
                         self.logger.print_and_log("Failed to make "
-                                                  ("directory: {}"
-                                                   .format(sub_dir)))
+                                                  "directory: {}"
+                                                  .format(sub_dir))
                         if self.lcd is not None:
                             lcd_msg = ScrollingMessage(
                                 msg_text,
