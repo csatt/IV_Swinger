@@ -623,7 +623,8 @@ value on the Arduino tab of Preferences
         # Add title and titlebar icon (Windows)
         self.root.title("IV Swinger 2")
         if sys.platform == "win32" and os.path.exists(TITLEBAR_ICON):
-            self.root.tk.call("wm", "iconbitmap", self.root._w,
+            self.root.tk.call("wm", "iconbitmap",
+                              self.root._w,  # pylint: disable=protected-access
                               "-default", TITLEBAR_ICON)
 
     # -------------------------------------------------------------------------
@@ -1832,6 +1833,7 @@ class GraphicalUserInterfaceProps(object):
        This is necessary because properties only work with new-style
        classes (i.e. those derived from "object")
     """
+    # pylint: disable=protected-access
 
     # Initializer
     def __init__(self, master=None):
