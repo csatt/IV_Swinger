@@ -350,7 +350,7 @@ def combine_dup_voltages(adc_pairs):
     return non_dup_adc_pairs
 
 
-def v_adj(adc_pairs):
+def calc_v_adj(adc_pairs):
     """Global function to determine the voltage adjustment value"""
     # Compensate for the effect where the curve intersects the
     # voltage axis at a value greater than Voc. This is due to the
@@ -3895,7 +3895,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
         # Adjust voltages to compensate for overshoot
         if fix_overshoot:
-            v_adj_val = v_adj(adc_pairs_corrected)
+            v_adj_val = calc_v_adj(adc_pairs_corrected)
             log_msg = "  v_adj = {}".format(v_adj_val)
             self.logger.log(log_msg)
             adc_pairs_wo_overshoot = []
