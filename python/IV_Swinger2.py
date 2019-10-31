@@ -254,7 +254,7 @@ def close_plots():
     IV_Swinger.IV_Swinger.close_plots()
 
 
-def sys_view_file(file):
+def sys_view_file(filename):
     """Global function to use an OS-specific application to view a file,
        based on its file type/extension. e.g. a .txt file will be opened
        using a text editor, a PDF file will be opened with whatever is
@@ -262,16 +262,16 @@ def sys_view_file(file):
     """
     if sys.platform == "darwin":
         # Mac
-        subprocess.call(("open", file))
+        subprocess.call(("open", filename))
     elif sys.platform == "win32":
         # Windows
-        os.startfile(file)  # pylint: disable=no-member
+        os.startfile(filename)  # pylint: disable=no-member
     else:
         # Linux
-        subprocess.call(("xdg-open", file))
+        subprocess.call(("xdg-open", filename))
 
 
-def gen_dbg_str(str):
+def gen_dbg_str(msg_str):
     """Global function to use when debugging. The supplied string is
        returned, along with the file name and line number where it is
        found in the code.
@@ -280,7 +280,7 @@ def gen_dbg_str(str):
     fi = getframeinfo(cf)
     dbg_str = "DEBUG({}, line {}): {}".format(fi.filename,
                                               cf.f_back.f_lineno,
-                                              str)
+                                              msg_str)
     return dbg_str
 
 
@@ -1182,21 +1182,22 @@ class Configuration(object):
             self.ivs2.logger.print_and_log(err_str)
 
     # -------------------------------------------------------------------------
-    def copy_file(self, dir):
+    def copy_file(self, dest_dir):
         """Method to copy the current .cfg file to the specified directory
         """
-        if os.path.dirname(self.cfg_filename) == dir:
+        if os.path.dirname(self.cfg_filename) == dest_dir:
             # Return without doing anything if the property is already
             # pointing to the specified directory
             return
         if DEBUG_CONFIG:
             dbg_str = ("copy_file: Copying config from {}"
-                       " to {}".format(self.cfg_filename, dir))
+                       " to {}".format(self.cfg_filename, dest_dir))
             self.ivs2.logger.print_and_log(dbg_str)
         try:
-            shutil.copy(self.cfg_filename, dir)
+            shutil.copy(self.cfg_filename, dest_dir)
         except shutil.Error as e:
-            err_str = "Couldn't copy config file to {} ({})".format(dir, e)
+            err_str = ("Couldn't copy config file to {} ({})"
+                       .format(dest_dir, e))
             self.ivs2.logger.print_and_log(err_str)
 
     # -------------------------------------------------------------------------
@@ -1675,8 +1676,8 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         ivs.plot_dpi = default_dpi * (self.x_pixels/default_x_pixels)
         ivs.plot_graphs(self.args, csvp)
         png_file = ivs.plt_img_filename
-        (file, ext) = os.path.splitext(png_file)
-        gif_file = "{}.gif".format(file)
+        (filename, ext) = os.path.splitext(png_file)
+        gif_file = "{}.gif".format(filename)
         im = Image.open(png_file)
         im.save(gif_file)
         self.current_img = gif_file
@@ -3270,12 +3271,12 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             return
         self.create_run_info_file()
         if msg.startswith("ADS1115 (pyranometer photodiode)"):
-            str = self.translate_ads1115_msg_to_irradiance(msg)
+            info_str = self.translate_ads1115_msg_to_irradiance(msg)
         else:
-            str = msg
+            info_str = msg
         try:
             with open(self.run_info_filename, "a") as f:
-                f.write("{}".format(str))
+                f.write("{}".format(info_str))
         except (IOError, OSError) as e:
             self.logger.print_and_log("({})".format(e))
 
@@ -3339,20 +3340,21 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         ads1115_re_str += r"raw value: (-?\d+)"
         ads1115_re = re.compile(ads1115_re_str)
         match = ads1115_re.search(msg)
-        str = "Irradiance: ** ERROR **\n"
+        info_str = "Irradiance: ** ERROR **\n"
         if match:
             raw_val = int(match.group(1))
             mv, irr = self.convert_ads1115_val_to_w_per_m_squared(raw_val,
                                                                   True)
-            str = "Irradiance: {} W/m^2".format(irr)
+            info_str = "Irradiance: {} W/m^2".format(irr)
             self.scaled_photodiode_millivolts = mv
             self.irradiance = irr
             if self.photodiode_temp_scaling_factor != 1.0:
                 mv, irr = self.convert_ads1115_val_to_w_per_m_squared(raw_val,
                                                                       False)
-                str += " ({} @ {} deg C)".format(irr, self.photodiode_deg_c)
-            str += "\n"
-        return str
+                info_str += (" ({} @ {} deg C)"
+                             .format(irr, self.photodiode_deg_c))
+            info_str += "\n"
+        return info_str
 
     # -------------------------------------------------------------------------
     def convert_ads1115_val_to_w_per_m_squared(self, raw_val,
@@ -4283,34 +4285,36 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         # Find the bias battery CSV file. If one exists in the run
         # directory, use that.  Otherwise, copy the one from the Battery
         # directory to the run directory and then use it.
-        dir = self.hdd_output_dir
-        bb_files = glob.glob(glob_pattern.format(dir))
+        run_dir = self.hdd_output_dir
+        bb_files = glob.glob(glob_pattern.format(run_dir))
         bb_file_count = 0
         for f in bb_files:
             bias_battery_csv = f
             bb_file_count += 1
         if bb_file_count > 1:
             err_str = ("ERROR: There are multiple "
-                       "bias_batt_adc_pairs*.csv files in {}".format(dir))
+                       "bias_batt_adc_pairs*.csv files in {}".format(run_dir))
             self.logger.print_and_log(err_str)
         elif bb_file_count == 0:
-            dir = os.path.join(os.path.dirname(self.hdd_output_dir),
+            batt_dir = os.path.join(os.path.dirname(run_dir),
                                BATTERY_FOLDER_NAME)
-            bb_files = glob.glob(glob_pattern.format(dir))
+            bb_files = glob.glob(glob_pattern.format(batt_dir))
             for f in bb_files:
                 bias_battery_csv = f
                 bb_file_count += 1
             if bb_file_count > 1:
                 err_str = ("ERROR: There are multiple "
-                           "bias_batt_adc_pairs*.csv files in {}".format(dir))
+                           "bias_batt_adc_pairs*.csv files in {}"
+                           .format(batt_dir))
                 self.logger.print_and_log(err_str)
             elif bb_file_count == 0:
                 err_str = ("ERROR: There is no "
-                           "bias_batt_adc_pairs*.csv file in {}".format(dir))
+                           "bias_batt_adc_pairs*.csv file in {}"
+                           .format(batt_dir))
                 self.logger.print_and_log(err_str)
             else:
                 # Copy to run directory
-                shutil.copy(bias_battery_csv, self.hdd_output_dir)
+                shutil.copy(bias_battery_csv, run_dir)
                 # Recursive call will now find file in run dir
                 bias_battery_csv = self.get_bias_batt_csv()
                 return bias_battery_csv
@@ -4321,8 +4325,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """Method to remove old bias battery CSV file(s) from the parent
            directory"""
         glob_pattern = "{}/bias_batt_adc_pairs*.csv"
-        dir = os.path.dirname(self.hdd_output_dir)
-        bb_files = glob.glob(glob_pattern.format(dir))
+        run_dir = os.path.dirname(self.hdd_output_dir)
+        bb_files = glob.glob(glob_pattern.format(run_dir))
         for f in bb_files:
             self.clean_up_file(f)
 
@@ -4361,16 +4365,16 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         os.makedirs(self.hdd_output_dir)
 
     # -------------------------------------------------------------------------
-    def copy_file_to_parent(self, file):
+    def copy_file_to_parent(self, filename):
         """Method to copy a file to the IV_Swinger2 directory (parent of
            output directory)
         """
-        dir = os.path.dirname(self.hdd_output_dir)
+        run_dir = os.path.dirname(self.hdd_output_dir)
         try:
-            shutil.copy(file, dir)
+            shutil.copy(filename, run_dir)
         except shutil.Error as e:
             err_str = ("Couldn't copy {} to {} ({})"
-                       .format(file, dir, e))
+                       .format(filename, run_dir, e))
             self.logger.print_and_log(err_str)
 
     # -------------------------------------------------------------------------
@@ -4636,7 +4640,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         return restore_all_and_return(rc)
 
     # -------------------------------------------------------------------------
-    def get_csv_filenames(self, dir, date_time_str):
+    def get_csv_filenames(self, csv_dir, date_time_str):
         """Method to derive the names of the CSV files (ADC pairs and data
            points) and set the corresponding instance variables.
         """
@@ -4648,12 +4652,12 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                                                    date_time_str))
 
         # Get the full-path names of the HDD output files
-        unfiltered_adc_csv = os.path.join(dir,
+        unfiltered_adc_csv = os.path.join(csv_dir,
                                           unfiltered_adc_pairs_csv_leaf_name)
         self.hdd_unfiltered_adc_pairs_csv_filename = unfiltered_adc_csv
-        adc_csv = os.path.join(dir, adc_pairs_csv_leaf_name)
+        adc_csv = os.path.join(csv_dir, adc_pairs_csv_leaf_name)
         self.hdd_adc_pairs_csv_filename = adc_csv
-        csv = os.path.join(dir, csv_data_pt_leaf_name)
+        csv = os.path.join(csv_dir, csv_data_pt_leaf_name)
         self.hdd_csv_data_point_filename = csv
 
     # -------------------------------------------------------------------------
@@ -4774,37 +4778,37 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self.logger = IV_Swinger.PrintAndLog()
 
     # -------------------------------------------------------------------------
-    def clean_up_after_failure(self, dir):
+    def clean_up_after_failure(self, run_dir):
         """Method to remove the run directory after a failed run if it contains
            fewer than two files (which would be the ADC CSV file and
            the data points CSV file)
         """
-        files = glob.glob("{}/*".format(dir))
+        files = glob.glob("{}/*".format(run_dir))
         if len(files) < 2:
             for f in files:
                 self.clean_up_file(f)
-            if dir == os.getcwd():
+            if run_dir == os.getcwd():
                 os.chdir("..")
-            os.rmdir(dir)
-            msg_str = "Removed {}".format(dir)
+            os.rmdir(run_dir)
+            msg_str = "Removed {}".format(run_dir)
             self.logger.log(msg_str)
 
     # -------------------------------------------------------------------------
-    def clean_up_files(self, dir, loop_mode=False,
+    def clean_up_files(self, run_dir, loop_mode=False,
                        loop_save_results=False,
                        loop_save_graphs=False):
         """Method to remove all temporary files"""
         # Return without doing anything if directory doesn't exist
-        if not os.path.exists(dir):
+        if not os.path.exists(run_dir):
             return
 
         # Always remove the plt_ file(s)
-        plt_files = glob.glob("{}/plt_*".format(dir))
+        plt_files = glob.glob("{}/plt_*".format(run_dir))
         for f in plt_files:
             self.clean_up_file(f)
 
         # Always remove the PNG file(s)
-        png_files = glob.glob("{}/*.png".format(dir))
+        png_files = glob.glob("{}/*.png".format(run_dir))
         for f in png_files:
             self.clean_up_file(f)
 
@@ -4812,13 +4816,13 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if loop_mode:
             if not loop_save_results:
                 # Remove all files in loop directory
-                loop_files = glob.glob("{}/*".format(dir))
+                loop_files = glob.glob("{}/*".format(run_dir))
                 for f in loop_files:
                     self.clean_up_file(f)
                 # Remove the (now empty) directory
-                if dir == os.getcwd():
+                if run_dir == os.getcwd():
                     os.chdir("..")
-                os.rmdir(dir)
+                os.rmdir(run_dir)
 
             elif not loop_save_graphs:
                 # Remove GIF only

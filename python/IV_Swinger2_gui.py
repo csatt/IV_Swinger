@@ -224,18 +224,18 @@ DEBUG_MEMLEAK = False
 ########################
 #   Global functions   #
 ########################
-def debug_memleak(str):
+def debug_memleak(msg_str):
     """Global function to print the current memory usage at a given place in
        the code or point in time. Not supported on Windows.
     """
     if DEBUG_MEMLEAK:
         date_time_str = IV_Swinger2.get_date_time_str()
         print ("{}: Memory usage ({}): {}"
-               .format(date_time_str, str,
+               .format(date_time_str, msg_str,
                        resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
 
 
-def gen_dbg_str(str):
+def gen_dbg_str(msg_str):
     """Global function to use when debugging. The supplied string is
        returned, along with the file name and line number where it is
        found in the code.
@@ -244,7 +244,7 @@ def gen_dbg_str(str):
     fi = getframeinfo(cf)
     dbg_str = "DEBUG({}, line {}): {}".format(fi.filename,
                                               cf.f_back.f_lineno,
-                                              str)
+                                              msg_str)
     return dbg_str
 
 
@@ -1560,11 +1560,11 @@ value on the Arduino tab of Preferences
             delay_ms = self.props.loop_delay * 1000 - elapsed_ms
             if not self.props.loop_rate_limit or delay_ms <= 0:
                 delay_ms = 1
-            id = self.after(delay_ms,
-                            lambda: self.swing_loop(loop_mode=True,
-                                                    first_loop=False))
+            thread_id = self.after(delay_ms,
+                                   lambda: self.swing_loop(loop_mode=True,
+                                                           first_loop=False))
             # Captured id is used to cancel when stop button is pressed
-            self.swing_loop_id = id
+            self.swing_loop_id = thread_id
 
         # Save the config to capture current max x,y values
         self.save_config()
@@ -2667,10 +2667,10 @@ class ResultsWizard(tk.Toplevel):
         options["title"] = "Choose Folder"
         if self.master.win_sys == "aqua":  # Mac
             options["message"] = options["title"]
-        dir = tkFileDialog.askdirectory(**options)
+        new_dir = tkFileDialog.askdirectory(**options)
         self.master.mac_grayed_menu_workaround()
-        if dir:
-            self.results_dir = dir
+        if new_dir:
+            self.results_dir = new_dir
             self.populate_tree()
             if not self.tree.exists("overlays") and not self.dates:
                 # If there are no overlays or runs in the specified folder, but
@@ -2850,7 +2850,6 @@ class ResultsWizard(tk.Toplevel):
         self.copy_dest = tkFileDialog.askdirectory(**options)
         self.master.mac_grayed_menu_workaround()
         if not self.copy_dest:  # Cancel
-            print "HELLO"
             return RC_FAILURE
 
         # If leaf directory is named IV_Swinger2, assume the user meant
@@ -3189,8 +3188,8 @@ class ResultsWizard(tk.Toplevel):
         # replacing the .gif suffix.
         img = self.master.img_file
         if img is not None and os.path.exists(img):
-            (file, ext) = os.path.splitext(img)
-            pdf = "{}.pdf".format(file)
+            (basename, ext) = os.path.splitext(img)
+            pdf = "{}.pdf".format(basename)
             if self.master.props.overlay_mode:
                 # In overlay mode, the PDF is only generated when the Finished
                 # button is pressed, so we have to generate it "on demand" when
@@ -3779,10 +3778,10 @@ class ResultsWizard(tk.Toplevel):
         for csv_dir in selected_runs:
             dts = IV_Swinger2.extract_date_time_str(csv_dir)
             csv_files_found = 0
-            for file in os.listdir(csv_dir):
-                if (file.endswith("{}.csv".format(dts)) and
-                        "adc_pairs" not in file):
-                    csv_file_full_path = os.path.join(csv_dir, file)
+            for filename in os.listdir(csv_dir):
+                if (filename.endswith("{}.csv".format(dts)) and
+                        "adc_pairs" not in filename):
+                    csv_file_full_path = os.path.join(csv_dir, filename)
                     self.selected_csv_files.append(csv_file_full_path)
                     csv_files_found += 1
             if not csv_files_found:
@@ -4114,10 +4113,12 @@ Copyright (C) 2017-2019  Chris Satterlee
            chosen using the get_initial_log_file_name method. The
            selected file is then opened with the system file viewer.
         """
-        (dir, file) = os.path.split(self.master.ivs2.logger.log_file_name)
+        (log_dir,
+         log_file) = os.path.split(self.master.ivs2.logger.log_file_name)
         options = {}
         options["defaultextension"] = ".txt"
-        (initial_dir, initial_file) = self.get_initial_log_file_name(dir, file)
+        (initial_dir,
+         initial_file) = self.get_initial_log_file_name(log_dir, log_file)
         options["initialdir"] = initial_dir
         options["initialfile"] = initial_file
         options["parent"] = self.master
@@ -4129,7 +4130,7 @@ Copyright (C) 2017-2019  Chris Satterlee
         IV_Swinger2.sys_view_file(log_file)
 
     # -------------------------------------------------------------------------
-    def get_initial_log_file_name(self, dir, current_log):
+    def get_initial_log_file_name(self, log_dir, current_log):
         """Method to choose the most likely log file as the default selection
            for the view_log_file method.  If the config file name has a
            date_time_str in its name, we're in the Results Wizard, and
@@ -4146,7 +4147,7 @@ Copyright (C) 2017-2019  Chris Satterlee
         if os.path.isdir(cfg_dir_logs):
             search_dir = cfg_dir_logs
         else:
-            search_dir = dir
+            search_dir = log_dir
         if IV_Swinger2.is_date_time_str(cfg_dts):
             # Search list of log files, sorted newest to oldest
             for log_file in sorted(os.listdir(search_dir), reverse=True):
@@ -4156,7 +4157,7 @@ Copyright (C) 2017-2019  Chris Satterlee
                         if log_dts <= cfg_dts:  # older than or equal to
                             return (search_dir, log_file)
         # Default is the current log file
-        return (dir, current_log)
+        return (log_dir, current_log)
 
     # -------------------------------------------------------------------------
     def view_config_file(self):
@@ -5288,10 +5289,10 @@ class AdvCalDialog(Dialog):
        advanced current and the advanced voltage calibration dialogs.
     """
     # Initializer
-    def __init__(self, master=None, type="None"):
+    def __init__(self, master=None, cal_type="None"):
         self.master = master
-        self.type = type
-        title = "{} Calibration - advanced".format(self.type)
+        self.cal_type = cal_type
+        title = "{} Calibration - advanced".format(self.cal_type)
         self.relay_type = tk.StringVar()
         self.pt_1_uncal_value = tk.StringVar()
         self.pt_1_dmm_value = tk.StringVar()
@@ -5325,7 +5326,7 @@ class AdvCalDialog(Dialog):
     def type_is_current(self):
         """Method to test if the type attribute's value is "Current"
         """
-        if self.type == "Current":
+        if self.cal_type == "Current":
             return True
         return False
 
@@ -5719,11 +5720,11 @@ calibration request to Arduino
                 val_str = self.master.ivs2.get_adv_current_cal_amps()
             else:
                 val_str = self.master.ivs2.get_adv_voltage_cal_volts()
-        str = "Uncalibrated value:  {}".format(val_str)
+        label_str = "Uncalibrated value:  {}".format(val_str)
         if pt_1:
-            self.pt_1_uncal_value.set(str)
+            self.pt_1_uncal_value.set(label_str)
         else:
-            self.pt_2_uncal_value.set(str)
+            self.pt_2_uncal_value.set(label_str)
 
     # -------------------------------------------------------------------------
     def apply_pt_1_dmm_value(self, event=None):
@@ -5740,9 +5741,9 @@ for the DMM measured Point 1 value"""
                 tkmsg.showerror(message=error_msg)
                 return RC_FAILURE
             if event is None:
-                str = ("{} cal point 1 (uncal, dmm): {}, {:.6f}"
-                       .format(self.type, self.x1, self.y1))
-                self.master.ivs2.logger.log(str)
+                log_str = ("{} cal point 1 (uncal, dmm): {}, {:.6f}"
+                           .format(self.cal_type, self.x1, self.y1))
+                self.master.ivs2.logger.log(log_str)
         except ValueError:
             error_msg = """
 ERROR: A numerical value must be entered
@@ -5766,9 +5767,9 @@ for the DMM measured Point 2 value"""
                 tkmsg.showerror(message=error_msg)
                 return RC_FAILURE
             if event is None:
-                str = ("{} cal point 2 (uncal, dmm): {}, {:.6f}"
-                       .format(self.type, self.x2, self.y2))
-                self.master.ivs2.logger.log(str)
+                log_str = ("{} cal point 2 (uncal, dmm): {}, {:.6f}"
+                           .format(self.cal_type, self.x2, self.y2))
+                self.master.ivs2.logger.log(log_str)
         except ValueError:
             error_msg = """
 ERROR: A numerical value must be entered
@@ -5943,8 +5944,8 @@ doesn't look right. It should be between
                                           self.unit_abbrev)
         except ValueError:
             val_str = uncal_units_str
-        str = "Calibrated value:  {}".format(val_str)
-        self.test_cal_value.set(str)
+        label_str = "Calibrated value:  {}".format(val_str)
+        self.test_cal_value.set(label_str)
 
     # -------------------------------------------------------------------------
     def apply_test_dmm_value(self, event=None):
@@ -5967,9 +5968,10 @@ entering a DMM measured value"""
             self.test_dmm_units = float(self.test_dmm_value.get())
             self.update_test_err_val()
             uncal_units = float(uncal_units_str)
-            str = ("{} cal test (uncal, dmm): {}, {:.6f}"
-                   .format(self.type, uncal_units, self.test_dmm_units))
-            self.master.ivs2.logger.log(str)
+            log_str = ("{} cal test (uncal, dmm): {}, {:.6f}"
+                       .format(self.cal_type, uncal_units,
+                               self.test_dmm_units))
+            self.master.ivs2.logger.log(log_str)
         except ValueError:
             error_msg = """
 ERROR: A numerical value must be entered
@@ -5992,17 +5994,17 @@ for the DMM measured test value"""
             if test_dmm_milliunits != 0:
                 test_err_pct = ((test_cal_milliunits /
                                  test_dmm_milliunits) - 1) * 100
-                str = ("Error:  {}{} m{}  ({}{} %)"
-                       .format(err_sign, int(test_err_milliunits),
-                               self.unit_abbrev,
-                               err_sign, round(test_err_pct, 3)))
+                label_str = ("Error:  {}{} m{}  ({}{} %)"
+                             .format(err_sign, int(test_err_milliunits),
+                                     self.unit_abbrev,
+                                     err_sign, round(test_err_pct, 3)))
             else:
-                str = ("Error:  {}{} m{}  (infinite %)"
-                       .format(err_sign, int(test_err_milliunits),
-                               self.unit_abbrev))
+                label_str = ("Error:  {}{} m{}  (infinite %)"
+                             .format(err_sign, int(test_err_milliunits),
+                                     self.unit_abbrev))
         except TypeError:
-            str = "Error:  Unknown"
-        self.test_err.set(str)
+            label_str = "Error:  Unknown"
+        self.test_err.set(label_str)
 
     # -------------------------------------------------------------------------
     def validate(self):
@@ -6053,7 +6055,7 @@ class AdvCurrentCalDialog(AdvCalDialog):
     """
     # Initializer
     def __init__(self, master=None):
-        AdvCalDialog.__init__(self, master=master, type="Current")
+        AdvCalDialog.__init__(self, master=master, cal_type="Current")
 
 
 # Advanced voltage calibration dialog
@@ -6064,7 +6066,7 @@ class AdvVoltageCalDialog(AdvCalDialog):
     """
     # Initializer
     def __init__(self, master=None):
-        AdvCalDialog.__init__(self, master=master, type="Voltage")
+        AdvCalDialog.__init__(self, master=master, cal_type="Voltage")
 
 
 # Resistor values dialog class
