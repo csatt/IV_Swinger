@@ -1,6 +1,7 @@
 [BASIC]
 # Good variable names which should always be accepted, separated by a comma
 good-names=IV_Swinger,
+           IV_Swinger2,
            IV_Swinger2_gui,
            IV_Swinger2_plotter,
            IV_Swinger_extended,
