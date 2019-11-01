@@ -3695,16 +3695,18 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             test_ver_major = int(match.group(1))
             test_ver_minor = int(match.group(2))
             test_ver_patch = int(match.group(3))
-            if (self._arduino_ver_major < test_ver_major or
-                    (self._arduino_ver_major == test_ver_major and
-                     self._arduino_ver_minor < test_ver_minor) or
-                    (self._arduino_ver_major == test_ver_major and
-                     self._arduino_ver_minor == test_ver_minor and
-                     self._arduino_ver_patch < test_ver_patch)):
+            sketch_ver_lt = (self._arduino_ver_major < test_ver_major or
+                             (self._arduino_ver_major == test_ver_major and
+                              self._arduino_ver_minor < test_ver_minor) or
+                             (self._arduino_ver_major == test_ver_major and
+                              self._arduino_ver_minor == test_ver_minor and
+                              self._arduino_ver_patch < test_ver_patch))
+            sketch_ver_eq = (self._arduino_ver_major == test_ver_major and
+                             self._arduino_ver_minor == test_ver_minor and
+                             self._arduino_ver_patch == test_ver_patch)
+            if sketch_ver_lt:
                 return SKETCH_VER_LT
-            elif (self._arduino_ver_major == test_ver_major and
-                  self._arduino_ver_minor == test_ver_minor and
-                  self._arduino_ver_patch == test_ver_patch):
+            elif sketch_ver_eq:
                 return SKETCH_VER_EQ
             return SKETCH_VER_GT
         else:

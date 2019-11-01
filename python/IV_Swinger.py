@@ -1230,10 +1230,11 @@ class Interpolator(object):
                     # If the voltage or current are heading in a
                     # different direction than they are from p1 to p2,
                     # break and re-run with low alpha
-                    if ((v_p2_gt_v_p1 and v_b <= v_a) or
-                            (v_p2_lte_v_p1 and v_b > v_a) or
-                            (i_p2_gt_i_p1 and i_b <= i_a) or
-                            (i_p2_lte_i_p1 and i_b > i_a)):
+                    v_diff_dir = ((v_p2_gt_v_p1 and v_b <= v_a) or
+                                  (v_p2_lte_v_p1 and v_b > v_a))
+                    i_diff_dir = ((i_p2_gt_i_p1 and i_b <= i_a) or
+                                  (i_p2_lte_i_p1 and i_b > i_a))
+                    if v_diff_dir or i_diff_dir:
                         break
             else:  # no break
                 return p1_p2_points
