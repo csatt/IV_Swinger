@@ -907,7 +907,7 @@ class ScrollingMessage(StoppableThread):
            threading.Thread run() method.
         """
         text_list = [self.text]
-        if type(self.text) is list:
+        if isinstance(self.text, list):
             text_list = self.text
         while not self.stop_event.is_set():
             for text in text_list:
