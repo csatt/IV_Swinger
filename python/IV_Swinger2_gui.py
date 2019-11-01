@@ -418,6 +418,7 @@ class GraphicalUserInterface(ttk.Frame):
     """
     # pylint: disable=too-many-ancestors
     # pylint: disable=too-many-instance-attributes
+    # pylint: disable=too-many-public-methods
 
     # Initializer
     def __init__(self, app_data_dir=None):
@@ -2148,6 +2149,7 @@ class ResultsWizard(tk.Toplevel):
        not obvious.
     """
     # pylint: disable=too-many-instance-attributes
+    # pylint: disable=too-many-public-methods
 
     # Initializer
     def __init__(self, master=None):
@@ -3935,6 +3937,7 @@ class ResultsWizard(tk.Toplevel):
 class MenuBar(tk.Menu):
     """Class that implements the menu bar"""
     # pylint: disable=too-many-instance-attributes
+    # pylint: disable=too-many-public-methods
     
     # Initializer
     def __init__(self, master=None):
@@ -5344,6 +5347,7 @@ class AdvCalDialog(Dialog):
        advanced current and the advanced voltage calibration dialogs.
     """
     # pylint: disable=too-many-instance-attributes
+    # pylint: disable=too-many-public-methods
 
     # Initializer
     def __init__(self, master=None, cal_type="None"):
@@ -6571,6 +6575,7 @@ class PreferencesDialog(Dialog):
        the Preferences dialog
     """
     # pylint: disable=too-many-instance-attributes
+    # pylint: disable=too-many-public-methods
 
     # Initializer
     def __init__(self, master=None):

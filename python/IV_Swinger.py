@@ -1306,6 +1306,7 @@ class Interpolator(object):
 class IV_Swinger(object):
     """Main IV Swinger class"""
     # pylint: disable=too-many-instance-attributes
+    # pylint: disable=too-many-public-methods
 
     # Initializer
     def __init__(self):
