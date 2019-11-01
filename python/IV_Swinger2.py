@@ -83,8 +83,8 @@ import shutil
 import subprocess
 import sys
 import time
-from PIL import Image
 from inspect import currentframe, getframeinfo
+from PIL import Image
 import serial
 import serial.tools.list_ports
 try:
@@ -4297,7 +4297,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             self.logger.print_and_log(err_str)
         elif bb_file_count == 0:
             batt_dir = os.path.join(os.path.dirname(run_dir),
-                               BATTERY_FOLDER_NAME)
+                                    BATTERY_FOLDER_NAME)
             bb_files = glob.glob(glob_pattern.format(batt_dir))
             for f in bb_files:
                 bias_battery_csv = f
