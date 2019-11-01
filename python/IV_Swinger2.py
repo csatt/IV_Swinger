@@ -2982,6 +2982,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """Method to wait for the Arduino ready message, and send
            acknowledgement
         """
+        # pylint: disable=too-many-return-statements
 
         # Return immediately if ready flag is already set
         if self.arduino_ready:
@@ -4525,6 +4526,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            volts/amps/watts/ohms, and no plotting of results.
         """
         # pylint: disable=too-many-branches
+        # pylint: disable=too-many-return-statements
 
         # Generate the date/time string from the current time
         while True:
