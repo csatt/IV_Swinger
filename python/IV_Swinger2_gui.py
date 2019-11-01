@@ -516,7 +516,7 @@ The file name is near the top.
     def memory_monitor(self):
         """Method to run the debug_memleak global function once per second"""
         debug_memleak("memory_monitor")
-        self.after(1000, lambda: self.memory_monitor())
+        self.after(1000, self.memory_monitor)
 
     # -------------------------------------------------------------------------
     def get_version(self):
@@ -1146,13 +1146,13 @@ value on the Arduino tab of Preferences
                     self.go_button.state(["!disabled"])
                     self.go_button_status_label["text"] = "     Connected     "
                     self.after(1000,
-                               lambda: self.clear_go_button_status_label())
+                               self.clear_go_button_status_label)
                     self.check_arduino_sketch_version()
                     self.update_config_after_arduino_handshake()
                     return
 
         # If any of the above failed, try again in 1 second
-        self.after(1000, lambda: self.attempt_arduino_handshake())
+        self.after(1000, self.attempt_arduino_handshake)
 
     # -------------------------------------------------------------------------
     def clear_go_button_status_label(self):
@@ -1458,7 +1458,7 @@ value on the Arduino tab of Preferences
             self.go_button_status_label["text"] = "Not connected"
             self.reestablish_arduino_comm()
 
-        self.after(500, lambda: self.usb_monitor())
+        self.after(500, self.usb_monitor)
 
     # -------------------------------------------------------------------------
     def swing_loop(self, loop_mode=False, first_loop=False):
@@ -1820,7 +1820,7 @@ bias was actually applied.
            as early as possible if the hardware is connected when the
            app is started. This method blocks until the GUI is closed.
         """
-        self.after(100, lambda: self.attempt_arduino_handshake())
+        self.after(100, self.attempt_arduino_handshake)
         self.start_on_top()
         self.root.protocol("WM_DELETE_WINDOW", self.close_gui)
         self.root.mainloop()
