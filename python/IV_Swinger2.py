@@ -1214,6 +1214,8 @@ class Configuration(object):
         """Method to populate the ConfigParser object from the current
            property values
         """
+        # pylint: disable=too-many-statements
+
         # Start with a fresh ConfigParser object
         self.cfg = ConfigParser.SafeConfigParser()
 
@@ -1819,6 +1821,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     # Initializer
     def __init__(self, app_data_dir=None):
+        # pylint: disable=too-many-statements
         IV_Swinger.IV_Swinger.__init__(self)
         self.lcd = None
         self.ivp = None

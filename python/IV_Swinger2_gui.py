@@ -1170,6 +1170,7 @@ value on the Arduino tab of Preferences
            side-effects of the Arduino handshake: namely the USB port
            and the calibration values.
         """
+        # pylint: disable=too-many-statements
         config_changed = False
         # USB
         section = "USB"
@@ -5397,6 +5398,7 @@ class AdvCalDialog(Dialog):
            method)
         """
         # pylint: disable=too-many-locals
+        # pylint: disable=too-many-statements
         frame = ttk.Frame(master)
 
         # Add label with description text
@@ -6628,6 +6630,7 @@ class PreferencesDialog(Dialog):
     def populate_plotting_tab(self):
         """Method to add widgets to the Plotting tab"""
         # pylint: disable=too-many-locals
+        # pylint: disable=too-many-statements
         section = "Plotting"
         self.font_scale.set(self.master.config.cfg.getfloat(section,
                                                             "font scale"))
@@ -7070,6 +7073,7 @@ class PreferencesDialog(Dialog):
     def populate_arduino_tab(self):
         """Method to add widgets to the Arduino tab"""
         # pylint: disable=too-many-locals
+        # pylint: disable=too-many-statements
 
         # Add container box for widgets
         arduino_widget_box = ttk.Frame(master=self.arduino_tab, padding=20)
@@ -7490,6 +7494,7 @@ effect. Please upgrade.
     def plotting_apply(self):
         """Method to apply plotting config"""
         # pylint: disable=too-many-locals
+        # pylint: disable=too-many-statements
         section = "Plotting"
         # Line type
         linear = (self.interpolation_type.get() == "Linear")
@@ -7600,6 +7605,7 @@ effect. Please upgrade.
     def arduino_apply(self):
         """Method to apply Arduino config"""
         # pylint: disable=too-many-branches
+        # pylint: disable=too-many-statements
         arduino_opt_changed = False
         section = "Arduino"
         option = "spi clock div"

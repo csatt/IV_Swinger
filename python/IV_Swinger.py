@@ -795,6 +795,7 @@ class ScrollingMessage(StoppableThread):
            acquired.
         """
         # pylint: disable=too-many-branches
+        # pylint: disable=too-many-statements
 
         # Init variables
         char_count = [0, 0]  # List containing character counts for each line
@@ -1310,6 +1311,8 @@ class IV_Swinger(object):
 
     # Initializer
     def __init__(self):
+        # pylint: disable=too-many-statements
+
         # Property variables
         self._shutdown_on_exit = True
         self._fine_mode = True
@@ -2551,6 +2554,7 @@ class IV_Swinger(object):
            autoshutdown is to turn on the DPST switch.
         """
         # pylint: disable=too-many-locals
+        # pylint: disable=too-many-statements
 
         # Initialize variables
         voc_volts = 0
@@ -2859,6 +2863,7 @@ class IV_Swinger(object):
         """
         # pylint: disable=too-many-branches
         # pylint: disable=too-many-locals
+        # pylint: disable=too-many-statements
 
         # Diag mode - activate each relay alone
         if self.diag_mode:
@@ -3623,6 +3628,7 @@ class IV_Swinger(object):
         # pylint: disable=too-many-arguments
         # pylint: disable=too-many-branches
         # pylint: disable=too-many-locals
+        # pylint: disable=too-many-statements
 
         fontsize = self.mpplabel_fontsize * self.font_scale
         max_mpp_volts = max(mpp_volts)
@@ -4261,6 +4267,7 @@ class IV_Swinger(object):
         """
         # pylint: disable=too-many-branches
         # pylint: disable=too-many-locals
+        # pylint: disable=too-many-statements
 
         # Update tentative USB drives list
         _usb_drives = self.find_usb_drives(wait=False, display=False)
@@ -4390,6 +4397,7 @@ class IV_Swinger(object):
         """
         # pylint: disable=too-many-branches
         # pylint: disable=too-many-locals
+        # pylint: disable=too-many-statements
 
         # Create ADS1115 ADC instance
         adc = Adafruit_ADS1x15.ADS1x15(ic=ADS1115)
