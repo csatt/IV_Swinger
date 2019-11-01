@@ -2697,9 +2697,9 @@ class IV_Swinger(object):
                              .format(retry_count, load_pattern))
                 self.logger.print_and_log(print_str)
                 time.sleep(self.time_between_measurements)
-                self.set_relays_to_pattern(load_pattern, io_extender)
+                set_relays_to_pattern(load_pattern, io_extender)
                 time.sleep(self.time_between_measurements)
-                self.set_relays_to_pattern(load_pattern, io_extender)
+                set_relays_to_pattern(load_pattern, io_extender)
                 time.sleep(self.time_between_measurements)
                 amm_volts = self.read_adc(adc, self.amm_chp,
                                           self.amm_chn, 6144)
@@ -2762,14 +2762,14 @@ class IV_Swinger(object):
         # Set the OPEN bit in the load_pattern passed in and apply that
         # to the relays
         load_pattern |= OPEN_ONLY
-        self.set_relays_to_pattern(load_pattern, io_extender)
+        set_relays_to_pattern(load_pattern, io_extender)
 
         # Wait a short time
         time.sleep(self.time_between_measurements)
 
         # Turn off all other relays, leaving only the OPEN relay
         # activated
-        self.set_relays_to_pattern(OPEN_ONLY, io_extender)
+        set_relays_to_pattern(OPEN_ONLY, io_extender)
 
         # Wait a short time
         time.sleep(self.time_between_measurements)
@@ -4529,9 +4529,9 @@ class IV_Swinger(object):
                                               data_points)
 
                 # Write the plotter data points to the SD card files
-                self.write_plt_data_points_to_file(sd_plt_data_point_filename,
-                                                   data_points,
-                                                   new_data_set=False)
+                write_plt_data_points_to_file(sd_plt_data_point_filename,
+                                              data_points,
+                                              new_data_set=False)
 
                 # Create an interpolator object with the data_points
                 interpolator = Interpolator(data_points)
@@ -4546,9 +4546,9 @@ class IV_Swinger(object):
 
                 # Add the interpolated data set to the plotter data
                 # point file
-                self.write_plt_data_points_to_file(sd_plt_data_point_filename,
-                                                   interp_points,
-                                                   new_data_set=True)
+                write_plt_data_points_to_file(sd_plt_data_point_filename,
+                                              interp_points,
+                                              new_data_set=True)
 
                 # Extract the MPP values
                 mpp_amps = interpolated_mpp[AMPS_INDEX]
