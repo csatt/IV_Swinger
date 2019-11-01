@@ -500,6 +500,7 @@ permission to create files in
            icon. We at least need it to get logged and also to inform
            the user.
         """
+        # pylint: disable=unused-argument
         self.ivs2.logger.print_and_log("Unexpected error: {}"
                                        .format(sys.exc_info()[0]))
         self.ivs2.logger.print_and_log(traceback.format_exc())
@@ -1384,6 +1385,7 @@ value on the Arduino tab of Preferences
     # -------------------------------------------------------------------------
     def show_preferences(self, event=None):
         """Method to open the Preferences dialog"""
+        # pylint: disable=unused-argument
         if self.preferences_button.instate(["disabled"]):
             # Mystery why this is necessary ...
             return
@@ -1406,6 +1408,7 @@ value on the Arduino tab of Preferences
     # -------------------------------------------------------------------------
     def results_actions(self, event=None):
         """Method to open the Results Wizard"""
+        # pylint: disable=unused-argument
         if (self.results_wiz is None and
                 not self.results_button.instate(["disabled"])):
             self.results_wiz = ResultsWizard(self)
@@ -1640,6 +1643,8 @@ value on the Arduino tab of Preferences
         """Method to stop looping and restore the normal buttons and
            bindings
         """
+        # pylint: disable=unused-argument
+
         # Restore normal bindings of return key and space bar
         self.root.bind("<Return>", self.go_actions)
         self.root.bind("<space>", self.go_actions)
@@ -2454,6 +2459,8 @@ class ResultsWizard(tk.Toplevel):
     def done(self, event=None):
         """Method called when wizard is closed
         """
+        # pylint: disable=unused-argument
+
         # If we're in overlay mode ask user if they want to save the
         # overlay
         if self.master.props.overlay_mode:
@@ -2503,6 +2510,7 @@ class ResultsWizard(tk.Toplevel):
     # -------------------------------------------------------------------------
     def select(self, event=None):
         """Method to handle a select event from the Treeview"""
+        # pylint: disable=unused-argument
         selections = self.tree.selection()
         if not selections:
             return
@@ -2661,6 +2669,7 @@ class ResultsWizard(tk.Toplevel):
         """Method to handle the change folder event (click on treeview
            column heading)
         """
+        # pylint: disable=unused-argument
         options = {}
         options["initialdir"] = self.results_dir
         options["parent"] = self.master
@@ -2708,6 +2717,8 @@ class ResultsWizard(tk.Toplevel):
     def make_shortcut(self, event=None):
         """Method to create a desktop shortcut to the app data folder
         """
+        # pylint: disable=unused-argument
+
         # Find path to Desktop
         desktop_path = os.path.expanduser(os.path.join("~", "Desktop"))
         if not os.path.exists(desktop_path):
@@ -2775,6 +2786,8 @@ class ResultsWizard(tk.Toplevel):
     # -------------------------------------------------------------------------
     def import_results(self, event=None):
         """Method to import results to app data folder"""
+        # pylint: disable=unused-argument
+
         # Get the selected run(s) from the Treeview
         import_runs = self.get_selected_runs()
 
@@ -2826,6 +2839,8 @@ class ResultsWizard(tk.Toplevel):
         """Method to expand/open all Treeview date groupings (click on
            button)
         """
+        # pylint: disable=unused-argument
+
         for date in self.dates:
             self.tree.item(date, open=True)
 
@@ -2834,6 +2849,8 @@ class ResultsWizard(tk.Toplevel):
         """Method to collapse/close all Treeview date groupings (click
            on button)
         """
+        # pylint: disable=unused-argument
+
         for date in self.dates:
             self.tree.item(date, open=False)
 
@@ -2870,6 +2887,8 @@ class ResultsWizard(tk.Toplevel):
         """Method to send the selected runs and/or overlays to the
            trash
         """
+        # pylint: disable=unused-argument
+
         # Get the selected run(s) from the Treeview
         selected_runs = self.get_selected_runs()
 
@@ -2925,6 +2944,8 @@ class ResultsWizard(tk.Toplevel):
         """Method to copy the selected runs and/or overlays (to a USB
            drive or elsewhere)
         """
+        # pylint: disable=unused-argument
+
         # Get the selected run(s) from the Treeview
         selected_runs = self.get_selected_runs()
 
@@ -3119,6 +3140,7 @@ class ResultsWizard(tk.Toplevel):
         """Method to change the title of the selected run or of the
            current overlay
         """
+        # pylint: disable=unused-argument
         if self.master.props.overlay_mode:
             prompt_title_str = "Change overlay title"
             prompt_str = "Enter new overlay title"
@@ -3183,6 +3205,8 @@ class ResultsWizard(tk.Toplevel):
         """Method to view the PDF when the View PDF button
            is pressed.
         """
+        # pylint: disable=unused-argument
+
         # If there is a PDF, it has the same name as the image being
         # displayed in the image pane, but with a .pdf suffix
         # replacing the .gif suffix.
@@ -3216,6 +3240,8 @@ class ResultsWizard(tk.Toplevel):
         """Method to update the selected runs when the Update button
            is pressed.
         """
+        # pylint: disable=unused-argument
+
         # Display error dialog and return if any overlays are selected
         selected_overlays = self.get_selected_overlays()
         if selected_overlays:
@@ -3297,6 +3323,8 @@ class ResultsWizard(tk.Toplevel):
     def overlay_runs(self, event=None):
         """Method to overlay the selected runs
         """
+        # pylint: disable=unused-argument
+
         # Get the selected run(s) from the Treeview
         # Sort in oldest-to-newest order
         self.overlaid_runs = self.get_selected_runs(include_whole_days=False)
@@ -3535,6 +3563,7 @@ class ResultsWizard(tk.Toplevel):
     def overlay_label_changed_actions(self, event=None):
         """Method for changes to the overlay label checkbuttons
         """
+        # pylint: disable=unused-argument
         self.plot_overlay_and_display()
 
     # -------------------------------------------------------------------------
@@ -3590,6 +3619,7 @@ class ResultsWizard(tk.Toplevel):
            when the heading is clicked. Order reverses each time it is
            called.
         """
+        # pylint: disable=unused-argument
         self.sort_overlaid_runs(chron=True)
         self.populate_overlay_treeview(self.overlaid_runs)
         self.reorder_selected_csv_files()
@@ -3600,6 +3630,7 @@ class ResultsWizard(tk.Toplevel):
         """Method to display a help dialog if the column 1 heading (Name) is
            clicked.
         """
+        # pylint: disable=unused-argument
         help_str = ("Double-click items below to rename.\n"
                     "Drag items to change order.")
         tkmsg_showinfo(self.master, message=help_str)
@@ -3643,6 +3674,7 @@ class ResultsWizard(tk.Toplevel):
         """Method to update the order of the overlay curves after a
            drag-and-drop
         """
+        # pylint: disable=unused-argument
         if self.overlays_reordered:
             self.reorder_selected_csv_files()
             self.plot_overlay_and_display()
@@ -3692,6 +3724,7 @@ class ResultsWizard(tk.Toplevel):
         """Method to display overlay help dialog when the Help button
            is pressed.
         """
+        # pylint: disable=unused-argument
         OverlayHelpDialog(self.master)
 
     # -------------------------------------------------------------------------
@@ -3700,6 +3733,8 @@ class ResultsWizard(tk.Toplevel):
            Overlay mode is exited and the widgets are removed. The runs
            are left selected.
         """
+        # pylint: disable=unused-argument
+
         # Exit overlay mode and remove widgets
         self.master.props.overlay_mode = False
         self.overlay_title = None
@@ -3724,6 +3759,8 @@ class ResultsWizard(tk.Toplevel):
            and made visible, with the assumption that the user's next
            action will be to copy the overlay files.
         """
+        # pylint: disable=unused-argument
+
         # Generate the PDF
         self.plot_graphs_to_pdf()
 
@@ -4530,6 +4567,7 @@ class Dialog(tk.Toplevel):
     # -------------------------------------------------------------------------
     def ok(self, event=None):
         """Method that runs when the OK button is pressed"""
+        # pylint: disable=unused-argument
         if not self.validate():
             return
         self.withdraw()
@@ -4540,6 +4578,7 @@ class Dialog(tk.Toplevel):
     # -------------------------------------------------------------------------
     def cancel(self, event=None):
         """Method that runs when the Cancel button is pressed"""
+        # pylint: disable=unused-argument
         self.revert()
         self.close()
 
@@ -4576,6 +4615,8 @@ class Dialog(tk.Toplevel):
     # -------------------------------------------------------------------------
     def close(self, event=None):
         """Method to close the dialog"""
+        # pylint: disable=unused-argument
+
         # put focus back to the master window
         self.master.focus_set()
         self.destroy()
@@ -5781,6 +5822,8 @@ for the DMM measured Point 2 value"""
            uncalibrated and measured values of point 1 and point 2 and
            to update their values in the entry boxes.
         """
+        # pylint: disable=unused-argument
+
         # Check that both points have been measured by the hardware
         if self.x1 == "Unknown" or self.x2 == "Unknown":
             error_msg = """
@@ -5839,6 +5882,7 @@ good results"""
         """Method to get the maunually entered value from the slope
            entry box
         """
+        # pylint: disable=unused-argument
         try:
             m = float(self.slope.get())
             if m != self.m:
@@ -5880,6 +5924,7 @@ doesn't look right. It should be between
         """Method to get the maunually entered value from the
            intercept entry box
         """
+        # pylint: disable=unused-argument
         try:
             b = float(self.intercept.get())
             if b != self.b:
@@ -5951,6 +5996,7 @@ doesn't look right. It should be between
            and update the test error label if it is a valid floating
            point number
         """
+        # pylint: disable=unused-argument
         if self.test_cal_units == "Unknown":
             error_msg = """
 ERROR: The test must be run before
@@ -6166,6 +6212,7 @@ class ResistorValuesDialog(Dialog):
     # -------------------------------------------------------------------------
     def restore_defaults(self, event=None):
         """Method to restore resistor values to defaults"""
+        # pylint: disable=unused-argument
         self.r1_str.set(str(R1_DEFAULT))
         self.r2_str.set(str(R2_DEFAULT))
         self.rf_str.set(str(RF_DEFAULT))
@@ -6884,6 +6931,7 @@ class PreferencesDialog(Dialog):
     # -------------------------------------------------------------------------
     def turn_off_batt_bias(self, event=None):
         """Method to turn off battery bias mode"""
+        # pylint: disable=unused-argument
         series_res_comp_ohms = self.master.ivs2.series_res_comp
         series_res_comp_milliohms = round(series_res_comp_ohms * 1000.0, 3)
         self.series_res_comp_milliohms_str.set(series_res_comp_milliohms)
@@ -6892,6 +6940,7 @@ class PreferencesDialog(Dialog):
     # -------------------------------------------------------------------------
     def turn_on_batt_bias(self, event=None):
         """Method to turn on battery bias mode"""
+        # pylint: disable=unused-argument
         series_res_comp_ohms = self.master.ivs2.bias_series_res_comp
         series_res_comp_milliohms = round(series_res_comp_ohms * 1000.0, 3)
         self.series_res_comp_milliohms_str.set(series_res_comp_milliohms)
@@ -6900,11 +6949,13 @@ class PreferencesDialog(Dialog):
     # -------------------------------------------------------------------------
     def apply_new_series_res_comp(self, event=None):
         """Method to apply new series resistance compensation value"""
+        # pylint: disable=unused-argument
         self.immediate_apply()
 
     # -------------------------------------------------------------------------
     def restore_plotting_defaults(self, event=None):
         """Method to restore Plotting tab values to defaults"""
+        # pylint: disable=unused-argument
         self.fancy_labels.set(str(FANCY_LABELS_DEFAULT))
         self.interpolation_type.set(str(INTERPOLATION_TYPE_DEFAULT))
         self.font_scale.set(str(FONT_SCALE_DEFAULT))
@@ -7165,6 +7216,7 @@ class PreferencesDialog(Dialog):
     # -------------------------------------------------------------------------
     def restore_arduino_defaults(self, event=None):
         """Method to restore Arduino tab values to defaults"""
+        # pylint: disable=unused-argument
         self.spi_clk_str.set(str(SPI_COMBO_VALS[SPI_CLK_DEFAULT]))
         self.max_iv_points_str.set(str(MAX_IV_POINTS_DEFAULT))
         self.min_isc_adc_str.set(str(MIN_ISC_ADC_DEFAULT))
@@ -7236,6 +7288,7 @@ effect. Please upgrade.
         """Method to emulate a resolution of 0.05 for font scale
            slider (no resolution option in ttk Scale class)
         """
+        # pylint: disable=unused-argument
         new_val = round(20.0*float(self.font_scale.get()))/20.0
         self.font_scale.set(str(new_val))
 
@@ -7244,6 +7297,7 @@ effect. Please upgrade.
         """Method to emulate a resolution of 0.05 for line scale
            slider (no resolution option in ttk Scale class)
         """
+        # pylint: disable=unused-argument
         new_val = round(20.0*float(self.line_scale.get()))/20.0
         self.line_scale.set(str(new_val))
 
@@ -7252,6 +7306,7 @@ effect. Please upgrade.
         """Method to emulate a resolution of 0.05 for point scale
            slider (no resolution option in ttk Scale class)
         """
+        # pylint: disable=unused-argument
         new_val = round(20.0*float(self.point_scale.get()))/20.0
         self.point_scale.set(str(new_val))
 
@@ -8109,6 +8164,8 @@ class PlotPower(ttk.Checkbutton):
     # -------------------------------------------------------------------------
     def update_plot_power(self, event=None):
         """Method to update and apply the plot power option"""
+        # pylint: disable=unused-argument
+
         # Replace config from saved config of displayed image
         run_dir = self.master.ivs2.hdd_output_dir
         config_dir = os.path.dirname(self.master.config.cfg_filename)
@@ -8149,7 +8206,7 @@ class LockAxes(ttk.Checkbutton):
     """Class that implements the Checkbutton widget used to lock the axis ranges
     """
     # Initializer
-    def __init__(self, master=None, gui=None, variable=None, ivs2=None):
+    def __init__(self, master=None, gui=None, variable=None):
         ttk.Checkbutton.__init__(self, master=master, text="Lock",
                                  command=self.update_axis_lock,
                                  variable=variable,
@@ -8160,6 +8217,7 @@ class LockAxes(ttk.Checkbutton):
     # -------------------------------------------------------------------------
     def update_axis_lock(self, event=None):
         """Method to update and apply the axis lock"""
+        # pylint: disable=unused-argument
         axes_are_locked = (self.axes_locked.get() == "Lock")
         # Update IVS2 property
         self.gui.ivs2.plot_lock_axis_ranges = axes_are_locked
@@ -8196,6 +8254,7 @@ class LoopMode(ttk.Checkbutton):
     # -------------------------------------------------------------------------
     def update_loop_mode(self, event=None):
         """Method to update and apply the loop mode option"""
+        # pylint: disable=unused-argument
         if self.loop_mode.get() == "On":
             self.gui.loop_mode.set("On")
             self.gui.props.loop_mode_active = True
@@ -8251,6 +8310,7 @@ class LoopRateLimit(ttk.Checkbutton):
     # -------------------------------------------------------------------------
     def update_loop_rate_limit(self, event=None):
         """Method to update and apply the loop rate limit option"""
+        # pylint: disable=unused-argument
         if self.value_label_obj is not None:
             self.value_label_obj.destroy()
         if self.loop_rate_limit.get() == "On":
@@ -8307,6 +8367,7 @@ class LoopSaveResults(ttk.Checkbutton):
     # -------------------------------------------------------------------------
     def update_loop_save_results(self, event=None):
         """Method to update and apply the loop save results options"""
+        # pylint: disable=unused-argument
         if self.value_label_obj is not None:
             self.value_label_obj.destroy()
         if self.loop_save_results.get() == "On":

@@ -63,6 +63,7 @@ class Tooltip(object):
     def on_enter(self, event=None):
         """Method to perform actions when mouse pointer enters the widget
         """
+        # pylint: disable=unused-argument
         self.schedule()
         total_staytime = self.staytime * max(len(self.text), 30)
         canceltime = self.waittime + total_staytime
@@ -71,6 +72,7 @@ class Tooltip(object):
     def on_leave(self, event=None):
         """Method to perform actions when mouse pointer leaves the widget
         """
+        # pylint: disable=unused-argument
         self.unschedule()
         self.hide()
 

@@ -2330,6 +2330,7 @@ class IV_Swinger(object):
     def pushbutton_callback(self, channel):
         """Callback method invoked when the pushbutton switch is pressed
         """
+        # pylint: disable=unused-argument
 
         # Filter out phantom presses
         if GPIO.input(self.button_gpio) == BUTTON_OFF:
@@ -3139,8 +3140,7 @@ class IV_Swinger(object):
             self.plot_and_label_voc(voc_volts, None, None, None)
 
             # Plot the measured points and the interpolated curves
-            self.plot_points_and_curves(data_filenames, mpp_amps,
-                                        mpp_volts)
+            self.plot_points_and_curves(data_filenames, mpp_volts)
 
             # If not in headless mode, open interactive display
             if not self.headless_mode:
@@ -3239,8 +3239,7 @@ class IV_Swinger(object):
         self.display_grid()
 
         # Plot the measured points and the interpolated curves
-        self.plot_points_and_curves(sd_data_point_filenames, mpp_amps,
-                                    mpp_volts)
+        self.plot_points_and_curves(sd_data_point_filenames, mpp_volts)
 
         # Plot and label Isc, MPP and Voc
         self.plot_labeled_points(isc_amps, mpp_amps, mpp_volts, voc_volts)
@@ -3729,8 +3728,7 @@ class IV_Swinger(object):
         self.filehandle.write(output_line)
 
     # -------------------------------------------------------------------------
-    def plot_points_and_curves(self, sd_data_point_filenames, mpp_amps,
-                               mpp_volts):
+    def plot_points_and_curves(self, sd_data_point_filenames, mpp_volts):
         """Method to read the data in each data point file and use
            pyplot to plot the measured and interpolated curves
         """
@@ -4061,7 +4059,7 @@ class IV_Swinger(object):
            "wait" arg is set to True and no USB drives are found, prompt
            the user and wait until one is inserted (or time out).
         """
-        def find_usb_drives_inner(self):
+        def find_usb_drives_inner():
             """Local function to find all USB drives and return the list.  USB
                drives look like directories under /media.  But there could
                be directories under /media that are not USB drives.  So
