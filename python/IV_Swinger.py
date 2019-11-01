@@ -645,6 +645,7 @@ class PrintAndLog(object):
 # The BeepGenerator class
 class BeepGenerator(object):
     """Generates beeps from the piezo buzzer"""
+    # pylint: disable=too-few-public-methods
 
     # Class variables (must be set externally before instantiation)
     buzzer_gpio = None

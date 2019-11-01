@@ -337,6 +337,7 @@ class CsvParser(object):
     """Class to parse an IV Swinger-created CSV file and translate it to
        (I, V, R, P) tuple data points.
     """
+    # pylint: disable=too-few-public-methods
     def __init__(self, csv_filename, logger=None):
         self.csv_filename = csv_filename
         self.logger = logger
