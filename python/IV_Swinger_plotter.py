@@ -387,6 +387,7 @@ class IV_Swinger_extended(IV_Swinger.IV_Swinger):
        curves on one graph, and more.
 
     """
+    # pylint: disable=too-many-instance-attributes
     def __init__(self):
         IV_Swinger.IV_Swinger.__init__(self)
         self._data_points = []
