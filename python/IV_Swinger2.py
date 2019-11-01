@@ -92,7 +92,7 @@ try:
     from AppKit import NSSearchPathForDirectoriesInDomains as get_mac_dir
     from AppKit import NSApplicationSupportDirectory as mac_app_sup_dir
     from AppKit import NSUserDomainMask as mac_domain_mask
-except:
+except ImportError:
     pass
 import IV_Swinger
 import IV_Swinger_plotter

@@ -1094,7 +1094,7 @@ value on the Arduino tab of Preferences
             self.ivs2.plot_max_x = float(self.v_range.get())
             self.ivs2.plot_max_y = float(self.i_range.get())
             event.widget.tk_focusNext().focus()  # move focus out
-        except:
+        except ValueError:
             # Silently reject invalid values
             pass
         self.update_axis_ranges()
@@ -2747,7 +2747,7 @@ class ResultsWizard(tk.Toplevel):
                     shortcut.TargetPath = self.master.ivs2.app_data_dir
                     shortcut.Save()
                     result = "CREATED"
-            except:
+            except:  # pylint: disable=bare-except
                 result = "FAILED"
         else:
             # For Mac or Linux, just create a symlink
@@ -2763,7 +2763,7 @@ class ResultsWizard(tk.Toplevel):
                     os.symlink(self.master.ivs2.app_data_dir,
                                desktop_shortcut_path)
                     result = "CREATED"
-                except:
+                except:  # pylint: disable=bare-except
                     result = "FAILED"
 
         if result == "CREATED":
@@ -7278,7 +7278,7 @@ effect. Please upgrade.
         """Method to apply configuration immediately"""
         try:
             event.widget.tk_focusNext().focus()  # move focus out
-        except:
+        except:  # pylint: disable=bare-except
             pass
         self.update_idletasks()
         self.apply()
@@ -8410,7 +8410,7 @@ def main():
     try:
         gui = GraphicalUserInterface()
         gui.run()
-    except:
+    except:  # pylint: disable=bare-except
         handle_early_exception()
 
 

@@ -913,7 +913,7 @@ class ScrollingMessage(StoppableThread):
             for text in text_list:
                 try:
                     self.scrolling_message(text, repeat_count=0)
-                except:
+                except:  # pylint: disable=bare-except
                     self.logger.print_and_log("Unexpected error: {}"
                                               .format(sys.exc_info()[0]))
                     self.logger.print_and_log(traceback.format_exc())
