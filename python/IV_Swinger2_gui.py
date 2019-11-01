@@ -1478,6 +1478,7 @@ value on the Arduino tab of Preferences
            This is essential in order for the GUI not to lock up.
 
         """
+        # pylint: disable=too-many-statements
         def show_error_dialog_clean_up_and_return(rc):
             """Local function to show an error dialog and clean up after a
                failure
@@ -3939,7 +3940,7 @@ class MenuBar(tk.Menu):
     """Class that implements the menu bar"""
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-many-public-methods
-    
+
     # Initializer
     def __init__(self, master=None):
         tk.Menu.__init__(self, master=master)
