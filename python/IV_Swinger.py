@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """IV Swinger control module"""
+# pylint: disable=too-many-lines
 #
 ###############################################################################
 #
