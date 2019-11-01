@@ -79,14 +79,14 @@ import io
 import math
 import os
 import re
-import serial
-import serial.tools.list_ports
 import shutil
 import subprocess
 import sys
 import time
 from PIL import Image
 from inspect import currentframe, getframeinfo
+import serial
+import serial.tools.list_ports
 try:
     # Mac only
     from AppKit import NSSearchPathForDirectoriesInDomains as get_mac_dir

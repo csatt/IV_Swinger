@@ -169,7 +169,6 @@ import Queue
 import datetime as dt
 import glob
 import math
-import numpy
 import os
 import re
 import shutil
@@ -178,6 +177,7 @@ import sys
 import threading
 import time
 import traceback
+import numpy
 
 # Conditionally import RPi-specific modules. This is so this module can
 # be imported on other platforms for post-processing the output files.

@@ -107,15 +107,15 @@ import Tkinter as tk
 import tkFileDialog
 import tkFont
 import tkMessageBox as tkmsg
-import myTkSimpleDialog as tksd
 import traceback
 from ScrolledText import ScrolledText as ScrolledText
 from Tkconstants import N, S, E, W, LEFT, RIGHT, HORIZONTAL, Y, BOTH
-from PIL import Image, ImageTk
-from send2trash import send2trash
-import IV_Swinger2
-from Tooltip import Tooltip
 from inspect import currentframe, getframeinfo
+from send2trash import send2trash
+from PIL import Image, ImageTk
+from Tooltip import Tooltip
+import myTkSimpleDialog as tksd
+import IV_Swinger2
 
 #################
 #   Constants   #
