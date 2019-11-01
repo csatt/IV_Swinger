@@ -319,7 +319,7 @@ class CommandLineProcessor(object):
                 if os.path.isfile(arg):
                     self._csv_files.append(arg)
                 elif os.path.isdir(arg):
-                    for (dirpath, dirnames, filenames) in os.walk(arg):
+                    for (dirpath, _, filenames) in os.walk(arg):
                         for filename in sorted(filenames):
                             full_path_filename = os.path.join(dirpath,
                                                               filename)

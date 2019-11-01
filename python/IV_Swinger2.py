@@ -480,7 +480,7 @@ def noise_reduction(adc_pairs, starting_rot_thresh=5.0,
     adc_pairs_nr = adc_pairs[:]
     num_points = len(adc_pairs)
     rot_thresh = starting_rot_thresh
-    for ii in xrange(max_iterations):
+    for _ in xrange(max_iterations):
         # Calculate the distance (in points) of the "far" points for
         # the inflection comparison.  It is 1/20 of the total number
         # of points, but always at least 2.
@@ -1676,7 +1676,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         ivs.plot_dpi = default_dpi * (self.x_pixels/default_x_pixels)
         ivs.plot_graphs(self.args, csvp)
         png_file = ivs.plt_img_filename
-        (filename, ext) = os.path.splitext(png_file)
+        (filename, _) = os.path.splitext(png_file)
         gif_file = "{}.gif".format(filename)
         im = Image.open(png_file)
         im.save(gif_file)
@@ -4072,7 +4072,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            compensation adjustment.
         """
         self.data_points = []
-        for pair_num, adc_pair in enumerate(adc_pairs):
+        for _, adc_pair in enumerate(adc_pairs):
             amps = adc_pair[1] * self.i_mult
             if adc_pair[0] == 0:
                 # never shift Isc point

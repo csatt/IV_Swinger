@@ -3735,7 +3735,7 @@ class IV_Swinger(object):
         if self.use_gnuplot:
             (measured_volts,
              measured_amps,
-             measured_watts,
+             _,
              interp_volts,
              interp_amps,
              interp_watts) = (0, 0, 0, 0, 0, 0)  # Not used
@@ -3746,7 +3746,7 @@ class IV_Swinger(object):
                     # Read points from the file
                     (measured_volts,
                      measured_amps,
-                     measured_watts,
+                     _,
                      interp_volts,
                      interp_amps,
                      interp_watts) = read_measured_and_interp_points(f)
@@ -4093,7 +4093,7 @@ class IV_Swinger(object):
             return usb_drives
 
         # Find USB drives
-        usb_drives = self.find_usb_drives_inner()
+        usb_drives = find_usb_drives_inner()
 
         # If there are no USB drives, print warning and loop waiting for one
         # to be inserted
@@ -4141,7 +4141,7 @@ class IV_Swinger(object):
                     break
 
                 # Check again
-                usb_drives = self.find_usb_drives_inner()
+                usb_drives = find_usb_drives_inner()
                 if usb_drives:
                     display = True
                     lcd_msg.stop()

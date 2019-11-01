@@ -3212,7 +3212,7 @@ class ResultsWizard(tk.Toplevel):
         # replacing the .gif suffix.
         img = self.master.img_file
         if img is not None and os.path.exists(img):
-            (basename, ext) = os.path.splitext(img)
+            (basename, _) = os.path.splitext(img)
             pdf = "{}.pdf".format(basename)
             if self.master.props.overlay_mode:
                 # In overlay mode, the PDF is only generated when the Finished
@@ -5527,7 +5527,7 @@ calibration values before committing them."""
 
         # Layout
         separators = [ttk.Separator(master=frame, orient=HORIZONTAL)
-                      for ii in range(6)]
+                      for _ in range(6)]
         row = 0
         sp = 0
         desc_label.grid(column=0, row=row, sticky=W)
