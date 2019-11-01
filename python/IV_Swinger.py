@@ -606,9 +606,9 @@ class DateTimeStr(object):
            format to a more readable format
         """
         yymmdd, hh, mm, ss = date_time_str.split("_")
-        date = "{}/{}/{}".format(yymmdd[2:4], yymmdd[4:6], yymmdd[0:2])
-        time = "{}:{}:{}".format(hh, mm, ss)
-        return (date, time)
+        date_str = "{}/{}/{}".format(yymmdd[2:4], yymmdd[4:6], yymmdd[0:2])
+        time_str = "{}:{}:{}".format(hh, mm, ss)
+        return (date_str, time_str)
 
 
 # The PrintAndLog class
@@ -3368,8 +3368,9 @@ class IV_Swinger(object):
             if date_time_str == "No match":
                 run_str += " Run"
             else:
-                (date, time) = DateTimeStr.xlate_date_time_str(date_time_str)
-                run_str = "{}@{}".format(date, time)
+                (date_str,
+                 time_str) = DateTimeStr.xlate_date_time_str(date_time_str)
+                run_str = "{}@{}".format(date_str, time_str)
         if self.plot_title is None:
             title_str = "IV Swinger Plot for {}".format(run_str)
         else:
@@ -3852,9 +3853,9 @@ class IV_Swinger(object):
                 interp_label = df
                 date_time_str = DateTimeStr.extract_date_time_str(df)
                 if date_time_str != "No match":
-                    dt = DateTimeStr.xlate_date_time_str(date_time_str)
-                    (date, time) = dt
-                    interp_label = "{}@{}".format(date, time)
+                    (date_str,
+                     time_str) = DateTimeStr.xlate_date_time_str(date_time_str)
+                    interp_label = "{}@{}".format(date_str, time_str)
             else:
                 interp_label = "Interpolated IV Curve"
         else:
