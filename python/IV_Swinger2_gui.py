@@ -5600,10 +5600,7 @@ to use this feature"""
 
         # As a side-effect, set the self.ssr_mode attribute
         # appropriately
-        if relay_type == "SSR":
-            self.ssr_mode = True
-        else:
-            self.ssr_mode = False
+        self.ssr_mode = (relay_type == "SSR")
         self.master.ivs2.relay_type = relay_type
 
         return True
