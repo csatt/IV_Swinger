@@ -186,7 +186,7 @@ if sys.platform != "win32":
         import Adafruit_ADS1x15
         import Adafruit_CharLCD
         import Adafruit_MCP230xx
-        import RPi.GPIO as GPIO
+        import RPi.GPIO as GPIO  # pylint: disable=import-error
 if sys.platform != "win32":
     # Suppress matplotlib import on RPi 1 (too slow))
     if not os.uname()[4].startswith("armv6"):

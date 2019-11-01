@@ -89,6 +89,7 @@ import serial
 import serial.tools.list_ports
 try:
     # Mac only
+    # pylint: disable=import-error
     from AppKit import NSSearchPathForDirectoriesInDomains as get_mac_dir
     from AppKit import NSApplicationSupportDirectory as mac_app_sup_dir
     from AppKit import NSUserDomainMask as mac_domain_mask

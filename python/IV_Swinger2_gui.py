@@ -95,7 +95,7 @@ import os
 import re
 try:
     # Mac/Unix only
-    import resource
+    import resource  # pylint: disable=import-error
 except ImportError:
     # Used only for memory leak debug, so just skip import on Windows
     pass
@@ -2731,7 +2731,7 @@ class ResultsWizard(tk.Toplevel):
         result = None
 
         if sys.platform == "win32":
-            import win32com.client
+            import win32com.client  # pylint: disable=import-error
             # For Windows, use win32com
             desktop_shortcut_path += ".lnk"
             try:
