@@ -419,6 +419,7 @@ def rotation_at_point(adc_pairs, point, distance=1):
        parameter to a larger value calculates the angle using points at
        that distance on either side from the specified point.
     """
+    # pylint: disable=too-many-branches
     if point == 0:
         return 0.0
     if adc_pairs:
@@ -478,6 +479,7 @@ def noise_reduction(adc_pairs, starting_rot_thresh=5.0,
        results because the larger deviations will be smoothed out first,
        so it is more clear what is a deviation and what isn't.
     """
+    # pylint: disable=too-many-branches
     adc_pairs_nr = adc_pairs[:]
     num_points = len(adc_pairs)
     rot_thresh = starting_rot_thresh
@@ -1688,6 +1690,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         """Method to append the sensor values (if any) to the curve names, so
            they will be included in the legend
         """
+        # pylint: disable=too-many-branches
         curve_num = 0
         for csv_dir in self.csv_dirs:
             dts = extract_date_time_str(csv_dir)
@@ -3764,6 +3767,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # -------------------------------------------------------------------------
     def process_eeprom_value(self):
         """Method to process one EEPROM value returned by the Arduino"""
+        # pylint: disable=too-many-branches
         eeprom_re = re.compile(r"EEPROM addr: (\d+)\s+value: (-*\d+\.\d+)")
         match = eeprom_re.search(self.msg_from_arduino)
         if match:
@@ -3929,6 +3933,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            first point is used by the algorithm since the new point will
            precede it.
         """
+        # pylint: disable=too-many-branches
+
         # First determine where the curve begins to deflect
         if replace:
             deflect_begin = self.find_first_downward_deflection(adc_pairs[1:])
@@ -4004,6 +4010,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def find_first_downward_deflection(self, adc_pairs):
         """Method to find the point where the curve starts to deflect downward
         """
+        # pylint: disable=too-many-branches
+
         # This borrows from the noise reduction algorithm, where the
         # angle of inflection is determined for a given point by
         # calculating the angle between it and points several points
@@ -4499,6 +4507,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            performed, i.e. no corrections, no conversion to
            volts/amps/watts/ohms, and no plotting of results.
         """
+        # pylint: disable=too-many-branches
+
         # Generate the date/time string from the current time
         while True:
             date_time_str = IV_Swinger.DateTimeStr.get_date_time_str()

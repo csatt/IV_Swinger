@@ -793,6 +793,7 @@ class ScrollingMessage(StoppableThread):
            are non-blocking, the method returns if the lock is not
            acquired.
         """
+        # pylint: disable=too-many-branches
 
         # Init variables
         char_count = [0, 0]  # List containing character counts for each line
@@ -2847,6 +2848,8 @@ class IV_Swinger(object):
            information. If the measured current is zero when the
            load_pattern is NONE the method returns an empty list.
         """
+        # pylint: disable=too-many-branches
+
         # Diag mode - activate each relay alone
         if self.diag_mode:
             data_points = [(0, 0, 0, 0)]  # placeholder for Isc
@@ -3608,6 +3611,7 @@ class IV_Swinger(object):
                            xytext_offset, bbox, arrowprops):
         """Method to plot and label/annotate the MPP(s)"""
         # pylint: disable=too-many-arguments
+        # pylint: disable=too-many-branches
 
         fontsize = self.mpplabel_fontsize * self.font_scale
         max_mpp_volts = max(mpp_volts)
@@ -4244,6 +4248,8 @@ class IV_Swinger(object):
            /IV_Swinger/pending_usb_copy) are copied now - in addition to
            the files for the current run.
         """
+        # pylint: disable=too-many-branches
+
         # Update tentative USB drives list
         _usb_drives = self.find_usb_drives(wait=False, display=False)
 
@@ -4370,6 +4376,8 @@ class IV_Swinger(object):
         """Method containing most of run(), run with exception
            handling after io_extender object creation
         """
+        # pylint: disable=too-many-branches
+
         # Create ADS1115 ADC instance
         adc = Adafruit_ADS1x15.ADS1x15(ic=ADS1115)
 

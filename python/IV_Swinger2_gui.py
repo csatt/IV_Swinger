@@ -2720,6 +2720,7 @@ class ResultsWizard(tk.Toplevel):
         """Method to create a desktop shortcut to the app data folder
         """
         # pylint: disable=unused-argument
+        # pylint: disable=too-many-branches
 
         # Find path to Desktop
         desktop_path = os.path.expanduser(os.path.join("~", "Desktop"))
@@ -3143,6 +3144,7 @@ class ResultsWizard(tk.Toplevel):
            current overlay
         """
         # pylint: disable=unused-argument
+        # pylint: disable=too-many-branches
         if self.master.props.overlay_mode:
             prompt_title_str = "Change overlay title"
             prompt_str = "Enter new overlay title"
@@ -7344,6 +7346,8 @@ effect. Please upgrade.
         """Method to override validate() method of parent to check for legal
            values
         """
+        # pylint: disable=too-many-branches
+
         # Assumption: user is only changing values on one tab
         err_str = "ERROR:"
         # ----------------------- Plotting --------------------------
@@ -7571,6 +7575,7 @@ effect. Please upgrade.
     # -------------------------------------------------------------------------
     def arduino_apply(self):
         """Method to apply Arduino config"""
+        # pylint: disable=too-many-branches
         arduino_opt_changed = False
         section = "Arduino"
         option = "spi clock div"
