@@ -782,9 +782,9 @@ class Configuration(object):
     def remove_obsolete_options(self):
         """Method to remove obsolete option values from the config
         """
-        if (self.cfg.has_option("Calibration", "bias battery voltage")):
+        if self.cfg.has_option("Calibration", "bias battery voltage"):
             self.cfg.remove_option("Calibration", "bias battery voltage")
-        if (self.cfg.has_option("Calibration", "bias battery resistance")):
+        if self.cfg.has_option("Calibration", "bias battery resistance"):
             self.cfg.remove_option("Calibration", "bias battery resistance")
 
     # -------------------------------------------------------------------------
@@ -1289,13 +1289,13 @@ class Configuration(object):
            from the configuration
         """
         if not self.ivs2.plot_lock_axis_ranges:
-            if (self.cfg.has_option("Plotting", "plot max x")):
+            if self.cfg.has_option("Plotting", "plot max x"):
                 self.cfg.remove_option("Plotting", "plot max x")
                 self.ivs2.plot_max_x = None
-            if (self.cfg.has_option("Plotting", "plot max y")):
+            if self.cfg.has_option("Plotting", "plot max y"):
                 self.cfg.remove_option("Plotting", "plot max y")
                 self.ivs2.plot_max_y = None
-        if (self.cfg.has_option("Plotting", "title")):
+        if self.cfg.has_option("Plotting", "title"):
             self.cfg.remove_option("Plotting", "title")
             self.ivs2.plot_title = None
 
@@ -3198,7 +3198,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 # duplicates.
                 if msg not in self._ds18b20_rom_codes:
                     self._ds18b20_rom_codes.append(msg)
-            elif (msg.startswith("ADS1115 (pyranometer temp sensor)")):
+            elif msg.startswith("ADS1115 (pyranometer temp sensor)"):
                 self.translate_ads1115_msg_to_photodiode_temp_scaling(msg)
             elif (msg.startswith("Temperature at sensor") or
                   msg.startswith("ADS1115 (pyranometer photodiode)")):
@@ -4223,7 +4223,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                     # the battery curve that corresponds to the
                     # current of the given point; this is the bias
                     interp_batt_ch1_adc = prev_batt_ch1_adc - ch1_adc
-                    if (prev_batt_ch1_adc == batt_ch1_adc):
+                    if prev_batt_ch1_adc == batt_ch1_adc:
                         interp_batt_ch0_adc = batt_ch0_adc
                     else:
                         interp_batt_ch0_adc = (interp_batt_ch1_adc *
@@ -4421,7 +4421,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                             return []
                         adc_tuple = (adc_pair[0], adc_pair[1])
                         adc_pairs.append(adc_tuple)
-        except (IOError):
+        except IOError:
             print "Cannot open {}".format(filename)
             return []
 

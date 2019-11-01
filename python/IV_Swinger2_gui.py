@@ -385,7 +385,7 @@ def date_at_time_from_dts(dts):
        170110_190017 to 01/10/17@19:00:17
     """
     (date, time_of_day) = IV_Swinger2.xlate_date_time_str(dts)
-    return("{}@{}".format(date, time_of_day))
+    return "{}@{}".format(date, time_of_day)
 
 
 def grab_overlay_curve(event=None):
@@ -1299,7 +1299,7 @@ value on the Arduino tab of Preferences
         # the new size. If an IV curve is showing, regenerate it..
         if self.img_pane.splash_img_showing:
             self.img_pane.display_splash_img()
-        elif (self.props.overlay_mode):
+        elif self.props.overlay_mode:
             self.results_wiz.plot_overlay_and_display()
         else:
             remove_directory = False
@@ -3138,7 +3138,7 @@ class ResultsWizard(tk.Toplevel):
             if len(sel_runs) == 1:
                 dts = IV_Swinger2.extract_date_time_str(sel_runs[0])
                 date_time = date_at_time_from_dts(dts)
-                if (self.master.ivs2.plot_title is None):
+                if self.master.ivs2.plot_title is None:
                     init_val = "IV Swinger Plot for {}".format(date_time)
                 else:
                     init_val = self.master.ivs2.plot_title
@@ -7657,7 +7657,7 @@ class PlottingProps(object):
         """Method to compare current value of battery_bias property with
            previously captured value to see if it has changed
         """
-        return (self.prop_vals["battery_bias"] != self.ivs2.battery_bias)
+        return self.prop_vals["battery_bias"] != self.ivs2.battery_bias
 
 
 # Plotting help dialog class

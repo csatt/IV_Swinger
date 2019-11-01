@@ -373,7 +373,7 @@ class CsvParser(object):
                             ivrp_tuple = (vipr_list[1], vipr_list[0],
                                           vipr_list[3], vipr_list[2])
                             self._data_points.append(ivrp_tuple)
-            except (IOError):
+            except IOError:
                 print "Cannot open {}".format(self.csv_filename)
                 exit(-1)
 

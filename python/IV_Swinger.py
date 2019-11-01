@@ -2689,7 +2689,7 @@ class IV_Swinger(object):
         self.logger.log("AMM Volts: {:.6f}".format(amm_volts))
         amps = (amm_volts / self.amm_op_amp_gain) / self.amm_shunt_resistance
         retry_count = 0
-        while(retry_count < self.max_retries):
+        while retry_count < self.max_retries:
             if amps == 0:
                 retry_count += 1
                 print_str = ("RETRY #{} for load_pattern {:#x}"
