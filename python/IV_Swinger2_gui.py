@@ -415,6 +415,7 @@ class GraphicalUserInterface(ttk.Frame):
     """Class that provides the GUI for user interaction with the
        IV Swinger 2
     """
+    # pylint: disable=too-many-ancestors
 
     # Initializer
     def __init__(self, app_data_dir=None):
@@ -2112,6 +2113,7 @@ class Configuration(IV_Swinger2.Configuration):
 #
 class ImgSizeCombo(ttk.Combobox):
     """Class that is the Combobox used to select image size"""
+    # pylint: disable=too-many-ancestors
 
     # Initializer
     def __init__(self, master=None, textvariable=None):
@@ -7847,6 +7849,8 @@ class SpiClkCombo(ttk.Combobox):
     """Class that implements the Combobox used to select Arduino SPI clock
        frequency
     """
+    # pylint: disable=too-many-ancestors
+
     # Initializer
     def __init__(self, master=None, gui=None, textvariable=None):
         ttk.Combobox.__init__(self, master=master, textvariable=textvariable)
@@ -8065,6 +8069,8 @@ an overlay after it is finalized.
 #
 class ImagePane(ttk.Label):
     """Class that implements the image pane"""
+    # pylint: disable=too-many-ancestors
+
     # In Tkinter, the way to display an image is in a "Label" widget,
     # which makes it sound small. In our case it takes up the majority
     # of the GUI, so we'll call it a "pane" instead of a label. But it's
@@ -8135,6 +8141,8 @@ class GoStopButton(ttk.Button):
     """Class that implements the Button widget used for the go button and
        stop button
     """
+    # pylint: disable=too-many-ancestors
+
     # Initializer
     def __init__(self, master=None, text=None):
         ttk.Button.__init__(self, master=master)
@@ -8150,6 +8158,8 @@ class PlotPower(ttk.Checkbutton):
     """Class that implements the Checkbutton widget used to choose whether
        to include the power curve on the plot
     """
+    # pylint: disable=too-many-ancestors
+
     # Initializer
     def __init__(self, master=None, variable=None):
         ttk.Checkbutton.__init__(self, master=master, text="Plot Power",
@@ -8205,6 +8215,8 @@ class PlotPower(ttk.Checkbutton):
 class LockAxes(ttk.Checkbutton):
     """Class that implements the Checkbutton widget used to lock the axis ranges
     """
+    # pylint: disable=too-many-ancestors
+
     # Initializer
     def __init__(self, master=None, gui=None, variable=None):
         ttk.Checkbutton.__init__(self, master=master, text="Lock",
@@ -8234,6 +8246,8 @@ class LockAxes(ttk.Checkbutton):
 class LoopMode(ttk.Checkbutton):
     """Class that implements the Checkbutton widget used to enable loop mode
     """
+    # pylint: disable=too-many-ancestors
+
     # Initializer
     def __init__(self, master=None, gui=None, variable=None,
                  rate_limit=None, save_results=None, lock_axes=None):
@@ -8294,6 +8308,7 @@ class LoopRateLimit(ttk.Checkbutton):
     """Class that implements the Checkbutton widget used to rate limit loop
        mode
     """
+    # pylint: disable=too-many-ancestors
 
     # Initializer
     def __init__(self, master=None, gui=None, variable=None):
@@ -8352,6 +8367,8 @@ class LoopSaveResults(ttk.Checkbutton):
     """Class that implements the Checkbutton widget used to enable/disable
        saving loop mode results
     """
+    # pylint: disable=too-many-ancestors
+
     # Initializer
     def __init__(self, master=None, gui=None, variable=None):
         ttk.Checkbutton.__init__(self, master=master, text="Save Results",
