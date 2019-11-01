@@ -1141,6 +1141,8 @@ class Interpolator(object):
            the second given point and ending with the third given point
            (both are included).
         """
+        # pylint: disable=too-many-locals
+
         # Convert the points to numpy so that we can do array multiplication
         p_0, p_1, p_2, p_3 = map(numpy.array, [four_points[0],
                                                four_points[1],
@@ -2547,6 +2549,8 @@ class IV_Swinger(object):
            system is shut down.  The only way for the user to avoid the
            autoshutdown is to turn on the DPST switch.
         """
+        # pylint: disable=too-many-locals
+
         # Initialize variables
         voc_volts = 0
         voc_amps = INFINITE_VAL
@@ -2681,6 +2685,8 @@ class IV_Swinger(object):
            the current and voltage at that point.  Ohms and watts are
            calculated and the four values are returned in a tuple.
         """
+        # pylint: disable=too-many-locals
+
         # Set the relays to the provided pattern
         set_relays_to_pattern(load_pattern, io_extender)
 
@@ -2851,6 +2857,7 @@ class IV_Swinger(object):
            load_pattern is NONE the method returns an empty list.
         """
         # pylint: disable=too-many-branches
+        # pylint: disable=too-many-locals
 
         # Diag mode - activate each relay alone
         if self.diag_mode:
@@ -3614,6 +3621,7 @@ class IV_Swinger(object):
         """Method to plot and label/annotate the MPP(s)"""
         # pylint: disable=too-many-arguments
         # pylint: disable=too-many-branches
+        # pylint: disable=too-many-locals
 
         fontsize = self.mpplabel_fontsize * self.font_scale
         max_mpp_volts = max(mpp_volts)
@@ -4251,6 +4259,7 @@ class IV_Swinger(object):
            the files for the current run.
         """
         # pylint: disable=too-many-branches
+        # pylint: disable=too-many-locals
 
         # Update tentative USB drives list
         _usb_drives = self.find_usb_drives(wait=False, display=False)
@@ -4379,6 +4388,7 @@ class IV_Swinger(object):
            handling after io_extender object creation
         """
         # pylint: disable=too-many-branches
+        # pylint: disable=too-many-locals
 
         # Create ADS1115 ADC instance
         adc = Adafruit_ADS1x15.ADS1x15(ic=ADS1115)

@@ -522,6 +522,7 @@ class CsvFileProcessor(object):
 
     def proc_one_csv_file(self, csv_filename):
         """Method to process a single CSV file"""
+        # pylint: disable=too-many-locals
 
         msg_str = "Processing: {}".format(csv_filename)
         PrintAndOrLog.print_or_log_msg(self.logger, msg_str)

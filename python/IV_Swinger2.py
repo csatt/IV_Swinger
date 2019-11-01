@@ -421,6 +421,7 @@ def rotation_at_point(adc_pairs, point, distance=1):
        that distance on either side from the specified point.
     """
     # pylint: disable=too-many-branches
+    # pylint: disable=too-many-locals
     if point == 0:
         return 0.0
     if adc_pairs:
@@ -481,6 +482,7 @@ def noise_reduction(adc_pairs, starting_rot_thresh=5.0,
        so it is more clear what is a deviation and what isn't.
     """
     # pylint: disable=too-many-branches
+    # pylint: disable=too-many-locals
     adc_pairs_nr = adc_pairs[:]
     num_points = len(adc_pairs)
     rot_thresh = starting_rot_thresh
@@ -735,6 +737,8 @@ class Configuration(object):
            called. The associated properties are all updated based on
            the merged config.
         """
+        # pylint: disable=too-many-locals
+
         # Capture Plotting options from current config
         section = "Plotting"
         x_pixels = self.cfg.get("General", "x pixels")
@@ -1693,6 +1697,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
            they will be included in the legend
         """
         # pylint: disable=too-many-branches
+        # pylint: disable=too-many-locals
         curve_num = 0
         for csv_dir in self.csv_dirs:
             dts = extract_date_time_str(csv_dir)
@@ -3423,6 +3428,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # -------------------------------------------------------------------------
     def update_irradiance(self, new_irradiance):
         """Method to update the irradiance value(s) in the sensor info file"""
+        # pylint: disable=too-many-locals
         new_lines = []
         irrad_re = re.compile(r"Irradiance: (\d+) W/m\^2")
         ext_irrad_re = re.compile(r"(\d+) @ (\S+) deg C")
@@ -3848,6 +3854,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            Each of the above is configurable.
         """
         # pylint: disable=too-many-arguments
+        # pylint: disable=too-many-locals
 
         self.logger.log("Correcting ADC values:")
 
@@ -3938,6 +3945,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            precede it.
         """
         # pylint: disable=too-many-branches
+        # pylint: disable=too-many-locals
 
         # First determine where the curve begins to deflect
         if replace:
@@ -4193,6 +4201,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            the ADC domain, i.e. before ADC values are converted to
            volts and amps (and also before calibration is applied).
         """
+        # pylint: disable=too-many-locals
+
         # Get the CSV file with the corrected ADC values for the bias
         # battery IV curve
         bias_battery_csv = self.get_bias_batt_csv()

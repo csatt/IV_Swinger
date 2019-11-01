@@ -4742,6 +4742,7 @@ class CalibrationHelpDialog(Dialog):
 
     def body(self, master):
         """Method to create the dialog body, which is just a Text widget"""
+        # pylint: disable=too-many-locals
         help_text_1 = """
 Basic voltage and current calibration are performed by "correcting" the open
 circuit voltage (Voc) and short circuit current (Isc) values of a given IV
@@ -5391,6 +5392,7 @@ class AdvCalDialog(Dialog):
         """Method to create the dialog's body frame (overrides the parent class
            method)
         """
+        # pylint: disable=too-many-locals
         frame = ttk.Frame(master)
 
         # Add label with description text
@@ -6149,6 +6151,7 @@ class ResistorValuesDialog(Dialog):
         """Method to create the dialog's body frame (overrides the parent class
            method)
         """
+        # pylint: disable=too-many-locals
         frame = ttk.Frame(master)
 
         # Add label and entry box to select R1 resistance
@@ -6619,6 +6622,7 @@ class PreferencesDialog(Dialog):
     # -------------------------------------------------------------------------
     def populate_plotting_tab(self):
         """Method to add widgets to the Plotting tab"""
+        # pylint: disable=too-many-locals
         section = "Plotting"
         self.font_scale.set(self.master.config.cfg.getfloat(section,
                                                             "font scale"))
@@ -7060,6 +7064,8 @@ class PreferencesDialog(Dialog):
     # -------------------------------------------------------------------------
     def populate_arduino_tab(self):
         """Method to add widgets to the Arduino tab"""
+        # pylint: disable=too-many-locals
+
         # Add container box for widgets
         arduino_widget_box = ttk.Frame(master=self.arduino_tab, padding=20)
 
@@ -7478,6 +7484,7 @@ effect. Please upgrade.
     # -------------------------------------------------------------------------
     def plotting_apply(self):
         """Method to apply plotting config"""
+        # pylint: disable=too-many-locals
         section = "Plotting"
         # Line type
         linear = (self.interpolation_type.get() == "Linear")

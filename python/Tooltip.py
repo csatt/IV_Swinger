@@ -94,6 +94,7 @@ class Tooltip(object):
         def tip_pos_calculator(widget, label,
                                tip_delta=(70, 5), pad=(5, 3, 5, 3)):
             """Local function to calculate the position of the tooltip"""
+            # pylint: disable=too-many-locals
 
             w = widget
 
@@ -240,6 +241,7 @@ if __name__ == '__main__':
 
     def main_01(wraplength=200):
         """Method for standalone testing"""
+        # pylint: disable=too-many-locals
 
         # alias
         stuff = further_text
