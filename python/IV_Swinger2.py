@@ -3837,6 +3837,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
              - Adjust ADC values voltages to compensate for Voc shift
            Each of the above is configurable.
         """
+        # pylint: disable=too-many-arguments
+
         self.logger.log("Correcting ADC values:")
 
         # Combine points with the same voltage (use average current)
@@ -4100,6 +4102,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """Method to take raw ADC values and generate a CSV file with the
            selected corrections.
         """
+        # pylint: disable=too-many-arguments
+
         # Apply voltage/current calibration
         if calibrate:
             adc_pairs_calibrated = self.calibrate_adc_pairs(adc_pairs)

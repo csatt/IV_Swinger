@@ -4484,6 +4484,7 @@ class Dialog(tk.Toplevel):
                  has_cancel_button=True, return_ok=False, ok_label="OK",
                  resizable=False, parent_is_modal=False,
                  min_height=None, max_height=None):
+        # pylint: disable=too-many-arguments
         tk.Toplevel.__init__(self, master=master)
         self.master = master
         self.win_sys = self.master.tk.call("tk", "windowingsystem")
@@ -8251,6 +8252,7 @@ class LoopMode(ttk.Checkbutton):
     # Initializer
     def __init__(self, master=None, gui=None, variable=None,
                  rate_limit=None, save_results=None, lock_axes=None):
+        # pylint: disable=too-many-arguments
         ttk.Checkbutton.__init__(self, master=master, text="Loop Mode",
                                  command=self.update_loop_mode,
                                  variable=variable,

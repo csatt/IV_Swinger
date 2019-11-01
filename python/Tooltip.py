@@ -44,7 +44,7 @@ class Tooltip(object):
                  staytime=1000,
                  offset_up=False,
                  offset_left=False):
-
+        # pylint: disable=too-many-arguments
         self.waittime = waittime  # in milliseconds, originally 500
         self.wraplength = wraplength  # in pixels, originally 180
         self.staytime = staytime  # in milliseconds per char

@@ -517,6 +517,7 @@ def pyplot_annotate_point(label_str, x, y, xtext, ytext, fontsize,
                           bbox, arrowprops, textcoords="offset points"):
     """Global function to add a label (Isc, Voc, MPP) to the plot
     """
+    # pylint: disable=too-many-arguments
     plt.annotate(label_str,
                  xy=(x, y),
                  xytext=(xtext, ytext),
@@ -743,6 +744,7 @@ class ScrollingMessage(StoppableThread):
     lcd_scroll_delay = None
 
     def __init__(self, text, lcd, beep, lock, exc_queue):
+        # pylint: disable=too-many-arguments
         StoppableThread.__init__(self)
         self.text = text
         self.lcd = lcd
@@ -3099,6 +3101,7 @@ class IV_Swinger(object):
                            img_filename, isc_amps, voc_volts, mpp_amps,
                            mpp_volts):
         """Method to write the gnuplot command file"""
+        # pylint: disable=too-many-arguments
 
         with open(command_filename, "w") as self.filehandle:
 
@@ -3166,6 +3169,8 @@ class IV_Swinger(object):
            for external post-processing software that uses this method to
            plot multiple curves (up to 8) on the same graph.
         """
+        # pylint: disable=too-many-arguments
+
         # Set colors
         self.set_plot_colors()
 
@@ -3189,6 +3194,8 @@ class IV_Swinger(object):
                           isc_amps, voc_volts, mpp_amps, mpp_volts):
         """Method to generate the graph with gnuplot.
         """
+        # pylint: disable=too-many-arguments
+
         # Write the gnuplot command file
         self.write_gnuplot_file(sd_gp_command_filename,
                                 sd_data_point_filenames, sd_img_filename,
@@ -3217,6 +3224,8 @@ class IV_Swinger(object):
            for external post-processing software that uses this method to
            plot multiple curves (up to 8) on the same graph.
         """
+        # pylint: disable=too-many-arguments
+
         # Set the figure size
         self.set_figure_size()
 
@@ -3332,6 +3341,7 @@ class IV_Swinger(object):
         """Method to check the args passed to the plot_with_gnuplot or
            plot_with_pyplot method
         """
+        # pylint: disable=too-many-arguments
 
         max_len = len(self.plot_colors)
         assert len(sd_data_point_filenames) <= max_len, \
@@ -3596,6 +3606,8 @@ class IV_Swinger(object):
     def plot_and_label_mpp(self, mpp_amps, mpp_volts,
                            xytext_offset, bbox, arrowprops):
         """Method to plot and label/annotate the MPP(s)"""
+        # pylint: disable=too-many-arguments
+
         fontsize = self.mpplabel_fontsize * self.font_scale
         max_mpp_volts = max(mpp_volts)
         for ii, mpp_amp in enumerate(mpp_amps):
@@ -3722,6 +3734,8 @@ class IV_Swinger(object):
     def gnuplot_label_point(self, label_str, x, y, xtext, ytext, fontsize):
         """Method to add a label (Isc, Voc, MPP) to the plot
         """
+        # pylint: disable=too-many-arguments
+
         fontsize *= self.gp_font_scale
         output_line = ('set label at {},{}{} point pointtype {} font ",{}" '
                        'offset {},{} front\n'
@@ -3846,6 +3860,8 @@ class IV_Swinger(object):
     def plot_interp_points(self, curve_num, df, sd_data_point_filenames,
                            interp_volts, interp_amps):
         """Method to plot the interpolated points"""
+        # pylint: disable=too-many-arguments
+
         if self.line_scale == 0.0:
             # Skip plotting curve altogether if scale is zero
             return
