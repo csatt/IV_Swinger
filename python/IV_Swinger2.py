@@ -1307,6 +1307,7 @@ class Configuration(object):
 #
 class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
     """IV Swinger 2 plotter class (extended from IV_Swinger_plotter)"""
+    # pylint: disable=too-many-instance-attributes
 
     def __init__(self):
         self.csv_proc = None
@@ -1805,6 +1806,8 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
 class IV_Swinger2(IV_Swinger.IV_Swinger):
     """IV_Swinger derived class extended for IV Swinger 2
     """
+    # pylint: disable=too-many-instance-attributes
+
     # Initializer
     def __init__(self, app_data_dir=None):
         IV_Swinger.IV_Swinger.__init__(self)

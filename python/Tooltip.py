@@ -34,7 +34,8 @@ class Tooltip(object):
         - Added staytime parameter
         - Added offset_up and offset_left parameters
     """
-
+    # pylint: disable=too-many-instance-attributes
+        
     def __init__(self, widget,
                  bg='#FFFFEA',
                  pad=(5, 3, 5, 3),

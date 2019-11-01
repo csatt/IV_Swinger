@@ -416,6 +416,7 @@ class GraphicalUserInterface(ttk.Frame):
        IV Swinger 2
     """
     # pylint: disable=too-many-ancestors
+    # pylint: disable=too-many-instance-attributes
 
     # Initializer
     def __init__(self, app_data_dir=None):
@@ -2145,6 +2146,8 @@ class ResultsWizard(tk.Toplevel):
        useful or at least the expected behavior if they were allowed is
        not obvious.
     """
+    # pylint: disable=too-many-instance-attributes
+
     # Initializer
     def __init__(self, master=None):
         tk.Toplevel.__init__(self, master=master)
@@ -3930,6 +3933,8 @@ class ResultsWizard(tk.Toplevel):
 #
 class MenuBar(tk.Menu):
     """Class that implements the menu bar"""
+    # pylint: disable=too-many-instance-attributes
+    
     # Initializer
     def __init__(self, master=None):
         tk.Menu.__init__(self, master=master)
@@ -4481,6 +4486,8 @@ class Dialog(tk.Toplevel):
        optional override.
 
     """
+    # pylint: disable=too-many-instance-attributes
+
     # Initializer
     def __init__(self, master=None, title=None, has_ok_button=True,
                  has_cancel_button=True, return_ok=False, ok_label="OK",
@@ -5334,6 +5341,8 @@ class AdvCalDialog(Dialog):
        the advanced calibration dialogs. This class is used for both the
        advanced current and the advanced voltage calibration dialogs.
     """
+    # pylint: disable=too-many-instance-attributes
+
     # Initializer
     def __init__(self, master=None, cal_type="None"):
         self.master = master
@@ -6557,6 +6566,8 @@ class PreferencesDialog(Dialog):
     """Class that is extended from the generic Dialog class and is used for
        the Preferences dialog
     """
+    # pylint: disable=too-many-instance-attributes
+
     # Initializer
     def __init__(self, master=None):
         self.master = master

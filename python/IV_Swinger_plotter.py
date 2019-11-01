@@ -506,6 +506,7 @@ class CsvFileProcessor(object):
            self._plt_mpp_amps
            self._plt_mpp_volts
     """
+    # pylint: disable=too-many-instance-attributes
     def __init__(self, args, csv_files, ivs_extended, logger=None):
         self.args = args
         self.csv_files = csv_files
