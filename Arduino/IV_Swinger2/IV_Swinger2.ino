@@ -164,7 +164,7 @@
  * when the pins controlling them are activated or deactivated since
  * nothing is connected to those pins in the other versions.
  */
-#define VERSION "1.3.9"        // Version of this Arduino sketch
+#define VERSION "1.3.10"        // Version of this Arduino sketch
 
 // Uncomment one or more of the following to enable the associated
 // feature. Note, however, that enabling these features uses more of the
@@ -1005,10 +1005,12 @@ void process_config_msg(char * msg) {
   int eeprom_addr;
   float eeprom_value;
   bool wrong_arg_cnt = false;
+  const char CARRIAGE_RETURN = 0xd;
   substr = strtok(msg, " ");  // "Config:"
   while (substr != NULL) {
     substr = strtok(NULL, " ");
-    if (substr != NULL) {
+      if (substr != NULL &&
+          *substr != CARRIAGE_RETURN) { // Windows phenomenon
       if (ii == 0) {
         config_type = substr;
       } else if (ii == 1) {
