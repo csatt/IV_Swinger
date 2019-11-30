@@ -164,7 +164,7 @@
  * when the pins controlling them are activated or deactivated since
  * nothing is connected to those pins in the other versions.
  */
-#define VERSION "1.3.10"        // Version of this Arduino sketch
+#define VERSION "1.3.11"        // Version of this Arduino sketch
 
 // Uncomment one or more of the following to enable the associated
 // feature. Note, however, that enabling these features uses more of the
@@ -212,7 +212,7 @@
 
 #define MAX_UINT (1<<16)-1     // Max unsigned integer
 #define MAX_INT (1<<15)-1      // Max integer
-#define MAX_ULONG (1<<32)-1    // Max unsigned long integer
+#define MAX_ULONG (1LL<<32)-1  // Max unsigned long integer
 #define MAX_LONG (1<<31)-1     // Max long integer
 #define MAX_MSG_LEN 35         // Maximum length of a host message
 #define MSG_TIMER_TIMEOUT 1000 // Number of times to poll for host message
@@ -472,7 +472,7 @@ void loop()
     // adc_ch0_vals array for the values and the adc_ch1_vals array for
     // the counts
     for (index = 0, count_updated = false;
-         (index < sizeof(adc_ch0_vals)) && !count_updated;
+         (index < (int)sizeof(adc_ch0_vals)) && !count_updated;
          index++) {
       if (adc_ch1_vals[index] == 0) { // first empty slot
         adc_ch0_vals[index] = adc_ch0_val;
@@ -497,7 +497,7 @@ void loop()
 
   // The Voc ADC value is the most common value seen during polling
   for (index = 0, voc_adc_found = false, max_count = 0;
-       (index < sizeof(adc_ch0_vals)) && !voc_adc_found;
+       (index < (int)sizeof(adc_ch0_vals)) && !voc_adc_found;
        index++) {
     if (adc_ch1_vals[index] == 0) {
       // When we see a slot with a zero count, we're done
@@ -995,10 +995,10 @@ bool get_host_msg(char * msg) {
 }
 
 void process_config_msg(char * msg) {
-  char *substr;
-  char *config_type;
-  char *config_val;
-  char *config_val2;
+  char *substr = NULL;
+  char *config_type = NULL;
+  char *config_val = NULL;
+  char *config_val2 = NULL;
   int ii = 0;
   int num_args = 0;
   int exp_args;
@@ -1162,7 +1162,7 @@ void dump_eeprom() {
     EEPROM.get(sizeof(float), eeprom_value);
     eeprom_valid_count = (int)eeprom_value;
     for (eeprom_addr = 0;
-         eeprom_addr < ((eeprom_valid_count + 2) * sizeof(float));
+         eeprom_addr < ((eeprom_valid_count + 2) * (int)sizeof(float));
          eeprom_addr += sizeof(float)) {
       EEPROM.get(eeprom_addr, eeprom_value);
       Serial.print(F("EEPROM addr: "));
@@ -1364,7 +1364,8 @@ void compute_v_and_i_scale(int isc_adc, int voc_adc,
 
   bool i_scale_gt_v_scale;
   int initial_v_scale, initial_i_scale;
-  int lg, sm, round_up_mask;
+  int lg, sm;
+  int round_up_mask = 0;
   int lg_scale, sm_scale;
   char bit_num, shift_amt = 0;
   initial_v_scale = aspect_width * isc_adc;
