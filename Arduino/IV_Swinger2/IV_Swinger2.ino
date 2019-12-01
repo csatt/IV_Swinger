@@ -164,7 +164,7 @@
  * when the pins controlling them are activated or deactivated since
  * nothing is connected to those pins in the other versions.
  */
-#define VERSION "1.3.11"        // Version of this Arduino sketch
+#define VERSION "1.3.12"        // Version of this Arduino sketch
 
 // Uncomment one or more of the following to enable the associated
 // feature. Note, however, that enabling these features uses more of the
@@ -214,7 +214,7 @@
 #define MAX_INT (1<<15)-1      // Max integer
 #define MAX_ULONG (1LL<<32)-1  // Max unsigned long integer
 #define MAX_LONG (1<<31)-1     // Max long integer
-#define MAX_MSG_LEN 35         // Maximum length of a host message
+#define MAX_MSG_LEN 40         // Maximum length of a host message
 #define MSG_TIMER_TIMEOUT 1000 // Number of times to poll for host message
 #define CLK_DIV SPI_CLOCK_DIV8 // SPI clock divider ratio
 #define SERIAL_BAUD 57600      // Serial port baud rate
