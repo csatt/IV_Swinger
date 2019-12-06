@@ -3064,6 +3064,11 @@ class ResultsWizard(tk.Toplevel):
         # existing directories in destination
         for src_dir in selected_src_dirs:
             dest_dir = self.get_dest_dir(src_dir)
+            if dest_dir == src_dir:
+                err_str = ("ERROR: source and destination are the same: {}"
+                           .format(os.path.dirname(dest_dir)))
+                tkmsg_showerror(self.master, message=err_str)
+                return False
             if os.path.exists(dest_dir):
                 existing_dest_dirs.append(dest_dir)
 
