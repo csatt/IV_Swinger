@@ -4281,8 +4281,8 @@ bias battery calibration was enabled.
             tkmsg_showerror(self.master, message=err_msg)
             return
 
+        v_cal_b = self.master.ivs2.v_cal_b
         if not self.master.ivs2.battery_bias:
-            v_cal_b = self.master.ivs2.v_cal_b
             if v_cal_b != 0.0:
                 warn_msg = """
 WARNING: An advanced voltage
