@@ -192,7 +192,7 @@ if sys.platform != "win32":
     # Suppress matplotlib import on RPi 1 (too slow))
     if not os.uname()[4].startswith("armv6"):
         import matplotlib.pyplot as plt
-else:
+else:  # Windows
     import matplotlib.pyplot as plt
 
 
@@ -396,12 +396,12 @@ WATTS_INDEX = 3
 ########################
 #   Global functions   #
 ########################
-def turn_off_all_relays(io_extender):
+def turn_off_all_relays(io_extender):  # IVS1
     """Global function to turn off all the relays"""
     io_extender.write16(ALL_RELAYS_OFF)
 
 
-def swizzle_byte(byte):
+def swizzle_byte(byte):  # IVS1
     """Global function to reverse the order of the bits in a byte"""
     swizzled_byte = 0
 
@@ -411,7 +411,7 @@ def swizzle_byte(byte):
     return swizzled_byte
 
 
-def swizzle_msb(value):
+def swizzle_msb(value):  # IVS1
     """Global function to reverse the order of the bits in the upper byte of
        a 16-bit value
     """
@@ -423,7 +423,7 @@ def swizzle_msb(value):
     return (swizzled_msb << 8) | lsb
 
 
-def set_relays_to_pattern(load_pattern, io_extender):
+def set_relays_to_pattern(load_pattern, io_extender):  # IVS1
     """Global function to set the relays to the supplied load pattern,
        performing the appropriate inversion (for active-low inputs) and
        swizzling (for cabling quirk).
@@ -434,7 +434,7 @@ def set_relays_to_pattern(load_pattern, io_extender):
     io_extender.write16(swizzle_msb(~load_pattern))
 
 
-def prime_relays(io_extender):
+def prime_relays(io_extender):  # IVS1
     """Global function to turn on each relay briefly (workaround for "weak"
        relay issue.
     """
@@ -645,7 +645,7 @@ class PrintAndLog(object):
 
 
 # The BeepGenerator class
-class BeepGenerator(object):
+class BeepGenerator(object):  # IVS1
     """Generates beeps from the piezo buzzer"""
     # pylint: disable=too-few-public-methods
 
@@ -700,7 +700,7 @@ class BeepGenerator(object):
 # The StoppableThread class is from pibrella.py
 # (https://github.com/pimoroni/pibrella).
 #
-class StoppableThread(threading.Thread):
+class StoppableThread(threading.Thread):  # IVS1
     """Adds Event for stopping the execution loop and exiting cleanly.
     """
     def __init__(self):
@@ -734,7 +734,7 @@ class StoppableThread(threading.Thread):
 #  exception, the exception info is placed into the queue so the main
 #  thread knows that something went wrong.
 #
-class ScrollingMessage(StoppableThread):
+class ScrollingMessage(StoppableThread):  # IVS1
     """Class to continuously scroll a message until signalled to stop"""
 
     # Class variables (must be set externally before instantiation)
@@ -931,7 +931,7 @@ class ScrollingMessage(StoppableThread):
 #
 #  Subclass of StoppableThread that calls the generate_beep method until
 #  signalled to stop
-class SoundWarning(StoppableThread):
+class SoundWarning(StoppableThread):  # IVS1
     """Class to continuously sound a warning until signalled to stop"""
     def __init__(self, on_time, off_time):
         StoppableThread.__init__(self)
@@ -1172,7 +1172,7 @@ class Interpolator(object):
             t_j = math.hypot(x_j - x_i, y_j - y_i) ** alpha + t_i
             if t_j == t_i:
                 # Prevent divide-by-zero
-                t_j += 0.000000000001
+                t_j += (1 / INFINITE_VAL)
             return t_j
 
         # Calculate t_0 to t_3
@@ -1351,7 +1351,6 @@ class IV_Swinger(object):
         self._amm_chn = 3
         self._use_gnuplot = True
         self._plot_colors = []
-        self._plot_interpolated_curve = True
         self._use_spline_interpolation = True
         self._plot_power = False
         self._max_i_ratio = 1.3
@@ -1404,20 +1403,20 @@ class IV_Swinger(object):
 
     # Properties
     @property
-    def shutdown_on_exit(self):
+    def shutdown_on_exit(self):  # IVS1
         """Boolean: whether to shut down the Raspberry Pi on an
            exception or not
         """
         return self._shutdown_on_exit
 
     @shutdown_on_exit.setter
-    def shutdown_on_exit(self, value):
+    def shutdown_on_exit(self, value):  # IVS1
         if value not in set([True, False]):
             raise ValueError("shutdown_on_exit must be boolean")
         self._shutdown_on_exit = value
 
     @property
-    def fine_mode(self):
+    def fine_mode(self):  # IVS1
         """FINE mode produces better results but wears out the HALF
            relay faster.  However, with the adaptive algorithm that only
            adds the half steps where the curve is bending, most runs only
@@ -1426,26 +1425,26 @@ class IV_Swinger(object):
         return self._fine_mode
 
     @fine_mode.setter
-    def fine_mode(self, value):
+    def fine_mode(self, value):  # IVS1
         if value not in set([True, False]):
             raise ValueError("fine_mode must be boolean")
         self._fine_mode = value
 
     @property
-    def fine_mode_toggle(self):
+    def fine_mode_toggle(self):  # IVS1
         """ If fine_mode_toggle is True, the pushbutton can be used to
            toggle the mode.
         """
         return self._fine_mode_toggle
 
     @fine_mode_toggle.setter
-    def fine_mode_toggle(self, value):
+    def fine_mode_toggle(self, value):  # IVS1
         if value not in set([True, False]):
             raise ValueError("fine_mode_toggle must be boolean")
         self._fine_mode_toggle = value
 
     @property
-    def loads_to_skip(self):
+    def loads_to_skip(self):  # IVS1
         """If loads_to_skip is non-zero, the first N load_pattern values
            in COARSE_LOAD_LIST or FINE_LOAD_LIST are skipped. This mode is
            for testing with small power supplies that have short-circuit
@@ -1454,35 +1453,35 @@ class IV_Swinger(object):
         return self._loads_to_skip
 
     @loads_to_skip.setter
-    def loads_to_skip(self, value):
+    def loads_to_skip(self, value):  # IVS1
         self._loads_to_skip = value
 
     @property
-    def root_dir(self):
+    def root_dir(self):  # IVS1
         """ Root directory on SD card where results and log files are written
         """
         return self._root_dir
 
     @root_dir.setter
-    def root_dir(self, value):
+    def root_dir(self, value):  # IVS1
         if value[0] != "/":
             raise ValueError("root_dir must start with /")
         self._root_dir = value
 
     @property
-    def logs_dir(self):
+    def logs_dir(self):  # IVS1
         """ Directory on SD card where log files are written"""
         logs_dir = os.path.join(self._root_dir, "logs")
         return logs_dir
 
     @property
-    def diag_mode(self):
+    def diag_mode(self):  # IVS1
         """When true, this property causes the test to run in diagnostic mode
         """
         return self._diag_mode
 
     @diag_mode.setter
-    def diag_mode(self, value):
+    def diag_mode(self, value):  # IVS1
         if value not in set([True, False]):
             raise ValueError("diag_mode must be boolean")
         self._diag_mode = value
@@ -1500,97 +1499,97 @@ class IV_Swinger(object):
         self._headless_mode = value
 
     @property
-    def idle_timeout_seconds(self):
+    def idle_timeout_seconds(self):  # IVS1
         """Amount of idle time in seconds before a shutdown is initiated"""
         return self._idle_timeout_seconds
 
     @idle_timeout_seconds.setter
-    def idle_timeout_seconds(self, value):
+    def idle_timeout_seconds(self, value):  # IVS1
         if value < 30:
             raise ValueError("idle_timeout_seconds must be at least 30")
         self._idle_timeout_seconds = value
 
     @property
-    def idle_timeout_warning_seconds(self):
+    def idle_timeout_warning_seconds(self):  # IVS1
         """Number of seconds before the idle timeout that a warning is
            issued
         """
         return self._idle_timeout_warning_seconds
 
     @idle_timeout_warning_seconds.setter
-    def idle_timeout_warning_seconds(self, value):
+    def idle_timeout_warning_seconds(self, value):  # IVS1
         if value > self.idle_timeout_seconds:
             raise ValueError("idle_timeout_warning seconds "
                              "must be greater than idle_timeout_seconds")
         self._idle_timeout_warning_seconds = value
 
     @property
-    def dpst_gpio(self):
+    def dpst_gpio(self):  # IVS1
         """GPIO pin (BCM numbering) that the DPST is connected to"""
         return self._dpst_gpio
 
     @dpst_gpio.setter
-    def dpst_gpio(self, value):
+    def dpst_gpio(self, value):  # IVS1
         self._dpst_gpio = value
 
     @property
-    def button_gpio(self):
+    def button_gpio(self):  # IVS1
         """GPIO pin (BCM numbering) that the pushbutton is connected to"""
         return self._button_gpio
 
     @button_gpio.setter
-    def button_gpio(self, value):
+    def button_gpio(self, value):  # IVS1
         self._button_gpio = value
 
     @property
-    def buzzer_gpio(self):
+    def buzzer_gpio(self):  # IVS1
         """GPIO pin (BCM numbering) that the piezo buzzer is connected to"""
         return self._buzzer_gpio
 
     @buzzer_gpio.setter
-    def buzzer_gpio(self, value):
+    def buzzer_gpio(self, value):  # IVS1
         self._buzzer_gpio = value
 
     @property
-    def button_time_for_shutdown(self):
+    def button_time_for_shutdown(self):  # IVS1
         """Amount of time in seconds that the pushbutton must be held
            down in order for a shutdown to be initiated
         """
         return self._button_time_for_shutdown
 
     @button_time_for_shutdown.setter
-    def button_time_for_shutdown(self, value):
+    def button_time_for_shutdown(self, value):  # IVS1
         self._button_time_for_shutdown = value
 
     @property
-    def lcd_lines(self):
+    def lcd_lines(self):  # IVS1
         """Number of lines on the LCD"""
         return self._lcd_lines
 
     @lcd_lines.setter
-    def lcd_lines(self, value):
+    def lcd_lines(self, value):  # IVS1
         self._lcd_lines = value
 
     @property
-    def lcd_disp_chars_per_line(self):
+    def lcd_disp_chars_per_line(self):  # IVS1
         """Number of characters per line on the LCD display"""
         return self._lcd_disp_chars_per_line
 
     @lcd_disp_chars_per_line.setter
-    def lcd_disp_chars_per_line(self, value):
+    def lcd_disp_chars_per_line(self, value):  # IVS1
         self._lcd_disp_chars_per_line = value
 
     @property
-    def lcd_mem_chars_per_line(self):
+    def lcd_mem_chars_per_line(self):  # IVS1
         """Number of characters per LCD line that can be held in memory"""
         return self._lcd_mem_chars_per_line
 
     @lcd_mem_chars_per_line.setter
-    def lcd_mem_chars_per_line(self, value):
+    def lcd_mem_chars_per_line(self, value):  # IVS1
         self._lcd_mem_chars_per_line = value
 
     @property
-    def lcd_chars_per_scroll(self):
+    def lcd_chars_per_scroll(self):  # IVS1
         """Number of characters to scroll on the LCD when displaying a
            scrolling message. Must be integer divisor of 24
            (1,2,3,4,6,8,12)
@@ -1598,77 +1597,77 @@ class IV_Swinger(object):
         return self._lcd_chars_per_scroll
 
     @lcd_chars_per_scroll.setter
-    def lcd_chars_per_scroll(self, value):
+    def lcd_chars_per_scroll(self, value):  # IVS1
         if value not in set([1, 2, 3, 4, 6, 8, 12]):
             raise ValueError("lcd_chars_per_scroll must "
                              "be integer divisor of 24")
         self._lcd_chars_per_scroll = value
 
     @property
-    def lcd_scroll_delay(self):
+    def lcd_scroll_delay(self):  # IVS1
         """Time in seconds to delay between each LCD scroll"""
         return self._lcd_scroll_delay
 
     @lcd_scroll_delay.setter
-    def lcd_scroll_delay(self, value):
+    def lcd_scroll_delay(self, value):  # IVS1
         self._lcd_scroll_delay = value
 
     @property
-    def mcp23017_i2c_addr(self):
+    def mcp23017_i2c_addr(self):  # IVS1
         """Hex I2C address that the MCP23017 is jumpered to"""
         return self._mcp23017_i2c_addr
 
     @mcp23017_i2c_addr.setter
-    def mcp23017_i2c_addr(self, value):
+    def mcp23017_i2c_addr(self, value):  # IVS1
         self._mcp23017_i2c_addr = value
 
     @property
-    def time_between_measurements(self):
+    def time_between_measurements(self):  # IVS1
         """Time in seconds to delay between taking measurements"""
         return self._time_between_measurements
 
     @time_between_measurements.setter
-    def time_between_measurements(self, value):
+    def time_between_measurements(self, value):  # IVS1
         self._time_between_measurements = value
 
     @property
-    def samples_per_measurement(self):
+    def samples_per_measurement(self):  # IVS1
         """Number of samples to take at each measurement point"""
         return self._samples_per_measurement
 
     @samples_per_measurement.setter
-    def samples_per_measurement(self, value):
+    def samples_per_measurement(self, value):  # IVS1
         self._samples_per_measurement = value
 
     @property
-    def max_retries(self):
+    def max_retries(self):  # IVS1
         """Number of times to retry failed measurements"""
         return self._max_retries
 
     @max_retries.setter
-    def max_retries(self, value):
+    def max_retries(self, value):  # IVS1
         self._max_retries = value
 
     @property
-    def voc_settle_count(self):
+    def voc_settle_count(self):  # IVS1
         """Number of Voc measurements to keep when determining if the
            value has settled
         """
         return self._voc_settle_count
 
     @voc_settle_count.setter
-    def voc_settle_count(self, value):
+    def voc_settle_count(self, value):  # IVS1
         self._voc_settle_count = value
 
     @property
-    def sps(self):
+    def sps(self):  # IVS1
         """Samples per second with which to program the ADC. Must be one
            of: 8, 16, 64, 128, 250, 475, 860
         """
         return self._sps
 
     @sps.setter
-    def sps(self, value):
+    def sps(self, value):  # IVS1
         if value not in set([8, 16, 64, 128, 250, 475, 860]):
             raise ValueError("illegal sps value")
         self._sps = value
@@ -1747,16 +1746,16 @@ class IV_Swinger(object):
         self._vdiv_r2 = value
 
     @property
-    def vdiv_r3(self):
+    def vdiv_r3(self):  # IVS1
         """Resistance in ohms of voltage divider resistor R3"""
         return self._vdiv_r3
 
     @vdiv_r3.setter
-    def vdiv_r3(self, value):
+    def vdiv_r3(self, value):  # IVS1
         self._vdiv_r3 = value
 
     @property
-    def vdiv_mult(self):
+    def vdiv_mult(self):  # IVS1
         """Amount that voltage divider Vout is multiplied to determine Vin"""
         vdiv_mult = (self._vdiv_r1 +
                      self._vdiv_r2 +
@@ -1764,21 +1763,21 @@ class IV_Swinger(object):
         return vdiv_mult
 
     @property
-    def vdiv_chp(self):
+    def vdiv_chp(self):  # IVS1
         """ADC channel connected to positive side of the voltage divider"""
         return self._vdiv_chp
 
     @vdiv_chp.setter
-    def vdiv_chp(self, value):
+    def vdiv_chp(self, value):  # IVS1
         self._vdiv_chp = value
 
     @property
-    def vdiv_chn(self):
+    def vdiv_chn(self):  # IVS1
         """ADC channel connected to negative side of the voltage divider"""
         return self._vdiv_chn
 
     @vdiv_chn.setter
-    def vdiv_chn(self, value):
+    def vdiv_chn(self, value):  # IVS1
         self._vdiv_chn = value
 
     # Ammeter
@@ -1821,7 +1820,7 @@ class IV_Swinger(object):
         return self._amm_shunt_max_amps
 
     @amm_shunt_max_amps.setter
-    def amm_shunt_max_amps(self, value):
+    def amm_shunt_max_amps(self, value):  # IVS1
         self._amm_shunt_max_amps = value
 
     @property
@@ -1832,25 +1831,25 @@ class IV_Swinger(object):
         return amm_shunt_resistance
 
     @property
-    def amm_chp(self):
+    def amm_chp(self):  # IVS1
         """ADC channel connected to positive side of the ammeter shunt
            resistor
         """
         return self._amm_chp
 
     @amm_chp.setter
-    def amm_chp(self, value):
+    def amm_chp(self, value):  # IVS1
         self._amm_chp = value
 
     @property
-    def amm_chn(self):
+    def amm_chn(self):  # IVS1
         """ADC channel connected to negative side of the ammeter shunt
            resistor
         """
         return self._amm_chn
 
     @amm_chn.setter
-    def amm_chn(self, value):
+    def amm_chn(self, value):  # IVS1
         self._amm_chn = value
 
     @property
@@ -1875,17 +1874,6 @@ class IV_Swinger(object):
     @plot_colors.setter
     def plot_colors(self, value):
         self._plot_colors = value
-
-    @property
-    def plot_interpolated_curve(self):
-        """If True, the interpolated IV curve is plotted"""
-        return self._plot_interpolated_curve
-
-    @plot_interpolated_curve.setter
-    def plot_interpolated_curve(self, value):
-        if value not in set([True, False]):
-            raise ValueError("plot_interpolated_curve must be boolean")
-        self._plot_interpolated_curve = value
 
     @property
     def use_spline_interpolation(self):
@@ -1919,7 +1907,7 @@ class IV_Swinger(object):
         return self._max_i_ratio
 
     @max_i_ratio.setter
-    def max_i_ratio(self, value):
+    def max_i_ratio(self, value):  # IVS1
         self._max_i_ratio = value
 
     @property
@@ -1929,7 +1917,7 @@ class IV_Swinger(object):
         return self._max_v_ratio
 
     @max_v_ratio.setter
-    def max_v_ratio(self, value):
+    def max_v_ratio(self, value):  # IVS1
         self._max_v_ratio = value
 
     @property
@@ -1969,7 +1957,7 @@ class IV_Swinger(object):
         return self._plot_x_inches
 
     @plot_x_inches.setter
-    def plot_x_inches(self, value):
+    def plot_x_inches(self, value):  # IVS1
         self._plot_x_inches = value
 
     @property
@@ -1979,7 +1967,7 @@ class IV_Swinger(object):
         return self._plot_y_inches
 
     @plot_y_inches.setter
-    def plot_y_inches(self, value):
+    def plot_y_inches(self, value):  # IVS1
         self._plot_y_inches = value
 
     @property
@@ -2071,7 +2059,7 @@ class IV_Swinger(object):
         return self._title_fontsize
 
     @title_fontsize.setter
-    def title_fontsize(self, value):
+    def title_fontsize(self, value):  # IVS1
         self._title_fontsize = value
 
     @property
@@ -2080,7 +2068,7 @@ class IV_Swinger(object):
         return self._axislabel_fontsize
 
     @axislabel_fontsize.setter
-    def axislabel_fontsize(self, value):
+    def axislabel_fontsize(self, value):  # IVS1
         self._axislabel_fontsize = value
 
     @property
@@ -2089,7 +2077,7 @@ class IV_Swinger(object):
         return self._ticklabel_fontsize
 
     @ticklabel_fontsize.setter
-    def ticklabel_fontsize(self, value):
+    def ticklabel_fontsize(self, value):  # IVS1
         self._ticklabel_fontsize = value
 
     @property
@@ -2098,7 +2086,7 @@ class IV_Swinger(object):
         return self._isclabel_fontsize
 
     @isclabel_fontsize.setter
-    def isclabel_fontsize(self, value):
+    def isclabel_fontsize(self, value):  # IVS1
         self._isclabel_fontsize = value
 
     @property
@@ -2107,7 +2095,7 @@ class IV_Swinger(object):
         return self._voclabel_fontsize
 
     @voclabel_fontsize.setter
-    def voclabel_fontsize(self, value):
+    def voclabel_fontsize(self, value):  # IVS1
         self._voclabel_fontsize = value
 
     @property
@@ -2116,7 +2104,7 @@ class IV_Swinger(object):
         return self._mpplabel_fontsize
 
     @mpplabel_fontsize.setter
-    def mpplabel_fontsize(self, value):
+    def mpplabel_fontsize(self, value):  # IVS1
         self._mpplabel_fontsize = value
 
     @property
@@ -2125,7 +2113,7 @@ class IV_Swinger(object):
         return self._legend_fontsize
 
     @legend_fontsize.setter
-    def legend_fontsize(self, value):
+    def legend_fontsize(self, value):  # IVS1
         self._legend_fontsize = value
 
     @property
@@ -2206,7 +2194,7 @@ class IV_Swinger(object):
         return self._gp_font_scale
 
     @gp_font_scale.setter
-    def gp_font_scale(self, value):
+    def gp_font_scale(self, value):  # IVS1
         self._gp_font_scale = value
 
     @property
@@ -2217,7 +2205,7 @@ class IV_Swinger(object):
         return self._gp_isc_voc_mpp_pointtype
 
     @gp_isc_voc_mpp_pointtype.setter
-    def gp_isc_voc_mpp_pointtype(self, value):
+    def gp_isc_voc_mpp_pointtype(self, value):  # IVS1
         self._gp_isc_voc_mpp_pointtype = value
 
     @property
@@ -2227,7 +2215,7 @@ class IV_Swinger(object):
         return self._gp_measured_point_color
 
     @gp_measured_point_color.setter
-    def gp_measured_point_color(self, value):
+    def gp_measured_point_color(self, value):  # IVS1
         self._gp_measured_point_color = value
 
     @property
@@ -2237,7 +2225,7 @@ class IV_Swinger(object):
         return self._gp_measured_pointtype
 
     @gp_measured_pointtype.setter
-    def gp_measured_pointtype(self, value):
+    def gp_measured_pointtype(self, value):  # IVS1
         self._gp_measured_pointtype = value
 
     @property
@@ -2247,7 +2235,7 @@ class IV_Swinger(object):
         return self._gp_measured_point_linewidth
 
     @gp_measured_point_linewidth.setter
-    def gp_measured_point_linewidth(self, value):
+    def gp_measured_point_linewidth(self, value):  # IVS1
         self._gp_measured_point_linewidth = value
 
     @property
@@ -2257,7 +2245,7 @@ class IV_Swinger(object):
         return self._gp_interp_linewidth
 
     @gp_interp_linewidth.setter
-    def gp_interp_linewidth(self, value):
+    def gp_interp_linewidth(self, value):  # IVS1
         self._gp_interp_linewidth = value
 
     @property
@@ -2267,7 +2255,7 @@ class IV_Swinger(object):
         return self._gp_interp_linetype
 
     @gp_interp_linetype.setter
-    def gp_interp_linetype(self, value):
+    def gp_interp_linetype(self, value):  # IVS1
         self._gp_interp_linetype = value
 
     @property
@@ -2277,7 +2265,7 @@ class IV_Swinger(object):
         return self._gnuplot_command
 
     @gnuplot_command.setter
-    def gnuplot_command(self, value):
+    def gnuplot_command(self, value):  # IVS1
         self._gnuplot_command = value
 
     @property
@@ -2301,7 +2289,7 @@ class IV_Swinger(object):
         self._output_line = value
 
     # -------------------------------------------------------------------------
-    def set_up_gpio(self):
+    def set_up_gpio(self):  # IVS1
         """Method to set up the GPIO pins"""
 
         # Set GPIO pin numbering to BCM mode
@@ -2340,7 +2328,7 @@ class IV_Swinger(object):
     # Methods
 
     # -------------------------------------------------------------------------
-    def pushbutton_callback(self, channel):
+    def pushbutton_callback(self, channel):  # IVS1
         """Callback method invoked when the pushbutton switch is pressed
         """
         # pylint: disable=unused-argument
@@ -2356,7 +2344,7 @@ class IV_Swinger(object):
         return
 
     # -------------------------------------------------------------------------
-    def pushbutton_callback_locked_section(self):
+    def pushbutton_callback_locked_section(self):  # IVS1
         """Callback method invoked when the pushbutton switch is pressed
         """
 
@@ -2408,7 +2396,7 @@ class IV_Swinger(object):
         return
 
     # -------------------------------------------------------------------------
-    def reset_lcd(self):
+    def reset_lcd(self):  # IVS1
         """Method to reset the LCD"""
         # Code taken from Adafruit_CharLCD constructor
 
@@ -2436,7 +2424,7 @@ class IV_Swinger(object):
         self.lcd.clear()
 
     # -------------------------------------------------------------------------
-    def prompt_and_wait_for_dpst_off(self):
+    def prompt_and_wait_for_dpst_off(self):  # IVS1
         """Method to prompt the user to turn off the DPST switch and
            poll until this occurs.  While polling, the warning pattern is
            sounded.
@@ -2465,7 +2453,7 @@ class IV_Swinger(object):
             self.lcd.clear()
 
     # -------------------------------------------------------------------------
-    def read_adc(self, adc, chP=0, chN=1, starting_pga=6144):
+    def read_adc(self, adc, chP=0, chN=1, starting_pga=6144):  # IVS1
         """Wrapper method around the readADCDifferential method.  It
            first uses different PGA gain values until it finds the optimal
            range.  The optimal range is the largest one where the reading
@@ -2524,7 +2512,7 @@ class IV_Swinger(object):
         return millivolt_avg / 1000
 
     # -------------------------------------------------------------------------
-    def read_voc(self, adc):
+    def read_voc(self, adc):  # IVS1
         """Method to read the current Voc voltage, but return 0 for
            voltages less than 300mV
         """
@@ -2536,7 +2524,7 @@ class IV_Swinger(object):
         return voc_volts
 
     # -------------------------------------------------------------------------
-    def measure_voc(self, adc, msg_text):
+    def measure_voc(self, adc, msg_text):  # IVS1
         """Method to continually measure Voc (10 measurements/second).
            Once a stable measurement is achieved, the user is prompted to
            turn the DPST switch on.  Voc measurements continue to be taken
@@ -2684,7 +2672,7 @@ class IV_Swinger(object):
         return (voc_amps, voc_volts, voc_ohms, voc_watts)
 
     # -------------------------------------------------------------------------
-    def get_data_values_for_load_pattern(self, load_pattern, io_extender, adc):
+    def get_data_values_for_load_pattern(self, load_pattern, io_extender, adc):  # IVS1
         """Method to set the MCP23017 outputs (controlling the relays)
            to the values based on the specified load pattern and to read
            the current and voltage at that point.  Ohms and watts are
@@ -2765,7 +2753,7 @@ class IV_Swinger(object):
         return (amps, volts, ohms, watts)
 
     # -------------------------------------------------------------------------
-    def open_circuit(self, load_pattern, io_extender):
+    def open_circuit(self, load_pattern, io_extender):  # IVS1
         """Method to activate the OPEN relay to open the circuit, while
            keeping the other relays as they were. Once the OPEN relay is
            activated (and after a short delay), the other relays are
@@ -2793,7 +2781,7 @@ class IV_Swinger(object):
         time.sleep(self.time_between_measurements)
 
     # -------------------------------------------------------------------------
-    def get_base_loads(self, none_data_point, voc_volts):
+    def get_base_loads(self, none_data_point, voc_volts):  # IVS1
         """Method to determine the "base load".  This is some combo of
            the 50W power resistors to start with before adding the finer
            grained heating coil loads.  The purpose is to center the
@@ -2844,7 +2832,7 @@ class IV_Swinger(object):
         return base_loads
 
     # -------------------------------------------------------------------------
-    def swing_iv_curve(self, io_extender, adc, voc_volts):
+    def swing_iv_curve(self, io_extender, adc, voc_volts):  # IVS1
         """Method to cycle through the load values using the relays,
            taking a current and voltage measurement at each point.  The
            results are returned in a list of 4-entry tuples
@@ -3043,7 +3031,7 @@ class IV_Swinger(object):
         return max_watt_point_number
 
     # -------------------------------------------------------------------------
-    def extrapolate_isc(self, data_points, max_watt_point_number):
+    def extrapolate_isc(self, data_points, max_watt_point_number):  # IVS1
         """Method to extrapolate the Isc value from the first two
            measured data points.
         """
@@ -3116,13 +3104,13 @@ class IV_Swinger(object):
         return (isc_amps, isc_volts, isc_ohms, isc_watts)
 
     # -------------------------------------------------------------------------
-    def write_gnuplot_file(self, command_filename, data_filenames,
+    def write_gnuplot_file(self, gp_command_filename, data_filenames,
                            img_filename, isc_amps, voc_volts, mpp_amps,
                            mpp_volts):
         """Method to write the gnuplot command file"""
         # pylint: disable=too-many-arguments
 
-        with open(command_filename, "w") as self.filehandle:
+        with open(gp_command_filename, "w") as self.filehandle:
 
             # Set the figure size
             self.set_figure_size()
@@ -3799,13 +3787,9 @@ class IV_Swinger(object):
 
             # Plot interpolated curve first, so it is "under" the
             # measured points
-            if self.plot_interpolated_curve:
-                # Plot interpolated points
-                self.plot_interp_points(curve_num, df,
-                                        sd_data_point_filenames,
-                                        interp_volts, interp_amps)
-                if self.use_gnuplot:
-                    self.output_line += ", "
+            self.plot_interp_points(curve_num, df,
+                                    sd_data_point_filenames,
+                                    interp_volts, interp_amps)
 
             # Plot measured points
             self.plot_measured_points(curve_num, df,
@@ -3829,7 +3813,7 @@ class IV_Swinger(object):
            plot_measured_points().
         """
         edge = "red"
-        if self.line_scale == 0.0 or not self.plot_interpolated_curve:
+        if self.line_scale == 0.0:
             # Solid dots if no interpolated curve
             face = edge
         else:
@@ -3904,7 +3888,7 @@ class IV_Swinger(object):
                 # On Mac @ sign is lost
                 interp_label = interp_label.replace("@", " at ")
             self.output_line += ('"{}" index 1 with lines title "{}" '
-                                 'linecolor rgb "{}" linewidth {} linetype {}'
+                                 'linecolor rgb "{}" linewidth {} linetype {},'
                                  .format(df, interp_label,
                                          self.plot_colors[curve_num],
                                          (self.gp_interp_linewidth *
@@ -4045,7 +4029,7 @@ class IV_Swinger(object):
         plt.close("all")
 
     # -------------------------------------------------------------------------
-    def shut_down(self, lock_held=True):
+    def shut_down(self, lock_held=True):  # IVS1
         """Method to shut down the Raspberry Pi"""
 
         try:
@@ -4063,7 +4047,7 @@ class IV_Swinger(object):
             self.reset_lcd()
 
     # -------------------------------------------------------------------------
-    def clean_up(self, io_extender, reason_text):
+    def clean_up(self, io_extender, reason_text):  # IVS1
         """Method to clean up on exit, then shut down"""
 
         self.logger.print_and_log("Cleaning up on exit: {}\n"
@@ -4094,7 +4078,7 @@ class IV_Swinger(object):
             GPIO.cleanup()
 
     # -------------------------------------------------------------------------
-    def find_usb_drives(self, wait=True, display=False):
+    def find_usb_drives(self, wait=True, display=False):  # IVS1
         """Method to find all USB drives and return the list. If the
            "wait" arg is set to True and no USB drives are found, prompt
            the user and wait until one is inserted (or time out).
@@ -4223,12 +4207,12 @@ class IV_Swinger(object):
         for base_dir in base_dirs:
             sub_dirs = [os.path.join(base_dir, self.root_dir),
                         os.path.join(base_dir, self.root_dir, "logs")]
-            if include_csv:
+            if include_csv:  # IVS1
                 sub_dirs.append(os.path.join(base_dir, self.root_dir, "csv"))
-            if include_pdf:
+            if include_pdf:  # IVS1
                 sub_dirs.append(os.path.join(base_dir, self.root_dir, "pdf"))
             for sub_dir in sub_dirs:
-                if not os.path.exists(sub_dir):
+                if not os.path.exists(sub_dir):  # IVS1
                     try:
                         os.makedirs(sub_dir)
                     except OSError:
@@ -4255,7 +4239,7 @@ class IV_Swinger(object):
 
     # -------------------------------------------------------------------------
     def copy_files_to_usb(self, date_time_str, sd_output_dir,
-                          sd_iv_swinger_dir):
+                          sd_iv_swinger_dir):  # IVS1
         """Method to copy the files from the SD card /IV_Swinger
            directory to the USB drives.  If no USB drive is found (or if
            there are errors writing to all that are), the date/time string
@@ -4378,7 +4362,7 @@ class IV_Swinger(object):
                 self.logger.print_and_log("({})".format(e))
 
     # -------------------------------------------------------------------------
-    def check_for_thread_errors(self):
+    def check_for_thread_errors(self):  # IVS1
         """Method to check the exception message queue to see if a
            thread has died, in which case the main thread must exit too.
         """
@@ -4391,7 +4375,7 @@ class IV_Swinger(object):
             exit(-1)
 
     # -------------------------------------------------------------------------
-    def run_meat(self, io_extender):
+    def run_meat(self, io_extender):  # IVS1
         """Method containing most of run(), run with exception
            handling after io_extender object creation
         """
@@ -4658,7 +4642,7 @@ class IV_Swinger(object):
                 msg_text = [outdir_msg, "Turn switch ON\nto start again"]
 
     # -------------------------------------------------------------------------
-    def init_other_class_variables(self):
+    def init_other_class_variables(self):  # IVS1
         """Method that initializes class variables in the supporting
            classes based on this class' property values. This method, or an
            equivalent, must be run before the PrintAndLog,
@@ -4682,7 +4666,7 @@ class IV_Swinger(object):
         BeepGenerator.buzzer_gpio = self.buzzer_gpio
 
     # -------------------------------------------------------------------------
-    def run(self):
+    def run(self):  # IVS1
         """Top-level method to run the IV Swinger"""
 
         # Init class variables in supporting classes
@@ -4740,7 +4724,7 @@ class IV_Swinger(object):
 ############
 #   Main   #
 ############
-def main():
+def main():  # IVS1
     """Main function"""
     ivs = IV_Swinger()
     # Override default property values
@@ -4754,4 +4738,4 @@ def main():
 
 # Boilerplate main() call
 if __name__ == "__main__":
-    main()
+    main()  # IVS1

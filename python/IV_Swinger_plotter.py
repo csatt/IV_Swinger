@@ -390,18 +390,8 @@ class IV_Swinger_extended(IV_Swinger.IV_Swinger):
     # pylint: disable=too-many-instance-attributes
     def __init__(self):
         IV_Swinger.IV_Swinger.__init__(self)
-        self._data_points = []
         self._plt_img_filename = ""
         self._logger = None
-
-    @property
-    def data_points(self):
-        """Property to get the data points"""
-        return self._data_points
-
-    @data_points.setter
-    def data_points(self, value):
-        self._data_points = value
 
     @property
     def plt_img_filename(self):

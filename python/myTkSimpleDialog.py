@@ -102,7 +102,7 @@ class Dialog(Toplevel):
         This method should be overridden, and is called
         by the __init__ method.
         '''
-        pass
+        pass  # override
 
     def buttonbox(self):
         '''add standard button box.
@@ -328,4 +328,4 @@ if __name__ == "__main__":
 
     print askinteger("Spam", "Egg count", initialvalue=12*12)
     print askfloat("Spam", "Egg weight\n(in tons)", minvalue=1, maxvalue=100)
-    print askstring("Spam", "Egg label")
+    print askstring("Spam", "Egg label", show=True)

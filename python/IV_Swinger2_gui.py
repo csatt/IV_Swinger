@@ -3968,7 +3968,7 @@ class MenuBar(tk.Menu):
             self.menubar.add_cascade(menu=self.about_menu)
             self.master.root.createcommand("tk::mac::ShowPreferences",
                                            self.master.show_preferences)
-        else:
+        else:  # Windows / Linux
             self.about_menu = tk.Menu(self.menubar)
             self.menubar.add_cascade(menu=self.about_menu, label="About")
         self.about_menu.add_command(label="About IV Swinger 2",
@@ -4124,7 +4124,7 @@ class MenuBar(tk.Menu):
             self.menubar.add_cascade(menu=self.help_menu, label="Help")
             self.master.root.createcommand("tk::mac::ShowHelp",
                                            self.show_help)
-        else:
+        else:  # Windows / Linux
             self.help_menu = tk.Menu(self.menubar)
             self.menubar.add_cascade(menu=self.help_menu, label="Help")
             self.help_menu.add_command(label="IV Swinger 2 Help",
@@ -4556,7 +4556,7 @@ class Dialog(tk.Toplevel):
         """Method to create the dialog body. This method should be
            overridden.
         """
-        pass
+        pass  # override
 
     # -------------------------------------------------------------------------
     def buttonbox(self, master):
@@ -6321,9 +6321,6 @@ class ResistorValuesDialog(Dialog):
         """Method that overrides apply() method of parent to apply new values to
            properties and the config
         """
-        if not self.validate():
-            return
-
         resistance_opt_changed = False
         section = "Calibration"
         option = "r1 ohms"
@@ -7296,7 +7293,7 @@ checked for an IV Swinger 2 that
 uses SSRs or damage could result!
 """
             tkmsg_showwarning(self.master, message=warning_str)
-        else:
+        else:  # sketch does not support
             error_str = """
 ERROR: This version of the Arduino
 software supports active-low relays

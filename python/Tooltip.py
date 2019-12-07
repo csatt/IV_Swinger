@@ -259,7 +259,7 @@ if __name__ == '__main__':
         btn_s = ttk.Button(frame, text='South')
         btn_w = ttk.Button(frame, text='West')
 
-        Tooltip(btn_nw, text='North West' + stuff(), wraplength=wraplength)
+        Tooltip(btn_nw, text='North West' + stuff(), wraplength=wraplength, offset_up=True)
         Tooltip(btn_ne, text='North East' + stuff(), wraplength=wraplength)
         Tooltip(btn_se, text='South East' + stuff(), wraplength=wraplength)
         Tooltip(btn_sw, text='South West' + stuff(), wraplength=wraplength)
@@ -267,7 +267,7 @@ if __name__ == '__main__':
         Tooltip(btn_n, text='North' + stuff(), wraplength=wraplength)
         Tooltip(btn_e, text='East' + stuff(), wraplength=wraplength)
         Tooltip(btn_s, text='South' + stuff(), wraplength=wraplength)
-        Tooltip(btn_w, text='West' + stuff(), wraplength=wraplength)
+        Tooltip(btn_w, text='West' + stuff(), wraplength=wraplength, offset_left=True)
 
         r = 0
         c = 0

@@ -2205,12 +2205,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                                                               mac_domain_mask,
                                                               True)[0],
                                                   APP_NAME)
-            elif sys.platform == "win32":
-                # Windows
+            elif sys.platform == "win32":  # Windows
                 self._app_data_dir = os.path.join(os.environ["APPDATA"],
                                                   APP_NAME)
-            else:
-                # Linux
+            else:  # Linux
                 leaf_dir = ".{}".format(APP_NAME)
                 self._app_data_dir = os.path.expanduser(os.path.join("~",
                                                                      leaf_dir))
@@ -2970,7 +2968,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             # disconnected
             self._ser.close()
             self._ser.open()
-        except (serial.SerialException) as e:
+        except serial.SerialException as e:
             self.logger.print_and_log("ERROR: reset_arduino: ({})".format(e))
             return RC_SERIAL_EXCEPTION
 
@@ -3152,7 +3150,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
         try:
             self._sio.write(unicode("{}\n".format(msg)))
-        except (serial.SerialException) as e:
+        except serial.SerialException as e:
             err_str = "ERROR: send_msg_to_arduino: ({})".format(e)
             self.logger.print_and_log(err_str)
             return RC_SERIAL_EXCEPTION
@@ -3167,7 +3165,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         while msg_timer:
             try:
                 self.msg_from_arduino = self._sio.readline()
-            except (serial.SerialException) as e:
+            except serial.SerialException as e:
                 err_str = "ERROR: receive_msg_from_arduino: ({})".format(e)
                 self.logger.print_and_log(err_str)
                 return RC_SERIAL_EXCEPTION
@@ -4395,11 +4393,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """Method to create the HDD output directory"""
 
         # Create the HDD output directory
-        hdd_iv_swinger_dirs = self.create_iv_swinger_dirs([""],
-                                                          include_csv=False,
-                                                          include_pdf=False)
-        hdd_iv_swinger_dir = hdd_iv_swinger_dirs[0]  # only one
-        self.hdd_output_dir = os.path.join(hdd_iv_swinger_dir, subdir,
+        self.hdd_output_dir = os.path.join(self.root_dir, subdir,
                                            date_time_str)
         os.makedirs(self.hdd_output_dir)
 

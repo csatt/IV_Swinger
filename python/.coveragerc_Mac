@@ -1,0 +1,175 @@
+# Comment
+[run]
+omit =
+    /System/Library/*
+    /Library/*
+[report]
+exclude_lines =
+    pragma: no cover
+    ############################
+    # Some imports are platform-specific
+    ############################
+    ^ *import Adafruit
+    ^ *import RPi
+    ############################
+    # Error cases (comment out for negative testing)
+    ############################
+    ERROR: Bad Arduino version message
+    ERROR: Bad EEPROM valid value
+    ERROR: Bad EEPROM value message
+    ERROR: Bad test version
+    ERROR: Failed to swing curve for bias battery
+    ERROR: Isc is zero amps
+    ERROR: Malformed Arduino ready message
+    ERROR: Message to Arduino is too long
+    ERROR: No PDF to display
+    ERROR: Programming bug
+    ERROR: The Arduino sketch does not support dynamic
+    ERROR: There are multiple
+    ERROR: There is no
+    ERROR: multiple data point CSV files found in
+    ERROR: no data point CSV file found in
+    ERROR: {} does not exist
+    ERROR: {} is neither a file nor a directory
+    ERROR: {} is not writeable
+    ERROR: {} names specified for {} curves
+    WARNING: EEPROM
+    def pdf_permission_denied
+    except .*IOError
+    except ConfigParser.NoOptionError
+    except ImportError
+    except IndexError
+    except OSError
+    except UnicodeDecodeError
+    except UnicodeEncodeError
+    except ValueError
+    except serial.SerialException
+    except shutil.Error
+    except tk.TclError
+    exit\(-1\)
+    handle_early_exception
+    if curr_isc <= i_cal_b
+    if len\(vipr_list\) != 4
+    if not self.master.ivs2.battery_bias and curr_voc <= v_cal_b
+    if rc != RC_SUCCESS
+    if rc == RC_NO_POINTS
+    if rc == RC_ZERO_ISC
+    if self.log_file_name is None
+    if self.rm_overlay_if_unfinished
+    print_and_log.*err_str
+    print_and_log.*fail_str
+    print_and_log.*warn_str
+    raise ValueError
+    return RC_FAILURE
+    return RC_ZERO_ISC
+    return SKETCH_VER_ERR
+    return show_error_dialog_clean_up_and_return
+    screen_msg \+= self.zero_isc_str
+    show_baud_mismatch_dialog
+    show_timeout_dialog
+    tkmsg_showerror
+    ############################
+    # Debug
+    ############################
+    def cfg_dump
+    def gen_dbg_str
+    if DEBUG_CONFIG
+    if DEBUG_MEMLEAK
+    ############################
+    # IVS1-specific code (identified by eol comment)
+    ############################
+    \# IVS1
+    ############################
+    # Other old code
+    ############################
+    \# sketch does not support
+    if not self.*arduino_sketch_supports
+    if not self.cfg.has_section\("Looping"\):
+    if os.path.exists\(self.sensor_info_filename\)
+    if self.arduino_sketch_ver_lt
+    if self.reestablish_arduino_comm_reqd
+    run_info_filename = sensor_info_filename
+    self.master.ivs2.arduino_sketch_supports_ssr_adv_current_cal\):
+    sensor_info_filename = None
+    ############################
+    # Overridden methods
+    ############################
+    \# override
+    ############################
+    # Windows-specific
+    ############################
+    if sys.platform == "win32"
+    \# Windows
+    ############################
+    # Linux-specific
+    ############################
+    \# Linux
+    xdg-open
+    ############################
+    # Misc "can't happen" or otherwise degenerate cases not worth the
+    # trouble to cover
+    ############################
+    EXISTS_DIFFERENT
+    \slogger.print_and_log\(msg_str\)
+    disable=bare-except
+    ext_str = ""
+    find_first_downward_deflection retried too many
+    getattr.*frozen
+    i_scale = INFINITE_VAL
+    if adc_pair\[1\] < self._adc_ch1_offset
+    if bias_battery_csv is None
+    if calibrate
+    if delta_v < 0.0 or delta_i <= 0.0:
+    if i2 > i1
+    if len\(adc_pair\) != 2:
+    if len\(adc_pairs\) < 2
+    if len\(lines\) != 1
+    if len\(self.adc_pairs\) < 2
+    if line != expected_first_line
+    if not os.path.isdir\(run_dir\)
+    if not selections
+    if not self.initial_focus
+    if not self.ivp.curve_names
+    if not version or version\[0\] != "v":
+    if prev_batt_ch1_adc == batt_ch1_adc
+    if pt1_num > first_pt1 \+ 15
+    if run_dir is None
+    if self.arduino_ready
+    if self.preferences_button.instate\(\["disabled"\]\)
+    if self.run_info_filename is None
+    m = -\(INFINITE_VAL\)
+    mpp_ohms = INFINITE_VAL
+    os\.chdir\("\.\."\)
+    pt3 = len\(adc_pairs\) - 1
+    restore_arduino_eeprom
+    result =+ "FAILED"
+    return adc_pairs\[0\]\[1\]
+    run_info_filename = None
+    run_str \+= " Run"
+    self.adv_cal_adc_val = "Saturated"
+    self.eeprom_rewrite_needed = True
+    ############################
+    # Unused methods
+    ############################
+    def start_centered
+    def start_to_left
+    ############################
+    # Sketch version comparisons that aren't worth the effort to cover
+    ############################
+    def arduino_sketch_ver_eq
+    def arduino_sketch_ver_ge
+    def arduino_sketch_ver_gt
+    def arduino_sketch_ver_le
+    return SKETCH_VER_EQ
+    ############################
+    # Property "setters" that are for the use of external scripts, but
+    # are not currently used
+    ############################
+    adc_range.setter
+    app_data_dir.setter
+    file_prefix.setter
+    msg_timer_timeout.setter
+    overlay_names.setter
+    photodiode_nominal_deg_c.setter
+    serial_timeout.setter
+    starting_cfg_filename.setter
