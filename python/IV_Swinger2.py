@@ -261,6 +261,10 @@ def sys_view_file(filename):
        based on its file type/extension. e.g. a .txt file will be opened
        using a text editor, a PDF file will be opened with whatever is
        normally used to view PDFs (Acrobat reader, Preview, etc.)
+
+       If the "file" is actually a directory/folder, the OS will open
+       its default file manager GUI (e.g. Finder for Mac, Explorer for
+       Windows).
     """
     if sys.platform == "darwin":
         # Mac

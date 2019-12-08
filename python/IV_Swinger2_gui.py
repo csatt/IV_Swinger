@@ -3987,6 +3987,8 @@ class MenuBar(tk.Menu):
                                    command=self.view_config_file)
         self.file_menu.add_command(label="View Run Info File",
                                    command=self.view_run_info_file)
+        self.file_menu.add_command(label="Open Run Folder",
+                                   command=self.open_run_folder)
 
     # -------------------------------------------------------------------------
     def update_file_menu(self):
@@ -3996,6 +3998,7 @@ class MenuBar(tk.Menu):
                 not os.path.exists(self.master.ivs2.hdd_output_dir)):
             kwargs = {"state": "disabled"}
         self.file_menu.entryconfig("View Run Info File", **kwargs)
+        self.file_menu.entryconfig("Open Run Folder", **kwargs)
 
     # -------------------------------------------------------------------------
     def create_usb_port_menu(self):
@@ -4231,6 +4234,12 @@ Copyright (C) 2017-2019  Chris Satterlee
         self.master.ivs2.convert_sensor_to_run_info_file()
         self.master.ivs2.create_run_info_file()  # if it doesn't exist
         IV_Swinger2.sys_view_file(self.master.ivs2.run_info_filename)
+
+    # -------------------------------------------------------------------------
+    def open_run_folder(self):
+        """Method to open the run directory using the system file manager
+        """
+        IV_Swinger2.sys_view_file(self.master.ivs2.hdd_output_dir)
 
     # -------------------------------------------------------------------------
     def select_serial(self):
