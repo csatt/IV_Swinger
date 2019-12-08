@@ -1019,8 +1019,7 @@ value on the Arduino tab of Preferences
                                             variable=self.loop_save)
         loop_save_pad.pack(side=LEFT)
         self.loop_save_cb.pack(side=LEFT)
-        if (self.config.cfg.getboolean("Looping", "restore values") and
-                self.config.cfg.getboolean("Looping", "loop mode")):
+        if self.config.cfg.getboolean("Looping", "restore values"):
             if self.props.loop_save_results:
                 self.loop_save_cb.state(["selected"])
                 self.loop_save_cb.update_value_str()
@@ -3108,7 +3107,7 @@ class ResultsWizard(tk.Toplevel):
                         tkmsg_showerror(self.master, message=err_str)
                         continue
                 else:
-                    continue
+                    continue  # pragma: no cover (coverage bug?)
             try:
                 shutil.copytree(src_dir, dest_dir)
                 if os.path.basename(os.path.dirname(src_dir)) == "overlays":
@@ -3327,7 +3326,8 @@ class ResultsWizard(tk.Toplevel):
             # display the image, it serves the function of a progress
             # indicator.
             self.master.img_pane.splash_img_showing = False
-            reprocess_adc = os.path.exists(adc_csv_file)
+            reprocess_adc = (adc_csv_file is not None and
+                             os.path.exists(adc_csv_file))
             self.master.redisplay_img(reprocess_adc=reprocess_adc)
             self.update()
 

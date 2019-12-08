@@ -49,8 +49,8 @@ exclude_lines =
     exit\(-1\)
     handle_early_exception
     if curr_isc <= i_cal_b
+    if curr_voc <= v_cal_b
     if len\(vipr_list\) != 4
-    if not self.master.ivs2.battery_bias and curr_voc <= v_cal_b
     if rc != RC_SUCCESS
     if rc == RC_NO_POINTS
     if rc == RC_ZERO_ISC
@@ -83,11 +83,13 @@ exclude_lines =
     # Other old code
     ############################
     \# sketch does not support
+    def remove_obsolete_options
     if not self.*arduino_sketch_supports
     if not self.cfg.has_section\("Looping"\):
     if os.path.exists\(self.sensor_info_filename\)
     if self.arduino_sketch_ver_lt
     if self.reestablish_arduino_comm_reqd
+    return old_prop_val
     run_info_filename = sensor_info_filename
     self.master.ivs2.arduino_sketch_supports_ssr_adv_current_cal\):
     sensor_info_filename = None
@@ -111,6 +113,7 @@ exclude_lines =
     ############################
     EXISTS_DIFFERENT
     \slogger.print_and_log\(msg_str\)
+    deflect_begin = 2
     disable=bare-except
     ext_str = ""
     find_first_downward_deflection retried too many
@@ -121,7 +124,7 @@ exclude_lines =
     if calibrate
     if delta_v < 0.0 or delta_i <= 0.0:
     if i2 > i1
-    if len\(adc_pair\) != 2:
+    if len\(adc_pair\) != 2
     if len\(adc_pairs\) < 2
     if len\(lines\) != 1
     if len\(self.adc_pairs\) < 2

@@ -2672,7 +2672,8 @@ class IV_Swinger(object):
         return (voc_amps, voc_volts, voc_ohms, voc_watts)
 
     # -------------------------------------------------------------------------
-    def get_data_values_for_load_pattern(self, load_pattern, io_extender, adc):  # IVS1
+    def get_data_values_for_load_pattern(self, load_pattern, io_extender,
+                                         adc):  # IVS1
         """Method to set the MCP23017 outputs (controlling the relays)
            to the values based on the specified load pattern and to read
            the current and voltage at that point.  Ohms and watts are
@@ -4192,7 +4193,7 @@ class IV_Swinger(object):
 
     # -------------------------------------------------------------------------
     def create_iv_swinger_dirs(self, base_dirs, include_csv=True,
-                               include_pdf=True):
+                               include_pdf=True):  # IVS1
         """Method to create the IV_Swinger directories under the
            specified base directories.  Returns the list of IV_swinger
            directories.
