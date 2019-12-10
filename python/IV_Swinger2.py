@@ -2266,7 +2266,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     @property
     def logs_dir(self):
         """Directory to which log files are written"""
-        logs_dir = "{}/logs".format(self.app_data_dir)
+        logs_dir = os.path.join(self.app_data_dir, "logs")
         return logs_dir
 
     # ---------------------------------

@@ -2688,7 +2688,7 @@ class ResultsWizard(tk.Toplevel):
         new_dir = tkFileDialog.askdirectory(**options)
         self.master.mac_grayed_menu_workaround()
         if new_dir:
-            self.results_dir = new_dir
+            self.results_dir = os.path.normpath(new_dir)
             self.populate_tree()
             if not self.tree.exists("overlays") and not self.dates:
                 # If there are no overlays or runs in the specified folder, but
@@ -2874,10 +2874,11 @@ class ResultsWizard(tk.Toplevel):
         options["title"] = "Choose Copy Destination"
         if self.master.win_sys == "aqua":  # Mac
             options["message"] = options["title"]
-        self.copy_dest = tkFileDialog.askdirectory(**options)
+        copy_dest = tkFileDialog.askdirectory(**options)
         self.master.mac_grayed_menu_workaround()
-        if not self.copy_dest:  # Cancel
+        if not copy_dest:  # Cancel
             return RC_FAILURE
+        self.copy_dest = os.path.normpath(copy_dest)
 
         # If leaf directory is named IV_Swinger2, assume the user meant
         # to choose its parent directory
@@ -3032,7 +3033,7 @@ class ResultsWizard(tk.Toplevel):
         selections = self.tree.selection()
 
         for selection in selections:
-            # Add all of the overlays if the whole groups is selected,
+            # Add all of the overlays if the whole group is selected,
             # but not if the last selection is an individual overlay
             # (DWIM)
             if (selection == "overlays" and
@@ -4187,7 +4188,8 @@ Copyright (C) 2017-2019  Chris Satterlee
             options["message"] = options["title"]
         log_file = tkFileDialog.askopenfilename(**options)
         self.master.mac_grayed_menu_workaround()
-        IV_Swinger2.sys_view_file(log_file)
+        if log_file:
+            IV_Swinger2.sys_view_file(os.path.normpath(log_file))
 
     # -------------------------------------------------------------------------
     def get_initial_log_file_name(self, log_dir, current_log):
