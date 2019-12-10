@@ -8478,6 +8478,8 @@ def main():
     try:
         gui = GraphicalUserInterface()
         gui.run()
+    except SystemExit:
+        pass
     except:  # pylint: disable=bare-except
         handle_early_exception()
 
