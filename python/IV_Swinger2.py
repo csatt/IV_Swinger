@@ -6,7 +6,7 @@
 #
 # IV_Swinger2.py: IV Swinger 2 configuration and control module
 #
-# Copyright (C) 2017,2018,2019  Chris Satterlee
+# Copyright (C) 2017,2018,2019,2020  Chris Satterlee
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -121,7 +121,7 @@ SKETCH_VER_LT = -1
 SKETCH_VER_EQ = 0
 SKETCH_VER_GT = 1
 SKETCH_VER_ERR = -2
-LATEST_SKETCH_VER = "1.3.12"
+LATEST_SKETCH_VER = "1.4.2"
 MIN_PT1_TO_VOC_RATIO_FOR_ISC = 0.20
 BATTERY_FOLDER_NAME = "Battery"
 
@@ -173,6 +173,7 @@ ADS1115_PGA_GAIN_TMP36 = 2     # See Arduino code (GAIN_TWO)
 ADS1115_PGA_GAIN_PDB_C139 = 8  # See Arduino code (GAIN_EIGHT)
 # Default calibration values
 NOMINAL_ADC_VREF = 5.0  # USB voltage = 5V
+BANDGAP_UNCAL = 0.0     # Bandgap has not been calibrated
 V_CAL_DEFAULT = 1.0     # Slope
 V_CAL_B_DEFAULT = 0.0   # Intercept
 I_CAL_DEFAULT = 1.0     # Slope
@@ -207,8 +208,9 @@ EEPROM_R_BATT_X1M_ADDR = 40  # Obsolete
 EEPROM_RELAY_ACTIVE_HIGH_ADDR = 44
 EEPROM_V_CAL_B_X1M_ADDR = 48
 EEPROM_I_CAL_B_X1M_ADDR = 52
+EEPROM_BANDGAP_UVOLTS_ADDR = 56
 EEPROM_VALID_VALUE = "123456.7890"
-EEPROM_VALID_COUNT = 12  # increment if any added (starts at addr 8)
+EEPROM_VALID_COUNT = 13  # increment if any added (starts at addr 8)
 # Debug constants
 DEBUG_CONFIG = False
 
@@ -1299,6 +1301,12 @@ class Configuration(object):
         self.cfg_set("Plotting", "title", self.ivs2.plot_title)
 
     # -------------------------------------------------------------------------
+    def update_vref(self):
+        """Method to update the reference voltage value
+        """
+        self.cfg_set("Calibration", "vref", self.ivs2.adc_vref)
+
+    # -------------------------------------------------------------------------
     def remove_axes_and_title(self):
         """Method to remove the plot_max_x, plot_max_y and plot_title values
            from the configuration
@@ -1864,6 +1872,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._amm_shunt_max_volts = (self._amm_shunt_max_amps *
                                      (SHUNT_DEFAULT / 1000000.0))
         self._adc_vref = NOMINAL_ADC_VREF
+        self._bandgap_microvolts = BANDGAP_UNCAL
+        self._bandgap_total_adc = BANDGAP_UNCAL
+        self._bandgap_iterations = BANDGAP_UNCAL
         self._dyn_bias_cal = DYN_BIAS_CAL_DEFAULT
         self._v_cal = V_CAL_DEFAULT
         self._v_cal_b = V_CAL_B_DEFAULT
@@ -2001,6 +2012,47 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     @adc_vref.setter
     def adc_vref(self, value):
         self._adc_vref = value
+
+    # ---------------------------------
+    @property
+    def bandgap_microvolts(self):
+        """Property to get the bandgap microvolts. The bandgap voltage is
+           nominally 1.1 V (1100000 uV). A Vref calibration uses the
+           measured Vref value to determine the actual bandgap voltage,
+           which is stable for a given Arduino. This value is
+           subsequently used to measure the Vref on every swing of an IV
+           curve.
+        """
+        return self._bandgap_microvolts
+
+    @bandgap_microvolts.setter
+    def bandgap_microvolts(self, value):
+        self._bandgap_microvolts = value
+
+    # ---------------------------------
+    @property
+    def bandgap_total_adc(self):
+        """Property to get the bandgap total ADC value. This is the sum of the
+           internal ADC values measured over bandgap_iterations.
+        """
+        return self._bandgap_total_adc
+
+    @bandgap_total_adc.setter
+    def bandgap_total_adc(self, value):
+        self._bandgap_total_adc = value
+
+    # ---------------------------------
+    @property
+    def bandgap_iterations(self):
+        """Property to get the bandgap iterations. This is the number of
+           iterations that the Arduino code read the ADC value for the
+           bandgap, the sum of which is bandgap_total_adc.
+        """
+        return self._bandgap_iterations
+
+    @bandgap_iterations.setter
+    def bandgap_iterations(self, value):
+        self._bandgap_iterations = value
 
     # ---------------------------------
     @property
@@ -2859,6 +2911,14 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     # ---------------------------------
     @property
+    def arduino_sketch_supports_bandgap_read(self):
+        """True for Arduino sketch versions that have code to support
+           reading the bandgap voltage.
+        """
+        return self.arduino_sketch_ver_ge("1.4.2")
+
+    # ---------------------------------
+    @property
     def pdf_filename(self):
         """PDF file name"""
         dts = extract_date_time_str(self.hdd_output_dir)
@@ -2894,6 +2954,14 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             run_info_filename = None
 
         return run_info_filename
+
+    # ---------------------------------
+    @property
+    def avg_bandgap_adc(self):
+        """Average value of the internal Arduino ADC as reported by the sketch
+           when it is measuring the bandgap voltage relative to Vref.
+        """
+        return self.bandgap_total_adc / self.bandgap_iterations
 
     # -------------------------------------------------------------------------
     def find_serial_ports(self):
@@ -3116,7 +3184,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                              ("{} {}".format(EEPROM_V_CAL_B_X1M_ADDR,
                                              int(self.v_cal_b * 1000000.0))),
                              ("{} {}".format(EEPROM_I_CAL_B_X1M_ADDR,
-                                             int(self.i_cal_b * 1000000.0)))]
+                                             int(self.i_cal_b * 1000000.0))),
+                             ("{} {}".format(EEPROM_BANDGAP_UVOLTS_ADDR,
+                                             int(self.bandgap_microvolts)))]
             for config_value in config_values:
                 rc = self.send_one_config_msg_to_arduino("WRITE_EEPROM",
                                                          config_value)
@@ -3190,7 +3260,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # -------------------------------------------------------------------------
     def receive_data_from_arduino(self):
         """Method to receive raw IV data from the Arduino"""
-
+        # pylint: disable=too-many-branches
         received_msgs = []
         while True:
             # Loop receiving messages and appending them to the
@@ -3228,6 +3298,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             elif (msg.startswith("Temperature at sensor") or
                   msg.startswith("ADS1115 (pyranometer photodiode)")):
                 self.write_sensor_info_to_file(msg)
+            elif msg.startswith("Bandgap total ADC:"):
+                if self.parse_bandgap_msg(msg):
+                    self.set_vref_from_bandgap()
             match = adc_re.search(msg)
             if match:
                 ch0_adc = int(match.group(1))
@@ -3643,6 +3716,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 return rc
             if self.msg_from_arduino == unicode("Config not processed\n"):
                 return RC_FAILURE
+            if self.msg_from_arduino.startswith("Bandgap total ADC:"):
+                if self.parse_bandgap_msg(self.msg_from_arduino):
+                    self.set_vref_from_bandgap()
             if self.msg_from_arduino.startswith("SSR current calibration"):
                 self.get_ssr_adv_current_cal_adc_val(self.msg_from_arduino)
 
@@ -3686,6 +3762,77 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             self.adv_cal_adc_val = "Unstable"
 
         return RC_SUCCESS
+
+    # -------------------------------------------------------------------------
+    def read_bandgap(self):
+        """Method to send the Arduino a config message that tells it to
+           configure the Arduino's internal ADC to measure the bandgap
+           voltage relative to the Vref. This measurement is performed
+           multiple times to average out any error. The response message
+           contains the sum of the ADC values over all iterations and
+           also contains the iteration count.
+        """
+        if not self.arduino_sketch_supports_bandgap_read:
+            return RC_FAILURE
+        rc = self.send_msg_to_arduino("Config: READ_BANDGAP ")
+        if rc != RC_SUCCESS:
+            return rc
+        self.msg_from_arduino = "None"
+        while self.msg_from_arduino != unicode("Config processed\n"):
+            rc = self.receive_msg_from_arduino()
+            if rc != RC_SUCCESS:
+                return rc
+            if self.msg_from_arduino == unicode("Config not processed\n"):
+                return RC_FAILURE
+            if self.msg_from_arduino.startswith("Bandgap total ADC:"):
+                if self.parse_bandgap_msg(self.msg_from_arduino):
+                    return RC_SUCCESS
+
+        return RC_FAILURE
+
+    # -------------------------------------------------------------------------
+    def parse_bandgap_msg(self, msg):
+        """Method to parse the total ADC value and iterations from a bandgap
+           message from the Arduino code and set the associated
+           properties to those values. Returns True on success and False
+           otherwise.
+        """
+        bandgap_re = re.compile(r"Bandgap total ADC: (\d+) iterations: (\d+)")
+        match = bandgap_re.search(msg)
+        if match:
+            self.bandgap_total_adc = float(match.group(1))
+            self.bandgap_iterations = float(match.group(2))
+            return True
+        return False
+
+    # -------------------------------------------------------------------------
+    def calibrate_bandgap(self):
+        """Method to calibrate the bandgap voltage based on the measured Vref
+           value. The calibrated value (in microvolts) is stored in
+           EEPROM and subsequently used to determine the Vref value when
+           swinging IV curves.
+        """
+        if self.read_bandgap() == RC_SUCCESS:
+            avg_bandgap_adc = self.avg_bandgap_adc
+            vref_microvolts = self.adc_vref * 1000000
+            self.bandgap_microvolts = ((avg_bandgap_adc / 1024.0) *
+                                       vref_microvolts)
+
+    # -------------------------------------------------------------------------
+    def set_vref_from_bandgap(self):
+        """Method to calculate the Vref value based on the total ADC value and
+           number of iterations reported by the Arduino code after a
+           bandgap read. This is only valid after the bandgap voltage
+           has been calibrated using a measured Vref.
+        """
+        if self.bandgap_microvolts != BANDGAP_UNCAL:
+            vref_microvolts = (self.bandgap_microvolts * 1024.0 /
+                               self.avg_bandgap_adc)
+            vref_millivolts = round(vref_microvolts / 1000.0)
+            old_vref = self.adc_vref
+            self.adc_vref = vref_millivolts / 1000.0
+            self.logger.log("Vref = {} V (prev: {})".format(self.adc_vref,
+                                                            old_vref))
 
     # -------------------------------------------------------------------------
     def get_arduino_sketch_ver(self, msg):
@@ -3790,6 +3937,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def process_eeprom_value(self):
         """Method to process one EEPROM value returned by the Arduino"""
         # pylint: disable=too-many-branches
+        # pylint: disable=too-many-statements
         eeprom_re = re.compile(r"EEPROM addr: (\d+)\s+value: (-*\d+\.\d+)")
         match = eeprom_re.search(self.msg_from_arduino)
         if match:
@@ -3843,6 +3991,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             self.v_cal_b = float(eeprom_value) / 1000000.0
         elif eeprom_addr == EEPROM_I_CAL_B_X1M_ADDR:
             self.i_cal_b = float(eeprom_value) / 1000000.0
+        elif eeprom_addr == EEPROM_BANDGAP_UVOLTS_ADDR:
+            self.bandgap_microvolts = float(eeprom_value)
         else:
             warn_str = ("WARNING: EEPROM value not "
                         "supported by this version of the application: {}"

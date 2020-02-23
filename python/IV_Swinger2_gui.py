@@ -6,7 +6,7 @@
 #
 # IV_Swinger2_gui.py: IV Swinger 2 GUI application module
 #
-# Copyright (C) 2017,2018,2019  Chris Satterlee
+# Copyright (C) 2017,2018,2019,2020  Chris Satterlee
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -1541,6 +1541,7 @@ value on the Arduino tab of Preferences
         self.config.remove_axes_and_title()
         rc = self.ivs2.swing_curve(loop_mode=loop_mode)
         self.config.add_axes_and_title()
+        self.config.update_vref()
         self.ivs2.generate_pdf = True
 
         if rc == RC_SUCCESS:
@@ -1574,7 +1575,7 @@ value on the Arduino tab of Preferences
             # Captured id is used to cancel when stop button is pressed
             self.swing_loop_id = thread_id
 
-        # Save the config to capture current max x,y values
+        # Save the config to capture current max x,y values and Vref
         self.save_config()
 
         # Clean up files, depending on mode and options
@@ -4259,8 +4260,15 @@ Copyright (C) 2017-2019  Chris Satterlee
 
     # -------------------------------------------------------------------------
     def get_vref_cal_value(self):
-        """Method to get the Vref calibration value from the user and apply it
+        """Method to get the Vref calibration value from the user and apply it.
+           This is now actually calibrating the bandgap voltage, which
+           is used to measure Vref every time an IV curve is swung.
         """
+        # First update the adc_vref property based on the current calibration
+        # and measurement (if any). This is so the displayed voltage is the
+        # currently measured value.
+        if self.master.ivs2.read_bandgap() == RC_SUCCESS:
+            self.master.ivs2.set_vref_from_bandgap()
         curr_vref = self.master.ivs2.adc_vref
         prompt_str = "Enter measured voltage of +5V reference:"
         new_vref = tksd_askfloat(self.master,
@@ -4272,6 +4280,8 @@ Copyright (C) 2017-2019  Chris Satterlee
             self.master.config.cfg_set("Calibration", "vref", new_vref)
             # Redisplay the image with the new settings (saves config)
             self.master.redisplay_img(reprocess_adc=True)
+            self.master.ivs2.calibrate_bandgap()
+            self.update_values_in_eeprom()
 
     # -------------------------------------------------------------------------
     def get_v_cal_value(self):
@@ -4779,19 +4789,19 @@ Advanced voltage and current calibration provide more accuracy and, for
 SSR-based IV Swinger 2's, may be performed indoors with a DC power supply
 instead of a PV module or cell.
 
-NOTE: the "Vref (+5V)" calibration should be performed BEFORE current and
+NOTE: the "Vref (+5V)" calibration must be performed BEFORE current and
       voltage calibration.
 """
         vref_heading = """
 Vref (+5V):"""
         vref_help_text = """
-  This calibration should be done on each *laptop* the first time it is used to
-  swing curves (even if the IV Swinger 2 has already been calibrated using a
-  different laptop). It must be done before a laptop is used to perform voltage
-  and current calibrations. Measure the voltage between the GND and +5V pins on
-  the PCB, PermaProto, or Arduino. The calibration is stored on the laptop, not
-  on the IV Swinger 2 hardware. [The +5V is supplied by the laptop via USB, so
-  it is a characteristic of the laptop, not the IV Swinger 2 hardware.]
+  Vref calibration must be done before voltage and current calibrations.
+  Measure the voltage between the GND and +5V pins on the PCB, PermaProto, or
+  Arduino.
+
+  The calibration is now stored on the IV Swinger 2 hardware and allows it to
+  measure Vref fairly accurately every time it swings an IV curve. It is no
+  longer necessary to perform a Vref calibration on each laptop.
 """
         voltage_basic_heading = """
 Voltage - basic:"""

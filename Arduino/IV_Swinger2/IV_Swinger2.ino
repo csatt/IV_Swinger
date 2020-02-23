@@ -3,7 +3,7 @@
  *
  * IV_Swinger2.ino: IV Swinger 2 Arduino sketch
  *
- * Copyright (C) 2017,2018,2019  Chris Satterlee
+ * Copyright (C) 2017,2018,2019,2020  Chris Satterlee
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -164,7 +164,7 @@
  * when the pins controlling them are activated or deactivated since
  * nothing is connected to those pins in the other versions.
  */
-#define VERSION "1.3.12"        // Version of this Arduino sketch
+#define VERSION "1.4.2"         // Version of this Arduino sketch
 
 // Uncomment one or more of the following to enable the associated
 // feature. Note, however, that enabling these features uses more of the
@@ -260,6 +260,8 @@
 #define EEPROM_RELAY_ACTIVE_HIGH_ADDR 44  // Must match IV_Swinger2.py
 #define SSR_CAL_USECS 3000000   // Microseconds to perform SSR current cal
 #define SSR_CAL_RD_USECS 100000 // Microseconds to read/average current
+#define CMD_BDGP_READ_ITER 1000 // Bandgap iterations (on READ_BANDGAP command)
+#define GO_BDGP_READ_ITER 1000  // Bandgap iterations (on every Go command)
 
 // Compile-time assertion macros (from Stack Overflow)
 #define COMPILER_ASSERT(predicate) _impl_CASSERT_LINE(predicate,__LINE__)
@@ -301,6 +303,7 @@ const static char dump_eeprom_str[] PROGMEM = "DUMP_EEPROM";
 const static char relay_state_str[] PROGMEM = "RELAY_STATE";
 const static char second_relay_state_str[] PROGMEM = "SECOND_RELAY_STATE";
 const static char do_ssr_curr_cal_str[] PROGMEM = "DO_SSR_CURR_CAL";
+const static char read_bandgap_str[] PROGMEM = "READ_BANDGAP";
 
 #ifdef DS18B20_SUPPORTED
 // Global setup for DS18B20 temperature sensor
@@ -340,6 +343,7 @@ void setup()
   Serial.begin(SERIAL_BAUD);
   SPI.begin();
   SPI.setClockDivider(clk_div);
+  set_up_bandgap();
 #ifdef DS18B20_SUPPORTED
   // DS18B20 temperature sensor init
   sensors.begin();
@@ -457,6 +461,9 @@ void loop()
       }
     }
   }
+
+  // Measure Vref (indirectly, by measuring bandgap)
+  read_bandgap(GO_BDGP_READ_ITER);
 
   // Get Voc ADC value and CH1 ADC noise floor
   voc_adc = 0;
@@ -1130,6 +1137,14 @@ void process_config_msg(char * msg) {
     } else {
       wrong_arg_cnt = true;
     }
+  } else if (strcmp_P(config_type, read_bandgap_str) == 0) {
+    exp_args = 0;
+    if (num_args == exp_args) {
+      read_bandgap(CMD_BDGP_READ_ITER);
+    } else {
+      wrong_arg_cnt = true;
+    }
+
   } else {
     Serial.print(F("ERROR: Unknown config type: "));
     Serial.println(config_type);
@@ -1240,6 +1255,9 @@ void do_ssr_curr_cal() {
   long adc_ch1_val_sum, adc_ch1_val_avg, adc_ch1_val_avg_cnt;
   long start_usecs, elapsed_usecs;
 
+  // Measure Vref (indirectly, by measuring bandgap)
+  read_bandgap(CMD_BDGP_READ_ITER);
+
   // Activate SSR3/4
   digitalWrite(SSR3_PIN, SSR3_ACTIVE);  // module version
   digitalWrite(SSR4_PIN, SSR4_ACTIVE);  // cell version
@@ -1305,6 +1323,32 @@ void do_ssr_curr_cal() {
     Serial.print(F("SSR current calibration ADC value: "));
     Serial.println(adc_ch1_val_avg);
   }
+}
+
+void set_up_bandgap() {
+  analogReference(DEFAULT);
+  // Set the reference to Vcc and the measurement to the internal 1.1V bandgap
+  ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
+  delay(2); // Wait for Vref to settle
+}
+
+void read_bandgap(int iterations) {
+  long result = 0;
+  read_internal_adc();
+  for (long ii = 0; ii < iterations; ii++) {
+    result += (long)read_internal_adc();
+  }
+  Serial.print(F("Bandgap total ADC: "));
+  Serial.print(result);
+  Serial.print(F(" iterations: "));
+  Serial.println(iterations);
+}
+
+int read_internal_adc() {
+  // Read the Arduino internal ADC
+  ADCSRA |= _BV(ADSC); // Start conversion
+  while (bit_is_set(ADCSRA, ADSC)); // measuring
+  return ADC; // ADCH, ADCL
 }
 
 int read_adc(int ch) {
