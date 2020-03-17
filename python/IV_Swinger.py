@@ -3486,9 +3486,15 @@ class IV_Swinger(object):
                 elif amps >= 1.0:
                     amps_div5 = round(amps/5.0, 2)
                     amps = round(amps_div5, 1) * 5.0
-                else:
+                elif amps >= 0.1:
                     amps_div5 = round(amps/5.0, 3)
                     amps = round(amps_div5, 2) * 5.0
+                elif amps >= 0.01:
+                    amps_div5 = round(amps/5.0, 4)
+                    amps = round(amps_div5, 3) * 5.0
+                else:
+                    amps_div5 = round(amps/5.0, 5)
+                    amps = round(amps_div5, 4) * 5.0
                 # The isc_amps value is negative when we want to
                 # suppress plotting the Isc point. But we still need its
                 # magnitude to determine the max_y value, so we use
@@ -3534,7 +3540,17 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def set_y_ticks(self, max_y):
         """Method to set the plotter Y-axis ticks"""
-        if max_y < 0.5:
+        if max_y < 0.01:
+            step = 0.001
+        elif max_y < 0.02:
+            step = 0.002
+        elif max_y < 0.05:
+            step = 0.005
+        elif max_y < 0.1:
+            step = 0.01
+        elif max_y < 0.2:
+            step = 0.02
+        elif max_y < 0.5:
             step = 0.05
         elif max_y < 1:
             step = 0.1
