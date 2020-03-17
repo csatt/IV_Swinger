@@ -208,6 +208,14 @@ SPI_COMBO_VALS = {SPI_CLOCK_DIV2: "DIV2 (8 MHz)",
                   SPI_CLOCK_DIV64: "DIV64 (250 KHz)",
                   SPI_CLOCK_DIV128: "DIV128 (125 kHz)"}
 SPI_COMBO_VALS_INV = {v: k for k, v in SPI_COMBO_VALS.items()}
+ISSUE_26340_MSG = """
+Sorry. Minimization is not supported.
+This is Python issue 26340, which is
+closed, but was never fixed :-(
+The app will probably crash when you
+click OK.
+"""
+
 # Default plotting config
 FANCY_LABELS_DEFAULT = "Fancy"
 INTERPOLATION_TYPE_DEFAULT = "Linear"
@@ -4545,6 +4553,9 @@ class Dialog(tk.Toplevel):
         self.min_height = min_height
         self.max_height = max_height
 
+        # Catch attempt to minimize
+        self.bind("<Unmap>", self.unmap_action)
+
         # Snapshot current values for revert
         self.snapshot()
 
@@ -4571,6 +4582,17 @@ class Dialog(tk.Toplevel):
 
         # Wait for dialog to be closed before returning control
         self.wait_window(self)
+
+    # -------------------------------------------------------------------------
+    def unmap_action(self, event=None):
+        """Method to display error message when user attempts to minimize
+           the dialog, which would leave the app in limbo due to Python
+           issue 26340. The dialog is then destroyed, which crashes the
+           whole app, but at least we've told the user what happened.
+        """
+        # pylint: disable=unused-argument
+        tkmsg.showerror(message=ISSUE_26340_MSG)
+        self.destroy()
 
     # -------------------------------------------------------------------------
     def body(self, master):
