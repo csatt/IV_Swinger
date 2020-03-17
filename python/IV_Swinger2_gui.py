@@ -1577,7 +1577,7 @@ value on the Arduino tab of Preferences
             delay_ms = self.props.loop_delay * 1000 - elapsed_ms
             if not self.props.loop_rate_limit or delay_ms <= 0:
                 delay_ms = 1
-            thread_id = self.after(delay_ms,
+            thread_id = self.after(int(delay_ms),
                                    lambda: self.swing_loop(loop_mode=True,
                                                            first_loop=False))
             # Captured id is used to cancel when stop button is pressed
@@ -8414,10 +8414,10 @@ class LoopRateLimit(ttk.Checkbutton):
         if self.loop_rate_limit.get() == "On":
             curr_loop_delay = self.gui.props.loop_delay
             prompt_str = "Enter seconds to delay between loops:"
-            new_loop_delay = tksd_askinteger(self.gui,
-                                             title="Loop delay",
-                                             prompt=prompt_str,
-                                             initialvalue=curr_loop_delay)
+            new_loop_delay = tksd_askfloat(self.gui,
+                                           title="Loop delay",
+                                           prompt=prompt_str,
+                                           initialvalue=curr_loop_delay)
             if new_loop_delay:
                 self.gui.props.loop_rate_limit = True
                 self.gui.props.loop_delay = new_loop_delay

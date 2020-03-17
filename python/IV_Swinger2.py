@@ -1840,7 +1840,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         IV_Swinger.IV_Swinger.__init__(self)
         self.lcd = None
         self.ivp = None
-        self.prev_date_time_str = None
+        self.prev_swing_time = time.time()
         self.eeprom_rewrite_needed = False
         # Property variables
         self._app_data_dir = app_data_dir
@@ -4685,12 +4685,14 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         # Generate the date/time string from the current time
         while True:
             date_time_str = IV_Swinger.DateTimeStr.get_date_time_str()
-            # Sleep and retry if it's the same as last time. Current resolution
-            # is 1 second, so this limits the rate to one curve per second.
-            if date_time_str == self.prev_date_time_str:
-                time.sleep(0.1)
-            else:
-                self.prev_date_time_str = date_time_str
+            # Spin until one second has passed since the previous
+            # swing. This not only assures that the date_time_str will
+            # be advanced, but a 1-second minimum interval is also
+            # assumed by the hardware design (namely the power
+            # dissipation of the bleed resistor, Rb.)
+            seconds_since_prev = time.time() - self.prev_swing_time
+            if seconds_since_prev >= 1.0:
+                self.prev_swing_time = time.time()
                 break
 
         # Create the HDD output directory
