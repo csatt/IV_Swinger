@@ -4921,7 +4921,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         return RC_SUCCESS
 
     # -------------------------------------------------------------------------
-    def plot_results(self):
+    def plot_results(self, v_sat_override=None, i_sat_override=None):
         """Method to plot results"""
         self.ivp = IV_Swinger2_plotter()
         self.ivp.title = self.plot_title
@@ -4938,8 +4938,12 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self.ivp.point_scale = self.point_scale
         if self._voltage_saturated:
             self.ivp.v_sat = self.v_sat
+        if v_sat_override is not None:
+            self.ivp.v_sat = v_sat_override
         if self._current_saturated:
             self.ivp.i_sat = self.i_sat
+        if i_sat_override is not None:
+            self.ivp.i_sat = i_sat_override
         if self.plot_lock_axis_ranges:
             self.ivp.max_x = self.plot_max_x
             self.ivp.max_y = self.plot_max_y

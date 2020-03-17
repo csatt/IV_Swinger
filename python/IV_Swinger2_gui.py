@@ -117,6 +117,7 @@ from PIL import Image, ImageTk
 from Tooltip import Tooltip
 import myTkSimpleDialog as tksd
 import IV_Swinger2
+import IV_Swinger2_sim
 
 #################
 #   Constants   #
@@ -4142,6 +4143,9 @@ class MenuBar(tk.Menu):
             self.menubar.add_cascade(menu=self.help_menu, label="Help")
             self.help_menu.add_command(label="IV Swinger 2 Help",
                                        command=self.show_help)
+        # Both
+        self.help_menu.add_command(label="Run Simulator",
+                                   command=self.run_simulator)
 
     # -------------------------------------------------------------------------
     def show_about_dialog(self):
@@ -4506,6 +4510,13 @@ will exit.
     def show_help(self):
         """Method the open the global help dialog"""
         GlobalHelpDialog(self.master)
+
+    # -------------------------------------------------------------------------
+    def run_simulator(self):
+        """Method to run the simulator dialog.
+        """
+        IV_Swinger2_sim.SimulatorDialog(self.master)
+        self.master.mac_grayed_menu_workaround()
 
 
 # Generic dialog class (based on
