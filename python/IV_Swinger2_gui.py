@@ -209,13 +209,6 @@ SPI_COMBO_VALS = {SPI_CLOCK_DIV2: "DIV2 (8 MHz)",
                   SPI_CLOCK_DIV64: "DIV64 (250 KHz)",
                   SPI_CLOCK_DIV128: "DIV128 (125 kHz)"}
 SPI_COMBO_VALS_INV = {v: k for k, v in SPI_COMBO_VALS.items()}
-ISSUE_26340_MSG = """
-Sorry. Minimization is not supported.
-This is Python issue 26340, which is
-closed, but was never fixed :-(
-The app will probably crash when you
-click OK.
-"""
 
 # Default plotting config
 FANCY_LABELS_DEFAULT = "Fancy"
@@ -371,13 +364,14 @@ Alternately, you may attach this file:
     IV_Swinger2.sys_view_file(tmp_file.name)
 
 
-def get_dialog_width(dialog):
-    """Global function to parse the width of a dialog from its current
-       geometry
+def get_dialog_width_and_height(dialog):
+    """Global function to parse the width and height of a dialog from its
+       current geometry
     """
     m = re.match(r"(\d+)x(\d+)", dialog.geometry())
     width = int(m.group(1))
-    return width
+    height = int(m.group(2))
+    return width, height
 
 
 def pdf_permission_denied(e):
@@ -454,6 +448,7 @@ class GraphicalUserInterface(ttk.Frame):
         self.plot_power_cb = None
         self.preferences_button = None
         self.prefs_results_bb = None
+        self.prefs_dialog_active = False
         self.range_lock_cb = None
         self.results_button = None
         self.results_wiz = None
@@ -579,6 +574,7 @@ The file name is near the top.
         self.label_all_vocs = tk.StringVar()
         self.version = "UNKNOWN"
         self.grid_args = {}
+        self.prefs_dialog_active = False
         self.results_wiz = None
         self.img_file = None
         self._cfg_filename = None
@@ -681,6 +677,24 @@ value on the Arduino tab of Preferences
             self.create_menu_bar()
 
     # -------------------------------------------------------------------------
+    def pseudo_dialog_resize_disable(self, dialog):
+        """Method to effectively disable resizing by setting the minimimum and
+           maximum size to the current values. This is a hack that is
+           part of the fix for Issue #101.
+        """
+        # Run update_idletasks to get the geometry manager to size the
+        # window to fit the widgets
+        self.update_idletasks()
+
+        # Get current window width and height
+        width, height = get_dialog_width_and_height(dialog)
+
+        # Set the minimum and maximum to the current width and height,
+        # effectively disabling resizing
+        dialog.minsize(width, height)
+        dialog.maxsize(width, height)
+
+    # -------------------------------------------------------------------------
     def set_dialog_geometry(self, dialog, min_height=None, max_height=None):
         """Method to set the size and position of a dialog. If min_height is
            specified, the window will be sized to that value initially.
@@ -695,7 +709,7 @@ value on the Arduino tab of Preferences
         self.update_idletasks()
 
         # Get current window width
-        width = get_dialog_width(dialog)
+        width, _ = get_dialog_width_and_height(dialog)
 
         if min_height is not None:
             # Disable width resizing by setting min and max width to
@@ -2228,7 +2242,7 @@ class ResultsWizard(tk.Toplevel):
            value
         """
         # Get current window width
-        width = get_dialog_width(self)
+        width, _ = get_dialog_width_and_height(self)
 
         # Set minimum size using current width and requested height
         self.minsize(width, min_height)
@@ -4552,7 +4566,6 @@ class Dialog(tk.Toplevel):
         self.has_cancel_button = has_cancel_button
         self.return_ok = return_ok
         self.ok_label = ok_label
-        self.resizable(width=resizable, height=resizable)
         self.transient(self.master)  # tie this window to master
         if title is not None:
             self.title(title)
@@ -4563,9 +4576,6 @@ class Dialog(tk.Toplevel):
         self.parent_is_modal = parent_is_modal
         self.min_height = min_height
         self.max_height = max_height
-
-        # Catch attempt to minimize
-        self.bind("<Unmap>", self.unmap_action)
 
         # Snapshot current values for revert
         self.snapshot()
@@ -4586,6 +4596,11 @@ class Dialog(tk.Toplevel):
                                         min_height=self.min_height,
                                         max_height=self.max_height)
 
+        # If dialog is not resizable, constrain its width and height to
+        # their current values
+        if not resizable:
+            self.master.pseudo_dialog_resize_disable(self)
+
         # Map Ctrl-A and Cmd-A (Mac) to select-all for Text widgets
         # (which includes ScrolledText)
         self.master.bind_class("Text", "<Control-a>", selectall)
@@ -4593,17 +4608,6 @@ class Dialog(tk.Toplevel):
 
         # Wait for dialog to be closed before returning control
         self.wait_window(self)
-
-    # -------------------------------------------------------------------------
-    def unmap_action(self, event=None):
-        """Method to display error message when user attempts to minimize
-           the dialog, which would leave the app in limbo due to Python
-           issue 26340. The dialog is then destroyed, which crashes the
-           whole app, but at least we've told the user what happened.
-        """
-        # pylint: disable=unused-argument
-        tkmsg.showerror(message=ISSUE_26340_MSG)
-        self.destroy()
 
     # -------------------------------------------------------------------------
     def body(self, master):

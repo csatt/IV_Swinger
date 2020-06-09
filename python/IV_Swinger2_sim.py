@@ -197,13 +197,6 @@ BLEED_RESISTORS = [(2.0, 5.0, "AC05000002008JAC00"),
 # Simulator GUI
 SLIDER_LENGTH = 200
 MFG_PN_ENTRY_WIDTH = 20
-ISSUE_26340_MSG = """
-Sorry. Minimization is not supported.
-This is Python issue 26340, which is
-closed, but was never fixed :-(
-The app will probably crash when you
-click OK.
-"""
 
 # From IV_Swinger2
 INFINITE_VAL = IV_Swinger2.INFINITE_VAL
@@ -331,25 +324,45 @@ def selectall(event):
     event.widget.tag_add("sel", "1.0", "end")
 
 
+def get_dialog_width_and_height(dialog):
+    """Global function to parse the width and height of a dialog from its
+       current geometry
+    """
+    m = re.match(r"(\d+)x(\d+)", dialog.geometry())
+    width = int(m.group(1))
+    height = int(m.group(2))
+    return width, height
+
+
+def pseudo_dialog_resize_disable(dialog):
+    """Function to effectively disable resizing by setting the minimimum and
+       maximum size to the current values. This is a hack that is part
+       of the fix for Issue #101.
+    """
+    dialog.update_idletasks()
+    width, height = get_dialog_width_and_height(dialog)
+    dialog.minsize(width, height)
+    dialog.maxsize(width, height)
+
+
 def set_dialog_geometry(dialog, min_height=None, max_height=None):
     """Function to set the dialog geometry if the master doesn't have a
        set_dialog_geometry method. Place the dialog at the top of the
        screen, in the middle, on top of other windows.
     """
     dialog.update_idletasks()
-    m = re.match(r"(\d+)x(\d+)", dialog.geometry())
-    dialog_width = int(m.group(1))
+    width, _ = get_dialog_width_and_height(dialog)
     if min_height is not None:
         if max_height is None:
             max_height = dialog.winfo_height()
-        dialog.minsize(dialog_width, min_height)
-        dialog.maxsize(dialog_width, max_height)
-        dialog.geometry("{}x{}+{}+5".format(dialog_width, min_height,
+        dialog.minsize(width, min_height)
+        dialog.maxsize(width, max_height)
+        dialog.geometry("{}x{}+{}+5".format(width, min_height,
                                             (dialog.winfo_screenwidth()/2 -
-                                             dialog_width/2)))
+                                             width/2)))
     else:
         dialog.geometry("+{}+5".format(dialog.winfo_screenwidth()/2 -
-                                       dialog_width/2))
+                                       width/2))
     dialog.lift()
     dialog.attributes("-topmost", True)
     dialog.after_idle(dialog.attributes, "-topmost", False)
@@ -1507,17 +1520,23 @@ class SimulatorDialog(tk.Toplevel):
     def __init__(self, master=None):
         tk.Toplevel.__init__(self, master=master)
         self.master = master
+        # Hack: determine if we're running under the IVS2 GUI or
+        # standalone
+        self.running_under_ivs2_gui = True
+        try:
+            if self.master.version:
+                pass
+        except AttributeError:
+            self.running_under_ivs2_gui = False
         self.win_sys = self.master.tk.call("tk", "windowingsystem")
-        self.resizable(width=False, height=False)
-        self.update_idletasks()
+        if not self.running_under_ivs2_gui:
+            # Doesn't start on top without this (but it breaks mimimize)
+            self.update_idletasks()
         self.transient(self.master)  # tie this window to master
         title = "IV Swinger 2 Simulator"
         self.title(title)
         self.grab_set()  # block change of focus to master
         self.focus_set()
-
-        # Catch attempt to minimize
-        self.bind("<Unmap>", self.unmap_action)
 
         # Initialize the widget handles that need to be accessed by
         # callback methods
@@ -1552,6 +1571,10 @@ class SimulatorDialog(tk.Toplevel):
         except (AttributeError, TypeError):
             set_dialog_geometry(self)
 
+        # The dialog is not resizable, so constrain its width and height
+        # to their current values.
+        pseudo_dialog_resize_disable(self)
+
         # Register callback for when the dialog is closed
         self.protocol("WM_DELETE_WINDOW", self.done)
 
@@ -1562,17 +1585,6 @@ class SimulatorDialog(tk.Toplevel):
 
         # Wait for dialog to be closed before returning control
         self.wait_window(self)
-
-    # -------------------------------------------------------------------------
-    def unmap_action(self, event=None):
-        """Method to display error message when user attempts to minimize
-           the dialog, which would leave the app in limbo due to Python
-           issue 26340. The dialog is then destroyed, which crashes the
-           whole app, but at least we've told the user what happened.
-        """
-        # pylint: disable=unused-argument
-        tkmsg.showerror(message=ISSUE_26340_MSG)
-        self.destroy()
 
     # -------------------------------------------------------------------------
     def create_widget_vars(self):
@@ -3107,16 +3119,11 @@ class SimulatorHelpDialog(tk.Toplevel):
         tk.Toplevel.__init__(self, master=master)
         self.master = master
         self.win_sys = self.master.tk.call("tk", "windowingsystem")
-        self.resizable(width=True, height=True)
-        self.update_idletasks()
         self.transient(self.master)  # tie this window to master
         title = "IV Swinger 2 Simulator Help"
         self.title(title)
         self.grab_set()  # block change of focus to master
         self.focus_set()
-
-        # Catch attempt to minimize
-        self.bind("<Unmap>", self.unmap_action)
 
         # Create body frame
         body = ttk.Frame(self)
@@ -3135,17 +3142,6 @@ class SimulatorHelpDialog(tk.Toplevel):
 
         # Wait for dialog to be closed before returning control
         self.wait_window(self)
-
-    # -------------------------------------------------------------------------
-    def unmap_action(self, event=None):
-        """Method to display error message when user attempts to minimize
-           the dialog, which would leave the app in limbo due to Python
-           issue 26340. The dialog is then destroyed, which crashes the
-           whole app, but at least we've told the user what happened.
-        """
-        # pylint: disable=unused-argument
-        tkmsg.showerror(message=ISSUE_26340_MSG)
-        self.destroy()
 
     # -------------------------------------------------------------------------
     def body(self, master):
