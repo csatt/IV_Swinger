@@ -831,8 +831,9 @@ value on the Arduino tab of Preferences
         aspect = "{}x{}".format(self.ivs2.plot_x_inches,
                                 self.ivs2.plot_y_inches)
         tt_text = ("Pull down to select desired display size or type in "
-                   "desired size and hit Enter. Must be an aspect ratio of "
-                   "{} (height will be modified if not)".format(aspect))
+                   "desired size and hit Enter/Return. Must be an aspect "
+                   "ratio of {} (height will be modified if not)"
+                   .format(aspect))
         Tooltip(self.img_size_combo, text=tt_text, **TOP_TT_KWARGS)
         self.img_size_combo.bind("<<ComboboxSelected>>", self.update_img_size)
         self.img_size_combo.bind("<Return>", self.update_img_size)
@@ -860,21 +861,21 @@ value on the Arduino tab of Preferences
         """
         self.prefs_results_bb = ttk.Frame(self)
         self.preferences_button = ttk.Button(master=self.prefs_results_bb,
+                                             command=self.show_preferences,
                                              text="Preferences")
         # Tooltip
         tt_text = "Open Preferences dialog"
         Tooltip(self.preferences_button, text=tt_text, **BOT_TT_KWARGS)
-        self.preferences_button.bind("<Button-1>", self.show_preferences)
         self.preferences_button.pack()
 
         self.results_button = ttk.Button(master=self.prefs_results_bb,
+                                         command=self.results_actions,
                                          text="Results Wizard")
         # Tooltip
         tt_text = ("View results of previous runs, combine multiple curves on "
                    "the same plot, modify their title and appearance, copy "
                    "them to USB (or elsewhere), and more ...")
         Tooltip(self.results_button, text=tt_text, **BOT_TT_KWARGS)
-        self.results_button.bind("<Button-1>", self.results_actions)
         self.results_button.pack(pady=(8, 0))
 
         self.prefs_results_bb.grid(**self.grid_args["prefs_results_buttons"])
@@ -1310,8 +1311,8 @@ value on the Arduino tab of Preferences
 
     # -------------------------------------------------------------------------
     def get_curr_x_pixels(self):
-        """Method to get the current number of X dimension pixels from the image
-           size resolution string
+        """Method to get the current number of X dimension pixels from the
+           image size resolution string
         """
         res_str = self.resolution_str.get()
         res_re = re.compile(r"(\d+)")
@@ -1415,8 +1416,10 @@ value on the Arduino tab of Preferences
     def show_preferences(self, event=None):
         """Method to open the Preferences dialog"""
         # pylint: disable=unused-argument
-        if self.preferences_button.instate(["disabled"]):
-            # Mystery why this is necessary ...
+
+        # Create the Preferences dialog
+        if self.prefs_dialog_active:
+            # Do nothing if a Preferences dialog already exists
             return
         # Create the Preferences dialog
         PreferencesDialog(self)
@@ -1438,8 +1441,7 @@ value on the Arduino tab of Preferences
     def results_actions(self, event=None):
         """Method to open the Results Wizard"""
         # pylint: disable=unused-argument
-        if (self.results_wiz is None and
-                not self.results_button.instate(["disabled"])):
+        if self.results_wiz is None:
             self.results_wiz = ResultsWizard(self)
 
     # -------------------------------------------------------------------------
@@ -1448,7 +1450,7 @@ value on the Arduino tab of Preferences
            button is pressed
         """
         if self.go_button.instate(["disabled"]):
-            # Mystery why this is necessary ...
+            # This is necessary due to the "manual" bindings
             return
 
         if (event.widget == self.img_size_combo or
@@ -1818,8 +1820,8 @@ bias was actually applied.
 
     # -------------------------------------------------------------------------
     def start_to_left(self):
-        """Method to cause app to open to the left of the screen, aligned to top
-           (5 pixel overscan compensation)
+        """Method to cause app to open to the left of the screen, aligned to
+           top (5 pixel overscan compensation)
         """
         self.root.geometry("+20+5")
 
@@ -2031,8 +2033,8 @@ class GraphicalUserInterfaceProps(object):
     # ---------------------------------
     @property
     def current_run_displayed(self):
-        """True if the current run is displayed on the screen (as opposed to the
-           splash screen, or an older run).
+        """True if the current run is displayed on the screen (as opposed to
+           the splash screen, or an older run).
         """
         return self.master._current_run_displayed
 
@@ -4476,8 +4478,8 @@ this version of the Arduino software. Please upgrade.
 
     # -------------------------------------------------------------------------
     def get_resistor_values(self):
-        """Method to open the resistor values calibration dialog for the user to
-           enter the resistor values
+        """Method to open the resistor values calibration dialog for the user
+           to enter the resistor values
         """
         ResistorValuesDialog(self.master)
 
@@ -5037,7 +5039,7 @@ Calibration:
 
   9. Click the "Test" button
 
- 10. Enter the DMM value in the text entry box and hit Enter
+ 10. Enter the DMM value in the text entry box and hit Enter/Return
 
  11. Note the Error value (mA and %)
 
@@ -5174,7 +5176,7 @@ Calibration:
 
  12. Flip the light switch ON
 
- 13. Enter the DMM value in the text entry box and hit Enter
+ 13. Enter the DMM value in the text entry box and hit Enter/Return
 
  14. Note the Error value (mA and %)
 
@@ -5285,7 +5287,7 @@ Calibration:
 
   8. Click the "Test" button
 
-  9. Enter the DMM value in the text entry box and hit Enter
+  9. Enter the DMM value in the text entry box and hit Enter/Return
 
  10. Note the Error value (mV and %)
 
@@ -6307,8 +6309,8 @@ class ResistorValuesDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def snapshot(self):
-        """Method that overrides snapshot() method of parent to capture original
-           configuration and property values
+        """Method that overrides snapshot() method of parent to capture
+           original configuration and property values
         """
         # Snapshot config
         self.master.config.get_snapshot()
@@ -6374,8 +6376,8 @@ class ResistorValuesDialog(Dialog):
 
     # -------------------------------------------------------------------------
     def apply(self):
-        """Method that overrides apply() method of parent to apply new values to
-           properties and the config
+        """Method that overrides apply() method of parent to apply new values
+           to properties and the config
         """
         resistance_opt_changed = False
         section = "Calibration"
@@ -8382,7 +8384,8 @@ class PlotPower(ttk.Checkbutton):
 # Lock axes checkbutton class
 #
 class LockAxes(ttk.Checkbutton):
-    """Class that implements the Checkbutton widget used to lock the axis ranges
+    """Class that implements the Checkbutton widget used to lock the axis
+       ranges
     """
     # pylint: disable=too-many-ancestors
 
