@@ -517,9 +517,10 @@ permission to create files in
 An internal error has occurred.  Please send
 the log file to csatt1@gmail.com.
 
-Use "View Log File" on the "File" menu.
-The file name is near the top.
-"""
+Log file: {}
+
+Or use "View Log File" on the "File" menu.
+""".format(os.path.normpath(self.ivs2.logger.log_file_name))
         tkmsg_showerror(self, exception_msg)
 
     # -------------------------------------------------------------------------
