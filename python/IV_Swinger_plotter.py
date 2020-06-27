@@ -58,7 +58,7 @@
 #     - Multiple options to customize the appearance of the graph:
 #         - Chart title
 #         - Curve names in legend
-#         - Size of the plot, font sizes, point sizes, line width
+#         - Size of the plot, font name, font sizes, point sizes, line width
 #         - Fancy labels on Isc, Voc, and MPP
 #         - Use linear interpolation
 #
@@ -92,6 +92,8 @@
 #    -pys PLOT_Y_SCALE, --plot_y_scale PLOT_Y_SCALE
 #                          Scale plot height by specified amount (no scaling =
 #                          1.0)
+#    -fn FONT_NAME, --font_name FONT_NAME
+#                          Name of font to use (pyplot only)
 #    -fs FONT_SCALE, --font_scale FONT_SCALE
 #                          Scale fonts by specified amount (no scaling =
 #                          1.0)
@@ -162,6 +164,8 @@ def set_ivs_properties(args, ivs_extended):
                                  args.plot_x_scale)
     ivs_extended.plot_y_scale = (args.scale * args.plot_scale *
                                  args.plot_y_scale)
+    if args.font_name is not None:
+        ivs_extended.font_name = args.font_name
     ivs_extended.font_scale = args.scale * args.font_scale
     ivs_extended.point_scale = args.scale * args.point_scale
     ivs_extended.line_scale = args.scale * args.line_scale
@@ -260,6 +264,8 @@ class CommandLineProcessor(object):
             parser.add_argument("-my", "--max_y", type=float, default=None,
                                 help=("Hardcode Y axis range to specified "
                                       "current"))
+            parser.add_argument("-fn", "--font_name", type=str, default=None,
+                                help=("Font name"))
             parser.add_argument("-fs", "--font_scale", type=float, default=1.0,
                                 help=("Scale fonts by specified amount "
                                       "(no scaling = 1.0)"))

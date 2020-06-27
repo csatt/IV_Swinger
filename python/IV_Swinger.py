@@ -192,9 +192,10 @@ if sys.platform != "win32":
     # Suppress matplotlib import on RPi 1 (too slow))
     if not os.uname()[4].startswith("armv6"):
         import matplotlib.pyplot as plt
+        from matplotlib.font_manager import findSystemFonts, createFontList
 else:  # Windows
     import matplotlib.pyplot as plt
-
+    from matplotlib.font_manager import findSystemFonts, createFontList
 
 #################
 #   Constants   #
@@ -1369,6 +1370,7 @@ class IV_Swinger(object):
         self._label_all_mpps = False
         self._mpp_watts_only = False
         self._fancy_labels = False
+        self._font_name = "Arial Unicode MS"
         self._title_fontsize = 14
         self._axislabel_fontsize = 11
         self._ticklabel_fontsize = 9
@@ -2052,6 +2054,15 @@ class IV_Swinger(object):
     @fancy_labels.setter
     def fancy_labels(self, value):
         self._fancy_labels = value
+
+    @property
+    def font_name(self):
+        """Property to set font name (family) for pyplot"""
+        return self._font_name
+
+    @font_name.setter
+    def font_name(self, value):
+        self._font_name = value
 
     @property
     def title_fontsize(self):
@@ -3215,6 +3226,26 @@ class IV_Swinger(object):
             subprocess.call([self.gnuplot_command, sd_gp_command_filename])
 
     # -------------------------------------------------------------------------
+    def get_and_log_pyplot_font_names(self):
+        """Method to get the list of font names (families) available for pyplot
+           plots. The list is returned to the caller (as a string with
+           newlines) and is also written to the log file.
+        """
+        font_set = set()
+        for font in createFontList(findSystemFonts()):
+            font_set.add(font.name)
+        font_names_str = ""
+        for font_name in sorted(font_set):
+            font_names_str += "{}\n".format(font_name)
+        self.logger.log("Plotting fonts:\n{}".format(font_names_str))
+        return font_names_str
+
+    # -------------------------------------------------------------------------
+    def set_pyplot_font_name(self):
+        """Method to set the font name (family) for pyplot plots"""
+        plt.rc('font', family=self.font_name)
+
+    # -------------------------------------------------------------------------
     def plot_with_pyplot(self, sd_data_point_filenames, sd_img_filename,
                          isc_amps, voc_volts, mpp_amps, mpp_volts):
         """Method to generate the graph with pyplot.
@@ -3233,6 +3264,9 @@ class IV_Swinger(object):
            plot multiple curves (up to 8) on the same graph.
         """
         # pylint: disable=too-many-arguments
+
+        # Set the font
+        self.set_pyplot_font_name()
 
         # Set the figure size
         self.set_figure_size()

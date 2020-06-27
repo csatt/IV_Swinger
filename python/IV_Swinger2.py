@@ -142,6 +142,7 @@ SPI_CLOCK_DIV2 = 0x04
 SPI_CLOCK_DIV8 = 0x05
 SPI_CLOCK_DIV32 = 0x06
 # Default plotting config
+FONT_NAME_DEFAULT = "Arial Unicode MS"
 FONT_SCALE_DEFAULT = 1.0
 LINE_SCALE_DEFAULT = 1.0
 POINT_SCALE_DEFAULT = 1.0
@@ -657,7 +658,10 @@ class Configuration(object):
            ConfigParser set method, but converts value to a string
            first.
         """
-        self.cfg.set(section, option, str(value))
+        try:
+            self.cfg.set(section, option, str(value))
+        except UnicodeEncodeError:
+            self.cfg.set(section, option, value.encode("utf-8"))
 
     # -------------------------------------------------------------------------
     def cfg_dump(self, dump_header=None):
@@ -752,6 +756,7 @@ class Configuration(object):
         plot_power = self.cfg.get(section, "plot power")
         fancy_labels = self.cfg.get(section, "fancy labels")
         linear = self.cfg.get(section, "linear")
+        font_name = self.cfg.get(section, "font name")
         font_scale = self.cfg.get(section, "font scale")
         line_scale = self.cfg.get(section, "line scale")
         point_scale = self.cfg.get(section, "point scale")
@@ -777,6 +782,7 @@ class Configuration(object):
         self.cfg_set(section, "plot power", plot_power)
         self.cfg_set(section, "fancy labels", fancy_labels)
         self.cfg_set(section, "linear", linear)
+        self.cfg_set(section, "font name", font_name)
         self.cfg_set(section, "font scale", font_scale)
         self.cfg_set(section, "line scale", line_scale)
         self.cfg_set(section, "point scale", point_scale)
@@ -1004,6 +1010,10 @@ class Configuration(object):
         # Interpolation
         args = (section, "linear", CFG_BOOLEAN, self.ivs2.linear)
         self.ivs2.linear = self.apply_one(*args)
+
+        # Font name
+        args = (section, "font name", CFG_STRING, self.ivs2.font_name)
+        self.ivs2.font_name = self.apply_one(*args)
 
         # Font scale
         args = (section, "font scale", CFG_FLOAT, self.ivs2.font_scale)
@@ -1264,6 +1274,7 @@ class Configuration(object):
         self.cfg_set(section, "plot power", self.ivs2.plot_power)
         self.cfg_set(section, "fancy labels", self.ivs2.fancy_labels)
         self.cfg_set(section, "linear", self.ivs2.linear)
+        self.cfg_set(section, "font name", self.ivs2.font_name)
         self.cfg_set(section, "font scale", self.ivs2.font_scale)
         self.cfg_set(section, "line scale", self.ivs2.line_scale)
         self.cfg_set(section, "point scale", self.ivs2.point_scale)
@@ -1349,9 +1360,10 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         self._linear = True
         self._overlay = False
         self._plot_power = True
-        self._font_scale = 1.0
-        self._line_scale = 1.0
-        self._point_scale = 1.0
+        self._font_name = FONT_NAME_DEFAULT
+        self._font_scale = FONT_SCALE_DEFAULT
+        self._line_scale = LINE_SCALE_DEFAULT
+        self._point_scale = POINT_SCALE_DEFAULT
         self._v_sat = None
         self._i_sat = None
         self._logger = None
@@ -1560,6 +1572,17 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
 
     # ---------------------------------
     @property
+    def font_name(self):
+        """Value of the font name
+        """
+        return self._font_name
+
+    @font_name.setter
+    def font_name(self, value):
+        self._font_name = value
+
+    # ---------------------------------
+    @property
     def font_scale(self):
         """Value of the font scale
         """
@@ -1665,6 +1688,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         self.args.gif = False
         self.args.png = False
         self.args.scale = 1.0
+        self.args.font_name = self.font_name
         self.args.font_scale = self.font_scale
         self.args.line_scale = self.line_scale
         self.args.point_scale = self.point_scale
@@ -1900,6 +1924,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._fancy_labels = True
         self._linear = True
         self._plot_power = False
+        self._font_name = FONT_NAME_DEFAULT
         self._font_scale = FONT_SCALE_DEFAULT
         self._line_scale = LINE_SCALE_DEFAULT
         self._point_scale = POINT_SCALE_DEFAULT
@@ -2461,6 +2486,17 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if value not in set([True, False]):
             raise ValueError("plot_power must be boolean")
         self._plot_power = value
+
+    # ---------------------------------
+    @property
+    def font_name(self):
+        """Value of the font name
+        """
+        return self._font_name
+
+    @font_name.setter
+    def font_name(self, value):
+        self._font_name = value
 
     # ---------------------------------
     @property
@@ -4924,7 +4960,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def plot_results(self, v_sat_override=None, i_sat_override=None):
         """Method to plot results"""
         self.ivp = IV_Swinger2_plotter()
-        self.ivp.title = self.plot_title
+        self.ivp.title = (None if self.plot_title is None
+                          else self.plot_title.decode("utf-8"))
         self.ivp.logger = self.logger
         self.ivp.csv_files = [self.hdd_csv_data_point_filename]
         self.ivp.plot_dir = self.hdd_output_dir
@@ -4933,6 +4970,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self.ivp.fancy_labels = self.fancy_labels
         self.ivp.linear = self.linear
         self.ivp.plot_power = self.plot_power
+        self.ivp.font_name = self.font_name
         self.ivp.font_scale = self.font_scale
         self.ivp.line_scale = self.line_scale
         self.ivp.point_scale = self.point_scale

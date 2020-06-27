@@ -150,6 +150,7 @@ SPI_CLOCK_DIV128 = IV_Swinger2.SPI_CLOCK_DIV128
 SPI_CLOCK_DIV2 = IV_Swinger2.SPI_CLOCK_DIV2
 SPI_CLOCK_DIV8 = IV_Swinger2.SPI_CLOCK_DIV8
 SPI_CLOCK_DIV32 = IV_Swinger2.SPI_CLOCK_DIV32
+FONT_NAME_DEFAULT = IV_Swinger2.FONT_NAME_DEFAULT
 FONT_SCALE_DEFAULT = IV_Swinger2.FONT_SCALE_DEFAULT
 LINE_SCALE_DEFAULT = IV_Swinger2.LINE_SCALE_DEFAULT
 POINT_SCALE_DEFAULT = IV_Swinger2.POINT_SCALE_DEFAULT
@@ -3219,12 +3220,7 @@ class ResultsWizard(tk.Toplevel):
                                    prompt=prompt_str,
                                    initialvalue=init_val)
         if new_title:
-            try:
-                str(new_title)
-            except UnicodeEncodeError:
-                err_str = ("ERROR: Title must be ASCII")
-                tkmsg_showerror(self.master, message=err_str)
-                return
+            new_title = new_title.encode("utf-8")
             if self.master.props.overlay_mode:
                 self.overlay_title = new_title
                 self.plot_overlay_and_display()
@@ -3911,7 +3907,8 @@ class ResultsWizard(tk.Toplevel):
         """
         self.ivp = IV_Swinger2.IV_Swinger2_plotter()
         self.get_overlay_curve_names()
-        self.ivp.title = self.overlay_title
+        self.ivp.title = (None if self.overlay_title is None
+                          else self.overlay_title.decode("utf-8"))
         self.ivp.logger = self.master.ivs2.logger
         self.ivp.csv_files = self.selected_csv_files
         self.ivp.plot_dir = self.master.props.overlay_dir
@@ -3929,6 +3926,7 @@ class ResultsWizard(tk.Toplevel):
         self.ivp.linear = self.master.ivs2.linear
         self.ivp.overlay = True
         self.ivp.plot_power = self.master.ivs2.plot_power
+        self.ivp.font_name = self.master.ivs2.font_name
         self.ivp.font_scale = self.master.ivs2.font_scale
         self.ivp.line_scale = self.master.ivs2.line_scale
         self.ivp.point_scale = self.master.ivs2.point_scale
@@ -3954,7 +3952,7 @@ class ResultsWizard(tk.Toplevel):
         for dts in curves:
             if dts in self.master.props.overlay_names:
                 # Name is user-specified
-                name = self.master.props.overlay_names[dts]
+                name = self.master.props.overlay_names[dts].decode("utf-8")
                 self.ivp.curve_names.append(name)
             else:
                 # Default name: date@time
@@ -4549,7 +4547,6 @@ class Dialog(tk.Toplevel):
        provided for the subclass to override. A placeholder function to
        validate the input before applying it is also provided for
        optional override.
-
     """
     # pylint: disable=too-many-instance-attributes
 
@@ -6647,6 +6644,7 @@ class PreferencesDialog(Dialog):
         self.loop_stop_on_err = tk.StringVar()
         self.fancy_labels = tk.StringVar()
         self.interpolation_type = tk.StringVar()
+        self.font_name = tk.StringVar()
         self.font_scale = tk.StringVar()
         self.line_scale = tk.StringVar()
         self.point_scale = tk.StringVar()
@@ -6693,6 +6691,7 @@ class PreferencesDialog(Dialog):
         # pylint: disable=too-many-locals
         # pylint: disable=too-many-statements
         section = "Plotting"
+        self.font_name.set(self.master.config.cfg.get(section, "font name"))
         self.font_scale.set(self.master.config.cfg.getfloat(section,
                                                             "font scale"))
         self.line_scale.set(self.master.config.cfg.getfloat(section,
@@ -6737,6 +6736,17 @@ class PreferencesDialog(Dialog):
         self.fancy_labels.set("Plain")
         if self.master.config.cfg.getboolean(section, "fancy labels"):
             self.fancy_labels.set("Fancy")
+
+        # Add entry box for font name.
+        font_name_label = ttk.Label(master=plotting_widget_box,
+                                    text="Font name:")
+        font_name_entry = ttk.Entry(master=plotting_widget_box,
+                                    width=31,
+                                    textvariable=self.font_name)
+        font_name_entry.bind("<Return>", self.immediate_apply)
+        font_list_button = ttk.Button(master=plotting_widget_box,
+                                      command=self.font_list_actions,
+                                      text="List")
 
         # Add scale slider and entry box for font scale. They both use
         # the same variable, so when the slider is moved, the value in
@@ -6958,19 +6968,24 @@ class PreferencesDialog(Dialog):
         line_type_label.grid(column=0, row=row, sticky=W)
         straight_rb.grid(column=1, row=row, sticky=W)
         smooth_rb.grid(column=2, row=row, sticky=W)
-        row = 1
+        row += 1
         label_style_label.grid(column=0, row=row, sticky=W, pady=pady)
         plain_rb.grid(column=1, row=row, sticky=W, pady=pady)
         fancy_rb.grid(column=2, row=row, sticky=W, pady=pady)
-        row = 2
+        row += 1
+        font_name_label.grid(column=0, row=row, sticky=W, pady=pady)
+        font_name_entry.grid(column=1, row=row, sticky=W, pady=pady,
+                             columnspan=2)
+        font_list_button.grid(column=3, row=row, sticky=W, pady=pady)
+        row += 1
         font_scale_label.grid(column=0, row=row, sticky=W, pady=pady)
         font_scale_entry.grid(column=1, row=row, sticky=W, pady=pady)
         font_scale_slider.grid(column=2, row=row, sticky=W, pady=pady)
-        row = 3
+        row += 1
         line_scale_label.grid(column=0, row=row, sticky=W, pady=pady)
         line_scale_entry.grid(column=1, row=row, sticky=W, pady=pady)
         line_scale_slider.grid(column=2, row=row, sticky=W, pady=pady)
-        row = 4
+        row += 1
         point_scale_label.grid(column=0, row=row, sticky=W, pady=pady)
         point_scale_entry.grid(column=1, row=row, sticky=W, pady=pady)
         point_scale_slider.grid(column=2, row=row, sticky=W, pady=pady)
@@ -7048,6 +7063,7 @@ class PreferencesDialog(Dialog):
         # pylint: disable=unused-argument
         self.fancy_labels.set(str(FANCY_LABELS_DEFAULT))
         self.interpolation_type.set(str(INTERPOLATION_TYPE_DEFAULT))
+        self.font_name.set(str(FONT_NAME_DEFAULT))
         self.font_scale.set(str(FONT_SCALE_DEFAULT))
         self.line_scale.set(str(LINE_SCALE_DEFAULT))
         self.point_scale.set(str(POINT_SCALE_DEFAULT))
@@ -7066,6 +7082,11 @@ class PreferencesDialog(Dialog):
         default_milliohms = round(default_ohms * 1000.0, 3)
         self.series_res_comp_milliohms_str.set(str(default_milliohms))
         self.immediate_apply()
+
+    # -------------------------------------------------------------------------
+    def font_list_actions(self):
+        """Method to display the list of possible fonts"""
+        FontListDialog(self.master)
 
     # -------------------------------------------------------------------------
     def show_plotting_help(self):
@@ -7414,6 +7435,7 @@ effect. Please upgrade.
         # Snapshot properties
         self.snapshot_values["linear"] = self.master.ivs2.linear
         self.snapshot_values["fancy_labels"] = self.master.ivs2.fancy_labels
+        self.snapshot_values["font_name"] = self.master.ivs2.font_name
         self.snapshot_values["font_scale"] = self.master.ivs2.font_scale
         self.snapshot_values["line_scale"] = self.master.ivs2.line_scale
         self.snapshot_values["point_scale"] = self.master.ivs2.point_scale
@@ -7515,6 +7537,7 @@ effect. Please upgrade.
         # Restore properties
         self.master.ivs2.linear = self.snapshot_values["linear"]
         self.master.ivs2.fancy_labels = self.snapshot_values["fancy_labels"]
+        self.master.ivs2.font_name = self.snapshot_values["font_name"]
         self.master.ivs2.font_scale = self.snapshot_values["font_scale"]
         self.master.ivs2.line_scale = self.snapshot_values["line_scale"]
         self.master.ivs2.point_scale = self.snapshot_values["point_scale"]
@@ -7565,6 +7588,10 @@ effect. Please upgrade.
         fancy_labels = (self.fancy_labels.get() == "Fancy")
         self.master.config.cfg_set(section, "fancy labels", fancy_labels)
         self.master.ivs2.fancy_labels = fancy_labels
+        # Font name
+        font_name = self.font_name.get()
+        self.master.config.cfg_set(section, "font name", font_name)
+        self.master.ivs2.font_name = font_name
         # Font scale
         font_scale = float(self.font_scale.get())
         self.master.config.cfg_set(section, "font scale", font_scale)
@@ -7752,6 +7779,7 @@ class PlottingProps(object):
         # Capture current properties
         self.prop_vals["linear"] = self.ivs2.linear
         self.prop_vals["fancy_labels"] = self.ivs2.fancy_labels
+        self.prop_vals["font_name"] = self.ivs2.font_name
         self.prop_vals["font_scale"] = self.ivs2.font_scale
         self.prop_vals["line_scale"] = self.ivs2.line_scale
         self.prop_vals["point_scale"] = self.ivs2.point_scale
@@ -7772,6 +7800,7 @@ class PlottingProps(object):
         """
         return ((self.prop_vals["linear"] != self.ivs2.linear) or
                 (self.prop_vals["fancy_labels"] != self.ivs2.fancy_labels) or
+                (self.prop_vals["font_name"] != self.ivs2.font_name) or
                 (self.prop_vals["font_scale"] != self.ivs2.font_scale) or
                 (self.prop_vals["line_scale"] != self.ivs2.line_scale) or
                 (self.prop_vals["point_scale"] != self.ivs2.point_scale) or
@@ -7814,6 +7843,39 @@ class PlottingProps(object):
         return self.prop_vals["battery_bias"] != self.ivs2.battery_bias
 
 
+# Font list dialog class
+#
+class FontListDialog(Dialog):
+    """Class that is extended from the generic Dialog class and is used for
+       the list of plotting fonts
+    """
+    # Initializer
+    def __init__(self, master=None):
+        title = "Font list"
+        Dialog.__init__(self, master=master, title=title,
+                        has_cancel_button=False, return_ok=True,
+                        parent_is_modal=True,
+                        resizable=True,
+                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
+
+    # -------------------------------------------------------------------------
+    def body(self, master):
+        """Method to create the dialog body, which is just a Text widget"""
+        font = HELP_DIALOG_FONT
+        body_text = """
+Choose (copy/paste) from the following list of plotting fonts. Beware,
+however, that it is not guaranteed that all of these fonts will behave
+correctly. Some (e.g. Wingdings) may even require the application to be
+closed and reopened if they are used. This list is also in the log file.\n
+"""
+        body_text += self.master.ivs2.get_and_log_pyplot_font_names()
+        self.text = ScrolledText(master, height=1, borderwidth=10)
+        self.text.tag_configure("body_tag", font=font)
+        self.text.insert("end", body_text, ("body_tag"))
+        self.text.pack(fill=BOTH, expand=True)
+
+
 # Plotting help dialog class
 #
 class PlottingHelpDialog(Dialog):
@@ -7852,6 +7914,15 @@ Isc, MPP, Voc labels:
   Two styles are available for the labels: "Plain" and "Fancy". Plain labels
   are text only. Fancy labels are enclosed in a box with a yellow background,
   and there are arrows indicating the point.
+
+Font name:
+  The name of the font to use for all text (title, legends, labels, etc.) The
+  default is "Arial Unicode MS" which supports character sets for many
+  languages. If that font is not available, the plotting will SILENTLY revert
+  to a default font. A list of fonts is printed to the log file on exit from
+  the application. However, it is not guaranteed that all of those fonts will
+  behave correctly. Some (e.g. Wingdings) may even require the application to
+  be closed and reopened if they are used.
 
 Font scale, Line scale, and Point scale:
   The default font size, line thickness, and size of the "dots" indicating the
