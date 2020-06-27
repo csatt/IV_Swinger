@@ -1834,7 +1834,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         self.max_y = self.ivsp_ivse.plot_max_y
 
         # Log MPP (single curve only)
-        if len(self.csv_proc.csv_files) == 1:
+        if self.logger and len(self.csv_proc.csv_files) == 1:
             mpp_amps = self.csv_proc.plt_mpp_amps[0]
             mpp_volts = self.csv_proc.plt_mpp_volts[0]
             if mpp_amps:
