@@ -1836,7 +1836,26 @@ bias was actually applied.
             self.ivs2.clean_up_files(self.ivs2.hdd_output_dir)
         IV_Swinger2.close_plots()
         # Log configuration differences relative to starting values
-        self.config.log_cfg_diffs()
+        log_str = self.config.log_cfg_diffs()
+        # If there are more than 5 subtractions (generally paired with
+        # an addition), generate a dialog giving the user the option to
+        # revert to the previous config.
+        num_subs = log_str.count('\n- ')
+        if num_subs > 5:
+            msg_str = "WARNING: More than 5 changes to config file\n"
+            for line in log_str.split("\n"):
+                if "[" in line and "]" in line:
+                    section = line
+                if (line.startswith("?") or line.startswith("+") or
+                        line.startswith("-")):
+                    msg_str += "{} {}\n".format(section, line)
+            msg_str += "\nREVERT TO PREVIOUS?"
+            revert_config = tkmsg.askyesno("Revert config?", msg_str,
+                                           default=tkmsg.NO)
+            if revert_config:
+                shutil.copy(self.config.starting_cfg_filename,
+                            self.config.cfg_filename)
+
         # Add newline to end of log file
         IV_Swinger2.terminate_log()
         # Close the app

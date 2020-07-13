@@ -644,13 +644,15 @@ class Configuration(object):
     # -------------------------------------------------------------------------
     def log_cfg_diffs(self):
         """Method to log the differences between the starting config file
-           and the current config file.
+           and the current config file. The diff is also returned to the
+           caller.
         """
         diff = difflib.ndiff(open(self.starting_cfg_filename).readlines(),
                              open(self.cfg_filename).readlines())
         heading_str = "Config file diffs\n                 -----------------\n"
         log_str = "{}{}".format(heading_str, "".join(diff))
         self.ivs2.logger.log(log_str)
+        return log_str
 
     # -------------------------------------------------------------------------
     def cfg_set(self, section, option, value):
