@@ -690,6 +690,8 @@ class Configuration(object):
             self.ivs2.logger.print_and_log(dbg_str)
         try:
             with open(self.cfg_filename, "r") as cfg_fp:
+                # Blow away old config and create new one
+                self.cfg = ConfigParser.SafeConfigParser()
                 self.cfg.readfp(cfg_fp)
                 if DEBUG_CONFIG:
                     self.cfg_dump()

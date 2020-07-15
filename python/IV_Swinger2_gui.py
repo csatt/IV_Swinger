@@ -1081,6 +1081,35 @@ value on the Arduino tab of Preferences
             self.plot_power.set("DontPlot")
 
     # -------------------------------------------------------------------------
+    def swap_config(self, run_dir, config_dir):
+        """Method to replace config from saved config of displayed
+           image. Snapshots the original. Returns name of new config
+           file and original config file.
+        """
+        cfg_file = None
+        original_cfg_file = None
+        if run_dir is not None and run_dir != config_dir:
+            cfg_file = os.path.join(run_dir, "{}.cfg".format(APP_NAME))
+            if os.path.exists(cfg_file):
+                # Snapshot current config
+                original_cfg_file = self.config.cfg_filename
+                self.config.get_snapshot()
+                # Get config from run_dir
+                self.config.cfg_filename = cfg_file
+                self.config.get_old_result(cfg_file)
+        return cfg_file, original_cfg_file
+
+    # -------------------------------------------------------------------------
+    def restore_config(self, run_dir, config_dir,
+                       cfg_file, original_cfg_file):
+        """Method to restore the swapped config from the snapshot.
+        """
+        if (run_dir is not None and run_dir != config_dir and
+                os.path.exists(cfg_file)):
+            self.config.cfg_filename = original_cfg_file
+            self.config.save_snapshot()
+
+    # -------------------------------------------------------------------------
     def update_axis_ranges(self):
         """Method to update the values displayed in the axis range entry
            widgets
@@ -1105,23 +1134,19 @@ value on the Arduino tab of Preferences
         """Method to apply a new voltage or current range (max value
            on axis) when entered by the user
         """
-        # Replace config from saved config of displayed image
-        run_dir = self.ivs2.hdd_output_dir
-        config_dir = os.path.dirname(self.config.cfg_filename)
-        if run_dir is not None and run_dir != config_dir:
-            cfg_file = os.path.join(run_dir, "{}.cfg".format(APP_NAME))
-            if os.path.exists(cfg_file):
-                # Snapshot current config
-                original_cfg_file = self.config.cfg_filename
-                self.config.get_snapshot()
-                # Get config from run_dir
-                self.config.cfg_filename = cfg_file
-                self.config.get_old_result(cfg_file)
+        if self.props.current_run_displayed or self.results_wiz:
+            run_dir = self.ivs2.hdd_output_dir
+            config_dir = os.path.dirname(self.config.cfg_filename)
 
-        # Update IVS2 property
+            # Replace config from saved config of displayed image
+            cfg_file, original_cfg_file = self.swap_config(run_dir, config_dir)
+
+        # Update IVS2 properties and the config options
         try:
             self.ivs2.plot_max_x = float(self.v_range.get())
             self.ivs2.plot_max_y = float(self.i_range.get())
+            self.config.cfg_set("Plotting", "plot max x", self.ivs2.plot_max_x)
+            self.config.cfg_set("Plotting", "plot max y", self.ivs2.plot_max_y)
             event.widget.tk_focusNext().focus()  # move focus out
         except ValueError:
             # Silently reject invalid values
@@ -1129,18 +1154,17 @@ value on the Arduino tab of Preferences
         self.update_axis_ranges()
         self.update_idletasks()
 
-        # Redisplay the image with the new settings (saves config)
-        self.redisplay_img(reprocess_adc=False)
+        if self.props.current_run_displayed or self.results_wiz:
+            if self.axes_locked.get() == "Unlock":
+                # Unlock the axes (redisplays image and saves config)
+                self.unlock_axes()
+            else:
+                # Redisplay the image with the new settings (saves config)
+                self.redisplay_img(reprocess_adc=False)
 
-        if (run_dir is not None and run_dir != config_dir and
-                os.path.exists(cfg_file)):
             # Restore the config file from the snapshot
-            self.config.cfg_filename = original_cfg_file
-            self.config.save_snapshot()
-
-        # Unlock the axes
-        if self.axes_locked.get() == "Unlock":
-            self.unlock_axes()
+            self.restore_config(run_dir, config_dir,
+                                cfg_file, original_cfg_file)
 
     # -------------------------------------------------------------------------
     def attempt_arduino_handshake(self, write_eeprom=False):
@@ -1407,8 +1431,6 @@ value on the Arduino tab of Preferences
                 (self.props.loop_save_results or
                  not self.props.loop_mode_active)):
             copy_dir = self.ivs2.hdd_output_dir
-        else:
-            copy_dir = None
 
         self.config.save(copy_dir=copy_dir)
 
@@ -1516,7 +1538,7 @@ value on the Arduino tab of Preferences
             return rc
 
         # Clear current_run_displayed flag
-        self.props.current_run_displayed = True
+        self.props.current_run_displayed = False
 
         # Capture the start time
         loop_start_time = dt.datetime.now()
@@ -8366,18 +8388,14 @@ class PlotPower(ttk.Checkbutton):
         """Method to update and apply the plot power option"""
         # pylint: disable=unused-argument
 
-        # Replace config from saved config of displayed image
-        run_dir = self.master.ivs2.hdd_output_dir
-        config_dir = os.path.dirname(self.master.config.cfg_filename)
-        if run_dir is not None and run_dir != config_dir:
-            cfg_file = os.path.join(run_dir, "{}.cfg".format(APP_NAME))
-            if os.path.exists(cfg_file):
-                # Snapshot current config
-                original_cfg_file = self.master.config.cfg_filename
-                self.master.config.get_snapshot()
-                # Get config from run_dir
-                self.master.config.cfg_filename = cfg_file
-                self.master.config.get_old_result(cfg_file)
+        if self.master.props.current_run_displayed or self.master.results_wiz:
+            # Replace config from saved config of displayed image
+            run_dir = self.master.ivs2.hdd_output_dir
+            config_dir = os.path.dirname(self.master.config.cfg_filename)
+
+            # Replace config from saved config of displayed image
+            cfg_file, original_cfg_file = self.master.swap_config(run_dir,
+                                                                  config_dir)
 
         # Update IVS2 property
         self.master.ivs2.plot_power = (self.plot_power.get() == "Plot")
@@ -8386,18 +8404,13 @@ class PlotPower(ttk.Checkbutton):
         self.master.config.cfg_set("Plotting", "plot power",
                                    self.master.ivs2.plot_power)
 
-        # Redisplay the image (with power plotted) - saves config
-        self.master.redisplay_img(reprocess_adc=False)
+        if self.master.props.current_run_displayed or self.master.results_wiz:
+            # Redisplay the image (with power plotted) - saves config
+            self.master.redisplay_img(reprocess_adc=False)
 
-        # Restore the config file from the snapshot
-        if (run_dir is not None and run_dir != config_dir and
-                os.path.exists(cfg_file)):
-            self.master.config.cfg_filename = original_cfg_file
-            self.master.config.save_snapshot()
-
-        # Unlock the axes
-        if self.master.axes_locked.get() == "Unlock":
-            self.master.unlock_axes()
+            # Restore the config file from the snapshot
+            self.master.restore_config(run_dir, config_dir, cfg_file,
+                                       original_cfg_file)
 
 
 # Lock axes checkbutton class
@@ -8428,7 +8441,8 @@ class LockAxes(ttk.Checkbutton):
         self.gui.update_axis_ranges()
         # (Optionally) redisplay the image with the new settings (saves
         # config)
-        if self.gui.props.redisplay_after_axes_unlock:
+        if ((self.gui.props.current_run_displayed or self.gui.results_wiz) and
+                self.gui.props.redisplay_after_axes_unlock):
             self.gui.redisplay_img(reprocess_adc=False)
 
 
