@@ -3271,14 +3271,15 @@ class ResultsWizard(tk.Toplevel):
             else:
                 time_of_day = self.tree.item(dts)["text"][:8]
                 if new_title == "None":
-                    new_title = None
                     text = time_of_day
                     self.tree.item(dts, text=text)
+                    self.master.ivs2.plot_title = None
+                    del self.master.props.overlay_names[dts]
                 else:
                     text = "{}   {}".format(time_of_day, new_title)
                     self.tree.item(dts, text=text)
-                self.master.ivs2.plot_title = new_title
-                self.master.props.overlay_names[dts] = new_title
+                    self.master.ivs2.plot_title = new_title
+                    self.master.props.overlay_names[dts] = new_title
                 self.master.redisplay_img(reprocess_adc=False)
 
     # -------------------------------------------------------------------------
