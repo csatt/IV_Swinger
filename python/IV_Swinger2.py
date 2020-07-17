@@ -98,6 +98,8 @@ except ImportError:
     pass
 import IV_Swinger
 import IV_Swinger_plotter
+from IV_Swinger2_PV_model import (IV_Swinger2_PV_model,
+                                  PV_MODEL_CURVE_NUM_POINTS)
 
 #################
 #   Constants   #
@@ -113,6 +115,7 @@ RC_ZERO_ISC = -6
 RC_ISC_TIMEOUT = -7
 RC_NO_POINTS = -8
 RC_SSR_HOT = -9
+RC_PV_MODEL_FAILURE = -10
 CFG_STRING = 0
 CFG_FLOAT = 1
 CFG_INT = 2
@@ -163,6 +166,11 @@ SECOND_RELAY_STATE_DEFAULT = SECOND_RELAY_OFF
 MIN_BIAS_CH1_ADC = 50
 MIN_BIAS_CH1_ADC_PCT = 7
 RELAY_ACTIVE_HIGH_DEFAULT = False
+# Default PV model config
+ESTIMATE_IRRAD_DEFAULT = False
+ESTIMATE_TEMP_DEFAULT = False
+USE_AVG_SENSOR_TEMP_DEFAULT = False
+CELL_TEMP_ADJUST_DEFAULT = 3.0
 # Other Arduino constants
 ARDUINO_MAX_INT = (1 << 15) - 1
 MAX_IV_POINTS_MAX = 275
@@ -569,6 +577,54 @@ def noise_reduction(adc_pairs, starting_rot_thresh=5.0,
     return adc_pairs_nr
 
 
+def get_run_info_filename(run_dir):
+    """Global function to get the run_info file name, given the run
+       directory.
+    """
+    dts = extract_date_time_str(run_dir)
+    sensor_info_filename = os.path.join(run_dir,
+                                        ("sensor_info_{}.txt"
+    if os.path.exists(sensor_info_filename):
+        # Backward compatibility
+        run_info_filename = sensor_info_filename
+    else:
+        run_info_filename = os.path.join(run_dir,
+                                         ("run_info_{}.txt"
+                                          .format(dts)))
+    return run_info_filename
+
+
+def get_sensor_values_from_file(run_info_filename):
+    """Global function to get the temperature and irradiance values from the
+       run_info file. A tuple is returned, with the first value being
+       the irradiance and the second being a dict containing the
+       temperature sensor values with the keys being the sensor numbers.
+    """
+    irrad = None
+    temps_dict = {}
+    if os.path.exists(run_info_filename):
+        with open(run_info_filename, "r") as f:
+            temp_format_str = "Temperature at sensor "
+            temp_format_str += r"#(\d+) is ([-+]?\d*\.\d+|\d+) "
+            temp_format_str += "degrees Celsius"
+            temp_re = re.compile(temp_format_str)
+            irrad_format_str = r"Irradiance: (\d+) W/m\^2"
+            irrad_re = re.compile(irrad_format_str)
+            for line in f.read().splitlines():
+                # Irradiance
+                match = irrad_re.search(line)
+                if match:
+                    irrad = int(match.group(1))
+                # Temperature
+                match = temp_re.search(line)
+                if match:
+                    sensor_num = float(match.group(1))
+                    temp = float(match.group(2))
+                    temps_dict[sensor_num] = temp
+
+    return irrad, temps_dict
+
+
 #################
 #   Classes     #
 #################
@@ -741,6 +797,7 @@ class Configuration(object):
             self.apply_plotting()
             self.apply_axes()
             self.apply_title()
+            self.apply_pv_model()
         if DEBUG_CONFIG:
             self.cfg_dump("at exit of get_old_result")
 
@@ -751,13 +808,19 @@ class Configuration(object):
            them with the values in the config at the time the method is
            called. The associated properties are all updated based on
            the merged config.
+
+           This method now also merges the current PV model section
+           values. The name remains the same to keep it from being too
+           long.
         """
         # pylint: disable=too-many-locals
+        # pylint: disable=too-many-statements
 
         # Capture Plotting options from current config
         section = "Plotting"
         x_pixels = self.cfg.get("General", "x pixels")
         plot_power = self.cfg.get(section, "plot power")
+        plot_ref = self.cfg.get(section, "plot ref")
         fancy_labels = self.cfg.get(section, "fancy labels")
         linear = self.cfg.get(section, "linear")
         font_name = self.cfg.get(section, "font name")
@@ -776,6 +839,13 @@ class Configuration(object):
         series_res_comp = self.cfg.get(section, "series resistance comp")
         bias_series_res_comp = self.cfg.get(section,
                                             "bias series resistance comp")
+        # Capture PV Model options from current config
+        section = "PV Model"
+        pv_name = self.cfg.get(section, "pv name")
+        estimate_irrad = self.cfg.get(section, "estimate irrad")
+        estimate_temp = self.cfg.get(section, "estimate temp")
+        use_avg_sensor_temp = self.cfg.get(section, "use avg sensor temp")
+        cell_temp_adjust = self.cfg.get(section, "cell temp adjust")
 
         # Read the old result's saved config
         self.get_old_result(cfg_file)
@@ -784,6 +854,7 @@ class Configuration(object):
         section = "Plotting"
         self.cfg_set("General", "x pixels", x_pixels)
         self.cfg_set(section, "plot power", plot_power)
+        self.cfg_set(section, "plot ref", plot_ref)
         self.cfg_set(section, "fancy labels", fancy_labels)
         self.cfg_set(section, "linear", linear)
         self.cfg_set(section, "font name", font_name)
@@ -800,8 +871,19 @@ class Configuration(object):
         self.cfg_set(section, "bias series resistance comp",
                      bias_series_res_comp)
 
+        # Overwrite the PV Model options with the captured values
+        section = "PV Model"
+        self.cfg_set(section, "pv name", pv_name)
+        self.cfg_set(section, "estimate irrad", estimate_irrad)
+        self.cfg_set(section, "estimate temp", estimate_temp)
+        self.cfg.set(section, "use avg sensor temp", use_avg_sensor_temp)
+        self.cfg.set(section, "cell temp adjust", cell_temp_adjust)
+
         # Apply plotting options to properties
         self.apply_plotting()
+
+        # Apply PV model options to properties
+        self.apply_pv_model()
 
     # -------------------------------------------------------------------------
     def remove_obsolete_options(self):
@@ -868,6 +950,9 @@ class Configuration(object):
 
         # Arduino section
         self.apply_arduino()
+
+        # PV Model section
+        self.apply_pv_model()
 
     # -------------------------------------------------------------------------
     def apply_general(self):
@@ -1006,6 +1091,10 @@ class Configuration(object):
         # Plot power
         args = (section, "plot power", CFG_BOOLEAN, self.ivs2.plot_power)
         self.ivs2.plot_power = self.apply_one(*args)
+
+        # Plot reference
+        args = (section, "plot ref", CFG_BOOLEAN, self.ivs2.plot_ref)
+        self.ivs2.plot_ref = self.apply_one(*args)
 
         # Fancy labels
         args = (section, "fancy labels", CFG_BOOLEAN, self.ivs2.fancy_labels)
@@ -1164,6 +1253,57 @@ class Configuration(object):
             self.ivs2.aspect_width = new_val
 
     # -------------------------------------------------------------------------
+    def apply_pv_model(self):
+        """Method to apply the PV Model section options read from the
+           .cfg file to the associated object properties
+        """
+        section = "PV Model"
+
+        # If the config doesn't have the PV model section, set the
+        # associated properties to their defaults, create the section,
+        # and populate it with those values
+        if not self.cfg.has_section(section):
+            self.ivs2.init_pv_model_config_props()
+            self.populate_pv_model()
+            return
+
+        # PV name
+        curr_val = self.ivs2.pv_name
+        args = (section, "pv name", CFG_STRING, curr_val)
+        new_val = self.apply_one(*args)
+        if new_val != curr_val:
+            self.ivs2.pv_name = new_val
+
+        # Use model to estimate irradiance from measured Isc
+        curr_val = self.ivs2.estimate_irrad
+        args = (section, "estimate irrad", CFG_BOOLEAN, curr_val)
+        new_val = self.apply_one(*args)
+        if new_val != curr_val:
+            self.ivs2.estimate_irrad = new_val
+
+        # Use model to estimate temperature from measured Isc and Voc
+        curr_val = self.ivs2.estimate_temp
+        args = (section, "estimate temp", CFG_BOOLEAN, curr_val)
+        new_val = self.apply_one(*args)
+        if new_val != curr_val:
+            self.ivs2.estimate_temp = new_val
+
+        # Use average sensor temperature if there are
+        # multiple. Otherwise use sensor #1.
+        curr_val = self.ivs2.use_avg_sensor_temp
+        args = (section, "use avg sensor temp", CFG_BOOLEAN, curr_val)
+        new_val = self.apply_one(*args)
+        if new_val != curr_val:
+            self.ivs2.use_avg_sensor_temp = new_val
+
+        # Cell temperature adjustment
+        curr_val = self.ivs2.cell_temp_adjust
+        args = (section, "cell temp adjust", CFG_FLOAT, curr_val)
+        new_val = self.apply_one(*args)
+        if new_val != curr_val:
+            self.ivs2.cell_temp_adjust = new_val
+
+    # -------------------------------------------------------------------------
     def save(self, copy_dir=None):
         """Method to save preferences and other configuration to the
            .cfg file
@@ -1276,6 +1416,7 @@ class Configuration(object):
         section = "Plotting"
         self.cfg.add_section(section)
         self.cfg_set(section, "plot power", self.ivs2.plot_power)
+        self.cfg_set(section, "plot ref", self.ivs2.plot_ref)
         self.cfg_set(section, "fancy labels", self.ivs2.fancy_labels)
         self.cfg_set(section, "linear", self.ivs2.linear)
         self.cfg_set(section, "font name", self.ivs2.font_name)
@@ -1305,6 +1446,24 @@ class Configuration(object):
         self.cfg_set(section, "max discards", self.ivs2.max_discards)
         self.cfg_set(section, "aspect height", self.ivs2.aspect_height)
         self.cfg_set(section, "aspect width", self.ivs2.aspect_width)
+
+        # PV model config
+        self.populate_pv_model()
+
+    # -------------------------------------------------------------------------
+    def populate_pv_model(self):
+        """Method to populate the PV Model section of the ConfigParser object
+           from the current property values
+        """
+        # PV model config
+        section = "PV Model"
+        self.cfg.add_section(section)
+        self.cfg_set(section, "pv name", self.ivs2.pv_name)
+        self.cfg_set(section, "estimate irrad", self.ivs2.estimate_irrad)
+        self.cfg_set(section, "estimate temp", self.ivs2.estimate_temp)
+        self.cfg_set(section, "use avg sensor temp",
+                     self.ivs2.use_avg_sensor_temp)
+        self.cfg_set(section, "cell temp adjust", self.ivs2.cell_temp_adjust)
 
     # -------------------------------------------------------------------------
     def add_axes_and_title(self):
@@ -1354,6 +1513,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         self._current_img = None
         self._x_pixels = None
         self._generate_pdf = True
+        self._generate_gif = True
         self._curve_names = None
         self._title = None
         self._fancy_labels = True
@@ -1364,6 +1524,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         self._linear = True
         self._overlay = False
         self._plot_power = True
+        self._plot_ref = False
         self._font_name = FONT_NAME_DEFAULT
         self._font_scale = FONT_SCALE_DEFAULT
         self._line_scale = LINE_SCALE_DEFAULT
@@ -1441,6 +1602,19 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         if value not in set([True, False]):
             raise ValueError("generate_pdf must be boolean")
         self._generate_pdf = value
+
+    # ---------------------------------
+    @property
+    def generate_gif(self):
+        """Value of the generate GIF flag
+        """
+        return self._generate_gif
+
+    @generate_gif.setter
+    def generate_gif(self, value):
+        if value not in set([True, False]):
+            raise ValueError("generate_gif must be boolean")
+        self._generate_gif = value
 
     # ---------------------------------
     @property
@@ -1576,6 +1750,19 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
 
     # ---------------------------------
     @property
+    def plot_ref(self):
+        """Value of the plot ref flag
+        """
+        return self._plot_ref
+
+    @plot_ref.setter
+    def plot_ref(self, value):
+        if value not in set([True, False]):
+            raise ValueError("plot_ref must be boolean")
+        self._plot_ref = value
+
+    # ---------------------------------
+    @property
     def font_name(self):
         """Value of the font name
         """
@@ -1687,6 +1874,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         self.args.linear = self.linear
         self.args.overlay = self.overlay
         self.args.plot_power = self.plot_power
+        self.args.plot_ref = self.plot_ref
         self.args.recalc_isc = False
         self.args.use_gnuplot = False
         self.args.gif = False
@@ -1740,62 +1928,40 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         """Method to append the sensor values (if any) to the curve names, so
            they will be included in the legend
         """
-        # pylint: disable=too-many-branches
-        # pylint: disable=too-many-locals
         curve_num = 0
         for csv_dir in self.csv_dirs:
-            dts = extract_date_time_str(csv_dir)
-            sensor_info_filename = os.path.join(csv_dir,
-                                                ("sensor_info_{}.txt"
-                                                 .format(dts)))
-            if os.path.exists(sensor_info_filename):
-                # Backward compatibility
-                run_info_filename = sensor_info_filename
-            else:
-                run_info_filename = os.path.join(csv_dir,
-                                                 ("run_info_{}.txt"
-                                                  .format(dts)))
-            if os.path.exists(run_info_filename):
-                try:
-                    with open(run_info_filename, "r") as f:
-                        temp_format_str = "Temperature at sensor "
-                        temp_format_str += r"#\d+ is ([-+]?\d*\.\d+|\d+) "
-                        temp_format_str += "degrees Celsius"
-                        temp_re = re.compile(temp_format_str)
-                        irrad_format_str = r"Irradiance: (\d+) W/m\^2"
-                        irrad_re = re.compile(irrad_format_str)
-                        info_added = False
-                        for line in f.read().splitlines():
-                            # Irradiance
-                            match = irrad_re.search(line)
-                            if match:
-                                irrad = int(match.group(1))
-                                if not info_added:
-                                    self.curve_names[curve_num] += " ["
-                                else:
-                                    self.curve_names[curve_num] += ", "
-                                sqd = u'\xb2'
-                                self.curve_names[curve_num] += (u"{} W/m{}"
-                                                                .format(irrad,
-                                                                        sqd))
-                                info_added = True
-                            # Temperature
-                            match = temp_re.search(line)
-                            if match:
-                                temp = float(match.group(1))
-                                if not info_added:
-                                    self.curve_names[curve_num] += " ["
-                                else:
-                                    self.curve_names[curve_num] += ", "
-                                dgs = u'\N{DEGREE SIGN}'
-                                self.curve_names[curve_num] += (u"{:4.2f}{}C"
-                                                                .format(temp,
-                                                                        dgs))
-                                info_added = True
-                        if info_added:
-                            self.curve_names[curve_num] += "]"
-                except (IOError, OSError) as e:
-                    self.logger.print_and_log("({})".format(e))
+            run_info_filename = get_run_info_filename(csv_dir)
+            info_added = False
+            try:
+                (irrad,
+                 temps_dict) = get_sensor_values_from_file(run_info_filename)
+            except (IOError, OSError) as e:
+                self.logger.print_and_log("({})".format(e))
+            if self.plot_ref and curve_num == 0:
+                irrad = None
+                temps_dict = {}
+            if irrad is not None:
+                self.curve_names[curve_num] += " ["
+                sqd = u'\xb2'
+                self.curve_names[curve_num] += (u"{} W/m{}"
+                                                .format(irrad,
+                                                        sqd))
+                info_added = True
+            if temps_dict:
+                for sensor_num in sorted(temps_dict):
+                    temp = temps_dict[sensor_num]
+                    if not info_added:
+                        self.curve_names[curve_num] += " ["
+                    else:
+                        self.curve_names[curve_num] += ", "
+                    dgs = u'\N{DEGREE SIGN}'
+                    self.curve_names[curve_num] += (u"{:4.2f}{}C"
+                                                    .format(temp,
+                                                            dgs))
+                    info_added = True
+            if info_added:
+                self.curve_names[curve_num] += "]"
+
             curve_num += 1
 
     # -------------------------------------------------------------------------
@@ -1831,7 +1997,8 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
             self.plot_graphs_to_pdf(self.ivsp_ivse, self.csv_proc)
 
         # Plot graphs to GIF
-        self.plot_graphs_to_gif(self.ivsp_ivse, self.csv_proc)
+        if self.generate_gif:
+            self.plot_graphs_to_gif(self.ivsp_ivse, self.csv_proc)
 
         # Capture max_x and max_y for locking feature
         self.max_x = self.ivsp_ivse.plot_max_x
@@ -1868,6 +2035,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         IV_Swinger.IV_Swinger.__init__(self)
         self.lcd = None
         self.ivp = None
+        self.pv_model = IV_Swinger2_PV_model()
+        self.pv_model.debug = False
         self.prev_swing_time = time.time()
         self.eeprom_rewrite_needed = False
         # Property variables
@@ -1928,6 +2097,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._fancy_labels = True
         self._linear = True
         self._plot_power = False
+        self._plot_ref = False
         self._font_name = FONT_NAME_DEFAULT
         self._font_scale = FONT_SCALE_DEFAULT
         self._line_scale = LINE_SCALE_DEFAULT
@@ -1960,6 +2130,14 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._ds18b20_rom_codes = []
         self._adv_cal_adc_val = "Unknown"
         self._relay_type = "Unknown"
+        self._pv_name = "Unknown"
+        self._estimate_irrad = ESTIMATE_IRRAD_DEFAULT
+        self._estimate_temp = ESTIMATE_TEMP_DEFAULT
+        self._use_avg_sensor_temp = USE_AVG_SENSOR_TEMP_DEFAULT
+        self._cell_temp_adjust = CELL_TEMP_ADJUST_DEFAULT
+        self._irrad_estimated = False
+        self._cell_temp_estimated = False
+        self._use_curr_pv_model_props = False
         self.msg_from_arduino = "None"
         self.eeprom_values_received = False
         self.hdd_unfiltered_adc_pairs_csv_filename = None
@@ -2352,6 +2530,25 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     # ---------------------------------
     @property
+    def pv_spec_csv_file(self):
+        """PV spec CSV file name. This is the file containing the
+           specifications for one or more PV modules or cells.
+        """
+        pv_spec_csv_file = os.path.join(self.app_data_dir, "pv_spec.csv")
+        return pv_spec_csv_file
+
+    # ---------------------------------
+    @property
+    def pv_spec_csv_file_bak(self):
+        """PV spec CSV backup file name. This is used to copy the
+           current pv_spec_csv_file to before modifying it.
+        """
+        pv_spec_csv_file_bak = os.path.join(self.app_data_dir,
+                                            "pv_spec_bak.csv")
+        return pv_spec_csv_file_bak
+
+    # ---------------------------------
+    @property
     def usb_port(self):
         """Property to get the current USB port path"""
         return self._usb_port
@@ -2490,6 +2687,19 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if value not in set([True, False]):
             raise ValueError("plot_power must be boolean")
         self._plot_power = value
+
+    # ---------------------------------
+    @property
+    def plot_ref(self):
+        """Value of the plot ref flag
+        """
+        return self._plot_ref
+
+    @plot_ref.setter
+    def plot_ref(self, value):
+        if value not in set([True, False]):
+            raise ValueError("plot_ref must be boolean")
+        self._plot_ref = value
 
     # ---------------------------------
     @property
@@ -2712,6 +2922,121 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     @relay_type.setter
     def relay_type(self, value):
         self._relay_type = value
+
+    # ---------------------------------
+    @property
+    def pv_name(self):
+        """Name of PV module or cell to model
+        """
+        return self._pv_name
+
+    @pv_name.setter
+    def pv_name(self, value):
+        self._pv_name = value
+
+    # ---------------------------------
+    @property
+    def estimate_irrad(self):
+        """Value of the estimate_irrad flag. If True, the PV model will be used
+           to estimate the irradiance, based on the measured Isc.
+        """
+        return self._estimate_irrad
+
+    @estimate_irrad.setter
+    def estimate_irrad(self, value):
+        if value not in set([True, False]):
+            raise ValueError(" must be boolean")
+        self._estimate_irrad = value
+
+    # ---------------------------------
+    @property
+    def estimate_temp(self):
+        """Value of the estimate_temp flag. If True, the PV model will be used
+           to estimate the cell temperature, based on the measured Isc and Voc.
+        """
+        return self._estimate_temp
+
+    @estimate_temp.setter
+    def estimate_temp(self, value):
+        if value not in set([True, False]):
+            raise ValueError(" must be boolean")
+        self._estimate_temp = value
+
+    # ---------------------------------
+    @property
+    def use_avg_sensor_temp(self):
+        """Value of the use_avg_sensor_temp flag. If True and there are
+           multiple temperature sensors, the average of their
+           temperatures will be used to estimate the cell temperature
+           for the PV model. Otherwise sensor #1 will be used.
+        """
+        return self._use_avg_sensor_temp
+
+    @use_avg_sensor_temp.setter
+    def use_avg_sensor_temp(self, value):
+        if value not in set([True, False]):
+            raise ValueError(" must be boolean")
+        self._use_avg_sensor_temp = value
+
+    # ---------------------------------
+    @property
+    def cell_temp_adjust(self):
+        """Number of degrees C to add to the measured temperature to estimate
+           the cell temperature. This accounts for the fact that the
+           cell temperature is generally higher than the temperature
+           measured by the sensors on the back of the PV module.
+        """
+        return self._cell_temp_adjust
+
+    @cell_temp_adjust.setter
+    def cell_temp_adjust(self, value):
+        self._cell_temp_adjust = value
+
+    # ---------------------------------
+    @property
+    def irrad_estimated(self):
+        """True if the irradiance is estimated (either because there was no
+           measured value or because the estimate_irrad property was set.
+        """
+        return self._irrad_estimated
+
+    @irrad_estimated.setter
+    def irrad_estimated(self, value):
+        if value not in set([True, False]):
+            raise ValueError(" must be boolean")
+        self._irrad_estimated = value
+
+    # ---------------------------------
+    @property
+    def cell_temp_estimated(self):
+        """True if the cell temperature is estimated (either because there was
+           measured value or because the estimate_temp property was set.
+        """
+        return self._cell_temp_estimated
+
+    @cell_temp_estimated.setter
+    def cell_temp_estimated(self, value):
+        if value not in set([True, False]):
+            raise ValueError(" must be boolean")
+        self._cell_temp_estimated = value
+
+    # ---------------------------------
+    @property
+    def use_curr_pv_model_props(self):
+        """True if the reference curve should be generated using the current
+           property values in the PV model. False if the PV spec file
+           should be read to populate those properties. Normally this
+           flag is False, but is set to true when "tentative" values are
+           being applied by the PV Model tab in the GUI Preferences (or
+           something analogous).
+        """
+        return self._use_curr_pv_model_props
+
+    @use_curr_pv_model_props.setter
+    def use_curr_pv_model_props(self, value):
+        if value not in set([True, False]):
+            raise ValueError(" must be boolean")
+        self._use_curr_pv_model_props = value
 
     # ---------------------------------
     @property
@@ -4722,18 +5047,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         # pylint: disable=too-many-branches
         # pylint: disable=too-many-return-statements
 
-        # Generate the date/time string from the current time
-        while True:
-            date_time_str = IV_Swinger.DateTimeStr.get_date_time_str()
-            # Spin until one second has passed since the previous
-            # swing. This not only assures that the date_time_str will
-            # be advanced, but a 1-second minimum interval is also
-            # assumed by the hardware design (namely the power
-            # dissipation of the bleed resistor, Rb.)
-            seconds_since_prev = time.time() - self.prev_swing_time
-            if seconds_since_prev >= 1.0:
-                self.prev_swing_time = time.time()
-                break
+        # Generate the date/time string from the current time, delaying
+        # if necessary to ensure a minimum one-second interval
+        date_time_str = self.get_dts_with_spin()
 
         # Create the HDD output directory
         self.create_hdd_output_dir(date_time_str, subdir=subdir)
@@ -4803,9 +5119,31 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             return rc
 
         # Plot results
-        self.plot_results()
+        rc = self.plot_results()
+        if rc != RC_SUCCESS:
+            return rc
 
         return RC_SUCCESS
+
+    # -------------------------------------------------------------------------
+    def get_dts_with_spin(self):
+        """Method to get the date/time string from the current time, but
+           enforce a minimum interval of one second since the previous
+           one by spinning in a loop.
+        """
+        while True:
+            date_time_str = IV_Swinger.DateTimeStr.get_date_time_str()
+            # Spin until one second has passed since the previous
+            # swing. This not only assures that the date_time_str will
+            # be advanced, but a 1-second minimum interval is also
+            # assumed by the hardware design (namely the power
+            # dissipation of the bleed resistor, Rb.)
+            seconds_since_prev = time.time() - self.prev_swing_time
+            if seconds_since_prev >= 1.0:
+                self.prev_swing_time = time.time()
+                break
+
+        return date_time_str
 
     # -------------------------------------------------------------------------
     def swing_battery_calibration_curve(self, gen_graphs=True):
@@ -4989,6 +5327,223 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if self.plot_lock_axis_ranges:
             self.ivp.max_x = self.plot_max_x
             self.ivp.max_y = self.plot_max_y
+        if self.pv_name != "Unknown" and self.plot_ref:
+            try:
+                self.add_reference_curve()
+            except AssertionError:
+                return RC_PV_MODEL_FAILURE
+        self.ivp.run()
+        self.current_img = self.ivp.current_img
+        self.plot_max_x = self.ivp.max_x
+        self.plot_max_y = self.ivp.max_y
+        return RC_SUCCESS
+
+    # -------------------------------------------------------------------------
+    def add_reference_curve(self):
+        """Method to generate the PV model reference curve and add it to the
+           plot. The gen_reference_curve() method is called to generate
+           the CSV file with the data points for the reference
+           curve. Then both CSV files are passed to the plotter, with
+           the reference curve coming first. The plotter's curve_names
+           property is set such that the reference curve's name (used in
+           the legend) shows the PV name and the irradiance and
+           temperature that were used to generate it, including
+           annotations as to whether these values were obtained from the
+           sensors or were estimated.
+        """
+        self.gen_reference_curve()
+        if (self.pv_model.csv_filename is not None and
+                self.pv_model.irradiance is not None and
+                self.pv_model.cell_temp_c is not None):
+            self.ivp.csv_files = [self.pv_model.csv_filename,
+                                  self.hdd_csv_data_point_filename]
+            sqd = u'\xb2'
+            dgs = u'\N{DEGREE SIGN}'
+            i_est = " (estimate)" if self.irrad_estimated else " (sensor)"
+            t_est = (" (estimate)" if self.cell_temp_estimated else
+                     u" (sensor + {}{})".format(self.cell_temp_adjust, dgs))
+            pv_name_unicode = self.pv_model.pv_name.decode("utf-8")
+            ref_curve_name = u"{} modeled at:\n".format(pv_name_unicode)
+            ref_curve_name += (u"   {:.2f} W/m{}{}\n"
+                               .format(self.pv_model.irradiance, sqd, i_est))
+            ref_curve_name += (u"   {:.2f} {}C cell temp{}"
+                               .format(self.pv_model.cell_temp_c, dgs, t_est))
+            self.ivp.curve_names = [u"{}".format(ref_curve_name),
+                                    "Measured IV Curve"]
+            self.ivp.plot_ref = True
+
+    # -------------------------------------------------------------------------
+    def gen_reference_curve(self):
+        """Method to run the PV model and generate the reference curve. The
+           model requires the irradiance and cell temperature. These may
+           either be estimated by the model (based on the measured Isc
+           and Voc) or may be from measured values from sensors. If
+           sensor values do not exist, there is no choice but to use the
+           model to perform the estimates. If a sensor value does exist,
+           the estimate is still used if the estimate_irrad and/or
+           estimate_temp property is True.
+        """
+        data_point_csv = self.hdd_csv_data_point_filename
+        (measured_voc,
+         measured_isc) = self.get_measured_voc_and_isc(data_point_csv)
+
+        (measured_irrad,
+         measured_cell_temp) = self.get_measured_irrad_and_cell_temp()
+
+        # Estimate the irradiance/temp if there is no measured value
+        # or if the estimate_{irrad/temp) property is set. The curve
+        # must include an Isc point, however.
+        estimate_irrad = ((measured_irrad is None or
+                           self.estimate_irrad) and
+                          measured_isc is not None)
+        estimate_temp = ((measured_cell_temp is None or
+                          self.estimate_temp) and
+                         measured_isc is not None)
+
+        pv = self.pv_model
+
+        # Populate PV model properties with datasheet values from file,
+        # unless they have already been populated by an external entity
+        # (e.g. the GUI's PV Model Preferences tab)
+        if not self.use_curr_pv_model_props:
+            pv.get_spec_vals(self.pv_name, self.pv_spec_csv_file)
+
+        # Use model to estimate irradiance and/or cell temperature,
+        # or use measured values
+        if estimate_irrad and estimate_temp:
+            # Estimate both irradiance and cell temperature
+            pv.estimate_irrad_and_temp(measured_voc, measured_isc, 0.1)
+        elif estimate_irrad:
+            # Estimate irradiance only
+            pv.cell_temp_c = measured_cell_temp
+            pv.estimate_irrad(measured_isc)
+        elif estimate_temp:
+            # Estimate cell temp only
+            pv.irradiance = measured_irrad
+            pv.estimate_temp(measured_voc, measured_isc)
+        elif (measured_cell_temp is not None and
+              measured_irrad is not None):
+            # Use measured values for both
+            pv.cell_temp_c = measured_cell_temp
+            pv.irradiance = measured_irrad
+        else:
+            pv.cell_temp_c = None
+            pv.irradiance = None
+
+        # If both cell temperature and irradiance have been
+        # determined, generate reference curve CSV file
+        if pv.cell_temp_c is not None and pv.irradiance is not None:
+            pv.run()
+            pv.get_data_points(PV_MODEL_CURVE_NUM_POINTS)
+            pv.csv_filename = os.path.join(self.hdd_output_dir,
+                                           "IV_Swinger2_PV_model.csv")
+            pv.gen_data_points_csv()
+        else:
+            dts = extract_date_time_str(self.hdd_output_dir)
+            if pv.cell_temp_c is None:
+                log_str = ("Could not determine cell temperature for {}"
+                           .format(dts))
+                self.logger.print_and_log(log_str)
+            if pv.irradiance is None:
+                log_str = ("Could not determine irradiance for {}"
+                           .format(dts))
+                self.logger.print_and_log(log_str)
+
+        self.irrad_estimated = estimate_irrad
+        self.cell_temp_estimated = estimate_temp
+
+    # -------------------------------------------------------------------------
+    def get_measured_irrad_and_cell_temp(self):
+        """Method to get the measured irradiance and temperature from the
+           run_info file. The irradiance is used as-is. The cell
+           temperature is calculated based on property values and one or
+           two of the measured temperatures.
+        """
+        run_info_filename = get_run_info_filename(self.hdd_output_dir)
+        if not os.path.exists(run_info_filename):
+            return None, None
+
+        # Get pyranometer and temperature sensor values from the
+        # run_info file
+        (measured_irrad,
+         temps_dict) = get_sensor_values_from_file(run_info_filename)
+
+        # Convert the temperature sensor value(s) to cell temperature
+        if temps_dict:
+            temps = []
+            for sensor_num in sorted(temps_dict):
+                temps.append(temps_dict[sensor_num])
+            if self.use_avg_sensor_temp:
+                temp = sum(temps) / float(len(temps))
+            else:
+                temp = temps[0]
+            cell_temp = temp + self.cell_temp_adjust
+        else:
+            cell_temp = None
+
+        return measured_irrad, cell_temp
+
+    # -------------------------------------------------------------------------
+    def get_measured_voc_and_isc(self, csv_filename):
+        """Method to get the Voc and Isc values from the specified data points
+           CSV file.
+        """
+        csv_parser = IV_Swinger_plotter.CsvParser(csv_filename, self.logger)
+        data_points = csv_parser.data_points
+        isc_amps = data_points[0][IV_Swinger.AMPS_INDEX]
+        if data_points[0][IV_Swinger.VOLTS_INDEX] != 0.0:
+            # If Isc voltage is non-zero, we really don't know Isc
+            isc_amps = None
+        voc_volts = data_points[-1][IV_Swinger.VOLTS_INDEX]
+
+        return voc_volts, isc_amps
+
+    # -------------------------------------------------------------------------
+    def gen_pv_test_curve(self):
+        """Method to generate and plot a test curve for the PV model. The model
+           must already have been run, and the data points generated
+           using the get_data_points() method before calling this
+           method.
+        """
+        # Generate the date/time string from the current time, delaying
+        # if necessary to ensure a minimum one-second interval
+        date_time_str = self.get_dts_with_spin()
+
+        # Create the HDD output directory
+        self.create_hdd_output_dir(date_time_str)
+
+        # Write info to the log file
+        self.logger.log("================== PV Test =========================")
+        self.logger.log("Output directory: {}".format(self.hdd_output_dir))
+
+        # Get the name of the CSV files
+        self.get_csv_filenames(self.hdd_output_dir, date_time_str)
+
+        # Generate the CSV file from the model's data points
+        self.pv_model.csv_filename = self.hdd_csv_data_point_filename
+        self.pv_model.gen_data_points_csv()
+
+        # Plot test curve
+        self.plot_pv_test_curve()
+
+    # -------------------------------------------------------------------------
+    def plot_pv_test_curve(self):
+        """Method to plot the PV model test curve"""
+        self.ivp = IV_Swinger2_plotter()
+        self.ivp.title = self.pv_model.title_string
+        self.ivp.logger = self.logger
+        self.ivp.csv_files = [self.hdd_csv_data_point_filename]
+        self.ivp.curve_names = [self.pv_model.parms_string_w_newlines]
+        self.ivp.plot_dir = self.hdd_output_dir
+        self.ivp.x_pixels = self.x_pixels
+        self.ivp.generate_pdf = True
+        self.ivp.fancy_labels = True
+        self.ivp.linear = False
+        self.ivp.plot_power = False
+        self.ivp.font_name = self.font_name
+        self.ivp.font_scale = self.font_scale
+        self.ivp.line_scale = self.line_scale
+        self.ivp.point_scale = 0.0
         self.ivp.run()
         self.current_img = self.ivp.current_img
         self.plot_max_x = self.ivp.max_x
@@ -5074,6 +5629,15 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         os.remove(f)
         msg_str = "Removed {}".format(f)
         self.logger.log(msg_str)
+
+    # -------------------------------------------------------------------------
+    def init_pv_model_config_props(self):
+        """Method to initialize the PV model configuration properties"""
+        self.pv_name = "Unknown"
+        self.estimate_irrad = ESTIMATE_IRRAD_DEFAULT
+        self.estimate_temp = ESTIMATE_TEMP_DEFAULT
+        self.use_avg_sensor_temp = USE_AVG_SENSOR_TEMP_DEFAULT
+        self.cell_temp_adjust = CELL_TEMP_ADJUST_DEFAULT
 
 
 ############

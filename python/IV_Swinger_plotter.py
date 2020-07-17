@@ -62,13 +62,15 @@
 #         - Fancy labels on Isc, Voc, and MPP
 #         - Use linear interpolation
 #
-#  usage: IV_Swinger_plotter.py [-h] [-p] [-o] [-t TITLE] [-s SCALE]
-#                               [-ps PLOT_SCALE] [-pxs PLOT_X_SCALE]
-#                               [-pys PLOT_Y_SCALE] [-fs FONT_SCALE]
-#                               [-pps POINT_SCALE] [-ls LINE_SCALE]
-#                               [-n NAME] [-li] [-lv] [-lm] [-mw] [-fl]
-#                               [-l] [--interactive] [--recalc_isc]
-#                               CSV file or dir [CSV file or dir ...]
+# usage: IV_Swinger_plotter.py [-h] [-p] [-o] [-r] [-t TITLE] [-s SCALE]
+#                              [-ps PLOT_SCALE] [-pxs PLOT_X_SCALE]
+#                              [-pys PLOT_Y_SCALE] [-mx MAX_X] [-my MAX_Y]
+#                              [-fn FONT_NAME] [-fs FONT_SCALE]
+#                              [-pps POINT_SCALE] [-ls LINE_SCALE] [-n NAME]
+#                              [-on OVERLAY_NAME] [-g] [-pn] [-li] [-lv] [-lm]
+#                              [-mw] [-fl] [-l] [--use_gnuplot] [--interactive]
+#                              [--recalc_isc]
+#                              CSV file or dir [CSV file or dir ...]
 #
 #  positional arguments:
 #    CSV file or dir
@@ -78,6 +80,9 @@
 #    -p, --plot_power      Plot power with IV curve
 #    -o, --overlay         Plot all IV curves on a single graph:
 #                          overlaid<.pdf|.gif|.png>
+#    -r, --plot_ref        Plot reference IV curve with measured IV curve.
+#                          Similar to overlay with first CSV file
+#                          containing reference curve
 #    -t TITLE, --title TITLE
 #                          Title for plot
 #    -s SCALE, --scale SCALE
@@ -92,6 +97,8 @@
 #    -pys PLOT_Y_SCALE, --plot_y_scale PLOT_Y_SCALE
 #                          Scale plot height by specified amount (no scaling =
 #                          1.0)
+#    -mx MAX_X             Max value on X axis
+#    -my MAX_Y             Max value on Y axis
 #    -fn FONT_NAME, --font_name FONT_NAME
 #                          Name of font to use (pyplot only)
 #    -fs FONT_SCALE, --font_scale FONT_SCALE
@@ -160,6 +167,7 @@ def set_ivs_properties(args, ivs_extended):
 
     # Set other properties based on commmand line options
     ivs_extended.plot_power = args.plot_power
+    ivs_extended.plot_ref = args.plot_ref
     ivs_extended.plot_x_scale = (args.scale * args.plot_scale *
                                  args.plot_x_scale)
     ivs_extended.plot_y_scale = (args.scale * args.plot_scale *
@@ -182,14 +190,20 @@ def set_ivs_properties(args, ivs_extended):
     ivs_extended.fancy_labels = args.fancy_labels
 
 
-def check_names(ivs_extended, csv_files):
+def check_names_and_ref(ivs_extended, csv_files):
     """Global function to check that if curve names were specified, the
-       correct number were specified
+       correct number were specified, and if plot_ref option is
+       specified, exactly two CSV files are provided.
     """
     if ivs_extended.names is not None:
         assert len(ivs_extended.names) == len(csv_files), \
             ("ERROR: {} names specified for {} curves"
              .format(len(ivs_extended.names), len(csv_files)))
+
+    if ivs_extended.plot_ref:
+        assert len(csv_files) == 2, \
+            ("ERROR: Exactly two CSV files needed for plot_ref ({} provided)"
+             .format(len(csv_files)))
 
 
 #################
@@ -242,6 +256,8 @@ class CommandLineProcessor(object):
             parser.add_argument("-o", "--overlay", action="store_true",
                                 help=("Plot all IV curves on a single graph: "
                                       "overlaid<.pdf|.gif|.png>"))
+            parser.add_argument("-r", "--plot_ref", action="store_true",
+                                help="Plot reference with measured IV curve")
             parser.add_argument("-t", "--title", type=str,
                                 help=("Title for plot"))
             parser.add_argument("-s", "--scale", type=float, default=1.0,
@@ -454,8 +470,13 @@ class IV_Swinger_extended(IV_Swinger.IV_Swinger):
             plt_img_file_suffix = ".pdf"
         gp_command_filename = "gp_command"
         if args.overlay:
-            # Plot with pyplot or gnuplot
             self.plt_img_filename = args.overlay_name + plt_img_file_suffix
+        if args.plot_ref:
+            fn_wo_suffix = os.path.splitext(os.path.basename
+                                            (csv_proc.csv_files[1]))[0]
+            self.plt_img_filename = fn_wo_suffix + plt_img_file_suffix
+        if args.overlay or args.plot_ref:
+            # Plot with pyplot or gnuplot
             self.plot_with_plotter(gp_command_filename,
                                    csv_proc.plt_data_point_files,
                                    self.plt_img_filename,
@@ -661,8 +682,8 @@ class IV_Swinger_plotter(object):
         ivs_extended = IV_Swinger_extended()
         set_ivs_properties(args, ivs_extended)
 
-        # Check for correct number of --name options
-        check_names(ivs_extended, csv_files)
+        # Check for correct number of --name options and CSV files
+        check_names_and_ref(ivs_extended, csv_files)
 
         # Process all CSV files
         csv_proc = CsvFileProcessor(args, csv_files, ivs_extended)

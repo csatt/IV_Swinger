@@ -1354,6 +1354,7 @@ class IV_Swinger(object):
         self._plot_colors = []
         self._use_spline_interpolation = True
         self._plot_power = False
+        self._plot_ref = False
         self._max_i_ratio = 1.3
         self._max_v_ratio = 1.2
         self._plot_dpi = 100
@@ -1901,6 +1902,18 @@ class IV_Swinger(object):
         if value not in set([True, False]):
             raise ValueError("plot_power must be boolean")
         self._plot_power = value
+
+    @property
+    def plot_ref(self):
+        """If True, reference curve is plotted along with IV curve.
+        """
+        return self._plot_ref
+
+    @plot_ref.setter
+    def plot_ref(self, value):
+        if value not in set([True, False]):
+            raise ValueError("plot_ref must be boolean")
+        self._plot_ref = value
 
     @property
     def max_i_ratio(self):
@@ -3413,10 +3426,11 @@ class IV_Swinger(object):
     # -------------------------------------------------------------------------
     def set_figure_title(self, sd_data_point_filenames):
         """Method to set the plotter figure title"""
-        if len(sd_data_point_filenames) > 1:
+        if len(sd_data_point_filenames) > 1 and not self.plot_ref:
             run_str = "{} Runs".format(len(sd_data_point_filenames))
         else:
-            run_str = sd_data_point_filenames[0]
+            run_str = (sd_data_point_filenames[0] if not self.plot_ref else
+                       sd_data_point_filenames[1])
             date_time_str = DateTimeStr.extract_date_time_str(run_str)
             if date_time_str == "No match":
                 run_str += " Run"
@@ -3642,7 +3656,7 @@ class IV_Swinger(object):
                 isc_str = "Isc = {:.3f} A".format(isc_amp)
             if self.use_gnuplot:
                 gp_isc_str = ' ""'
-                if not ii or self.label_all_iscs:
+                if not ii or self.label_all_iscs or self.plot_ref:
                     gp_isc_str = ' "{}"'.format(isc_str)
                 self.gnuplot_label_point(gp_isc_str,
                                          0, isc_amp,
@@ -3650,7 +3664,7 @@ class IV_Swinger(object):
                                          fontsize)
             else:
                 self.pyplot_add_point(0, isc_amp)
-                if not ii or self.label_all_iscs:
+                if not ii or self.label_all_iscs or self.plot_ref:
                     xtext_offset = (xytext_offset + 5 + ii *
                                     int(6.25 * prev_isc_str_width) *
                                     self.font_scale)
@@ -3702,7 +3716,7 @@ class IV_Swinger(object):
             mpp_str = "MPP = {} W{}".format(mppw_str, mpp_volts_x_amps_str)
             if self.use_gnuplot:
                 gp_mpp_str = ' ""'
-                if not ii or self.label_all_mpps:
+                if not ii or self.label_all_mpps or self.plot_ref:
                     gp_mpp_str = ' "{}"'.format(mpp_str)
                 self.gnuplot_label_point(gp_mpp_str,
                                          mpp_volts[ii], mpp_amp,
@@ -3710,7 +3724,7 @@ class IV_Swinger(object):
                                          fontsize)
             else:
                 self.pyplot_add_point(mpp_volts[ii], mpp_amp)
-                if self.label_all_mpps and len(mpp_volts) > 1:
+                if self.label_all_mpps and len(mpp_volts) > 1 or self.plot_ref:
                     # x_off
                     if self.mpp_watts_only:
                         max_x_off = 0.85
@@ -3760,7 +3774,7 @@ class IV_Swinger(object):
                 voc_str = "Voc = {:.3f} V".format(voc_volt)
             if self.use_gnuplot:
                 gp_voc_str = ' ""'
-                if not ii or self.label_all_vocs:
+                if not ii or self.label_all_vocs or self.plot_ref:
                     gp_voc_str = ' "{}"'.format(voc_str)
                     self.gnuplot_label_point(gp_voc_str,
                                              voc_volt, 0,
@@ -3768,7 +3782,7 @@ class IV_Swinger(object):
                                              fontsize)
             else:
                 self.pyplot_add_point(voc_volt, 0)
-                if not ii or self.label_all_vocs:
+                if not ii or self.label_all_vocs or self.plot_ref:
                     pyplot_annotate_point(voc_str, voc_volt, 0,
                                           xytext_offset + 5,
                                           (xytext_offset + 5 +
@@ -3842,14 +3856,17 @@ class IV_Swinger(object):
                                     sd_data_point_filenames,
                                     interp_volts, interp_amps)
 
-            # Plot measured points
-            self.plot_measured_points(curve_num, df,
-                                      measured_volts, measured_amps)
+            # Plot measured points and (optionally) power curve (except
+            # for reference curve, which is curve_num = 0)
+            if not self.plot_ref or curve_num:
+                self.plot_measured_points(curve_num, df,
+                                          measured_volts, measured_amps)
 
-            if self.plot_power and not self.use_gnuplot:
-                # Plot power curve
-                self.plot_power_curve(curve_num, interp_volts,
-                                      interp_watts, mpp_volts)
+                # Plot power curve (except for reference curve)
+                if self.plot_power and not self.use_gnuplot:
+                    # Plot power curve
+                    self.plot_power_curve(curve_num, interp_volts,
+                                          interp_watts, mpp_volts)
 
         if self.use_gnuplot:
             self.output_line += "\n"
@@ -3918,6 +3935,7 @@ class IV_Swinger(object):
                            interp_volts, interp_amps):
         """Method to plot the interpolated points"""
         # pylint: disable=too-many-arguments
+        # pylint: disable=too-many-branches
 
         if self.line_scale == 0.0:
             # Skip plotting curve altogether if scale is zero
@@ -3934,6 +3952,18 @@ class IV_Swinger(object):
                 interp_label = "Interpolated IV Curve"
         else:
             interp_label = self.names[curve_num]
+        if self.plot_ref:
+            if curve_num == 0:
+                # Reference curve
+                color = "black"
+                linestyle = "dashed"
+            else:
+                # Measured curve
+                color = self.plot_colors[0]
+                linestyle = "solid"
+        else:
+            color = self.plot_colors[curve_num]
+            linestyle = "solid"
         if self.use_gnuplot:
             if sys.platform == "darwin":
                 # On Mac @ sign is lost
@@ -3941,14 +3971,15 @@ class IV_Swinger(object):
             self.output_line += ('"{}" index 1 with lines title "{}" '
                                  'linecolor rgb "{}" linewidth {} linetype {},'
                                  .format(df, interp_label,
-                                         self.plot_colors[curve_num],
+                                         color,
                                          (self.gp_interp_linewidth *
                                           self.line_scale),
                                          self.gp_interp_linetype))
         else:
             plt.plot(interp_volts, interp_amps,
-                     color=self.plot_colors[curve_num],
+                     color=color,
                      linewidth=DEFAULT_LINEWIDTH * self.line_scale,
+                     linestyle=linestyle,
                      label=interp_label)
 
     # -------------------------------------------------------------------------
@@ -3957,7 +3988,7 @@ class IV_Swinger(object):
         """Method to plot the power curve"""
         name = ""
         # Set secondary Y-axis based on first curve
-        if not curve_num:
+        if curve_num == 0 or self.plot_ref:
             # Create a X-axis twin (same X axis, different Y axis)
             self.ax2 = self.ax1.twinx()
             # Set ax2 xlim to same as ax1
@@ -3984,7 +4015,7 @@ class IV_Swinger(object):
             #   max_y2 = max_y1 * mpp_volts
             #
             max_y1 = self.ax1.get_ylim()[1]
-            max_y2 = max_y1 * mpp_volts[0]
+            max_y2 = max_y1 * mpp_volts[curve_num]
             self.ax2.set_ylim(0, max_y2)
             fontsize = self.axislabel_fontsize * self.font_scale
             self.ax2.set_ylabel("Power (watts)", fontsize=fontsize)
@@ -3997,7 +4028,7 @@ class IV_Swinger(object):
                       color="red",
                       linewidth=(DEFAULT_LINEWIDTH * POWER_LINEWIDTH_MULT *
                                  self.line_scale),
-                      linestyle="--",
+                      linestyle="dashed",
                       label=name)
         # Set the current axes object back to ax1
         plt.sca(self.ax1)
@@ -4015,12 +4046,14 @@ class IV_Swinger(object):
         fontsize = self.legend_fontsize * self.font_scale
         if self.ax2 is None:
             # Normal case
-            legend = self.ax1.legend(prop={"size": fontsize})
+            legend = self.ax1.legend(prop={"size": fontsize},
+                                     handlelength=2.7)
         else:
             # Add legend for power curve
             h1, l1 = self.ax1.get_legend_handles_labels()
             h2, l2 = self.ax2.get_legend_handles_labels()
-            legend = self.ax1.legend(h1 + h2, l1 + l2, prop={"size": fontsize})
+            legend = self.ax1.legend(h1 + h2, l1 + l2, prop={"size": fontsize},
+                                     handlelength=2.7)
         # No border
         legend.get_frame().set_linewidth(0.0)
 

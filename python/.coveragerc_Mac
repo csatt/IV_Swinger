@@ -35,6 +35,7 @@ exclude_lines =
     ERROR: {} names specified for {} curves
     WARNING: EEPROM
     def pdf_permission_denied
+    does not have specs for
     except .*IOError
     except ConfigParser.NoOptionError
     except ImportError
@@ -54,8 +55,10 @@ exclude_lines =
     if rc != RC_SUCCESS
     if rc == RC_NO_POINTS
     if rc == RC_ZERO_ISC
+    self.rsh is None
     if self.log_file_name is None
     if self.rm_overlay_if_unfinished
+    if self.voc is None:
     print_and_log.*err_str
     print_and_log.*fail_str
     print_and_log.*warn_str
@@ -68,11 +71,13 @@ exclude_lines =
     show_baud_mismatch_dialog
     show_timeout_dialog
     tkmsg_showerror
+    warnings.warn
     ############################
     # Debug
     ############################
     def cfg_dump
     def gen_dbg_str
+    if self.debug
     if DEBUG_CONFIG
     if DEBUG_MEMLEAK
     ############################
@@ -156,6 +161,8 @@ exclude_lines =
     ############################
     def start_centered
     def start_to_left
+    def test_eq5
+    def test_all_five_parms
     ############################
     # Sketch version comparisons that aren't worth the effort to cover
     ############################
@@ -176,3 +183,7 @@ exclude_lines =
     photodiode_nominal_deg_c.setter
     serial_timeout.setter
     starting_cfg_filename.setter
+    i0_guesses.setter
+    rs_guesses.setter
+    rsh_vals.setter
+    err_thresh.setter

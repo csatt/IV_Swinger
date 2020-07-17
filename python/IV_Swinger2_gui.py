@@ -77,15 +77,15 @@
 #      This class extends the IV_Swinger2 Configuration() class, adding
 #      the looping controls.
 #
-#   ImgSizeCombo(), ResultsWizard(), MenuBar(),
-#   Dialog(), GlobalHelpDialog(), CalibrationHelpDialog(),
-#   AdvSsrCurrentCalHelpDialog(), AdvEmrCurrentCalHelpDialog(),
-#   AdvVoltageCalHelpDialog DownlevelArduinoSketchDialog(),
-#   ResistorValuesDialog(), BiasBatteryDialog(), PreferencesDialog(),
-#   PlottingProps(), PlottingHelpDialog(), SpiClkCombo(),
-#   LoopingHelpDialog(), ArduinoHelpDialog(), OverlayHelpDialog(),
-#   ImagePane(), GoStopButton(), PlotPower(), LockAxes(), LoopMode(),
-#   LoopRateLimit(), LoopSaveResults()
+#    ImgSizeCombo(), ResultsWizard(), MenuBar(), Dialog(), GlobalHelpDialog(),
+#    CalibrationHelpDialog(), AdvSsrCurrentCalHelpDialog(),
+#    AdvEmrCurrentCalHelpDialog(), AdvVoltageCalHelpDialog(),
+#    DownlevelArduinoSketchDialog(), AdvCalDialog(), AdvCurrentCalDialog(),
+#    AdvVoltageCalDialog(), ResistorValuesDialog(), BiasBatteryDialog(),
+#    PreferencesDialog(), PlottingProps(), PlottingHelpDialog(), SpiClkCombo(),
+#    LoopingHelpDialog(), ArduinoHelpDialog(), PvModelHelpDialog(),
+#    OverlayHelpDialog(), ImagePane(), GoStopButton(), PlotPower(), PlotRef(),
+#    LockAxes(), LoopMode(), LoopRateLimit(), LoopSaveResults(),
 #
 #      These classes are the "widgets" of the GUI.  Most are very simple
 #      (buttons, menus, basic dialogs, etc). The ResultsWizard() and
@@ -110,7 +110,7 @@ import tkFont
 import tkMessageBox as tkmsg
 import traceback
 from ScrolledText import ScrolledText as ScrolledText
-from Tkconstants import N, S, E, W, LEFT, RIGHT, HORIZONTAL, Y, BOTH
+from Tkconstants import N, S, E, W, LEFT, RIGHT, HORIZONTAL, Y, BOTH, END
 from inspect import currentframe, getframeinfo
 from send2trash import send2trash
 from PIL import Image, ImageTk
@@ -118,6 +118,10 @@ from Tooltip import Tooltip
 import myTkSimpleDialog as tksd
 import IV_Swinger2
 import IV_Swinger2_sim
+from IV_Swinger_PV_model import (read_pv_specs, create_pv_spec_file,
+                                 pv_spec_from_dict, check_pv_spec, add_pv_spec,
+                                 STC_IRRAD, NOC_IRRAD, STC_T_C)
+from IV_Swinger2_PV_model import PV_MODEL_CURVE_NUM_POINTS
 
 #################
 #   Constants   #
@@ -134,6 +138,7 @@ RC_ZERO_ISC = IV_Swinger2.RC_ZERO_ISC
 RC_ISC_TIMEOUT = IV_Swinger2.RC_ISC_TIMEOUT
 RC_NO_POINTS = IV_Swinger2.RC_NO_POINTS
 RC_SSR_HOT = IV_Swinger2.RC_SSR_HOT
+RC_PV_MODEL_FAILURE = IV_Swinger2.RC_PV_MODEL_FAILURE
 CFG_STRING = IV_Swinger2.CFG_STRING
 CFG_FLOAT = IV_Swinger2.CFG_FLOAT
 CFG_INT = IV_Swinger2.CFG_INT
@@ -210,6 +215,8 @@ SPI_COMBO_VALS = {SPI_CLOCK_DIV2: "DIV2 (8 MHz)",
                   SPI_CLOCK_DIV64: "DIV64 (250 KHz)",
                   SPI_CLOCK_DIV128: "DIV128 (125 kHz)"}
 SPI_COMBO_VALS_INV = {v: k for k, v in SPI_COMBO_VALS.items()}
+DGS = u'\N{DEGREE SIGN}'
+SQD = u'\xb2'
 
 # Default plotting config
 FANCY_LABELS_DEFAULT = "Fancy"
@@ -447,6 +454,9 @@ class GraphicalUserInterface(ttk.Frame):
         self.loop_rate_cb = None
         self.loop_save_cb = None
         self.plot_power_cb = None
+        self.plot_ref_cb = None
+        self.pv_name_label = None
+        self.plot_power_ref_box = None
         self.preferences_button = None
         self.prefs_results_bb = None
         self.prefs_dialog_active = False
@@ -562,6 +572,7 @@ Or use "View Log File" on the "File" menu.
         """Method to initialize the object's instance variables"""
         self.resolution_str = tk.StringVar()
         self.plot_power = tk.StringVar()
+        self.plot_ref = tk.StringVar()
         self.v_range = tk.StringVar()
         self.i_range = tk.StringVar()
         self.axes_locked = tk.StringVar()
@@ -613,6 +624,15 @@ This may be due to insufficient sunlight.
 If that is not the case, the "Isc stable ADC"
 value may need to be increased to a larger
 value on the Arduino tab of Preferences
+"""
+        self.pv_model_failure_str = """
+ERROR: PV modeling failed
+
+This could be for one of the following reasons:
+
+  - The PV specified in Preferences is not the
+    correct one for this IV curve
+  - The PV model parameters are not correct
 """
 
     # -------------------------------------------------------------------------
@@ -802,8 +822,8 @@ value on the Arduino tab of Preferences
         self.grid_args["go_button_box"] = {"column": column,
                                            "row": row,
                                            "rowspan": 3}
-        column += pad_cols
-        self.grid_args["plot_power_cb"] = {"column": column,
+        column += 1
+        self.grid_args["power_ref_box"] = {"column": column,
                                            "row": row,
                                            "rowspan": 3}
         column += 1
@@ -819,7 +839,7 @@ value on the Arduino tab of Preferences
         self.create_prefs_results_button_box()
         self.create_go_button_box()
         self.create_axis_ranges_box()
-        self.create_plot_power_cb()
+        self.create_plot_power_and_ref_box()
         self.create_looping_controls()
 
     # -------------------------------------------------------------------------
@@ -991,15 +1011,43 @@ value on the Arduino tab of Preferences
         self.go_button_box.grid(**self.grid_args["go_button_box"])
 
     # -------------------------------------------------------------------------
-    def create_plot_power_cb(self):
-        """Method to create the plt power checkbutton
+    def create_plot_power_and_ref_box(self):
+        """Method to create the box containing the Plot Power and Plot
+           Reference checkbuttons.
         """
-        self.plot_power_cb = PlotPower(master=self,
+        # Box around Plot Power and Plot Reference checkbuttons - this
+        # is gridded into the main GUI window
+        self.plot_power_ref_box = ttk.Frame(self)
+
+        # Plot Power checkbutton
+        self.plot_power_cb = PlotPower(master=self.plot_power_ref_box,
+                                       master_master=self,
                                        variable=self.plot_power)
-        # Tooltip
         tt_text = "Check to add the power curve to the plot"
         Tooltip(self.plot_power_cb, text=tt_text, **BOT_TT_KWARGS)
-        self.plot_power_cb.grid(**self.grid_args["plot_power_cb"])
+        self.plot_power_cb.pack(anchor=W)
+
+        # Plot Reference checkbutton
+        self.plot_ref_cb = PlotRef(master=self.plot_power_ref_box,
+                                   master_master=self,
+                                   variable=self.plot_ref)
+        if self.ivs2.pv_name == "Unknown":
+            self.plot_ref_cb.state(["disabled"])
+        tt_text = "Check to add the reference curve to the plot"
+        Tooltip(self.plot_ref_cb, text=tt_text, **BOT_TT_KWARGS)
+        self.plot_ref_cb.pack(anchor=W)
+
+        # PV name label
+        pv_name_unicode = self.ivs2.pv_name.decode("utf-8")
+        pv_name_label_text = (pv_name_unicode if
+                              self.ivs2.pv_name != "Unknown" else "")
+        self.pv_name_label = ttk.Label(master=self.plot_power_ref_box,
+                                       text=pv_name_label_text,
+                                       wraplength="115",
+                                       font=("Courier", 12))
+        self.pv_name_label.pack(anchor=W)
+
+        self.plot_power_ref_box.grid(**self.grid_args["power_ref_box"])
 
     # -------------------------------------------------------------------------
     def create_looping_controls(self):
@@ -1081,6 +1129,26 @@ value on the Arduino tab of Preferences
             self.plot_power.set("DontPlot")
 
     # -------------------------------------------------------------------------
+    def update_plot_ref_cb(self):
+        """Method to set the plot_ref StringVar to the correct value, based on
+           the value in the config
+        """
+        if (self.config.cfg.has_section("PV Model") and
+                self.config.cfg.getboolean("Plotting", "plot ref") and
+                self.config.cfg.get("PV Model", "pv name") != "Unknown"):
+            self.plot_ref.set("Plot")
+        else:
+            self.plot_ref.set("DontPlot")
+
+        if (not self.config.cfg.has_section("PV Model") or
+                self.config.cfg.get("PV Model", "pv name") == "Unknown"):
+            self.plot_ref_cb.state(["disabled"])
+            self.pv_name_label["text"] = ""
+        else:
+            self.plot_ref_cb.state(["!disabled"])
+            self.pv_name_label["text"] = self.ivs2.pv_name.decode("utf-8")
+
+    # -------------------------------------------------------------------------
     def swap_config(self, run_dir, config_dir):
         """Method to replace config from saved config of displayed
            image. Snapshots the original. Returns name of new config
@@ -1108,6 +1176,35 @@ value on the Arduino tab of Preferences
                 os.path.exists(cfg_file)):
             self.config.cfg_filename = original_cfg_file
             self.config.save_snapshot()
+
+    # -------------------------------------------------------------------------
+    def handle_plot_power_or_ref_event(self, button="power", plot=True):
+        """Method to handle a change in the value of the Plot Power or Plot
+           Reference checkbutton.
+        """
+        if self.props.current_run_displayed or self.results_wiz:
+            run_dir = self.ivs2.hdd_output_dir
+            config_dir = os.path.dirname(self.config.cfg_filename)
+
+            # Replace config from saved config of displayed image
+            cfg_file, original_cfg_file = self.swap_config(run_dir, config_dir)
+
+        # Update the IVS2 property and the "plot power" or "plot ref"
+        # config option
+        if button == "power":
+            self.ivs2.plot_power = plot
+            self.config.cfg_set("Plotting", "plot power", self.ivs2.plot_power)
+        else:
+            self.ivs2.plot_ref = plot
+            self.config.cfg_set("Plotting", "plot ref", self.ivs2.plot_ref)
+
+        if self.props.current_run_displayed or self.results_wiz:
+            # Redisplay the image (with the change) - saves config
+            self.redisplay_img(reprocess_adc=False)
+
+            # Restore the config file from the snapshot
+            self.restore_config(run_dir, config_dir, cfg_file,
+                                original_cfg_file)
 
     # -------------------------------------------------------------------------
     def update_axis_ranges(self):
@@ -1368,10 +1465,11 @@ value on the Arduino tab of Preferences
             if reprocess_adc:
                 rc = self.ivs2.process_adc_values()
             if rc == RC_SUCCESS:
-                self.plot_results()
-                if not self.props.suppress_cfg_file_copy:
-                    self.config.add_axes_and_title()
-                self.display_img(self.ivs2.current_img)
+                rc = self.plot_results()
+                if rc == RC_SUCCESS:
+                    if not self.props.suppress_cfg_file_copy:
+                        self.config.add_axes_and_title()
+                    self.display_img(self.ivs2.current_img)
             elif rc == RC_NO_POINTS:
                 self.show_no_points_dialog()
             if remove_directory:
@@ -1390,7 +1488,10 @@ value on the Arduino tab of Preferences
            option for user to retry if the file is open in a viewer
            (Windows issue).
         """
-        self.retry_if_pdf_permission_denied(self.ivs2.plot_results)
+        rc = self.retry_if_pdf_permission_denied(self.ivs2.plot_results)
+        if rc == RC_PV_MODEL_FAILURE:
+            self.show_pv_model_failure_dialog()
+        return rc
 
     # -------------------------------------------------------------------------
     def retry_if_pdf_permission_denied(self, func, *args):
@@ -1401,7 +1502,7 @@ value on the Arduino tab of Preferences
            called again.
         """
         try:
-            func(*args)
+            rc = func(*args)
         except IOError as e:
             if pdf_permission_denied(e):
                 err_str = ("({})"
@@ -1410,14 +1511,16 @@ value on the Arduino tab of Preferences
                            "a viewer, close it BEFORE clicking OK.".format(e))
                 tkmsg_showerror(self, message=err_str)
                 try:
-                    func(*args)
+                    rc = func(*args)
                 except IOError as e:
+                    rc = RC_FAILURE
                     if pdf_permission_denied(e):
                         err_str = ("({})"
                                    "\n\n"
                                    "PDF still could not be written. "
                                    "It will not be updated.".format(e))
                         tkmsg_showerror(self, message=err_str)
+        return rc
 
     # -------------------------------------------------------------------------
     def save_config(self):
@@ -1443,8 +1546,10 @@ value on the Arduino tab of Preferences
         if self.prefs_dialog_active:
             # Do nothing if a Preferences dialog already exists
             return
-        # Create the Preferences dialog
-        PreferencesDialog(self)
+        else:
+            self.prefs_dialog_active = True
+            PreferencesDialog(self)
+            self.prefs_dialog_active = False
 
         # There's a weird bug where the button takes its "pressed"
         # appearance and never turns back to its normal appearance when the
@@ -1795,6 +1900,12 @@ bias was actually applied.
         tkmsg_showerror(self, message=no_points_str)
 
     # -------------------------------------------------------------------------
+    def show_pv_model_failure_dialog(self):
+        """Method to display an error dialog when there is a PV model failure
+        """
+        tkmsg_showerror(self, message=self.pv_model_failure_str)
+
+    # -------------------------------------------------------------------------
     def show_error_dialog(self, rc):
         """Method to call the appropriate error dialog method, based on the
            value of the bad return code
@@ -1813,6 +1924,8 @@ bias was actually applied.
             self.show_isc_timeout_dialog()
         elif rc == RC_NO_POINTS:
             self.show_no_points_dialog()
+        elif rc == RC_PV_MODEL_FAILURE:
+            self.show_pv_model_failure_dialog()
 
     # -------------------------------------------------------------------------
     def start_on_top(self):
@@ -2577,6 +2690,7 @@ class ResultsWizard(tk.Toplevel):
         self.master.config.cfg_filename = None  # property will restore
         self.master.config.get()
         self.master.update_plot_power_cb()
+        self.master.update_plot_ref_cb()
         # If the user has explicitly checked the Lock checkbutton, keep
         # the axes locked to the values from the last result that was
         # browsed. Otherwise unlock the axes.
@@ -2584,6 +2698,12 @@ class ResultsWizard(tk.Toplevel):
             self.master.props.redisplay_after_axes_unlock = False
             self.master.unlock_axes()
             self.master.props.redisplay_after_axes_unlock = True
+        # The last selected run remains displayed, but the config file
+        # has been restored. The user can apply changes to the displayed
+        # run, but we need to suppress copying the config file or else
+        # the run's config file will be overwritten with the restored
+        # one.
+        self.master.props.suppress_cfg_file_copy = True
 
     # -------------------------------------------------------------------------
     def select(self, event=None):
@@ -2730,6 +2850,7 @@ class ResultsWizard(tk.Toplevel):
         if os.path.exists(cfg_file):
             self.master.config.get_old_result(cfg_file)
             self.master.update_plot_power_cb()
+            self.master.update_plot_ref_cb()
             self.master.update_axis_ranges()
             # Change the IVS2 object config file property to point to
             # this one
@@ -3269,6 +3390,7 @@ class ResultsWizard(tk.Toplevel):
                 self.overlay_title = new_title
                 self.plot_overlay_and_display()
             else:
+                self.master.config.apply_all()
                 time_of_day = self.tree.item(dts)["text"][:8]
                 if new_title == "None":
                     text = time_of_day
@@ -4788,6 +4910,10 @@ is enabled. Click on the "Swing!" button to capture and display the IV curve.
 
 "Plot Power" can be checked to include the power curve on the graph. This
 can be done after the fact too.
+
+"Plot Reference" can be checked to include the PV model reference curve
+on the graph if a PV model has been specified on the "PV Model" tab of
+Preferences. This can be done after the fact too.
 
 "Loop Mode" can be checked to repeatedly swing IV curves. "Rate Limit" can
 be checked to slow down the looping rate to a specified interval.  Since
@@ -6679,6 +6805,7 @@ class PreferencesDialog(Dialog):
     """Class that is extended from the generic Dialog class and is used for
        the Preferences dialog
     """
+    # pylint: disable=too-many-statements
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-many-public-methods
 
@@ -6710,6 +6837,32 @@ class PreferencesDialog(Dialog):
         self.max_discards_str = tk.StringVar()
         self.aspect_height_str = tk.StringVar()
         self.aspect_width_str = tk.StringVar()
+        self.pv_name = tk.StringVar()
+        self.pv_voc = tk.StringVar()
+        self.pv_isc = tk.StringVar()
+        self.pv_vmp = tk.StringVar()
+        self.pv_imp = tk.StringVar()
+        self.pv_cells = tk.StringVar()
+        self.pv_voc_coeff = tk.StringVar()
+        self.pv_voc_coeff_units = tk.StringVar()
+        self.pv_isc_coeff = tk.StringVar()
+        self.pv_isc_coeff_units = tk.StringVar()
+        self.pv_mpp_coeff = tk.StringVar()
+        self.pv_noct = tk.StringVar()
+        self.pv_test_irrad = tk.StringVar()
+        self.pv_test_cell_temp = tk.StringVar()
+        self.use_est_irrad = tk.StringVar()
+        self.use_est_temp = tk.StringVar()
+        self.use_avg_temp = tk.StringVar()
+        self.cell_temp_adj = tk.StringVar()
+        self.pv_model_listbox = None
+        self.pv_specs = None
+        self.selected_pv = "NONE"
+        self.initialize_pv_specs()
+        self.pv_test_button = None
+        self.test_stc_button = None
+        self.test_noc_button = None
+        self.pv_model_revert_redisplay = False
         self.plot_props = PlottingProps(ivs2=master.ivs2)
         title = "{} Preferences".format(APP_NAME)
         Dialog.__init__(self, master=master, title=title)
@@ -6722,12 +6875,15 @@ class PreferencesDialog(Dialog):
         self.plotting_tab = ttk.Frame(self.nb)
         self.looping_tab = ttk.Frame(self.nb)
         self.arduino_tab = ttk.Frame(self.nb)
+        self.pv_model_tab = ttk.Frame(self.nb)
         self.nb.add(self.plotting_tab, text="Plotting")
         self.nb.add(self.looping_tab, text="Looping")
         self.nb.add(self.arduino_tab, text="Arduino")
+        self.nb.add(self.pv_model_tab, text="PV Model")
         self.populate_plotting_tab()
         self.populate_looping_tab()
         self.populate_arduino_tab()
+        self.populate_pv_model_tab()
         self.nb.pack()
 
     # -------------------------------------------------------------------------
@@ -7433,6 +7589,921 @@ effect. Please upgrade.
         ArduinoHelpDialog(self.master)
 
     # -------------------------------------------------------------------------
+    def initialize_pv_specs(self):
+        """Method to initialize the pv_specs attribute from the PV spec file.
+           If the file doesn't exist, it is created. The pv_specs
+           attribute is a list of pv_spec_dict objects.
+        """
+        # Read PV specs from file and initialize pv_specs attribute
+        pv_spec_file = self.master.ivs2.pv_spec_csv_file
+        if not os.path.exists(pv_spec_file):
+            create_pv_spec_file(pv_spec_file)
+        self.pv_specs = []
+        for pv_spec_dict in read_pv_specs(pv_spec_file):
+            self.pv_specs.append(pv_spec_dict)
+
+    # -------------------------------------------------------------------------
+    def populate_pv_model_tab(self):
+        """Method to add widgets to the PV Model tab"""
+        # Add container box for widgets
+        pv_model_widget_box = ttk.Frame(master=self.pv_model_tab, padding=8)
+
+        # Create widgets
+        self.create_pv_model_listbox(pv_model_widget_box)
+        self.create_pv_model_entries(pv_model_widget_box)
+        self.create_pv_model_config_widgets(pv_model_widget_box)
+
+        # Start test button state polling
+        self.update_pv_test_button_state()
+
+        # Add Help button in its own container box
+        pv_model_help_box = ttk.Frame(master=self.pv_model_tab, padding=5)
+        pv_model_help = ttk.Button(pv_model_help_box,
+                                   text="Help", width=8,
+                                   command=self.show_pv_model_help)
+
+        # Add Apply button in its own container box
+        pv_model_apply_box = ttk.Frame(master=self.pv_model_tab, padding=5)
+        pv_model_apply = ttk.Button(pv_model_apply_box,
+                                    text="Apply",
+                                    command=self.pv_model_apply_button_actions)
+        tt_text = ("Apply PV model options to currently displayed "
+                   "IV curve (if any). Cancel button reverts. "
+                   "OK button commits.")
+        Tooltip(pv_model_apply, text=tt_text, **TOP_TT_KWARGS)
+
+        # Layout
+        pv_model_widget_box.grid(column=0, row=0, sticky=W, columnspan=2)
+        pv_model_help.grid(column=0, row=0, sticky=W)
+        pv_model_help_box.grid(column=0, row=1, sticky=W)
+        pv_model_apply.grid(column=0, row=0, sticky=W)
+        pv_model_apply_box.grid(column=1, row=1, sticky=E)
+
+    # -------------------------------------------------------------------------
+    def set_entry_vars_from_pv_spec_dict(self, pv_spec_dict):
+        """Method to set the Entry widget variables based on the seleced PV
+           spec.
+        """
+        self.set_pv_name(pv_spec_dict["PV Name"])
+        self.pv_voc.set(pv_spec_dict["Voc"])
+        self.pv_isc.set(pv_spec_dict["Isc"])
+        self.pv_vmp.set(pv_spec_dict["Vmp"])
+        self.pv_imp.set(pv_spec_dict["Imp"])
+        self.pv_cells.set(pv_spec_dict["Cells"])
+        self.pv_voc_coeff.set(pv_spec_dict["Voc temp coeff"])
+        units_str = u"{}/{}C".format(pv_spec_dict["Voc temp coeff units"], DGS)
+        self.pv_voc_coeff_units.set(units_str)
+        self.pv_isc_coeff.set(pv_spec_dict["Isc temp coeff"])
+        units_str = u"{}/{}C".format(pv_spec_dict["Isc temp coeff units"], DGS)
+        self.pv_isc_coeff_units.set(units_str)
+        self.pv_mpp_coeff.set(pv_spec_dict["MPP temp coeff"])
+        self.pv_noct.set(pv_spec_dict["NOCT"])
+
+    # -------------------------------------------------------------------------
+    def set_entry_vars_to_empty(self):
+        """Method to set the Entry widget variables to zero-length strings.
+        """
+        self.set_pv_name("")
+        self.pv_voc.set("")
+        self.pv_isc.set("")
+        self.pv_vmp.set("")
+        self.pv_imp.set("")
+        self.pv_cells.set("")
+        self.pv_voc_coeff.set("")
+        self.pv_voc_coeff_units.set(u"%/{}C".format(DGS))
+        self.pv_isc_coeff.set("")
+        self.pv_isc_coeff_units.set(u"%/{}C".format(DGS))
+        self.pv_mpp_coeff.set("")
+        self.pv_noct.set("")
+
+    # -------------------------------------------------------------------------
+    def create_pv_model_listbox(self, master):
+        """Method to create and initialize the PV model listbox.
+        """
+        # Add PV model listbox with scrollbar
+        listbox_and_scrollbar_box = ttk.Frame(master=master)
+        self.pv_model_listbox = tk.Listbox(master=listbox_and_scrollbar_box,
+                                           height=10, width=50, bd=0)
+        pv_scroll = ttk.Scrollbar(master=listbox_and_scrollbar_box,
+                                  command=self.pv_model_listbox.yview)
+        self.pv_model_listbox.config(yscrollcommand=pv_scroll.set)
+        self.pv_model_listbox.bind("<<ListboxSelect>>",
+                                   self.pv_model_listbox_select_actions)
+
+        # Populate listbox with the NONE entry followed by PV names from
+        # the spec file
+        self.pv_model_listbox.insert(END, "NONE")
+        for pv_spec_dict in self.pv_specs:
+            # Listbox entries need to be unicode
+            pv_name_unicode = pv_spec_dict["PV Name"].decode("utf-8")
+            self.pv_model_listbox.insert(END, pv_name_unicode)
+
+        # Select entry in listbox
+        pv_name_unicode = self.master.ivs2.pv_name.decode("utf-8")
+        if pv_name_unicode in self.pv_model_listbox.get(0, END):
+            self.select_in_listbox(self.master.ivs2.pv_name)
+        else:
+            self.select_in_listbox("NONE")
+
+        # Add tooltip
+        tt_text = ("Select NONE if the PV under test is has unknown "
+                   "characteristics or if modeling is not desired. "
+                   "Add a new PV to the list by selecting an existing "
+                   "PV and modifying its name and parameters.")
+        Tooltip(self.pv_model_listbox, text=tt_text, **TOP_TT_KWARGS)
+
+        # Layout
+        self.pv_model_listbox.pack(side=LEFT)
+        pv_scroll.pack(side=RIGHT, fill=Y)
+        listbox_and_scrollbar_box.pack()
+
+    # -------------------------------------------------------------------------
+    def create_pv_model_entries(self, master):
+        """Method to create and initialize the PV model entry widgets (and the
+           delete and test buttons).
+        """
+        # pylint: disable=too-many-locals
+        # pylint: disable=too-many-statements
+
+        # Set the entry variables to the values for the current PV name
+        self.set_entry_vars_to_empty()
+        pv_spec_dict = self.get_curr_pv_spec_dict(self.master.ivs2.pv_name)
+        if pv_spec_dict is not None:
+            self.set_entry_vars_from_pv_spec_dict(pv_spec_dict)
+
+        # Box around the labels and entries
+        pv_name_box = ttk.Frame(master=master)
+        labels_entries_box = ttk.Frame(master=master)
+
+        # PV name
+        pv_name_label = ttk.Label(master=pv_name_box, text="PV Name:")
+        pv_name_entry = ttk.Entry(master=pv_name_box, width=40,
+                                  textvariable=self.pv_name)
+        # Delete button
+        delete_button = ttk.Button(master=pv_name_box,
+                                   command=self.delete_actions,
+                                   text="Delete")
+        # Voc
+        voc_label = ttk.Label(master=labels_entries_box, text="Voc (STC):")
+        voc_entry_and_units_box = ttk.Frame(master=labels_entries_box)
+        voc_entry = ttk.Entry(master=voc_entry_and_units_box, width=8,
+                              textvariable=self.pv_voc)
+        voc_units_label = ttk.Label(master=voc_entry_and_units_box, text="V")
+
+        # Isc
+        isc_label = ttk.Label(master=labels_entries_box, text="Isc (STC):")
+        isc_entry_and_units_box = ttk.Frame(master=labels_entries_box)
+        isc_entry = ttk.Entry(master=isc_entry_and_units_box, width=8,
+                              textvariable=self.pv_isc)
+        isc_units_label = ttk.Label(master=isc_entry_and_units_box, text="A")
+
+        # Vmp
+        vmp_label = ttk.Label(master=labels_entries_box, text="Vmp (STC):")
+        vmp_entry_and_units_box = ttk.Frame(master=labels_entries_box)
+        vmp_entry = ttk.Entry(master=vmp_entry_and_units_box, width=8,
+                              textvariable=self.pv_vmp)
+        vmp_units_label = ttk.Label(master=vmp_entry_and_units_box, text="V")
+
+        # Imp
+        imp_label = ttk.Label(master=labels_entries_box, text="Imp (STC):")
+        imp_entry_and_units_box = ttk.Frame(master=labels_entries_box)
+        imp_entry = ttk.Entry(master=imp_entry_and_units_box, width=8,
+                              textvariable=self.pv_imp)
+        imp_units_label = ttk.Label(master=imp_entry_and_units_box, text="A")
+
+        # Cells
+        cells_label = ttk.Label(master=labels_entries_box, text="# cells:")
+        cells_entry = ttk.Entry(master=labels_entries_box, width=8,
+                                textvariable=self.pv_cells)
+        # Voc temp coeff
+        voc_coeff_label = ttk.Label(master=labels_entries_box,
+                                    text="Voc temp coeff:")
+        voc_coeff_entry_and_units_box = ttk.Frame(master=labels_entries_box)
+        voc_coeff_entry = ttk.Entry(master=voc_coeff_entry_and_units_box,
+                                    width=8,
+                                    textvariable=self.pv_voc_coeff)
+        voc_coeff_combo = ttk.Combobox(master=voc_coeff_entry_and_units_box,
+                                       width=5,
+                                       textvariable=self.pv_voc_coeff_units)
+        voc_coeff_combo["values"] = (u"%/{}C".format(DGS),
+                                     u"mV/{}C".format(DGS))
+        voc_coeff_combo.state(["readonly"])
+
+        # Isc temp coeff
+        isc_coeff_label = ttk.Label(master=labels_entries_box,
+                                    text="Isc temp coeff:")
+        isc_coeff_entry_and_units_box = ttk.Frame(master=labels_entries_box)
+        isc_coeff_entry = ttk.Entry(master=isc_coeff_entry_and_units_box,
+                                    width=8,
+                                    textvariable=self.pv_isc_coeff)
+        isc_coeff_combo = ttk.Combobox(master=isc_coeff_entry_and_units_box,
+                                       width=5,
+                                       textvariable=self.pv_isc_coeff_units)
+        isc_coeff_combo["values"] = (u"%/{}C".format(DGS),
+                                     u"mA/{}C".format(DGS))
+        isc_coeff_combo.state(["readonly"])
+
+        # MPP temp coeff
+        mpp_coeff_label = ttk.Label(master=labels_entries_box,
+                                    text="MPP temp coeff:")
+        mpp_coeff_entry_and_units_box = ttk.Frame(master=labels_entries_box)
+        mpp_coeff_entry = ttk.Entry(master=mpp_coeff_entry_and_units_box,
+                                    width=8,
+                                    textvariable=self.pv_mpp_coeff)
+        mpp_coeff_units_label = ttk.Label(master=mpp_coeff_entry_and_units_box,
+                                          text=u"%/{}C".format(DGS))
+
+        # NOCT
+        noct_label = ttk.Label(master=labels_entries_box, text="NOCT:")
+        noct_entry_and_units_box = ttk.Frame(master=labels_entries_box)
+        noct_entry = ttk.Entry(master=noct_entry_and_units_box, width=8,
+                               textvariable=self.pv_noct)
+        noct_units_label = ttk.Label(master=noct_entry_and_units_box,
+                                     text=u"{}C".format(DGS))
+
+        # Test button and entries
+        test_button_and_entries_box = ttk.Frame(master=labels_entries_box)
+        self.pv_test_button = ttk.Button(master=test_button_and_entries_box,
+                                         command=self.run_pv_model_test,
+                                         text="Test")
+        test_at_label = ttk.Label(master=test_button_and_entries_box,
+                                  text=" @ ")
+        test_irrad_entry = ttk.Entry(master=test_button_and_entries_box,
+                                     width=8,
+                                     textvariable=self.pv_test_irrad)
+        test_irrad_units_label = ttk.Label(master=test_button_and_entries_box,
+                                           text=u"W/m{}".format(SQD))
+        test_temp_entry = ttk.Entry(master=test_button_and_entries_box,
+                                    width=8,
+                                    textvariable=self.pv_test_cell_temp)
+        test_temp_units_label = ttk.Label(master=test_button_and_entries_box,
+                                          text=u"{}C".format(DGS))
+        test_or_at_label = ttk.Label(master=test_button_and_entries_box,
+                                     text="     or @ ")
+        self.test_stc_button = ttk.Button(master=test_button_and_entries_box,
+                                          command=self.set_to_stc_and_run,
+                                          text="STC", width=3)
+        self.test_noc_button = ttk.Button(master=test_button_and_entries_box,
+                                          command=self.set_to_noc_and_run,
+                                          text="NOC", width=3)
+        self.pv_test_irrad.set("{}".format(STC_IRRAD))
+        self.pv_test_cell_temp.set("{}".format(STC_T_C))
+
+        # Bind Return key events for all entries
+        widgets = [pv_name_entry, voc_entry, isc_entry, vmp_entry, imp_entry,
+                   cells_entry, voc_coeff_entry, isc_coeff_entry,
+                   mpp_coeff_entry, noct_entry]
+        for widget in widgets:
+            widget.bind("<Return>", self.pv_spec_update_actions)
+
+        # Bind combobox events
+        widgets = [voc_coeff_combo, isc_coeff_combo]
+        for widget in widgets:
+            widget.bind("<<ComboboxSelected>>", self.pv_spec_update_actions)
+
+        # Add tooltips
+        tt_text = ("Type a new PV name (or modify an existing one) to add a "
+                   "PV model to the list")
+        Tooltip(pv_name_entry, text=tt_text, **TOP_TT_KWARGS)
+        tt_text = "Delete selected PV model"
+        Tooltip(delete_button, text=tt_text, **TOP_TT_KWARGS)
+        tt_text = "Open-circuit voltage at Standard Test Conditions"
+        Tooltip(voc_entry, text=tt_text, **TOP_TT_KWARGS)
+        tt_text = "Short-circuit current at Standard Test Conditions"
+        Tooltip(isc_entry, text=tt_text, **TOP_TT_KWARGS)
+        tt_text = "Maximum power point voltage at Standard Test Conditions"
+        Tooltip(vmp_entry, text=tt_text, **TOP_TT_KWARGS)
+        tt_text = "Maximum power point current at Standard Test Conditions"
+        Tooltip(imp_entry, text=tt_text, **TOP_TT_KWARGS)
+        tt_text = ("Number of series PV cells. Optional, but modeling is "
+                   "more likely to succeed if provided. Note: half-cell "
+                   "modules have two parallel strings, so you need to "
+                   "enter 60 for a module with 120 half cells (for example.)")
+        Tooltip(cells_entry, text=tt_text, **TOP_TT_KWARGS)
+        tt_text = "Open-circuit voltage temperature coefficient"
+        Tooltip(voc_coeff_entry, text=tt_text, **TOP_TT_KWARGS)
+        tt_text = ("Units for Voc temperature coefficient. Most datasheets "
+                   u"use %/{}C but some use mV/{}C ".format(DGS, DGS))
+        Tooltip(voc_coeff_combo, text=tt_text, **TOP_TT_KWARGS)
+        tt_text = "Short-circuit current temperature coefficient"
+        Tooltip(isc_coeff_entry, text=tt_text, **TOP_TT_KWARGS)
+        tt_text = ("Units for Isc temperature coefficient. Most datasheets "
+                   u"use %/{}C but some use mA/{}C ".format(DGS, DGS))
+        Tooltip(isc_coeff_combo, text=tt_text, **TOP_TT_KWARGS)
+        tt_text = "Maximum power point temperature coefficient"
+        Tooltip(mpp_coeff_entry, text=tt_text, **TOP_TT_KWARGS)
+        tt_text = ("Cell temperature at Nominal Operating Conditions. "
+                   "Optional (used only for NOC test button)")
+        Tooltip(noct_entry, text=tt_text, **TOP_TT_KWARGS)
+        tt_text = ("Model the PV and display its IV curve at the given "
+                   "irradiance and cell temperature. The test IV curve "
+                   "may be viewed later with the Results Wizard just "
+                   "like measured IV curves.")
+        Tooltip(self.pv_test_button, text=tt_text, **TOP_TT_KWARGS)
+        tt_text = "Test irradiance"
+        Tooltip(test_irrad_entry, text=tt_text, **TOP_TT_KWARGS)
+        tt_text = "Test cell temperature"
+        Tooltip(test_temp_entry, text=tt_text, **TOP_TT_KWARGS)
+        tt_text = ("Set irradiance and cell temperature to Standard Test "
+                   "Conditions values and run test")
+        Tooltip(self.test_stc_button, text=tt_text, **TOP_TT_KWARGS)
+        tt_text = ("Set irradiance and cell temperature to Nominal Operating "
+                   "Conditions values and run test")
+        Tooltip(self.test_noc_button, text=tt_text, **TOP_TT_KWARGS)
+
+        # Layout
+        pady = 4
+        pv_name_label.grid(column=0, row=0, pady=pady)
+        pv_name_entry.grid(column=1, row=0, pady=pady)
+        delete_button.grid(column=5, row=0, pady=pady)
+        row = 0
+        voc_label.grid(column=0, sticky=E, row=row, pady=pady)
+        voc_entry.grid(column=0, row=0)
+        voc_units_label.grid(column=1, row=0)
+        voc_entry_and_units_box.grid(column=1, sticky=W, row=row, pady=pady)
+        isc_label.grid(column=3, sticky=E, row=row, pady=pady)
+        isc_entry.grid(column=0, row=0)
+        isc_units_label.grid(column=1, row=0)
+        isc_entry_and_units_box.grid(column=4, sticky=W, row=row, pady=pady)
+        row += 1
+        vmp_label.grid(column=0, sticky=E, row=row, pady=pady)
+        vmp_entry.grid(column=0, row=0)
+        vmp_units_label.grid(column=1, row=0)
+        vmp_entry_and_units_box.grid(column=1, sticky=W, row=row, pady=pady)
+        imp_label.grid(column=3, sticky=E, row=row, pady=pady)
+        imp_entry.grid(column=0, row=0)
+        imp_units_label.grid(column=1, row=0)
+        imp_entry_and_units_box.grid(column=4, sticky=W, row=row, pady=pady)
+        row += 1
+        cells_label.grid(column=0, sticky=E, row=row, pady=pady)
+        cells_entry.grid(column=1, sticky=W, row=row, pady=pady)
+        row += 1
+        voc_coeff_label.grid(column=0, sticky=E, row=row, pady=pady)
+        voc_coeff_entry.grid(column=0, row=0)
+        voc_coeff_combo.grid(column=1, row=0)
+        voc_coeff_entry_and_units_box.grid(column=1, sticky=W, row=row,
+                                           pady=pady)
+        row += 1
+        isc_coeff_label.grid(column=0, sticky=E, row=row, pady=pady)
+        isc_coeff_entry.grid(column=0, row=0)
+        isc_coeff_combo.grid(column=1, row=0)
+        isc_coeff_entry_and_units_box.grid(column=1, sticky=W, row=row,
+                                           pady=pady)
+        row += 1
+        mpp_coeff_label.grid(column=0, sticky=E, row=row, pady=pady)
+        mpp_coeff_entry.grid(column=0, row=0)
+        mpp_coeff_units_label.grid(column=1, row=0)
+        mpp_coeff_entry_and_units_box.grid(column=1, sticky=W, row=row,
+                                           pady=pady)
+        noct_label.grid(column=3, sticky=E, row=row, pady=pady)
+        noct_entry.grid(column=0, row=0)
+        noct_units_label.grid(column=1, row=0)
+        noct_entry_and_units_box.grid(column=4, sticky=W, row=row, pady=pady)
+        row += 1
+        pady = 12
+        self.pv_test_button.grid(column=0, row=0)
+        test_at_label.grid(column=1, row=0)
+        test_irrad_entry.grid(column=2, row=0)
+        test_irrad_units_label.grid(column=3, row=0)
+        test_temp_entry.grid(column=4, row=0)
+        test_temp_units_label.grid(column=5, row=0)
+        test_or_at_label.grid(column=6, row=0)
+        self.test_stc_button.grid(column=7, row=0)
+        self.test_noc_button.grid(column=8, row=0)
+        test_button_and_entries_box.grid(column=0, row=row, pady=pady,
+                                         columnspan=8)
+
+        # Pack pv_name_box and labels_entries_box in top-level box
+        pv_name_box.pack(anchor=W)
+        labels_entries_box.pack(anchor=W)
+
+    # -------------------------------------------------------------------------
+    def create_pv_model_config_widgets(self, master):
+        """Method to create the checkbox and entry widgets for the PV model
+           configuration option controls.
+        """
+        # Add box around all widgets
+        config_widgets_box = ttk.Frame(master=master)
+
+        # Add separator bar
+        separator = ttk.Separator(master=config_widgets_box, orient=HORIZONTAL)
+
+        # Add cell temperature adjustment labels and entry and set it to
+        # value of cell_temp_adjust property
+        temp_adj_box = ttk.Frame(master=config_widgets_box)
+        temp_adj_label = ttk.Label(master=temp_adj_box,
+                                   text="Cell temp adjust:")
+        temp_adj_entry = ttk.Entry(master=temp_adj_box, width=8,
+                                   textvariable=self.cell_temp_adj)
+        self.cell_temp_adj.set(self.master.ivs2.cell_temp_adjust)
+        temp_adj_units_label = ttk.Label(master=temp_adj_box,
+                                         text=u"{}C".format(DGS))
+
+        # Add three checkbuttons and set to values of associated
+        # properties
+        use_avg_temp_cb = ttk.Checkbutton(master=config_widgets_box,
+                                          text="Use avg sensor temp",
+                                          variable=self.use_avg_temp,
+                                          onvalue="Enabled",
+                                          offvalue="Disabled")
+        if self.master.ivs2.use_avg_sensor_temp:
+            self.use_avg_temp.set("Enabled")
+        use_est_irrad_cb = ttk.Checkbutton(master=config_widgets_box,
+                                           text="Use estimated irradiance",
+                                           variable=self.use_est_irrad,
+                                           onvalue="Enabled",
+                                           offvalue="Disabled")
+        if self.master.ivs2.estimate_irrad:
+            self.use_est_irrad.set("Enabled")
+        use_est_temp_cb = ttk.Checkbutton(master=config_widgets_box,
+                                          text="Use estimated cell temp",
+                                          variable=self.use_est_temp,
+                                          onvalue="Enabled",
+                                          offvalue="Disabled")
+        if self.master.ivs2.estimate_temp:
+            self.use_est_temp.set("Enabled")
+
+        # Add tooltips
+        tt_text = ("Amount to ADD to the temperature sensor value to "
+                   "determine the approximate cell temperature")
+        Tooltip(temp_adj_entry, text=tt_text, **TOP_TT_KWARGS)
+        tt_text = ("If there are multiple temperature sensors, checking "
+                   "this box will cause the average of all their values to "
+                   "be used to determine the cell temperature. If the box is "
+                   "not checked, the value of the FIRST temperature sensor "
+                   "will be used.")
+        Tooltip(use_avg_temp_cb, text=tt_text, **TOP_TT_KWARGS)
+        tt_text = ("Checking this box overrides the MEASURED irradiance "
+                   "and estimates the irradiance based on the Isc and Voc "
+                   "of the measured IV curve, using the model. If there is no "
+                   "measured irradiance, the irradiance is always "
+                   "estimated, and this box has no effect.")
+        Tooltip(use_est_irrad_cb, text=tt_text, **TOP_TT_KWARGS)
+        tt_text = ("Checking this box overrides the MEASURED temperature "
+                   "and estimates the temperature based on the Isc and Voc "
+                   "of the measured IV curve, using the model. If there is no "
+                   "measured temperature, the temperature is always "
+                   "estimated, and this box has no effect.")
+        Tooltip(use_est_temp_cb, text=tt_text, **TOP_TT_KWARGS)
+
+        # Layout
+        temp_adj_label.grid(column=0, row=0)
+        temp_adj_entry.grid(column=1, row=0)
+        temp_adj_units_label.grid(column=2, row=0)
+        pady = 10
+        row = 0
+        separator.grid(column=0, sticky=(E, W), row=row, pady=pady,
+                       columnspan=8)
+        pady = 4
+        row += 1
+        temp_adj_box.grid(column=0, sticky=W, row=row, pady=pady)
+        use_avg_temp_cb.grid(column=3, sticky=W, row=row, padx=30, pady=pady)
+        row += 1
+        use_est_irrad_cb.grid(column=0, sticky=W, row=row, pady=pady)
+        use_est_temp_cb.grid(column=3, sticky=E, row=row, padx=30, pady=pady)
+        config_widgets_box.pack(side=LEFT)
+
+    # -------------------------------------------------------------------------
+    def get_curr_pv_model_listbox_index_and_name(self):
+        """Method to get the currently selected index and name from the PV
+           model listbox. The (possibly unicode) name is utf-8
+           encoded in the returned value.
+        """
+        index_tuple = self.pv_model_listbox.curselection()
+        try:
+            index = index_tuple[0]
+            name = self.pv_model_listbox.get(index).encode("utf-8")
+        except IndexError:
+            traceback.print_stack()
+            err_str = "IndexError in get_curr_pv_model_listbox_index_and_name"
+            self.master.ivs2.logger.print_and_log(err_str)
+            index = 0
+            name = "NONE"
+            self.select_in_listbox("NONE")
+        return index, name
+
+    # -------------------------------------------------------------------------
+    def get_curr_pv_spec_dict(self, pv_name):
+        """Method to find and return the pv_spec_dict entry in pv_specs having
+           the specified name.
+        """
+        # Search pv_specs for that name and return the pv_spec
+        for pv_spec_dict in self.pv_specs:
+            if pv_spec_dict["PV Name"] == pv_name:
+                return pv_spec_dict
+        return None
+
+    # -------------------------------------------------------------------------
+    def pv_model_listbox_select_actions(self, event=None):
+        """Method to perform actions when the PV model listbox selection
+           changes.
+        """
+        # pylint: disable=unused-argument
+
+        # Get the name of the selected listbox entry
+        _, curr_name = self.get_curr_pv_model_listbox_index_and_name()
+        self.selected_pv = curr_name if curr_name != "NONE" else "NONE"
+
+        # Search pv_specs for that name and set the entry variables to
+        # its spec values
+        self.set_entry_vars_to_empty()
+        pv_spec_dict = self.get_curr_pv_spec_dict(curr_name)
+        if pv_spec_dict is not None:
+            self.set_entry_vars_from_pv_spec_dict(pv_spec_dict)
+
+    # -------------------------------------------------------------------------
+    def get_pv_name(self):
+        """Method to get the (possibly unicode) name from the pv_name
+           entry widget and encode it to utf-8.
+        """
+        return self.pv_name.get().encode("utf-8")
+
+    # -------------------------------------------------------------------------
+    def set_pv_name(self, name):
+        """Method to set the name in the pv_name entry widget to the utf-8
+           decode of the name provided.
+        """
+        self.pv_name.set(name.decode("utf-8"))
+
+    # -------------------------------------------------------------------------
+    def update_pv_spec_from_widgets(self):
+        """Method to update the PV spec whose name is in the PV Name entry with
+           the current values from the entry and combobox widgets. If no
+           PV spec of that name exists in the pv_specs list, it is
+           added.
+        """
+        new_spec = {}
+        new_spec["PV Name"] = self.get_pv_name()
+        new_spec["Voc"] = self.pv_voc.get()
+        new_spec["Isc"] = self.pv_isc.get()
+        new_spec["Vmp"] = self.pv_vmp.get()
+        new_spec["Imp"] = self.pv_imp.get()
+        new_spec["Cells"] = self.pv_cells.get()
+        new_spec["Voc temp coeff"] = self.pv_voc_coeff.get()
+        new_spec["Voc temp coeff units"] = self.pv_voc_coeff_units.get()[:-3]
+        new_spec["Isc temp coeff"] = self.pv_isc_coeff.get()
+        new_spec["Isc temp coeff units"] = self.pv_isc_coeff_units.get()[:-3]
+        new_spec["MPP temp coeff"] = self.pv_mpp_coeff.get()
+        new_spec["MPP temp coeff units"] = "%"
+        new_spec["NOCT"] = self.pv_noct.get()
+
+        # Check validity of all values
+        try:
+            pv_spec = pv_spec_from_dict(new_spec)
+            check_pv_spec(pv_spec)
+        except AssertionError as e:
+            tkmsg_showerror(self.master, message=e)
+            return RC_FAILURE
+
+        # Update
+        pv_spec_modified = False
+        updated_pv_specs = []
+        for pv_spec_dict in self.pv_specs:
+            if pv_spec_dict["PV Name"] == new_spec["PV Name"]:
+                updated_pv_specs.append(new_spec)
+                pv_spec_modified = True
+            else:
+                updated_pv_specs.append(pv_spec_dict)
+        if not pv_spec_modified:
+            updated_pv_specs.append(new_spec)
+
+        self.pv_specs = updated_pv_specs
+        return RC_SUCCESS
+
+    # -------------------------------------------------------------------------
+    def pv_spec_update_actions(self, event=None):
+        """Method to perform actions when any of the PV spec entry (and
+           combobox) widgets is updated.
+        """
+        # pylint: disable=unused-argument
+
+        # For some reason the listbox selection is lost sometimes, so we
+        # need to restore it.
+        self.select_in_listbox(self.selected_pv)
+
+        # Get the PV name from the entry widget
+        pv_name = self.get_pv_name()
+
+        # If the PV name is "NONE", select the NONE entry in the
+        # listbox. The entry values will be lost, but the only
+        # conceivable reason a user would type this would be to select
+        # the NONE entry without having to navigate to it.
+        if pv_name == "NONE":
+            self.select_none()
+            return RC_SUCCESS
+
+        # If the PV name entry is blank, display an error dialog and
+        # return.
+        if self.selected_pv != "NONE" and not pv_name:
+            tkmsg_showerror(self.master, "ERROR: Please enter a PV Name")
+            return RC_FAILURE
+
+        # If the PV name entry is changed (i.e. not the current name
+        # from the listbox) and it already exists in the listbox,
+        # display an error dialog and return after restoring the
+        # unmodified name.
+        pv_name_unicode = pv_name.decode("utf-8")
+        if (pv_name != self.selected_pv and
+                pv_name_unicode in self.pv_model_listbox.get(0, END)):
+            err_msg = u"""
+ERROR: PV Name
+{}
+already exists. To modify it, select
+it and then edit the parameter values.
+""".format(pv_name_unicode)
+            tkmsg_showerror(self.master, err_msg)
+            self.set_pv_name(self.selected_pv)
+            return RC_FAILURE
+
+        # Otherwise, but only if the pv_name is not blank ...
+        if pv_name:
+            # If the name is not already in the listbox, add it
+            if pv_name_unicode not in self.pv_model_listbox.get(0, END):
+                # Add new entry to listbox
+                self.add_entry_to_listbox(pv_name)
+
+            # Modify pv_specs attribute
+            rc = self.update_pv_spec_from_widgets()
+
+            # Select entry in listbox
+            self.select_in_listbox(pv_name)
+
+            return rc
+
+        return RC_SUCCESS
+
+    # -------------------------------------------------------------------------
+    def select_none(self):
+        """Method to select the NONE entry in the listbox
+        """
+        self.select_in_listbox("NONE")
+        self.pv_model_listbox_select_actions()
+        self.selected_pv = "NONE"
+
+    # -------------------------------------------------------------------------
+    def delete_actions(self, event=None):
+        """Method to perform actions when the delete button is pressed.
+        """
+        # pylint: disable=unused-argument
+
+        # Get the index and name of the currently selected listbox entry
+        self.select_in_listbox(self.selected_pv)
+        curr_index, curr_name = self.get_curr_pv_model_listbox_index_and_name()
+
+        # If the PV Name has been editted, just select the NONE entry in
+        # the listbox. That has the effect of deleting the editted (but
+        # still pending) entry.
+        if self.get_pv_name() != curr_name:
+            self.select_none()
+
+        # If the NONE entry is selected, do nothing
+        elif self.selected_pv == "NONE":
+            pass
+
+        # Otherwise, delete the selected entry from the pv_specs
+        # attribute and from the listbox
+        else:
+            # Remove the pv_spec from pv_specs
+            updated_pv_specs = []
+            for pv_spec_dict in self.pv_specs:
+                if pv_spec_dict["PV Name"] != self.selected_pv:
+                    updated_pv_specs.append(pv_spec_dict)
+            self.pv_specs = updated_pv_specs
+
+            # Remove entry from listbox
+            self.pv_model_listbox.delete(curr_index)
+
+            # Select the next entry in the listbox, unless the deleted
+            # entry was the last one, in which case select the previous
+            # entry.
+            last_index = self.pv_model_listbox.size() - 1
+            index = curr_index if curr_index <= last_index else last_index
+            self.pv_model_listbox.selection_clear(0, END)
+            self.pv_model_listbox.selection_set(index)
+            self.pv_model_listbox.activate(index)
+            self.pv_model_listbox.see(index)
+            self.pv_model_listbox_select_actions()
+
+    # -------------------------------------------------------------------------
+    def select_in_listbox(self, pv_name):
+        """Method to select the listbox entry containing the specified PV name
+        """
+        pv_name_unicode = pv_name.decode("utf-8")
+
+        # Find index
+        curr_sel = (list(self.pv_model_listbox.get(0, END))
+                    .index(pv_name_unicode))
+
+        # Select new entry in listbox. Also activate that entry and make
+        # sure it is visible.
+        self.pv_model_listbox.selection_clear(0, END)
+        self.pv_model_listbox.selection_set(curr_sel)
+        self.pv_model_listbox.activate(curr_sel)
+        self.pv_model_listbox.see(curr_sel)
+
+        # Set the selected_pv attribute
+        self.selected_pv = pv_name
+
+    # -------------------------------------------------------------------------
+    def add_entry_to_listbox(self, new_pv_name):
+        """Method to add a new PV name to the listbox widget.
+        """
+        new_pv_name_unicode = new_pv_name.decode("utf-8")
+
+        # Capture list of current entries (after NONE)
+        pv_name_list = list(self.pv_model_listbox.get(1, END))
+
+        # Delete all current entries (after NONE)
+        self.pv_model_listbox.delete(1, END)
+
+        # Recreate list with new name inserted in its place
+        pv_name_list.append(new_pv_name_unicode)
+        for pv_name in sorted(pv_name_list):
+            self.pv_model_listbox.insert(END, pv_name)
+
+        # Add the spec to the pv_specs attribute
+        self.update_pv_spec_from_widgets()
+
+    # -------------------------------------------------------------------------
+    def apply_specs_to_pv_model(self):
+        """Method to apply the current spec values on the PV Model tab to the
+           model
+        """
+        # First, make sure the pv_specs attribute has been updated with
+        # the values from the entry boxes
+        rc = self.pv_spec_update_actions()
+        if rc != RC_SUCCESS:
+            return rc
+
+        # Apply the current PV spec values to the model after checking
+        # their validity
+        pv_spec_dict = self.get_curr_pv_spec_dict(self.get_pv_name())
+        if not pv_spec_dict:
+            return RC_FAILURE
+        pv_spec = pv_spec_from_dict(pv_spec_dict)
+        try:
+            check_pv_spec(pv_spec)
+        except AssertionError as e:
+            tkmsg_showerror(self.master, message=e)
+            return RC_FAILURE
+        self.master.ivs2.pv_model.apply_pv_spec_dict(pv_spec_dict)
+        return RC_SUCCESS
+
+    # -------------------------------------------------------------------------
+    def run_pv_model_test(self, event=None):
+        """Method to run the PV model test when the Test button is pressed on
+           the PV model tab.
+        """
+        # pylint: disable=unused-argument
+
+        # Apply the current PV spec values to the model
+        if self.apply_specs_to_pv_model() == RC_FAILURE:
+            return
+
+        # Set PV model irradiance and cell temperature
+        irradiance = float(self.pv_test_irrad.get())
+        cell_temp_c = float(self.pv_test_cell_temp.get())
+        self.master.ivs2.pv_model.irradiance = irradiance
+        self.master.ivs2.pv_model.cell_temp_c = cell_temp_c
+
+        # Run the model and generate 100 data points
+        try:
+            rc = self.master.ivs2.pv_model.run()
+        except AssertionError as e:
+            tkmsg_showerror(self.master, message=e)
+            return
+        if rc:
+            msg = ("WARNING: IMPERFECT MODELING. The PV modeling was not able "
+                   "to find a solution where the target MPP is the point with "
+                   "the maximum power. The modeled curve does pass through "
+                   "this point, but a different point has higher power.")
+            tkmsg_showwarning(self.master, message=msg)
+        self.master.ivs2.pv_model.get_data_points(PV_MODEL_CURVE_NUM_POINTS)
+
+        # Generate the test curve
+        self.master.props.suppress_cfg_file_copy = False
+        self.master.ivs2.gen_pv_test_curve()
+
+        # Display the image
+        self.master.display_img(self.master.ivs2.current_img)
+
+        # Save the config with the PV test curve mods
+        self.save_config_for_pv_test()
+
+        # Clean up files
+        self.master.ivs2.clean_up_files(self.master.ivs2.hdd_output_dir)
+
+    # -------------------------------------------------------------------------
+    def set_to_stc_and_run(self, event=None):
+        """Method to set the irradiance and temperature to the STC values and
+           run the PV model test when the STC button is pressed on the
+           PV model tab.
+        """
+        # pylint: disable=unused-argument
+        self.pv_test_irrad.set("{}".format(STC_IRRAD))
+        self.pv_test_cell_temp.set("{}".format(STC_T_C))
+        self.run_pv_model_test()
+
+    # -------------------------------------------------------------------------
+    def set_to_noc_and_run(self, event=None):
+        """Method to set the irradiance and temperature to the NOC values and
+           run the PV model test when the NOC button is pressed on the
+           PV model tab.
+        """
+        # pylint: disable=unused-argument
+        self.pv_test_irrad.set("{}".format(NOC_IRRAD))
+        self.pv_test_cell_temp.set("{}".format(self.pv_noct.get()))
+        self.run_pv_model_test()
+
+    # -------------------------------------------------------------------------
+    def save_config_for_pv_test(self):
+        """Method to modify and save the config for the PV test curve and then
+           restore it to the starting state.
+        """
+        pv = self.master.ivs2.pv_model
+        section = "Plotting"
+
+        # Capture current vals
+        plot_power = self.master.config.cfg.get(section, "plot power")
+        plot_ref = self.master.config.cfg.get(section, "plot ref")
+        fancy_labels = self.master.config.cfg.get(section, "fancy labels")
+        linear = self.master.config.cfg.get(section, "linear")
+        point_scale = self.master.config.cfg.get(section, "point scale")
+
+        # Modify config
+        self.master.config.cfg_set(section, "title",
+                                   pv.title_string.encode("utf-8"))
+        self.master.config.cfg_set(section, "plot power", False)
+        self.master.config.cfg_set(section, "plot ref", False)
+        self.master.config.cfg_set(section, "fancy labels", True)
+        self.master.config.cfg_set(section, "linear", False)
+        self.master.config.cfg_set(section, "point scale", 0.0)
+
+        # Save modified config
+        self.master.save_config()
+
+        # Restore starting vals
+        self.master.config.cfg_set(section, "plot power", plot_power)
+        self.master.config.cfg_set(section, "plot ref", plot_ref)
+        self.master.config.cfg_set(section, "fancy labels", fancy_labels)
+        self.master.config.cfg_set(section, "linear", linear)
+        self.master.config.cfg_set(section, "point scale", point_scale)
+
+    # -------------------------------------------------------------------------
+    def show_pv_model_help(self):
+        """Method to display PV Model tab help"""
+        PvModelHelpDialog(self.master)
+
+    # -------------------------------------------------------------------------
+    def pv_model_apply_button_actions(self):
+        """Method to apply changes without dismissing dialog"""
+        # Apply the current PV spec values to the model
+        if self.selected_pv == "NONE":
+            self.pv_spec_update_actions()
+            self.pv_model_apply(update_pv_spec_file=False)
+            return
+        before_pv_spec_dict = self.get_curr_pv_spec_dict(self.selected_pv)
+        if self.apply_specs_to_pv_model() == RC_FAILURE:
+            return
+        after_pv_spec_dict = self.get_curr_pv_spec_dict(self.selected_pv)
+        pv_spec_changed = before_pv_spec_dict != after_pv_spec_dict
+        self.master.ivs2.use_curr_pv_model_props = True
+        self.pv_model_apply(pv_spec_changed=pv_spec_changed,
+                            update_pv_spec_file=False)
+        self.master.ivs2.use_curr_pv_model_props = False
+
+    # -------------------------------------------------------------------------
+    def update_pv_test_button_state(self):
+        """Method to update the state of the Test, STC, and NOC buttons on the
+           PV model tab. This method re-runs itself every 100ms.
+        """
+        empty_parms = (not self.pv_name.get() or
+                       not self.pv_voc.get() or
+                       not self.pv_isc.get() or
+                       not self.pv_vmp.get() or
+                       not self.pv_imp.get() or
+                       not self.pv_voc_coeff.get() or
+                       not self.pv_voc_coeff_units.get() or
+                       not self.pv_isc_coeff.get() or
+                       not self.pv_isc_coeff_units.get() or
+                       not self.pv_mpp_coeff.get() or
+                       not self.pv_test_irrad.get() or
+                       not self.pv_test_cell_temp.get())
+        if empty_parms or self.master.results_wiz:
+            self.pv_test_button.state(["disabled"])
+            self.test_stc_button.state(["disabled"])
+            self.test_noc_button.state(["disabled"])
+        else:
+            self.pv_test_button.state(["!disabled"])
+            self.test_stc_button.state(["!disabled"])
+            self.test_noc_button.state(["!disabled"])
+
+        if not self.pv_noct.get():
+            self.test_noc_button.state(["disabled"])
+
+        self.after(100, self.update_pv_test_button_state)
+
+    # -------------------------------------------------------------------------
     def immediate_apply(self, event=None):
         """Method to apply configuration immediately"""
         try:
@@ -7495,6 +8566,14 @@ effect. Please upgrade.
         bias_series_res_comp = self.master.ivs2.series_res_comp
         self.snapshot_values["series_res_comp"] = series_res_comp
         self.snapshot_values["bias_series_res_comp"] = bias_series_res_comp
+        self.snapshot_values["pv_name"] = self.master.ivs2.pv_name
+        estimate_irrad = self.master.ivs2.estimate_irrad
+        self.snapshot_values["estimate_irrad"] = estimate_irrad
+        self.snapshot_values["estimate_temp"] = self.master.ivs2.estimate_temp
+        use_avg_sensor_temp = self.master.ivs2.use_avg_sensor_temp
+        self.snapshot_values["use_avg_sensor_temp"] = use_avg_sensor_temp
+        cell_temp_adjust = self.master.ivs2.cell_temp_adjust
+        self.snapshot_values["cell_temp_adjust"] = cell_temp_adjust
 
     # -------------------------------------------------------------------------
     def validate(self):
@@ -7561,13 +8640,22 @@ effect. Please upgrade.
                 err_str += ("\n  Aspect width must be no more than {}"
                             .format(MAX_ASPECT))
         if len(err_str) > len("ERROR:"):
-            self.show_arduino_error_dialog(err_str)
+            self.show_prefs_error_dialog(err_str)
             return False
+
+        # ------------------------ PV Model --------------------------
+        # Call the pv_spec_update_actions() method (which calls the
+        # check_pv_spec() function) and fail validation if it fails
+        rc = self.pv_spec_update_actions()
+        if rc != RC_SUCCESS:
+            return False
+
+        # If none of the checks above failed, return True
         return True
 
     # -------------------------------------------------------------------------
-    def show_arduino_error_dialog(self, err_str):
-        """Method to display an error dialog for bad Arduino values"""
+    def show_prefs_error_dialog(self, err_str):
+        """Method to display an error dialog for bad Preferences values"""
         tkmsg_showerror(self.master, message=err_str)
 
     # -------------------------------------------------------------------------
@@ -7597,6 +8685,15 @@ effect. Please upgrade.
         bias_series_res_comp = self.snapshot_values["bias_series_res_comp"]
         self.master.ivs2.series_res_comp = series_res_comp
         self.master.ivs2.bias_series_res_comp = bias_series_res_comp
+        self.master.ivs2.pv_name = self.snapshot_values["pv_name"]
+        estimate_irrad = self.snapshot_values["estimate_irrad"]
+        self.master.ivs2.estimate_irrad = estimate_irrad
+        self.master.ivs2.estimate_temp = self.snapshot_values["estimate_temp"]
+        use_avg_sensor_temp = self.snapshot_values["use_avg_sensor_temp"]
+        self.master.ivs2.use_avg_sensor_temp = use_avg_sensor_temp
+        use_avg_sensor_temp = self.snapshot_values["use_avg_sensor_temp"]
+        cell_temp_adjust = self.snapshot_values["cell_temp_adjust"]
+        self.master.ivs2.cell_temp_adjust = cell_temp_adjust
 
         # Redisplay image if anything changed (saves config)
         if self.plot_props.prop_vals_changed():
@@ -7605,6 +8702,8 @@ effect. Please upgrade.
                 self.master.unlock_axes()
             self.master.redisplay_img(reprocess_adc=reprocess_adc)
             self.plot_props.update_prop_vals()
+        elif self.pv_model_revert_redisplay:
+            self.master.redisplay_img()
 
     # -------------------------------------------------------------------------
     def apply(self):
@@ -7618,6 +8717,7 @@ effect. Please upgrade.
         self.plotting_apply()
         self.looping_apply()
         self.arduino_apply()
+        self.pv_model_apply()
 
     # -------------------------------------------------------------------------
     def plotting_apply(self):
@@ -7803,6 +8903,74 @@ written to Arduino EEPROM.
                 # Have to reset Arduino if sketch is old
                 self.master.reestablish_arduino_comm()
             self.master.save_config()
+
+    # -------------------------------------------------------------------------
+    def pv_model_apply(self, pv_spec_changed=False, update_pv_spec_file=True):
+        """Method to apply PV model config"""
+        # pylint: disable=too-many-locals
+        pv_model_opt_changed = False
+        section = "PV Model"
+        if self.master.config.cfg.has_section(section):
+            option = "pv name"
+            pv_name = self.get_pv_name()
+            if not pv_name:
+                pv_name = "Unknown"
+            if pv_name != self.master.config.cfg.get(section, option):
+                self.master.config.cfg_set(section, option, pv_name)
+                self.master.ivs2.pv_name = pv_name
+                self.master.update_plot_ref_cb()
+                pv_model_opt_changed = True
+            option = "estimate irrad"
+            estimate_irrad = self.use_est_irrad.get() == "Enabled"
+            config_val = self.master.config.cfg.getboolean(section, option)
+            if estimate_irrad != config_val:
+                self.master.config.cfg_set(section, option, estimate_irrad)
+                self.master.ivs2.estimate_irrad = estimate_irrad
+                pv_model_opt_changed = True
+            option = "estimate temp"
+            estimate_temp = self.use_est_temp.get() == "Enabled"
+            config_val = self.master.config.cfg.getboolean(section, option)
+            if estimate_temp != config_val:
+                self.master.config.cfg_set(section, option, estimate_temp)
+                self.master.ivs2.estimate_temp = estimate_temp
+                pv_model_opt_changed = True
+            option = "use avg sensor temp"
+            use_avg_sensor_temp = self.use_avg_temp.get() == "Enabled"
+            config_val = self.master.config.cfg.getboolean(section, option)
+            if use_avg_sensor_temp != config_val:
+                self.master.config.cfg_set(section, option,
+                                           use_avg_sensor_temp)
+                self.master.ivs2.use_avg_sensor_temp = use_avg_sensor_temp
+                pv_model_opt_changed = True
+            option = "cell temp adjust"
+            cell_temp_adjust = float(self.cell_temp_adj.get())
+            config_val = self.master.config.cfg.getfloat(section, option)
+            if cell_temp_adjust != config_val:
+                self.master.config.cfg_set(section, option,
+                                           cell_temp_adjust)
+                self.master.ivs2.cell_temp_adjust = cell_temp_adjust
+                pv_model_opt_changed = True
+
+        if ((pv_model_opt_changed or pv_spec_changed) and
+                (self.master.results_wiz is not None or
+                 self.master.props.current_run_displayed)):
+            # Redisplay image (saves config)
+            self.master.redisplay_img()
+            self.pv_model_revert_redisplay = True
+        elif pv_model_opt_changed:
+            # No redisplay needed. Just save config.
+            self.master.save_config()
+
+        if update_pv_spec_file:
+            self.pv_spec_update_actions()
+            pv_spec_csv_file = self.master.ivs2.pv_spec_csv_file
+            pv_spec_csv_file_bak = self.master.ivs2.pv_spec_csv_file_bak
+            if os.path.exists(pv_spec_csv_file):
+                # Move existing file to backup
+                shutil.move(pv_spec_csv_file, pv_spec_csv_file_bak)
+            for pv_spec_dict in self.pv_specs:
+                add_pv_spec(pv_spec_csv_file,
+                            pv_spec_from_dict(pv_spec_dict))
 
 
 # Plotting properties class
@@ -8191,6 +9359,79 @@ Relay is active-high:
         self.text.pack(fill=BOTH, expand=True)
 
 
+# PV Model help dialog class
+#
+class PvModelHelpDialog(Dialog):
+    """Class that is extended from the generic Dialog class and is used for
+       the PV Model Help dialog
+    """
+    # Initializer
+    def __init__(self, master=None):
+        title = "PV Model Help"
+        Dialog.__init__(self, master=master, title=title,
+                        has_cancel_button=False, return_ok=True,
+                        parent_is_modal=True,
+                        resizable=True,
+                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
+
+    # -------------------------------------------------------------------------
+    def body(self, master):
+        """Method to create the dialog body, which is just a Text widget"""
+        help_text_1 = """
+The PV Model tab allows the user to specify a PV module or cell that is used to
+generate the reference curve added when the "Plot Reference" option is selected
+on the main screen. Generating the reference curve is performed using a
+mathematical model of the PV which requires the specifications contained in the
+datasheet for the particular PV under test.
+
+The process for adding a new PV is:
+
+   - Select an existing PV from the list
+   - Overtype the new PV's name and spec values
+   - Use the Test button(s) to verify that the PV can be modeled
+   - Remove unneeded PVs using the Delete button (optional)
+   - Click on OK to permanently add the new PV to the list
+
+In order to plot a reference curve, the irradiance and cell temperature are
+required. If the optional IV Swinger 2 pyranometer and/or temperature sensors
+are implemented, those sensor values are used. The controls near the bottom
+(below the line) determine this behavior. The cell temperature is higher than
+the temperature measured at the back of the PV, so an adjustment value is
+specified. If there are multiple temperature sensors, the user may choose
+whether to use their average or the value of the first sensor only.
+
+If irradiance and/or temperature are not measured, the reference curve is
+generated using estimated values based on the measured Voc and Isc of the PV
+under test. Of course, this assumes that the Isc and/or Voc are "correct" and
+that all out-of-spec effects are manifested on the curve between those two
+two points only. The "Use estimated irradiance" and "Use estimated cell temp"
+checkbuttons force estimation when measured values ARE present. When measured
+values are not present, estimation is always used and those controls are not
+relevant.
+
+The PV model preferences may be applied to existing IV curves (including those
+recorded before this feature was available). To do this:
+
+   - Open the Results Wizard
+   - Select the run
+   - Open Preferences
+   - Select the PV Model tab
+   - Choose the appropriate PV and other options
+   - Click OK button to save
+   - Check Plot Reference on main window
+
+Hover the mouse pointer over the controls on this tab for "tooltips" that
+provide additional help.
+"""
+        font = HELP_DIALOG_FONT
+        self.text = ScrolledText(master, height=1, borderwidth=10)
+        self.text.tag_configure("body_tag", font=font)
+        self.text.tag_configure("heading_tag", font=font, underline=True)
+        self.text.insert("end", help_text_1, ("body_tag"))
+        self.text.pack(fill=BOTH, expand=True)
+
+
 # Overlay help dialog class
 #
 class OverlayHelpDialog(Dialog):
@@ -8374,44 +9615,51 @@ class PlotPower(ttk.Checkbutton):
     # pylint: disable=too-many-ancestors
 
     # Initializer
-    def __init__(self, master=None, variable=None):
+    def __init__(self, master=None, master_master=None, variable=None):
         ttk.Checkbutton.__init__(self, master=master, text="Plot Power",
                                  command=self.update_plot_power,
                                  variable=variable,
                                  onvalue="Plot", offvalue="DontPlot")
         self.master = master
+        self.mm = master_master
         self.plot_power = variable
-        if self.master.config.cfg.getboolean("Plotting", "plot power"):
+        if self.mm.config.cfg.getboolean("Plotting", "plot power"):
             self.invoke()
 
     # -------------------------------------------------------------------------
     def update_plot_power(self, event=None):
         """Method to update and apply the plot power option"""
         # pylint: disable=unused-argument
+        plot = (self.plot_power.get() == "Plot")
+        self.mm.handle_plot_power_or_ref_event(button="power", plot=plot)
 
-        if self.master.props.current_run_displayed or self.master.results_wiz:
-            # Replace config from saved config of displayed image
-            run_dir = self.master.ivs2.hdd_output_dir
-            config_dir = os.path.dirname(self.master.config.cfg_filename)
 
-            # Replace config from saved config of displayed image
-            cfg_file, original_cfg_file = self.master.swap_config(run_dir,
-                                                                  config_dir)
+# Plot ref checkbutton class
+#
+class PlotRef(ttk.Checkbutton):
+    """Class that implements the Checkbutton widget used to choose whether
+       to include the PV reference curve on the plot
+    """
+    # pylint: disable=too-many-ancestors
 
-        # Update IVS2 property
-        self.master.ivs2.plot_power = (self.plot_power.get() == "Plot")
+    # Initializer
+    def __init__(self, master=None, master_master=None, variable=None):
+        ttk.Checkbutton.__init__(self, master=master, text="Plot Reference",
+                                 command=self.update_plot_ref,
+                                 variable=variable,
+                                 onvalue="Plot", offvalue="DontPlot")
+        self.master = master
+        self.mm = master_master
+        self.plot_ref = variable
+        if self.mm.config.cfg.getboolean("Plotting", "plot ref"):
+            self.invoke()
 
-        # Update the "plot power" config option
-        self.master.config.cfg_set("Plotting", "plot power",
-                                   self.master.ivs2.plot_power)
-
-        if self.master.props.current_run_displayed or self.master.results_wiz:
-            # Redisplay the image (with power plotted) - saves config
-            self.master.redisplay_img(reprocess_adc=False)
-
-            # Restore the config file from the snapshot
-            self.master.restore_config(run_dir, config_dir, cfg_file,
-                                       original_cfg_file)
+    # -------------------------------------------------------------------------
+    def update_plot_ref(self, event=None):
+        """Method to update and apply the plot ref option"""
+        # pylint: disable=unused-argument
+        plot = (self.plot_ref.get() == "Plot")
+        self.mm.handle_plot_power_or_ref_event(button="ref", plot=plot)
 
 
 # Lock axes checkbutton class
