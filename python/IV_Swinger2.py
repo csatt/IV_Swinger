@@ -584,6 +584,7 @@ def get_run_info_filename(run_dir):
     dts = extract_date_time_str(run_dir)
     sensor_info_filename = os.path.join(run_dir,
                                         ("sensor_info_{}.txt"
+                                         .format(dts)))
     if os.path.exists(sensor_info_filename):
         # Backward compatibility
         run_info_filename = sensor_info_filename
