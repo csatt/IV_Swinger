@@ -6900,7 +6900,7 @@ class PreferencesDialog(Dialog):
         self.point_scale.set(self.master.config.cfg.getfloat(section,
                                                              "point scale"))
         # Add container box for widgets
-        plotting_widget_box = ttk.Frame(master=self.plotting_tab, padding=20)
+        plotting_widget_box = ttk.Frame(master=self.plotting_tab, padding=10)
 
         # Add radio buttons to choose whether interpolation should be
         # "Straight" (linear) or "Smooth" (spline)
@@ -7224,6 +7224,7 @@ class PreferencesDialog(Dialog):
             battery_bias_off_rb.grid(column=1, row=row, sticky=W, pady=pady)
             battery_bias_on_rb.grid(column=2, row=row, sticky=W, pady=pady)
         row += 1
+        pady = 0
         series_res_comp_label.grid(column=0, row=row, sticky=W, pady=pady)
         series_res_comp_entry.grid(column=1, row=row, sticky=W, pady=pady)
         series_res_comp_label2.grid(column=2, row=row, sticky=W, pady=pady)
@@ -7834,7 +7835,7 @@ effect. Please upgrade.
         test_irrad_units_label = ttk.Label(master=test_button_and_entries_box,
                                            text=u"W/m{}".format(SQD))
         test_temp_entry = ttk.Entry(master=test_button_and_entries_box,
-                                    width=8,
+                                    width=6,
                                     textvariable=self.pv_test_cell_temp)
         test_temp_units_label = ttk.Label(master=test_button_and_entries_box,
                                           text=u"{}C".format(DGS))
@@ -7842,10 +7843,10 @@ effect. Please upgrade.
                                      text="     or @ ")
         self.test_stc_button = ttk.Button(master=test_button_and_entries_box,
                                           command=self.set_to_stc_and_run,
-                                          text="STC", width=3)
+                                          text="STC")
         self.test_noc_button = ttk.Button(master=test_button_and_entries_box,
                                           command=self.set_to_noc_and_run,
-                                          text="NOC", width=3)
+                                          text="NOC")
         self.pv_test_irrad.set("{}".format(STC_IRRAD))
         self.pv_test_cell_temp.set("{}".format(STC_T_C))
 
@@ -9135,10 +9136,11 @@ Font name:
   The name of the font to use for all text (title, legends, labels, etc.) The
   default is "Arial Unicode MS" which supports character sets for many
   languages. If that font is not available, the plotting will SILENTLY revert
-  to a default font. A list of fonts is printed to the log file on exit from
-  the application. However, it is not guaranteed that all of those fonts will
-  behave correctly. Some (e.g. Wingdings) may even require the application to
-  be closed and reopened if they are used.
+  to a default font. The "List" button generates a list of fonts in a dialog
+  from which you may copy and paste. The list is also written to the log file.
+  However, it is not guaranteed that all of those fonts will behave
+  correctly. Some (e.g. Wingdings) may even require the application to be
+  closed and reopened if they are used.
 
 Font scale, Line scale, and Point scale:
   The default font size, line thickness, and size of the "dots" indicating the
