@@ -4844,7 +4844,7 @@ class Dialog(tk.Toplevel):
 
     # -------------------------------------------------------------------------
     def revert(self):
-        """Method that reverts values from the snapthos. Should be overridden
+        """Method that reverts values from the snapshot. Should be overridden
            to do what is appropriate for the derived class.
         """
         pass
@@ -8563,7 +8563,7 @@ it and then edit the parameter values.
         self.snapshot_values["fix_overshoot"] = self.master.ivs2.fix_overshoot
         self.snapshot_values["battery_bias"] = self.master.ivs2.battery_bias
         series_res_comp = self.master.ivs2.series_res_comp
-        bias_series_res_comp = self.master.ivs2.series_res_comp
+        bias_series_res_comp = self.master.ivs2.bias_series_res_comp
         self.snapshot_values["series_res_comp"] = series_res_comp
         self.snapshot_values["bias_series_res_comp"] = bias_series_res_comp
         self.snapshot_values["pv_name"] = self.master.ivs2.pv_name
@@ -9036,6 +9036,9 @@ class PlottingProps(object):
            series_res_comp and bias_series_res_comp properties with
            previously captured values to see if any have changed
         """
+        if not os.path.exists(self.ivs2.hdd_adc_pairs_csv_filename):
+            return False
+
         return ((self.prop_vals["correct_adc"] != self.ivs2.correct_adc) or
                 (self.prop_vals["fix_isc"] != self.ivs2.fix_isc) or
                 (self.prop_vals["fix_voc"] != self.ivs2.fix_voc) or
