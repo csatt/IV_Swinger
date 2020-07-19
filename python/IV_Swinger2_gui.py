@@ -9044,7 +9044,8 @@ class PlottingProps(object):
            series_res_comp and bias_series_res_comp properties with
            previously captured values to see if any have changed
         """
-        if not os.path.exists(self.ivs2.hdd_adc_pairs_csv_filename):
+        if (not self.ivs2.hdd_adc_pairs_csv_filename or
+                not os.path.exists(self.ivs2.hdd_adc_pairs_csv_filename)):
             return False
 
         return ((self.prop_vals["correct_adc"] != self.ivs2.correct_adc) or
