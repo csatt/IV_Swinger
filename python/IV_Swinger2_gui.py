@@ -1454,6 +1454,8 @@ This could be for one of the following reasons:
            size has changed or when something else has changed that
            requires regenerating and redisplaying the IV curve.
         """
+        # pylint: disable=too-many-branches
+
         # If we're still displaying a splash screen, update it to
         # the new size. If an IV curve is showing, regenerate it..
         if self.img_pane.splash_img_showing:
@@ -1463,6 +1465,12 @@ This could be for one of the following reasons:
         else:
             remove_directory = False
             if not os.path.exists(self.ivs2.hdd_output_dir):
+                if self.ivs2.adc_pairs is None:
+                    # Super obscure case: Generate PV model test curve (which
+                    # has no adc_pairs). Delete run from Wizard. Then make
+                    # config change. No way to regenerate that.
+                    self.save_config()
+                    return
                 # Directory may have been removed if looping so
                 # re-create it, but remove it after image is displayed
                 remove_directory = True
