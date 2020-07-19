@@ -1043,8 +1043,13 @@ This could be for one of the following reasons:
                               self.ivs2.pv_name != "Unknown" else "")
         self.pv_name_label = ttk.Label(master=self.plot_power_ref_box,
                                        text=pv_name_label_text,
-                                       wraplength="115",
-                                       font=("Courier", 12))
+                                       wraplength="115")
+        style = ttk.Style()
+        style.configure("pv_name_label.TButton", foreground="red")
+        if pv_name_label_text:
+            self.pv_name_label["style"] = "pv_name_label.TButton"
+        else:
+            self.pv_name_label["style"] = "TLabel"
         self.pv_name_label.pack(anchor=W)
 
         self.plot_power_ref_box.grid(**self.grid_args["power_ref_box"])
@@ -1144,9 +1149,11 @@ This could be for one of the following reasons:
                 self.config.cfg.get("PV Model", "pv name") == "Unknown"):
             self.plot_ref_cb.state(["disabled"])
             self.pv_name_label["text"] = ""
+            self.pv_name_label["style"] = "TLabel"
         else:
             self.plot_ref_cb.state(["!disabled"])
             self.pv_name_label["text"] = self.ivs2.pv_name.decode("utf-8")
+            self.pv_name_label["style"] = "pv_name_label.TButton"
 
     # -------------------------------------------------------------------------
     def swap_config(self, run_dir, config_dir):
