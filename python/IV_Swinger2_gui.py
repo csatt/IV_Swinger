@@ -1045,9 +1045,9 @@ This could be for one of the following reasons:
                                        text=pv_name_label_text,
                                        wraplength="115")
         style = ttk.Style()
-        style.configure("pv_name_label.TButton", foreground="red")
+        style.configure("pv_name.TLabel", foreground="blue")
         if pv_name_label_text:
-            self.pv_name_label["style"] = "pv_name_label.TButton"
+            self.pv_name_label["style"] = "pv_name.TLabel"
         else:
             self.pv_name_label["style"] = "TLabel"
         self.pv_name_label.pack(anchor=W)
@@ -1153,7 +1153,7 @@ This could be for one of the following reasons:
         else:
             self.plot_ref_cb.state(["!disabled"])
             self.pv_name_label["text"] = self.ivs2.pv_name.decode("utf-8")
-            self.pv_name_label["style"] = "pv_name_label.TButton"
+            self.pv_name_label["style"] = "pv_name.TLabel"
 
     # -------------------------------------------------------------------------
     def swap_config(self, run_dir, config_dir):
