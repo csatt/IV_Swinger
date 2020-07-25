@@ -981,6 +981,8 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
         adc_steps_per_amp = ADC_MAX / self.i_sat
 
         voc_adc = int(round(adc_steps_per_volt * self.sim_voc))
+        if voc_adc > ADC_MAX:
+            voc_adc = ADC_MAX
 
         us_since_prev = 0
         self.swing_time_us = 0
