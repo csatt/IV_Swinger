@@ -1167,6 +1167,7 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
                     self.vdiv_r2 = r2_ohms
                     if r1_ohms == ZERO_OHMS:
                         self.vdiv_r1 = 0.0
+                        self.vdiv_r2 = IV_Swinger2.R2_DEFAULT
                     if r2_ohms == ZERO_OHMS:
                         self.vdiv_r2 = 0.0
                     least_err = err
