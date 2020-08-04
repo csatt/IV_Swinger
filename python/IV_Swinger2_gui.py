@@ -4537,6 +4537,8 @@ ERROR: Voc must be larger than
             if not self.master.ivs2.battery_bias:
                 # Normal case: just scale v_cal proportionally
                 adj_ratio = (new_voc - v_cal_b) / (curr_voc - v_cal_b)
+                if self.adj_ratio_is_too_extreme(adj_ratio):
+                    return
                 new_v_cal = self.master.ivs2.v_cal * adj_ratio
                 self.master.ivs2.v_cal = new_v_cal
                 self.master.config.cfg_set("Calibration", "voltage", new_v_cal)
@@ -4589,14 +4591,35 @@ ERROR: Isc must be larger than
                                 prompt=prompt_str,
                                 initialvalue=curr_isc)
         if new_isc:
-            new_i_cal = (self.master.ivs2.i_cal *
-                         (new_isc - i_cal_b) / (curr_isc - i_cal_b))
+            adj_ratio = (new_isc - i_cal_b) / (curr_isc - i_cal_b)
+            if self.adj_ratio_is_too_extreme(adj_ratio):
+                return
+            new_i_cal = self.master.ivs2.i_cal * adj_ratio
             self.master.ivs2.i_cal = new_i_cal
             self.master.config.cfg_set("Calibration", "current", new_i_cal)
             # Update value in EEPROM
             self.update_values_in_eeprom()
             # Redisplay the image with the new settings (saves config)
             self.master.redisplay_img(reprocess_adc=True)
+
+    # -------------------------------------------------------------------------
+    def adj_ratio_is_too_extreme(self, adj_ratio):
+        """Method to check the adjustment ratio. If it is < 0.85 or > 1.15,
+           display error dialog and return True. Otherwise return False.
+        """
+        if adj_ratio < 0.85 or adj_ratio > 1.15:
+            err_msg = """
+ERROR: Calibration ratio
+({})
+must be between 0.85 and 1.15.
+More extreme ratios indicate
+something is wrong with the
+hardware and calibration is
+not the solution
+""".format(adj_ratio)
+            tkmsg_showerror(self.master, message=err_msg)
+            return True
+        return False
 
     # -------------------------------------------------------------------------
     def get_v_cal_value_adv(self):
