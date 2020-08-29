@@ -416,6 +416,12 @@ def selectall(event):
     event.widget.tag_add("sel", "1.0", "end")
 
 
+def log_user_action(logger, msg):
+    """Global function to log a GUI action by the user"""
+    user_action_msg = "User: {}".format(msg)
+    logger.log(user_action_msg)
+
+
 #################
 #   Classes     #
 #################
@@ -994,9 +1000,9 @@ This could be for one of the following reasons:
 
         # Left-clicking go button and hitting Return or space bar do the
         # same thing
-        self.go_button.bind("<Button-1>", self.go_actions)
-        self.root.bind("<Return>", self.go_actions)
-        self.root.bind("<space>", self.go_actions)
+        self.go_button.bind("<Button-1>", self.go_button_actions)
+        self.root.bind("<Return>", self.return_actions)
+        self.root.bind("<space>", self.space_bar_actions)
 
         # Status label
         self.go_button_status_label = ttk.Label(master=self.go_button_box)
@@ -1238,6 +1244,10 @@ This could be for one of the following reasons:
         """Method to apply a new voltage or current range (max value
            on axis) when entered by the user
         """
+        msg = ("(Main) hit Enter/Return in Max V ({}) or Max I ({}) entry"
+               .format(self.v_range.get(), self.i_range.get()))
+        log_user_action(self.ivs2.logger, msg)
+
         if self.props.current_run_displayed or self.results_wiz:
             run_dir = self.ivs2.hdd_output_dir
             config_dir = os.path.dirname(self.config.cfg_filename)
@@ -1399,6 +1409,9 @@ This could be for one of the following reasons:
         """
         res_str = self.resolution_str.get()
 
+        msg = "(Main) attempted resolution change to {}".format(res_str)
+        log_user_action(self.ivs2.logger, msg)
+
         # The first number in the input is x_pixels
         res_re = re.compile(r"(\d+)")
         match = res_re.search(res_str)
@@ -1557,6 +1570,9 @@ This could be for one of the following reasons:
         """Method to open the Preferences dialog"""
         # pylint: disable=unused-argument
 
+        msg = "(Main) pressed Preferences button"
+        log_user_action(self.ivs2.logger, msg)
+
         # Create the Preferences dialog
         if self.prefs_dialog_active:
             # Do nothing if a Preferences dialog already exists
@@ -1583,8 +1599,33 @@ This could be for one of the following reasons:
     def results_actions(self, event=None):
         """Method to open the Results Wizard"""
         # pylint: disable=unused-argument
+
+        msg = "(Main) pressed Results Wizard button"
+        log_user_action(self.ivs2.logger, msg)
+
         if self.results_wiz is None:
             self.results_wiz = ResultsWizard(self)
+
+    # -------------------------------------------------------------------------
+    def go_button_actions(self, event=None):
+        """Method called when go button is pressed"""
+        msg = "(Main) pressed Swing! button"
+        log_user_action(self.ivs2.logger, msg)
+        self.go_actions(event)
+
+    # -------------------------------------------------------------------------
+    def return_actions(self, event=None):
+        """Method called when return key is pressed"""
+        msg = "(Main) pressed Enter/Return"
+        log_user_action(self.ivs2.logger, msg)
+        self.go_actions(event)
+
+    # -------------------------------------------------------------------------
+    def space_bar_actions(self, event=None):
+        """Method called when space bar is pressed"""
+        msg = "(Main) pressed space bar"
+        log_user_action(self.ivs2.logger, msg)
+        self.go_actions(event)
 
     # -------------------------------------------------------------------------
     def go_actions(self, event=None):
@@ -2017,7 +2058,7 @@ bias was actually applied.
         self.ivs2.plot_lock_axis_ranges = False
         self.ivs2.plot_max_x = None
         self.ivs2.plot_max_y = None
-        self.range_lock_cb.update_axis_lock(None)
+        self.range_lock_cb.update_axis_lock("")
         self.axes_locked.set("Unlock")
 
     # -------------------------------------------------------------------------
@@ -2666,6 +2707,8 @@ class ResultsWizard(tk.Toplevel):
         """Method called when wizard is closed
         """
         # pylint: disable=unused-argument
+        msg = "(Main) closed Results Wizard"
+        log_user_action(self.master.ivs2.logger, msg)
 
         # If we're in overlay mode ask user if they want to save the
         # overlay
@@ -2675,10 +2718,15 @@ class ResultsWizard(tk.Toplevel):
                                           "Save overlay?", msg_str,
                                           default=tkmsg.NO)
             if save_overlay:
+                msg = "(Main) saved pending overlay on Results Wizard close"
+                log_user_action(self.master.ivs2.logger, msg)
                 # Yes: same as if Finished button had been pressed
                 self.overlay_finished(event=None)
                 return
             else:
+                msg = "(Main) discarded pending overlay on Results Wizard"
+                msg += " close"
+                log_user_action(self.master.ivs2.logger, msg)
                 # No: turn off overlay mode and display non-overlaid
                 # image
                 self.master.props.overlay_mode = False
@@ -2727,6 +2775,9 @@ class ResultsWizard(tk.Toplevel):
         selections = self.tree.selection()
         if not selections:
             return
+        else:
+            msg = "(Wizard) selected {}".format(selections)
+            log_user_action(self.master.ivs2.logger, msg)
         # If multiple items are selected, last one (oldest) is
         # displayed
         selection = selections[-1]
@@ -2884,6 +2935,8 @@ class ResultsWizard(tk.Toplevel):
            column heading)
         """
         # pylint: disable=unused-argument
+        msg = "(Wizard) clicked folder path"
+        log_user_action(self.master.ivs2.logger, msg)
         options = {}
         options["initialdir"] = self.results_dir
         options["parent"] = self.master
@@ -2908,7 +2961,12 @@ class ResultsWizard(tk.Toplevel):
                 elif os.path.basename(parent_dir) == APP_NAME:
                     self.results_dir = parent_dir
                     self.populate_tree()
+            msg = "(Wizard) changed folder to {}".format(self.results_dir)
+            log_user_action(self.master.ivs2.logger, msg)
             self.config_import_button()
+        else:
+            msg = "(Wizard) canceled out of change folder dialog"
+            log_user_action(self.master.ivs2.logger, msg)
 
     # -------------------------------------------------------------------------
     def config_shortcut_button(self):
@@ -2933,6 +2991,9 @@ class ResultsWizard(tk.Toplevel):
         """
         # pylint: disable=unused-argument
         # pylint: disable=too-many-branches
+        # pylint: disable=too-many-statements
+        msg = """(Wizard) clicked "Make desktop shortcut" button"""
+        log_user_action(self.master.ivs2.logger, msg)
 
         # Find path to Desktop
         desktop_path = os.path.expanduser(os.path.join("~", "Desktop"))
@@ -2997,11 +3058,15 @@ class ResultsWizard(tk.Toplevel):
         else:
             msg_str = "ERROR: Programming bug"
         tkmsg_showerror(self.master, message=msg_str)
+        msg = "Result of Make desktop shortcut: {}".format(msg_str)
+        self.master.ivs2.logger.log(msg)
 
     # -------------------------------------------------------------------------
     def import_results(self, event=None):
         """Method to import results to app data folder"""
         # pylint: disable=unused-argument
+        msg = "(Wizard) clicked Import button"
+        log_user_action(self.master.ivs2.logger, msg)
 
         # Get the selected run(s) from the Treeview
         import_runs = self.get_selected_runs()
@@ -3055,6 +3120,8 @@ class ResultsWizard(tk.Toplevel):
            button)
         """
         # pylint: disable=unused-argument
+        msg = "(Wizard) clicked Expand All button"
+        log_user_action(self.master.ivs2.logger, msg)
 
         for date in self.dates:
             self.tree.item(date, open=True)
@@ -3065,6 +3132,8 @@ class ResultsWizard(tk.Toplevel):
            on button)
         """
         # pylint: disable=unused-argument
+        msg = "(Wizard) clicked Collapse All button"
+        log_user_action(self.master.ivs2.logger, msg)
 
         for date in self.dates:
             self.tree.item(date, open=False)
@@ -3104,6 +3173,8 @@ class ResultsWizard(tk.Toplevel):
            trash
         """
         # pylint: disable=unused-argument
+        msg = "(Wizard) clicked Delete button"
+        log_user_action(self.master.ivs2.logger, msg)
 
         # Get the selected run(s) from the Treeview
         selected_runs = self.get_selected_runs()
@@ -3161,6 +3232,8 @@ class ResultsWizard(tk.Toplevel):
            drive or elsewhere)
         """
         # pylint: disable=unused-argument
+        msg = "(Wizard) clicked Copy button"
+        log_user_action(self.master.ivs2.logger, msg)
 
         # Get the selected run(s) from the Treeview
         selected_runs = self.get_selected_runs()
@@ -3363,6 +3436,9 @@ class ResultsWizard(tk.Toplevel):
         """
         # pylint: disable=unused-argument
         # pylint: disable=too-many-branches
+        msg = "(Wizard) clicked Change Title button"
+        log_user_action(self.master.ivs2.logger, msg)
+
         if self.master.props.overlay_mode:
             prompt_title_str = "Change overlay title"
             prompt_str = "Enter new overlay title"
@@ -3425,6 +3501,8 @@ class ResultsWizard(tk.Toplevel):
            is pressed.
         """
         # pylint: disable=unused-argument
+        msg = "(Wizard) clicked View PDF button"
+        log_user_action(self.master.ivs2.logger, msg)
 
         # If there is a PDF, it has the same name as the image being
         # displayed in the image pane, but with a .pdf suffix
@@ -3460,6 +3538,8 @@ class ResultsWizard(tk.Toplevel):
            is pressed.
         """
         # pylint: disable=unused-argument
+        msg = "(Wizard) clicked Update button"
+        log_user_action(self.master.ivs2.logger, msg)
 
         # Display error dialog and return if any overlays are selected
         selected_overlays = self.get_selected_overlays()
@@ -3544,6 +3624,8 @@ class ResultsWizard(tk.Toplevel):
         """Method to overlay the selected runs
         """
         # pylint: disable=unused-argument
+        msg = "(Wizard) clicked Overlay button"
+        log_user_action(self.master.ivs2.logger, msg)
 
         # Get the selected run(s) from the Treeview
         # Sort in oldest-to-newest order
@@ -3720,14 +3802,50 @@ class ResultsWizard(tk.Toplevel):
         master = self.overlay_widget_cb_box
         onvalue = "Enabled"
         offvalue = "Disabled"
-        command = self.overlay_label_changed_actions
+
+        def label_all_isc_acts():
+            """Local function to perform actions when the label all Isc
+               checkbutton is changed
+            """
+            checked = (self.master.label_all_iscs.get() == onvalue)
+            msg = ("(Wizard) {} overlay Label all Isc points button"
+                   .format("checked" if checked else "unchecked"))
+            log_user_action(self.master.ivs2.logger, msg)
+            self.plot_overlay_and_display()
+
+        def label_all_mpp_acts():
+            """Local function to perform actions when the label all MPP
+               checkbutton is changed"""
+            checked = (self.master.label_all_mpps.get() == onvalue)
+            msg = ("(Wizard) {} overlay Label all MPPs button"
+                   .format("checked" if checked else "unchecked"))
+            log_user_action(self.master.ivs2.logger, msg)
+            self.plot_overlay_and_display()
+
+        def label_all_voc_acts():
+            """Local function to perform actions when the label all Voc
+               checkbutton is changed"""
+            checked = (self.master.label_all_vocs.get() == onvalue)
+            msg = ("(Wizard) {} overlay Label all Voc points button"
+                   .format("checked" if checked else "unchecked"))
+            log_user_action(self.master.ivs2.logger, msg)
+            self.plot_overlay_and_display()
+
+        def mpp_watts_only_acts():
+            """Local function to perform actions when the MPP watts only
+               checkbutton is changed"""
+            checked = (self.master.mpp_watts_only.get() == onvalue)
+            msg = ("(Wizard) {} overlay Watts-only MPPs button"
+                   .format("checked" if checked else "unchecked"))
+            log_user_action(self.master.ivs2.logger, msg)
+            self.plot_overlay_and_display()
 
         # Add checkbutton to choose whether to label all Isc points
         variable = self.master.label_all_iscs
         text = "Label all Isc points"
         self.label_all_iscs_cb = ttk.Checkbutton(master=master,
                                                  text=text,
-                                                 command=command,
+                                                 command=label_all_isc_acts,
                                                  variable=variable,
                                                  onvalue=onvalue,
                                                  offvalue=offvalue)
@@ -3740,7 +3858,7 @@ class ResultsWizard(tk.Toplevel):
         text = "Label all MPPs"
         self.label_all_mpps_cb = ttk.Checkbutton(master=master,
                                                  text=text,
-                                                 command=command,
+                                                 command=label_all_mpp_acts,
                                                  variable=variable,
                                                  onvalue=onvalue,
                                                  offvalue=offvalue)
@@ -3753,7 +3871,7 @@ class ResultsWizard(tk.Toplevel):
         text = "Watts-only MPPs"
         self.mpp_watts_only_cb = ttk.Checkbutton(master=master,
                                                  text=text,
-                                                 command=command,
+                                                 command=mpp_watts_only_acts,
                                                  variable=variable,
                                                  onvalue=onvalue,
                                                  offvalue=offvalue)
@@ -3766,7 +3884,7 @@ class ResultsWizard(tk.Toplevel):
         text = "Label all Voc points"
         self.label_all_vocs_cb = ttk.Checkbutton(master=master,
                                                  text=text,
-                                                 command=command,
+                                                 command=label_all_voc_acts,
                                                  variable=variable,
                                                  onvalue=onvalue,
                                                  offvalue=offvalue)
@@ -3778,13 +3896,6 @@ class ResultsWizard(tk.Toplevel):
         self.label_all_mpps_cb.grid(column=0, row=1, sticky=(W))
         self.mpp_watts_only_cb.grid(column=1, row=1, sticky=(W))
         self.label_all_vocs_cb.grid(column=0, row=2, sticky=(W))
-
-    # -------------------------------------------------------------------------
-    def overlay_label_changed_actions(self, event=None):
-        """Method for changes to the overlay label checkbuttons
-        """
-        # pylint: disable=unused-argument
-        self.plot_overlay_and_display()
 
     # -------------------------------------------------------------------------
     def create_overlay_treeview(self):
@@ -3840,6 +3951,8 @@ class ResultsWizard(tk.Toplevel):
            called.
         """
         # pylint: disable=unused-argument
+        msg = "(Wizard) clicked overlay Date/Time heading (change sort order)"
+        log_user_action(self.master.ivs2.logger, msg)
         self.sort_overlaid_runs(chron=True)
         self.populate_overlay_treeview(self.overlaid_runs)
         self.reorder_selected_csv_files()
@@ -3851,6 +3964,8 @@ class ResultsWizard(tk.Toplevel):
            clicked.
         """
         # pylint: disable=unused-argument
+        msg = "(Wizard) clicked overlay Name heading (invoke help)"
+        log_user_action(self.master.ivs2.logger, msg)
         help_str = ("Double-click items below to rename.\n"
                     "Drag items to change order.")
         tkmsg_showinfo(self.master, message=help_str)
@@ -3895,6 +4010,8 @@ class ResultsWizard(tk.Toplevel):
            drag-and-drop
         """
         # pylint: disable=unused-argument
+        msg = "(Wizard) dragged and dropped overlay curve"
+        log_user_action(self.master.ivs2.logger, msg)
         if self.overlays_reordered:
             self.reorder_selected_csv_files()
             self.plot_overlay_and_display()
@@ -3924,6 +4041,9 @@ class ResultsWizard(tk.Toplevel):
                                   prompt=prompt_str,
                                   initialvalue=init_val)
         if new_name:
+            msg = ("""(Wizard) renamed overlay curve from "{}" to "{}" """
+                   .format(init_val, new_name))
+            log_user_action(self.master.ivs2.logger, msg)
             self.master.props.overlay_names[dts] = new_name
             self.populate_overlay_treeview(self.overlaid_runs)
             self.plot_overlay_and_display()
@@ -3945,6 +4065,8 @@ class ResultsWizard(tk.Toplevel):
            is pressed.
         """
         # pylint: disable=unused-argument
+        msg = "(Wizard) clicked overlay Help button"
+        log_user_action(self.master.ivs2.logger, msg)
         OverlayHelpDialog(self.master)
 
     # -------------------------------------------------------------------------
@@ -3954,6 +4076,8 @@ class ResultsWizard(tk.Toplevel):
            are left selected.
         """
         # pylint: disable=unused-argument
+        msg = "(Wizard) clicked overlay Cancel button"
+        log_user_action(self.master.ivs2.logger, msg)
 
         # Exit overlay mode and remove widgets
         self.master.props.overlay_mode = False
@@ -3980,6 +4104,8 @@ class ResultsWizard(tk.Toplevel):
            action will be to copy the overlay files.
         """
         # pylint: disable=unused-argument
+        msg = "(Wizard) clicked overlay Finished button"
+        log_user_action(self.master.ivs2.logger, msg)
 
         # Generate the PDF
         self.plot_graphs_to_pdf()
@@ -4344,6 +4470,8 @@ class MenuBar(tk.Menu):
     # -------------------------------------------------------------------------
     def show_about_dialog(self):
         """Method to show the "About" dialog"""
+        msg = """(MenuBar, About) selected "About IV Swinger 2" entry"""
+        log_user_action(self.master.ivs2.logger, msg)
         version_str = "Version: {}\n\n".format(self.master.version)
         about_str = """
 IV Swinger and IV Swinger 2 are open
@@ -4381,6 +4509,8 @@ Copyright (C) 2017-2019  Chris Satterlee
            chosen using the get_initial_log_file_name method. The
            selected file is then opened with the system file viewer.
         """
+        msg = """(MenuBar, File) selected "View Log File" entry"""
+        log_user_action(self.master.ivs2.logger, msg)
         (log_dir,
          log_file) = os.path.split(self.master.ivs2.logger.log_file_name)
         options = {}
@@ -4396,6 +4526,9 @@ Copyright (C) 2017-2019  Chris Satterlee
         log_file = tkFileDialog.askopenfilename(**options)
         self.master.mac_grayed_menu_workaround()
         if log_file:
+            msg = ("(MenuBar, File, View Log File) selected log file {}"
+                   .format(os.path.normpath(log_file)))
+            log_user_action(self.master.ivs2.logger, msg)
             IV_Swinger2.sys_view_file(os.path.normpath(log_file))
 
     # -------------------------------------------------------------------------
@@ -4433,6 +4566,8 @@ Copyright (C) 2017-2019  Chris Satterlee
         """Method to open the current config file using the system file
            viewer
         """
+        msg = """(MenuBar, File) selected "View Config File" entry"""
+        log_user_action(self.master.ivs2.logger, msg)
         IV_Swinger2.sys_view_file(self.master.config.cfg_filename)
 
     # -------------------------------------------------------------------------
@@ -4440,6 +4575,8 @@ Copyright (C) 2017-2019  Chris Satterlee
         """Method to open the current run info file using the system file
            viewer
         """
+        msg = """(MenuBar, File) selected "Run Info File" entry"""
+        log_user_action(self.master.ivs2.logger, msg)
         self.master.ivs2.convert_sensor_to_run_info_file()
         self.master.ivs2.create_run_info_file()  # if it doesn't exist
         IV_Swinger2.sys_view_file(self.master.ivs2.run_info_filename)
@@ -4448,6 +4585,8 @@ Copyright (C) 2017-2019  Chris Satterlee
     def open_run_folder(self):
         """Method to open the run directory using the system file manager
         """
+        msg = """(MenuBar, File) selected "Open Run Folder" entry"""
+        log_user_action(self.master.ivs2.logger, msg)
         IV_Swinger2.sys_view_file(self.master.ivs2.hdd_output_dir)
 
     # -------------------------------------------------------------------------
@@ -4456,7 +4595,10 @@ Copyright (C) 2017-2019  Chris Satterlee
            handshake is initiated using the new port. If that succeeds,
            the configuration is updated with the new port.
         """
-        self.master.ivs2.usb_port = self.selected_port.get()
+        usb_port = self.selected_port.get()
+        msg = "(MenuBar, USB Port) selected {}".format(usb_port)
+        log_user_action(self.master.ivs2.logger, msg)
+        self.master.ivs2.usb_port = usb_port
         self.master.ivs2.arduino_ready = False
         self.master.attempt_arduino_handshake()
         if self.master.ivs2.arduino_ready:
@@ -4470,6 +4612,8 @@ Copyright (C) 2017-2019  Chris Satterlee
            This is now actually calibrating the bandgap voltage, which
            is used to measure Vref every time an IV curve is swung.
         """
+        msg = """(MenuBar, Calibrate) selected "Vref (+5V)" entry"""
+        log_user_action(self.master.ivs2.logger, msg)
         # First update the adc_vref property based on the current calibration
         # and measurement (if any). This is so the displayed voltage is the
         # currently measured value.
@@ -4494,6 +4638,8 @@ Copyright (C) 2017-2019  Chris Satterlee
         """Method to get the voltage calibration value from the user and apply
            it (basic calibration)
         """
+        msg = """(MenuBar, Calibrate) selected "Voltage - basic" entry"""
+        log_user_action(self.master.ivs2.logger, msg)
         if self.master.ivs2.battery_bias and not self.master.ivs2.dyn_bias_cal:
             # If the battery bias mode is on, and we're NOT doing
             # dynamic bias battery calibration, we can't really do
@@ -4567,6 +4713,8 @@ ERROR: Voc must be larger than
         """Method to get the current calibration value from the user and apply
            it (basic calibration)
         """
+        msg = """(MenuBar, Calibrate) selected "Current - basic" entry"""
+        log_user_action(self.master.ivs2.logger, msg)
         i_cal_b = self.master.ivs2.i_cal_b
         if i_cal_b != 0.0:
             warn_msg = """
@@ -4626,6 +4774,8 @@ not the solution
         """Method to get the voltage calibration values from the user and apply
            them (advanced calibration)
         """
+        msg = """(MenuBar, Calibrate) selected "Voltage - advanced" entry"""
+        log_user_action(self.master.ivs2.logger, msg)
         AdvVoltageCalDialog(self.master)
 
     # -------------------------------------------------------------------------
@@ -4633,6 +4783,8 @@ not the solution
         """Method to get the current calibration values from the user and apply
            them (advanced calibration)
         """
+        msg = """(MenuBar, Calibrate) selected "Current - advanced" entry"""
+        log_user_action(self.master.ivs2.logger, msg)
         AdvCurrentCalDialog(self.master)
 
     # -------------------------------------------------------------------------
@@ -4640,6 +4792,8 @@ not the solution
         """Method to get the pyranometer calibration value from the user and
            apply it
         """
+        msg = """(MenuBar, Calibrate) selected "Pyranometer" entry"""
+        log_user_action(self.master.ivs2.logger, msg)
         curr_irradiance = self.master.ivs2.irradiance
         prompt_str = "Enter measured W/m^2 value:"
         new_irradiance = tksd_askfloat(self.master,
@@ -4683,6 +4837,8 @@ this version of the Arduino software. Please upgrade.
         """Method to open the resistor values calibration dialog for the user
            to enter the resistor values
         """
+        msg = """(MenuBar, Calibrate) selected "Resistors" entry"""
+        log_user_action(self.master.ivs2.logger, msg)
         ResistorValuesDialog(self.master)
 
     # -------------------------------------------------------------------------
@@ -4690,11 +4846,16 @@ this version of the Arduino software. Please upgrade.
         """Method to open the dialog for the user to run a bias battery
            calibration
         """
+        msg = """(MenuBar, Calibrate) selected "Bias Battery" entry"""
+        log_user_action(self.master.ivs2.logger, msg)
         BiasBatteryDialog(self.master)
 
     # -------------------------------------------------------------------------
     def invalidate_arduino_eeprom(self):
         """Method to invalidate the Arduino EEPROM"""
+        msg = """(MenuBar, Calibrate) selected "Invalidate Arduino EEPROM" """
+        msg += "entry"
+        log_user_action(self.master.ivs2.logger, msg)
         if not self.master.ivs2.arduino_sketch_supports_dynamic_config:
             err_str = ("ERROR: The Arduino sketch does not support "
                        "invalidating the EEPROM. You must update it "
@@ -4721,17 +4882,23 @@ will exit.
     # -------------------------------------------------------------------------
     def show_calibration_help(self):
         """Method the open the calibration help dialog"""
+        msg = """(MenuBar, Calibrate) selected "Calibration Help" entry"""
+        log_user_action(self.master.ivs2.logger, msg)
         CalibrationHelpDialog(self.master)
 
     # -------------------------------------------------------------------------
     def show_help(self):
         """Method the open the global help dialog"""
+        msg = """(MenuBar, Help) selected "IV Swinger 2 Help" entry"""
+        log_user_action(self.master.ivs2.logger, msg)
         GlobalHelpDialog(self.master)
 
     # -------------------------------------------------------------------------
     def run_simulator(self):
         """Method to run the simulator dialog.
         """
+        msg = """(MenuBar, Help) selected "Run Simulator" entry"""
+        log_user_action(self.master.ivs2.logger, msg)
         IV_Swinger2_sim.SimulatorDialog(self.master)
         self.master.mac_grayed_menu_workaround()
 
@@ -4759,7 +4926,7 @@ class Dialog(tk.Toplevel):
     def __init__(self, master=None, title=None, has_ok_button=True,
                  has_cancel_button=True, return_ok=False, ok_label="OK",
                  resizable=False, parent_is_modal=False,
-                 min_height=None, max_height=None):
+                 min_height=None, max_height=None, logger=None):
         # pylint: disable=too-many-arguments
         tk.Toplevel.__init__(self, master=master)
         self.master = master
@@ -4778,6 +4945,7 @@ class Dialog(tk.Toplevel):
         self.parent_is_modal = parent_is_modal
         self.min_height = min_height
         self.max_height = max_height
+        self.logger = logger
 
         # Snapshot current values for revert
         self.snapshot()
@@ -4851,6 +5019,9 @@ class Dialog(tk.Toplevel):
     def ok(self, event=None):
         """Method that runs when the OK button is pressed"""
         # pylint: disable=unused-argument
+        if self.logger is not None:
+            msg = "({}) clicked OK button".format(self.title())
+            log_user_action(self.master.ivs2.logger, msg)
         if not self.validate():
             return
         self.withdraw()
@@ -4862,6 +5033,9 @@ class Dialog(tk.Toplevel):
     def cancel(self, event=None):
         """Method that runs when the Cancel button is pressed"""
         # pylint: disable=unused-argument
+        if self.logger is not None:
+            msg = "({}) clicked Cancel button".format(self.title())
+            log_user_action(self.master.ivs2.logger, msg)
         self.revert()
         self.close()
 
@@ -6116,6 +6290,10 @@ for the DMM measured Point 2 value"""
            to update their values in the entry boxes.
         """
         # pylint: disable=unused-argument
+        msg = ("({}) clicked Calibrate button"
+               .format("AdvCurrentCalDialog" if self.type_is_current()
+                       else "AdvVoltageCalDialog"))
+        log_user_action(self.master.ivs2.logger, msg)
 
         # Check that both points have been measured by the hardware
         if self.x1 == "Unknown" or self.x2 == "Unknown":
@@ -6176,6 +6354,10 @@ good results"""
            entry box
         """
         # pylint: disable=unused-argument
+        msg = ("({}) hit Enter/Return in slope entry"
+               .format("AdvCurrentCalDialog" if self.type_is_current()
+                       else "AdvVoltageCalDialog"))
+        log_user_action(self.master.ivs2.logger, msg)
         try:
             m = float(self.slope.get())
             if m != self.m:
@@ -6218,6 +6400,10 @@ doesn't look right. It should be between
            intercept entry box
         """
         # pylint: disable=unused-argument
+        msg = ("({}) hit Enter/Return in intercept entry"
+               .format("AdvCurrentCalDialog" if self.type_is_current()
+                       else "AdvVoltageCalDialog"))
+        log_user_action(self.master.ivs2.logger, msg)
         try:
             b = float(self.intercept.get())
             if b != self.b:
@@ -6290,6 +6476,10 @@ doesn't look right. It should be between
            point number
         """
         # pylint: disable=unused-argument
+        msg = ("({}) hit Enter/Return in DMM measured value entry"
+               .format("AdvCurrentCalDialog" if self.type_is_current()
+                       else "AdvVoltageCalDialog"))
+        log_user_action(self.master.ivs2.logger, msg)
         if self.test_cal_units == "Unknown":
             error_msg = """
 ERROR: The test must be run before
@@ -6507,6 +6697,8 @@ class ResistorValuesDialog(Dialog):
     def restore_defaults(self, event=None):
         """Method to restore resistor values to defaults"""
         # pylint: disable=unused-argument
+        msg = "(ResistorValuesDialog) clicked Restore Defaults button"
+        log_user_action(self.master.ivs2.logger, msg)
         self.r1_str.set(str(R1_DEFAULT))
         self.r2_str.set(str(R2_DEFAULT))
         self.rf_str.set(str(RF_DEFAULT))
@@ -6902,8 +7094,18 @@ class PreferencesDialog(Dialog):
         self.test_noc_button = None
         self.pv_model_revert_redisplay = False
         self.plot_props = PlottingProps(ivs2=master.ivs2)
+        self.plotting_vars = None
+        self.curr_plotting_var_vals = None
+        self.prev_plotting_var_vals = None
+        self.arduino_vars = None
+        self.curr_arduino_var_vals = None
+        self.prev_arduino_var_vals = None
+        self.pv_model_vars = None
+        self.curr_pv_model_var_vals = None
+        self.prev_pv_model_var_vals = None
         title = "{} Preferences".format(APP_NAME)
-        Dialog.__init__(self, master=master, title=title)
+        Dialog.__init__(self, master=master, title=title,
+                        logger=self.master.ivs2.logger)
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -7273,6 +7475,10 @@ class PreferencesDialog(Dialog):
         plotting_restore_box.grid(column=1, row=row, sticky=E)
         plotting_restore.grid(column=0, row=0, sticky=W)
 
+        self.fill_plotting_vars_dict()
+        self.capture_curr_plotting_vars()
+        self.prev_plotting_var_vals = dict(self.curr_plotting_var_vals)
+
     # -------------------------------------------------------------------------
     def turn_off_batt_bias(self, event=None):
         """Method to turn off battery bias mode"""
@@ -7301,6 +7507,8 @@ class PreferencesDialog(Dialog):
     def restore_plotting_defaults(self, event=None):
         """Method to restore Plotting tab values to defaults"""
         # pylint: disable=unused-argument
+        msg = "(Preferences, Plotting) clicked Restore Defaults button"
+        log_user_action(self.master.ivs2.logger, msg)
         self.fancy_labels.set(str(FANCY_LABELS_DEFAULT))
         self.interpolation_type.set(str(INTERPOLATION_TYPE_DEFAULT))
         self.font_name.set(str(FONT_NAME_DEFAULT))
@@ -7326,16 +7534,80 @@ class PreferencesDialog(Dialog):
     # -------------------------------------------------------------------------
     def font_list_actions(self):
         """Method to display the list of possible fonts"""
+        msg = "(Preferences, Plotting) clicked font name List button"
+        log_user_action(self.master.ivs2.logger, msg)
         FontListDialog(self.master)
 
     # -------------------------------------------------------------------------
     def show_plotting_help(self):
         """Method to display Plotting tab help"""
+        msg = "(Preferences, Plotting) clicked Help button"
+        log_user_action(self.master.ivs2.logger, msg)
         PlottingHelpDialog(self.master)
+
+    # -------------------------------------------------------------------------
+    def fill_plotting_vars_dict(self):
+        """Method to fill the plotting_vars dict with the plotting
+           variables.
+        """
+        self.plotting_vars = {}
+        self.plotting_vars["fancy_labels"] = self.fancy_labels
+        self.plotting_vars["interpolation_type"] = self.interpolation_type
+        self.plotting_vars["font_name"] = self.font_name
+        self.plotting_vars["font_scale"] = self.font_scale
+        self.plotting_vars["line_scale"] = self.line_scale
+        self.plotting_vars["point_scale"] = self.point_scale
+        self.plotting_vars["correct_adc"] = self.correct_adc
+        self.plotting_vars["fix_isc"] = self.fix_isc
+        self.plotting_vars["fix_voc"] = self.fix_voc
+        self.plotting_vars["comb_dupv_pts"] = self.comb_dupv_pts
+        self.plotting_vars["reduce_noise"] = self.reduce_noise
+        self.plotting_vars["fix_overshoot"] = self.fix_overshoot
+        self.plotting_vars["battery_bias"] = self.battery_bias
+        mohm_str = self.series_res_comp_milliohms_str
+        self.plotting_vars["series_res_comp_milliohms_str"] = mohm_str
+
+    # -------------------------------------------------------------------------
+    def capture_curr_plotting_vars(self):
+        """Method to capture the current values of all of the Plotting tab
+           variables
+        """
+        self.curr_plotting_var_vals = {}
+        for name in self.plotting_vars:
+            self.curr_plotting_var_vals[name] = self.plotting_vars[name].get()
+
+    # -------------------------------------------------------------------------
+    def diff_plotting_vars(self):
+        """Method to compare the current values of all of the Plotting tab
+           variables with the captured values and log the user action.
+        """
+        self.capture_curr_plotting_vars()
+        for name in self.plotting_vars:
+            prev = self.prev_plotting_var_vals[name]
+            curr = self.curr_plotting_var_vals[name]
+            if prev != curr:
+                msg = ("(Preferences, Plotting) changed {} from {} to {}"
+                       .format(name, prev.encode("utf-8"),
+                               curr.encode("utf-8")))
+                log_user_action(self.master.ivs2.logger, msg)
 
     # -------------------------------------------------------------------------
     def populate_looping_tab(self):
         """Method to add widgets to the Looping tab"""
+        def log_restore_looping():
+            """Local function to log changes to the restore looping cb"""
+            checked = (self.restore_looping.get() == "Enabled")
+            msg = ("(Preferences, Looping) {} Restore looping button"
+                   .format("checked" if checked else "unchecked"))
+            log_user_action(self.master.ivs2.logger, msg)
+
+        def log_stop_on_err():
+            """Local function to log changes to the stop on error cb"""
+            checked = (self.loop_stop_on_err.get() == "Enabled")
+            msg = ("(Preferences, Looping) {} Stop on non-fatal error button"
+                   .format("checked" if checked else "unchecked"))
+            log_user_action(self.master.ivs2.logger, msg)
+
         # Add container box for widgets
         looping_widget_box = ttk.Frame(master=self.looping_tab, padding=20)
 
@@ -7344,6 +7616,7 @@ class PreferencesDialog(Dialog):
         restore_looping_cb_text = "Restore looping settings at startup"
         restore_looping_cb = ttk.Checkbutton(master=looping_widget_box,
                                              text=restore_looping_cb_text,
+                                             command=log_restore_looping,
                                              variable=self.restore_looping,
                                              onvalue="Enabled",
                                              offvalue="Disabled")
@@ -7353,6 +7626,7 @@ class PreferencesDialog(Dialog):
         loop_stop_on_err_cb_text = "Stop on non-fatal errors when looping"
         loop_stop_on_err_cb = ttk.Checkbutton(master=looping_widget_box,
                                               text=loop_stop_on_err_cb_text,
+                                              command=log_stop_on_err,
                                               variable=self.loop_stop_on_err,
                                               onvalue="Enabled",
                                               offvalue="Disabled")
@@ -7362,6 +7636,7 @@ class PreferencesDialog(Dialog):
         if self.master.config.cfg.has_section(section):
             # Invoke the checkbutton if "restore values" is True
             option = "restore values"
+            self.restore_looping.set("Disabled")
             if self.master.config.cfg.getboolean(section, option):
                 restore_looping_cb.invoke()
             # Set the stop on error checkbutton according to the value
@@ -7389,6 +7664,8 @@ class PreferencesDialog(Dialog):
     # -------------------------------------------------------------------------
     def show_looping_help(self):
         """Method to display Looping tab help"""
+        msg = "(Preferences, Looping) clicked Help button"
+        log_user_action(self.master.ivs2.logger, msg)
         LoopingHelpDialog(self.master)
 
     # -------------------------------------------------------------------------
@@ -7567,6 +7844,10 @@ class PreferencesDialog(Dialog):
                                  columnspan=2)
         arduino_restore.grid(column=0, row=0, sticky=W)
 
+        self.fill_arduino_vars_dict()
+        self.capture_curr_arduino_vars()
+        self.prev_arduino_var_vals = dict(self.curr_arduino_var_vals)
+
     # -------------------------------------------------------------------------
     def restore_arduino_defaults(self, event=None):
         """Method to restore Arduino tab values to defaults"""
@@ -7625,7 +7906,48 @@ effect. Please upgrade.
     # -------------------------------------------------------------------------
     def show_arduino_help(self):
         """Method to display Arduino tab help"""
+        msg = "(Preferences, Arduino) clicked Help button"
+        log_user_action(self.master.ivs2.logger, msg)
         ArduinoHelpDialog(self.master)
+
+    # -------------------------------------------------------------------------
+    def fill_arduino_vars_dict(self):
+        """Method to fill the arduino_vars dict with the arduino
+           variables.
+        """
+        self.arduino_vars = {}
+        self.arduino_vars["spi_clk"] = self.spi_clk_str
+        self.arduino_vars["max_iv_points"] = self.max_iv_points_str
+        self.arduino_vars["min_isc_adc"] = self.min_isc_adc_str
+        self.arduino_vars["max_isc_poll"] = self.max_isc_poll_str
+        self.arduino_vars["isc_stable_adc"] = self.isc_stable_adc_str
+        self.arduino_vars["max_discards"] = self.max_discards_str
+        self.arduino_vars["aspect_height"] = self.aspect_height_str
+        self.arduino_vars["aspect_width"] = self.aspect_width_str
+        self.arduino_vars["relay_active_high"] = self.relay_active_high_str
+
+    # -------------------------------------------------------------------------
+    def capture_curr_arduino_vars(self):
+        """Method to capture the current values of all of the Arduino tab
+           variables
+        """
+        self.curr_arduino_var_vals = {}
+        for name in self.arduino_vars:
+            self.curr_arduino_var_vals[name] = self.arduino_vars[name].get()
+
+    # -------------------------------------------------------------------------
+    def diff_arduino_vars(self):
+        """Method to compare the current values of all of the Arduino tab
+           variables with the captured values and log the user action.
+        """
+        self.capture_curr_arduino_vars()
+        for name in self.arduino_vars:
+            prev = self.prev_arduino_var_vals[name]
+            curr = self.curr_arduino_var_vals[name]
+            if prev != curr:
+                msg = ("(Preferences, Arduino) changed {} from {} to {}"
+                       .format(name, prev, curr))
+                log_user_action(self.master.ivs2.logger, msg)
 
     # -------------------------------------------------------------------------
     def initialize_pv_specs(self):
@@ -7678,6 +8000,10 @@ effect. Please upgrade.
         pv_model_apply.grid(column=0, row=0, sticky=W)
         pv_model_apply_box.grid(column=1, row=1, sticky=E)
 
+        self.fill_pv_model_vars_dict()
+        self.capture_curr_pv_model_vars()
+        self.prev_pv_model_var_vals = dict(self.curr_pv_model_var_vals)
+
     # -------------------------------------------------------------------------
     def set_entry_vars_from_pv_spec_dict(self, pv_spec_dict):
         """Method to set the Entry widget variables based on the seleced PV
@@ -7716,6 +8042,49 @@ effect. Please upgrade.
         self.pv_noct.set("")
 
     # -------------------------------------------------------------------------
+    def fill_pv_model_vars_dict(self):
+        """Method to fill the pv_model_vars dict with the PV model variables
+        """
+        self.pv_model_vars = {}
+        self.pv_model_vars["pv_name"] = self.pv_name
+        self.pv_model_vars["pv_voc"] = self.pv_voc
+        self.pv_model_vars["pv_isc"] = self.pv_isc
+        self.pv_model_vars["pv_vmp"] = self.pv_vmp
+        self.pv_model_vars["pv_imp"] = self.pv_imp
+        self.pv_model_vars["pv_vmp"] = self.pv_vmp
+        self.pv_model_vars["pv_cells"] = self.pv_cells
+        self.pv_model_vars["pv_voc_coeff"] = self.pv_voc_coeff
+        self.pv_model_vars["pv_voc_coeff_units"] = self.pv_voc_coeff_units
+        self.pv_model_vars["pv_isc_coeff"] = self.pv_isc_coeff
+        self.pv_model_vars["pv_isc_coeff_units"] = self.pv_isc_coeff_units
+        self.pv_model_vars["pv_mpp_coeff"] = self.pv_mpp_coeff
+        self.pv_model_vars["pv_noct"] = self.pv_noct
+
+    # -------------------------------------------------------------------------
+    def capture_curr_pv_model_vars(self):
+        """Method to capture the current values of all of the entry widget
+           variables.
+        """
+        self.curr_pv_model_var_vals = {}
+        for name in self.pv_model_vars:
+            self.curr_pv_model_var_vals[name] = self.pv_model_vars[name].get()
+
+    # -------------------------------------------------------------------------
+    def diff_pv_model_vars(self):
+        """Method to compare the current values of all of the PV Model tab
+           variables with the captured values and log the user action.
+        """
+        self.capture_curr_pv_model_vars()
+        for name in self.pv_model_vars:
+            prev = self.prev_pv_model_var_vals[name]
+            curr = self.curr_pv_model_var_vals[name]
+            if prev != curr:
+                msg = ("(Preferences, Pv Model) changed {} from {} to {}"
+                       .format(name, prev.encode("utf-8"),
+                               curr.encode("utf-8")))
+                log_user_action(self.master.ivs2.logger, msg)
+
+    # -------------------------------------------------------------------------
     def create_pv_model_listbox(self, master):
         """Method to create and initialize the PV model listbox.
         """
@@ -7740,9 +8109,12 @@ effect. Please upgrade.
         # Select entry in listbox
         pv_name_unicode = self.master.ivs2.pv_name.decode("utf-8")
         if pv_name_unicode in self.pv_model_listbox.get(0, END):
-            self.select_in_listbox(self.master.ivs2.pv_name)
+            select_val = self.master.ivs2.pv_name
         else:
-            self.select_in_listbox("NONE")
+            select_val = "NONE"
+        self.select_in_listbox(select_val)
+        self.master.ivs2.logger.log("PV Model initial selection: {}"
+                                    .format(select_val))
 
         # Add tooltip
         tt_text = ("Select NONE if the PV under test is has unknown "
@@ -7863,7 +8235,7 @@ effect. Please upgrade.
         # Test button and entries
         test_button_and_entries_box = ttk.Frame(master=labels_entries_box)
         self.pv_test_button = ttk.Button(master=test_button_and_entries_box,
-                                         command=self.run_pv_model_test,
+                                         command=self.pv_test_button_actions,
                                          text="Test")
         test_at_label = ttk.Label(master=test_button_and_entries_box,
                                   text=" @ ")
@@ -7893,12 +8265,12 @@ effect. Please upgrade.
                    cells_entry, voc_coeff_entry, isc_coeff_entry,
                    mpp_coeff_entry, noct_entry]
         for widget in widgets:
-            widget.bind("<Return>", self.pv_spec_update_actions)
+            widget.bind("<Return>", self.pv_spec_widget_actions)
 
         # Bind combobox events
         widgets = [voc_coeff_combo, isc_coeff_combo]
         for widget in widgets:
-            widget.bind("<<ComboboxSelected>>", self.pv_spec_update_actions)
+            widget.bind("<<ComboboxSelected>>", self.pv_spec_widget_actions)
 
         # Add tooltips
         tt_text = ("Type a new PV name (or modify an existing one) to add a "
@@ -8021,6 +8393,28 @@ effect. Please upgrade.
         """Method to create the checkbox and entry widgets for the PV model
            configuration option controls.
         """
+        # pylint: disable=too-many-locals
+        def log_use_avg_temp():
+            """Local function to log changes to the Use avg sensor temp cb"""
+            checked = (self.use_avg_temp.get() == "Enabled")
+            msg = ("(Preferences, PV Model) {} Use avg sensor temp button"
+                   .format("checked" if checked else "unchecked"))
+            log_user_action(self.master.ivs2.logger, msg)
+
+        def log_use_est_irrad():
+            """Local function to log changes to the Use est irradiance cb"""
+            checked = (self.use_est_irrad.get() == "Enabled")
+            msg = ("(Preferences, PV Model) {} Use estimated irradiance button"
+                   .format("checked" if checked else "unchecked"))
+            log_user_action(self.master.ivs2.logger, msg)
+
+        def log_use_est_cell_temp():
+            """Local function to log changes to the Use est cell temp cb"""
+            checked = (self.use_est_temp.get() == "Enabled")
+            msg = ("(Preferences, PV Model) {} Use estimated cell temp button"
+                   .format("checked" if checked else "unchecked"))
+            log_user_action(self.master.ivs2.logger, msg)
+
         # Add box around all widgets
         config_widgets_box = ttk.Frame(master=master)
 
@@ -8042,6 +8436,7 @@ effect. Please upgrade.
         # properties
         use_avg_temp_cb = ttk.Checkbutton(master=config_widgets_box,
                                           text="Use avg sensor temp",
+                                          command=log_use_avg_temp,
                                           variable=self.use_avg_temp,
                                           onvalue="Enabled",
                                           offvalue="Disabled")
@@ -8049,6 +8444,7 @@ effect. Please upgrade.
             self.use_avg_temp.set("Enabled")
         use_est_irrad_cb = ttk.Checkbutton(master=config_widgets_box,
                                            text="Use estimated irradiance",
+                                           command=log_use_est_irrad,
                                            variable=self.use_est_irrad,
                                            onvalue="Enabled",
                                            offvalue="Disabled")
@@ -8056,6 +8452,7 @@ effect. Please upgrade.
             self.use_est_irrad.set("Enabled")
         use_est_temp_cb = ttk.Checkbutton(master=config_widgets_box,
                                           text="Use estimated cell temp",
+                                          command=log_use_est_cell_temp,
                                           variable=self.use_est_temp,
                                           onvalue="Enabled",
                                           offvalue="Disabled")
@@ -8143,12 +8540,18 @@ effect. Please upgrade.
         _, curr_name = self.get_curr_pv_model_listbox_index_and_name()
         self.selected_pv = curr_name if curr_name != "NONE" else "NONE"
 
+        msg = "(Preferences, PV Model) selected {}".format(curr_name)
+        log_user_action(self.master.ivs2.logger, msg)
+
         # Search pv_specs for that name and set the entry variables to
         # its spec values
         self.set_entry_vars_to_empty()
         pv_spec_dict = self.get_curr_pv_spec_dict(curr_name)
         if pv_spec_dict is not None:
             self.set_entry_vars_from_pv_spec_dict(pv_spec_dict)
+
+        self.capture_curr_pv_model_vars()
+        self.prev_pv_model_var_vals = dict(self.curr_pv_model_var_vals)
 
     # -------------------------------------------------------------------------
     def get_pv_name(self):
@@ -8210,12 +8613,22 @@ effect. Please upgrade.
         return RC_SUCCESS
 
     # -------------------------------------------------------------------------
-    def pv_spec_update_actions(self, event=None):
-        """Method to perform actions when any of the PV spec entry (and
-           combobox) widgets is updated.
+    def pv_spec_widget_actions(self, event=None):
+        """Method called when any of the PV spec entry or combobox widgets is
+           updated. Just a wrapper around pv_spec_update_actions needed
+           for logging.
         """
         # pylint: disable=unused-argument
+        self.diff_pv_model_vars()
+        self.pv_spec_update_actions()
+        self.capture_curr_pv_model_vars()
+        self.prev_pv_model_var_vals = dict(self.curr_pv_model_var_vals)
 
+    # -------------------------------------------------------------------------
+    def pv_spec_update_actions(self):
+        """Method to perform actions when any of the PV spec entry or combobox
+           widgets is updated.
+        """
         # For some reason the listbox selection is lost sometimes, so we
         # need to restore it.
         self.select_in_listbox(self.selected_pv)
@@ -8284,6 +8697,8 @@ it and then edit the parameter values.
         """Method to perform actions when the delete button is pressed.
         """
         # pylint: disable=unused-argument
+        msg = "(Preferences, PV Model) clicked Delete button"
+        log_user_action(self.master.ivs2.logger, msg)
 
         # Get the index and name of the currently selected listbox entry
         self.select_in_listbox(self.selected_pv)
@@ -8389,12 +8804,10 @@ it and then edit the parameter values.
         return RC_SUCCESS
 
     # -------------------------------------------------------------------------
-    def run_pv_model_test(self, event=None):
+    def run_pv_model_test(self):
         """Method to run the PV model test when the Test button is pressed on
            the PV model tab.
         """
-        # pylint: disable=unused-argument
-
         # Apply the current PV spec values to the model
         if self.apply_specs_to_pv_model() == RC_FAILURE:
             return
@@ -8433,12 +8846,26 @@ it and then edit the parameter values.
         self.master.ivs2.clean_up_files(self.master.ivs2.hdd_output_dir)
 
     # -------------------------------------------------------------------------
+    def pv_test_button_actions(self, event=None):
+        """Method to log the pressing of the Test button and run the test
+        """
+        # pylint: disable=unused-argument
+        msg1 = "(Preferences, PV Model) pressed Test button "
+        msg2 = ("({} W/m^2, {} deg C)".format(self.pv_test_irrad.get(),
+                                              self.pv_test_cell_temp.get()))
+        msg = msg1 + msg2
+        log_user_action(self.master.ivs2.logger, msg)
+        self.run_pv_model_test()
+
+    # -------------------------------------------------------------------------
     def set_to_stc_and_run(self, event=None):
         """Method to set the irradiance and temperature to the STC values and
            run the PV model test when the STC button is pressed on the
            PV model tab.
         """
         # pylint: disable=unused-argument
+        msg = "(Preferences, PV Model) pressed STC button"
+        log_user_action(self.master.ivs2.logger, msg)
         self.pv_test_irrad.set("{}".format(STC_IRRAD))
         self.pv_test_cell_temp.set("{}".format(STC_T_C))
         self.run_pv_model_test()
@@ -8450,6 +8877,8 @@ it and then edit the parameter values.
            PV model tab.
         """
         # pylint: disable=unused-argument
+        msg = "(Preferences, PV Model) pressed NOC button"
+        log_user_action(self.master.ivs2.logger, msg)
         self.pv_test_irrad.set("{}".format(NOC_IRRAD))
         self.pv_test_cell_temp.set("{}".format(self.pv_noct.get()))
         self.run_pv_model_test()
@@ -8491,11 +8920,15 @@ it and then edit the parameter values.
     # -------------------------------------------------------------------------
     def show_pv_model_help(self):
         """Method to display PV Model tab help"""
+        msg = "(Preferences, PV Model) clicked Help button"
+        log_user_action(self.master.ivs2.logger, msg)
         PvModelHelpDialog(self.master)
 
     # -------------------------------------------------------------------------
     def pv_model_apply_button_actions(self):
         """Method to apply changes without dismissing dialog"""
+        msg = "(Preferences, PV Model) clicked Apply button"
+        log_user_action(self.master.ivs2.logger, msg)
         # Apply the current PV spec values to the model
         if self.selected_pv == "NONE":
             self.pv_spec_update_actions()
@@ -8749,6 +9182,13 @@ it and then edit the parameter values.
         """Method to override apply() method of parent to apply new values to
            properties and the config
         """
+        # Diffs for user action logging
+        self.diff_plotting_vars()
+        self.diff_arduino_vars()
+        self.prev_plotting_var_vals = dict(self.curr_plotting_var_vals)
+        self.prev_arduino_var_vals = dict(self.curr_arduino_var_vals)
+
+        # Don't apply changes if validation fails
         if not self.validate():
             return
 
@@ -8988,6 +9428,10 @@ written to Arduino EEPROM.
                 self.master.config.cfg_set(section, option,
                                            cell_temp_adjust)
                 self.master.ivs2.cell_temp_adjust = cell_temp_adjust
+                msg1 = "(Preferences, PV Model) changed cell temp adjust "
+                msg2 = ("from {} to {}".format(config_val, cell_temp_adjust))
+                msg = msg1 + msg2
+                log_user_action(self.master.ivs2.logger, msg)
                 pv_model_opt_changed = True
 
         if ((pv_model_opt_changed or pv_spec_changed) and
@@ -9674,8 +10118,11 @@ class PlotPower(ttk.Checkbutton):
     def update_plot_power(self, event=None):
         """Method to update and apply the plot power option"""
         # pylint: disable=unused-argument
-        plot = (self.plot_power.get() == "Plot")
-        self.mm.handle_plot_power_or_ref_event(button="power", plot=plot)
+        checked = (self.plot_power.get() == "Plot")
+        msg = ("(Main) {} Plot Power button"
+               .format("checked" if checked else "unchecked"))
+        log_user_action(self.mm.ivs2.logger, msg)
+        self.mm.handle_plot_power_or_ref_event(button="power", plot=checked)
 
 
 # Plot ref checkbutton class
@@ -9702,8 +10149,11 @@ class PlotRef(ttk.Checkbutton):
     def update_plot_ref(self, event=None):
         """Method to update and apply the plot ref option"""
         # pylint: disable=unused-argument
-        plot = (self.plot_ref.get() == "Plot")
-        self.mm.handle_plot_power_or_ref_event(button="ref", plot=plot)
+        checked = (self.plot_ref.get() == "Plot")
+        msg = ("(Main) {} Plot Reference button"
+               .format("checked" if checked else "unchecked"))
+        log_user_action(self.mm.ivs2.logger, msg)
+        self.mm.handle_plot_power_or_ref_event(button="ref", plot=checked)
 
 
 # Lock axes checkbutton class
@@ -9726,10 +10176,13 @@ class LockAxes(ttk.Checkbutton):
     # -------------------------------------------------------------------------
     def update_axis_lock(self, event=None):
         """Method to update and apply the axis lock"""
-        # pylint: disable=unused-argument
-        axes_are_locked = (self.axes_locked.get() == "Lock")
+        checked = (self.axes_locked.get() == "Lock")
+        msg = ("(Main) {} Axis Ranges Lock button"
+               .format("checked" if checked else "unchecked"))
+        if event is None:
+            log_user_action(self.gui.ivs2.logger, msg)
         # Update IVS2 property
-        self.gui.ivs2.plot_lock_axis_ranges = axes_are_locked
+        self.gui.ivs2.plot_lock_axis_ranges = checked
         # Update values in range boxes
         self.gui.update_axis_ranges()
         # (Optionally) redisplay the image with the new settings (saves
@@ -9768,6 +10221,10 @@ class LoopMode(ttk.Checkbutton):
     def update_loop_mode(self, event=None):
         """Method to update and apply the loop mode option"""
         # pylint: disable=unused-argument
+        msg = ("(Main) {} Loop Mode button"
+               .format("checked" if self.loop_mode.get() == "On"
+                       else "unchecked"))
+        log_user_action(self.gui.ivs2.logger, msg)
         if self.loop_mode.get() == "On":
             self.gui.loop_mode.set("On")
             self.gui.props.loop_mode_active = True
@@ -9825,6 +10282,10 @@ class LoopRateLimit(ttk.Checkbutton):
     def update_loop_rate_limit(self, event=None):
         """Method to update and apply the loop rate limit option"""
         # pylint: disable=unused-argument
+        msg = ("(Main) {} Loop Mode Rate Limit button"
+               .format("checked" if self.loop_rate_limit.get() == "On"
+                       else "unchecked"))
+        log_user_action(self.gui.ivs2.logger, msg)
         if self.value_label_obj is not None:
             self.value_label_obj.destroy()
         if self.loop_rate_limit.get() == "On":
@@ -9835,10 +10296,14 @@ class LoopRateLimit(ttk.Checkbutton):
                                            prompt=prompt_str,
                                            initialvalue=curr_loop_delay)
             if new_loop_delay:
+                msg = "Set loop delay to {}".format(new_loop_delay)
+                log_user_action(self.gui.ivs2.logger, msg)
                 self.gui.props.loop_rate_limit = True
                 self.gui.props.loop_delay = new_loop_delay
                 self.update_value_str()
             else:
+                msg = "Canceled loop delay (unchecked Loop Mode Rate Limit)"
+                log_user_action(self.gui.ivs2.logger, msg)
                 self.gui.props.loop_rate_limit = False
                 self.gui.props.loop_delay = 0
                 self.state(["!selected"])
@@ -9884,6 +10349,10 @@ class LoopSaveResults(ttk.Checkbutton):
     def update_loop_save_results(self, event=None):
         """Method to update and apply the loop save results options"""
         # pylint: disable=unused-argument
+        msg = ("(Main) {} Loop Mode Save Results button"
+               .format("checked" if self.loop_save_results.get() == "On"
+                       else "unchecked"))
+        log_user_action(self.gui.ivs2.logger, msg)
         if self.value_label_obj is not None:
             self.value_label_obj.destroy()
         if self.loop_save_results.get() == "On":
@@ -9894,6 +10363,10 @@ class LoopSaveResults(ttk.Checkbutton):
                                             "only. Do you want to save PDFs"
                                             " and GIFs too?",
                                             default=tkmsg.NO)
+            msg = ("(Main) chose to save {} loop mode"
+                   .format("CSV results only in"
+                           if not include_graphs else "all results in"))
+            log_user_action(self.gui.ivs2.logger, msg)
             self.gui.props.loop_save_graphs = include_graphs
             self.update_value_str()
         else:
