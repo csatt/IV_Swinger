@@ -1353,7 +1353,7 @@ class PV_model(object):
         # Number of loops is two less than num_points because MPP and
         # Voc are added
         num_loops = num_points - 2
-        for ii in xrange(num_loops):
+        for ii in range(num_loops):
             # Voltage increments are proportional to the square root of
             # the point number. This results in large voltage increments
             # at Isc end of the curve and very small voltage increments

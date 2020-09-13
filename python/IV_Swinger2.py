@@ -501,7 +501,7 @@ def noise_reduction(adc_pairs, starting_rot_thresh=5.0,
     adc_pairs_nr = adc_pairs[:]
     num_points = len(adc_pairs)
     rot_thresh = starting_rot_thresh
-    for _ in xrange(max_iterations):
+    for _ in range(max_iterations):
         # Calculate the distance (in points) of the "far" points for
         # the inflection comparison.  It is 1/20 of the total number
         # of points, but always at least 2.
@@ -513,7 +513,7 @@ def noise_reduction(adc_pairs, starting_rot_thresh=5.0,
         # of the rotation angles.
         rot_at_point = []
         pairs_list = adc_pairs_nr
-        for point in xrange(num_points - 1):
+        for point in range(num_points - 1):
             rot_degrees = rotation_at_point(pairs_list, point)
             rot_at_point.append((point, rot_degrees))
         sorted_points = sorted(rot_at_point,
@@ -4572,9 +4572,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             reduced_rotation_count = 0
             if dist == 2:
                 retry = -1
-            for point in xrange(dist):
+            for point in range(dist):
                 lrd_list.append(-999.0)
-            for point in xrange(dist, num_points - 1 - dist):
+            for point in range(dist, num_points - 1 - dist):
                 long_rot_degrees = rotation_at_point(adc_pairs,
                                                      point,
                                                      dist)
@@ -4599,7 +4599,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 prev_long_rot_degrees = long_rot_degrees
             deflect_begin_found = False
             if max_long_rot_degrees > 0.0:
-                for point in xrange(max_long_rot_point/2, len(lrd_list) - 1):
+                for point in range(max_long_rot_point/2, len(lrd_list) - 1):
                     if lrd_list[point] >= max_long_rot_degrees / 15.0:
                         deflect_begin = point
                         if deflect_begin >= 3 * dist or dist == 2:

@@ -406,7 +406,7 @@ def swizzle_byte(byte):  # IVS1
     """Global function to reverse the order of the bits in a byte"""
     swizzled_byte = 0
 
-    for bit in xrange(8):
+    for bit in range(8):
         swizzled_byte |= ((byte & (1 << bit)) >> bit) << (7 - bit)
 
     return swizzled_byte
@@ -681,7 +681,7 @@ class BeepGenerator(object):  # IVS1
         GPIO.output(self.buzzer_gpio, True)
 
         # Wait for on_time
-        for _ in xrange(on_loops):
+        for _ in range(on_loops):
             # bail out now if stop event is set
             if stop_event is not None and stop_event.is_set():
                 continue
@@ -691,7 +691,7 @@ class BeepGenerator(object):  # IVS1
         GPIO.output(self.buzzer_gpio, False)
 
         # Wait for off_time
-        for _ in xrange(off_loops):
+        for _ in range(off_loops):
             # bail out now if stop event is set
             if stop_event is not None and stop_event.is_set():
                 continue
@@ -870,9 +870,9 @@ class ScrollingMessage(StoppableThread):  # IVS1
 
         # Scroll the message the calculated number of times and repeat the
         # whole thing the requested number of times
-        for _ in xrange(repeat_count + 1):
-            for _ in xrange(num_scrolls):
-                for _ in xrange(ScrollingMessage.lcd_chars_per_scroll):
+        for _ in range(repeat_count + 1):
+            for _ in range(num_scrolls):
+                for _ in range(ScrollingMessage.lcd_chars_per_scroll):
                     got_lock = True
                     if self.lock is not None:
                         got_lock = self.lock.acquire(0)  # non-blocking
@@ -1266,7 +1266,7 @@ class Interpolator(object):
            point in the input list and ends with the second-to-last point.
         """
         interpolated_curve = []
-        for first_point_num in xrange(len(vi_points_list) - 3):
+        for first_point_num in range(len(vi_points_list) - 3):
             four_points = [vi_points_list[first_point_num],
                            vi_points_list[first_point_num + 1],
                            vi_points_list[first_point_num + 2],
@@ -2504,7 +2504,7 @@ class IV_Swinger(object):
             millivolt_sum = millivolt_max = millivolt_min = \
                 millivolt_avg = millivolts
             if abs(millivolts) > pga / 3 or pga == PGA_LIST[-1]:
-                for _ in xrange(self.samples_per_measurement - 1):
+                for _ in range(self.samples_per_measurement - 1):
                     millivolts = adc.readADCDifferential(chP, chN,
                                                          pga, self.sps)
                     millivolt_sum += millivolts
@@ -4782,7 +4782,7 @@ class IV_Swinger(object):
         io_extender = (
             Adafruit_MCP230xx.Adafruit_MCP230XX(self.mcp23017_i2c_addr,
                                                 MCP23017_PIN_COUNT))
-        for pin in xrange(MCP23017_PIN_COUNT):
+        for pin in range(MCP23017_PIN_COUNT):
             io_extender.config(pin, io_extender.OUTPUT)
 
         # Run the rest with all exceptions causing a call to the
