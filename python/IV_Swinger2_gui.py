@@ -1471,7 +1471,7 @@ This could be for one of the following reasons:
 
         # If we're still displaying a splash screen, update it to
         # the new size. If an IV curve is showing, regenerate it..
-        if self.img_pane.splash_img_showing:
+        if self.img_pane.splash_img_showing or not self.ivs2.hdd_output_dir:
             self.img_pane.display_splash_img()
         elif self.props.overlay_mode:
             self.results_wiz.plot_overlay_and_display()
