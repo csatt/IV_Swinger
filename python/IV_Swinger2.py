@@ -1315,7 +1315,7 @@ class Configuration(object):
             self.cfg_dump()
         # Attempt to open the file for writing
         try:
-            with open(self.cfg_filename, "wb") as cfg_fp:
+            with open(self.cfg_filename, "w") as cfg_fp:
                 # Write config to file
                 self.cfg.write(cfg_fp)
         except IOError:
@@ -1344,7 +1344,7 @@ class Configuration(object):
             self.ivs2.logger.print_and_log(dbg_str)
         # Attempt to open the file for writing
         try:
-            with open(self.cfg_filename, "wb") as cfg_fp:
+            with open(self.cfg_filename, "w") as cfg_fp:
                 self.cfg_snapshot.write(cfg_fp)
         except IOError:
             # Failed to open file for writing
