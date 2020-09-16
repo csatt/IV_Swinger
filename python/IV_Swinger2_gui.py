@@ -675,6 +675,10 @@ This could be for one of the following reasons:
                              foreground="red",
                              padding=4,
                              font=font)
+        self.style.configure("go_stop_button_disabled.TButton",
+                             foreground="black",
+                             padding=4,
+                             font=font)
 
     # -------------------------------------------------------------------------
     def set_grid(self):
@@ -991,7 +995,7 @@ This could be for one of the following reasons:
         # Go button
         self.go_button = GoStopButton(master=self.go_button_box)
         if not self.ivs2.arduino_ready:
-            self.go_button.state(["disabled"])
+            self.disable_go_button()
         # Tooltip
         tt_text = ("Trigger an IV curve trace (if connected). If loop mode is "
                    "selected, this button changes to a STOP button and curve "
@@ -1015,6 +1019,23 @@ This could be for one of the following reasons:
 
         # Grid placement of box within main GUI
         self.go_button_box.grid(**self.grid_args["go_button_box"])
+
+    # -------------------------------------------------------------------------
+    def disable_go_button(self):
+        """Method to change the text color of the go button to black and
+           disable the button.
+        """
+        self.go_button.configure(style="go_stop_button_disabled.TButton")
+        self.go_button.configure(style=None)
+        self.go_button.state(["disabled"])
+
+    # -------------------------------------------------------------------------
+    def enable_go_button(self):
+        """Method to change the text color of the go button to red and
+           enable the button.
+        """
+        self.go_button.configure(style="go_stop_button.TButton")
+        self.go_button.state(["!disabled"])
 
     # -------------------------------------------------------------------------
     def create_plot_power_and_ref_box(self):
@@ -1051,7 +1072,9 @@ This could be for one of the following reasons:
                                        text=pv_name_label_text,
                                        wraplength="115")
         style = ttk.Style()
-        style.configure("pv_name.TLabel", foreground="blue")
+        # Hardcode the teal-ish color that is the first choice for
+        # "accent color" on Mac for both light and dark modes
+        style.configure("pv_name.TLabel", foreground="#027AFA")
         if pv_name_label_text:
             self.pv_name_label["style"] = "pv_name.TLabel"
         else:
@@ -1302,7 +1325,7 @@ This could be for one of the following reasons:
             self.ivs2.find_arduino_port()
 
         if self.ivs2.usb_port is not None:
-            self.go_button.state(["disabled"])
+            self.disable_go_button()
             self.go_button_status_label["text"] = "Not connected"
             self.update_idletasks()
             # Reset Arduino
@@ -1311,7 +1334,7 @@ This could be for one of the following reasons:
                 # Wait for Arduino ready message
                 rc = self.ivs2.wait_for_arduino_ready_and_ack(write_eeprom)
                 if rc == RC_SUCCESS:
-                    self.go_button.state(["!disabled"])
+                    self.enable_go_button()
                     self.go_button_status_label["text"] = "     Connected     "
                     self.after(1000,
                                self.clear_go_button_status_label)
@@ -1671,7 +1694,7 @@ This could be for one of the following reasons:
         """
         if self.ivs2.arduino_ready and self.ivs2.usb_port_disconnected():
             self.ivs2.arduino_ready = False
-            self.go_button.state(["disabled"])
+            self.disable_go_button()
             self.go_button_status_label["text"] = "Not connected"
             self.reestablish_arduino_comm()
 
@@ -2448,7 +2471,7 @@ class ResultsWizard(tk.Toplevel):
            wizard is running
         """
         self.master.results_button.state(["disabled"])
-        self.master.go_button.state(["disabled"])
+        self.master.disable_go_button()
 
     # -------------------------------------------------------------------------
     def change_min_height(self, min_height):
@@ -2564,7 +2587,7 @@ class ResultsWizard(tk.Toplevel):
         self.tree.configure(yscroll=self.treescroll.set)
         self.tree.bind("<<TreeviewSelect>>", self.select)
         self.configure_tree_size()
-        self.tree.insert("", "end", "", text="WORKING...")
+        self.tree.insert("", "end", text="WORKING...")
         self.master.root.after(100, self.populate_tree)
         tt_text = ("Click on path at the top to change. Shift-click and "
                    "Control-click can be used to select multiple runs "
@@ -2749,7 +2772,7 @@ class ResultsWizard(tk.Toplevel):
         self.master.focus_set()
         self.master.results_button.state(["!disabled"])
         if self.master.ivs2.arduino_ready:
-            self.master.go_button.state(["!disabled"])
+            self.master.enable_go_button()
         self.master.config.cfg_filename = None  # property will restore
         self.master.config.get()
         self.master.update_plot_power_cb()
@@ -10091,7 +10114,7 @@ class GoStopButton(ttk.Button):
         self["text"] = "Swing!"
         if text is not None:
             self["text"] = text
-        self["style"] = "go_stop_button.TButton"
+        self["style"] = "go_stop_button_disabled.TButton"
 
 
 # Plot power checkbutton class

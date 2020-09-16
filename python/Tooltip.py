@@ -38,6 +38,7 @@ class Tooltip(object):
 
     def __init__(self, widget,
                  bg='#FFFFEA',
+                 fg='black',
                  pad=(5, 3, 5, 3),
                  text='widget info',
                  waittime=400,
@@ -57,6 +58,7 @@ class Tooltip(object):
         self.widget.bind("<Leave>", self.on_leave)
         self.widget.bind("<ButtonPress>", self.on_leave)
         self.bg = bg
+        self.fg = fg
         self.pad = pad
         self.id = None
         self.tw = None
@@ -144,6 +146,7 @@ class Tooltip(object):
             return x1, y1
 
         bg = self.bg
+        fg = self.fg
         pad = self.pad
         widget = self.widget
 
@@ -160,6 +163,7 @@ class Tooltip(object):
                          text=self.text,
                          justify=tk.LEFT,
                          background=bg,
+                         foreground=fg,
                          relief=tk.SOLID,
                          borderwidth=0,
                          wraplength=self.wraplength)
