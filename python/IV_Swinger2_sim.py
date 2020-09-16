@@ -358,11 +358,11 @@ def set_dialog_geometry(dialog, min_height=None, max_height=None):
         dialog.minsize(width, min_height)
         dialog.maxsize(width, max_height)
         dialog.geometry("{}x{}+{}+5".format(width, min_height,
-                                            (dialog.winfo_screenwidth()/2 -
-                                             width/2)))
+                                            (dialog.winfo_screenwidth()//2 -
+                                             width//2)))
     else:
-        dialog.geometry("+{}+5".format(dialog.winfo_screenwidth()/2 -
-                                       width/2))
+        dialog.geometry("+{}+5".format(dialog.winfo_screenwidth()//2 -
+                                       width//2))
     dialog.lift()
     dialog.attributes("-topmost", True)
     dialog.after_idle(dialog.attributes, "-topmost", False)
@@ -1071,7 +1071,7 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
 
         # Compute minimum manhattan distance. Same as Arduino code.
         min_manhattan_distance = (((isc_adc * i_scale) +
-                                   (voc_adc * v_scale)) /
+                                   (voc_adc * v_scale)) //
                                   self.max_iv_points)
 
         # Step through ADC pairs, discarding those that are too close to

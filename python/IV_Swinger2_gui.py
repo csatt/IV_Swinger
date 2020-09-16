@@ -1998,8 +1998,8 @@ bias was actually applied.
         """Method to cause app to open centered (side-to-side) on screen,
            aligned to top (5 pixel overscan compensation)
         """
-        self.root.geometry("+{}+5".format((self.root.winfo_screenwidth()/2) -
-                                          (self.ivs2.x_pixels/2)))
+        self.root.geometry("+{}+5".format((self.root.winfo_screenwidth()//2) -
+                                          (self.ivs2.x_pixels//2)))
 
     # -------------------------------------------------------------------------
     def start_to_right(self):
@@ -3915,10 +3915,10 @@ class ResultsWizard(tk.Toplevel):
         # headings.
         col0_text = "Date/Time"
         col1_text = "Name (2-click to change)"
-        self.overlay_widget_treeview.column("#0", width=WIZARD_TREE_WIDTH/2)
+        self.overlay_widget_treeview.column("#0", width=WIZARD_TREE_WIDTH//2)
         self.overlay_widget_treeview.heading("#0", text=col0_text,
                                              command=self.chron_sort_overlays)
-        self.overlay_widget_treeview.column("#1", width=WIZARD_TREE_WIDTH/2)
+        self.overlay_widget_treeview.column("#1", width=WIZARD_TREE_WIDTH//2)
         self.overlay_widget_treeview.heading("#1", text=col1_text,
                                              command=self.overlay_tv_col1_help)
 
@@ -10039,7 +10039,7 @@ class ImagePane(ttk.Label):
         img = Image.open(self.img_file).resize((x_pixels, y_pixels))
         self.current_img = ImageTk.PhotoImage(img)
         if text is not None:
-            self.font.configure(size=int(-y_pixels/20))  # neg => pixel height
+            self.font.configure(size=int(-y_pixels//20))  # neg => pixel height
             self["font"] = self.font
             self["justify"] = "center"
             self["text"] = text

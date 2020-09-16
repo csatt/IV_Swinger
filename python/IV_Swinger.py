@@ -1173,11 +1173,11 @@ class Interpolator(object):
             t_j = math.hypot(x_j - x_i, y_j - y_i) ** alpha + t_i
             if t_j == t_i:
                 # Prevent divide-by-zero
-                t_j += (1 / INFINITE_VAL)
+                t_j += (1.0 / INFINITE_VAL)
             return t_j
 
         # Calculate t_0 to t_3
-        t_0 = 0
+        t_0 = 0.0
         t_1 = t_j(t_0, p_0, p_1)
         t_2 = t_j(t_1, p_1, p_2)
         t_3 = t_j(t_2, p_2, p_3)

@@ -4484,8 +4484,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if deflect_begin < 2:
             # Force to minimum of 2 so extrapolation is always possible
             deflect_begin = 2
-        pt2 = (deflect_begin / 2) + 1
-        max_pt1 = (pt2 / 2) + 1
+        pt2 = (deflect_begin // 2) + 1
+        max_pt1 = (pt2 // 2) + 1
         if max_pt1 == pt2:
             max_pt1 -= 1
         if pt2 > len(adc_pairs) - 1:
@@ -4599,7 +4599,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 prev_long_rot_degrees = long_rot_degrees
             deflect_begin_found = False
             if max_long_rot_degrees > 0.0:
-                for point in range(max_long_rot_point/2, len(lrd_list) - 1):
+                for point in range(max_long_rot_point//2, len(lrd_list) - 1):
                     if lrd_list[point] >= max_long_rot_degrees / 15.0:
                         deflect_begin = point
                         if deflect_begin >= 3 * dist or dist == 2:
