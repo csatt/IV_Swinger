@@ -103,10 +103,10 @@ except ImportError:
 import shutil
 import sys
 import tempfile
-import ttk
+import ttk as ttk
 import Tkinter as tk
-import tkFileDialog
-import tkFont
+import tkFileDialog as tkfiledialog
+import tkFont as tkfont
 import tkMessageBox as tkmsg
 import traceback
 from ScrolledText import ScrolledText as ScrolledText
@@ -2966,7 +2966,7 @@ class ResultsWizard(tk.Toplevel):
         options["title"] = "Choose Folder"
         if self.master.win_sys == "aqua":  # Mac
             options["message"] = options["title"]
-        new_dir = tkFileDialog.askdirectory(**options)
+        new_dir = tkfiledialog.askdirectory(**options)
         self.master.mac_grayed_menu_workaround()
         if new_dir:
             self.results_dir = os.path.normpath(new_dir)
@@ -3165,13 +3165,13 @@ class ResultsWizard(tk.Toplevel):
     def get_copy_dest(self):
         """Method to get the copy destination from the user
         """
-        # Open a tkFileDialog to get user to choose a destination
+        # Open a tkfiledialog to get user to choose a destination
         options = {}
         options["parent"] = self.master
         options["title"] = "Choose Copy Destination"
         if self.master.win_sys == "aqua":  # Mac
             options["message"] = options["title"]
-        copy_dest = tkFileDialog.askdirectory(**options)
+        copy_dest = tkfiledialog.askdirectory(**options)
         self.master.mac_grayed_menu_workaround()
         if not copy_dest:  # Cancel
             return RC_FAILURE
@@ -4527,7 +4527,7 @@ Copyright (C) 2017-2019  Chris Satterlee
 
     # -------------------------------------------------------------------------
     def view_log_file(self):
-        """Method to view a log file. A tkFileDialog is opened for the user to
+        """Method to view a log file. A tkfiledialog is opened for the user to
            select which log file to view. The default selection is
            chosen using the get_initial_log_file_name method. The
            selected file is then opened with the system file viewer.
@@ -4546,7 +4546,7 @@ Copyright (C) 2017-2019  Chris Satterlee
         options["title"] = "Choose log file"
         if self.master.win_sys == "aqua":  # Mac
             options["message"] = options["title"]
-        log_file = tkFileDialog.askopenfilename(**options)
+        log_file = tkfiledialog.askopenfilename(**options)
         self.master.mac_grayed_menu_workaround()
         if log_file:
             msg = ("(MenuBar, File, View Log File) selected log file {}"
@@ -10045,7 +10045,7 @@ class ImagePane(ttk.Label):
     def __init__(self, master=None):
         ttk.Label.__init__(self, master=master, compound="center")
         self.master = master
-        self.font = tkFont.Font(family='TkDefaultFont')
+        self.font = tkfont.Font(family='TkDefaultFont')
         self.img_file = None
         self.current_img = None
         self.image = None
