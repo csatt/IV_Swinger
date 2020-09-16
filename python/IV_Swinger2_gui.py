@@ -241,9 +241,9 @@ def debug_memleak(msg_str):
     """
     if DEBUG_MEMLEAK:
         date_time_str = IV_Swinger2.get_date_time_str()
-        print ("{}: Memory usage ({}): {}"
-               .format(date_time_str, msg_str,
-                       resource.getrusage(resource.RUSAGE_SELF).ru_maxrss))
+        mem_usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        print "{}: Memory usage ({}): {}".format(date_time_str, msg_str,
+                                                 mem_usage)
 
 
 def gen_dbg_str(msg_str):

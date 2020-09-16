@@ -4975,7 +4975,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                         adc_tuple = (adc_pair[0], adc_pair[1])
                         adc_pairs.append(adc_tuple)
         except IOError:
-            print "Cannot open {}".format(filename)
+            self.logger.print_and_log("ERROR: Cannot open {}".format(filename))
             return []
 
         return adc_pairs

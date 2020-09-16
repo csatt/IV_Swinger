@@ -348,8 +348,8 @@ class CommandLineProcessor(object):
                             self._csv_files.append(full_path_filename)
                         break
                 else:
-                    print ("ERROR: {} is neither a file nor a directory"
-                           .format(arg))
+                    err_str = "ERROR: {} is neither a file nor a directory"
+                    print err_str.format(arg)
                     exit(-1)
 
         return self._csv_files
@@ -397,7 +397,8 @@ class CsvParser(object):
                                           vipr_list[3], vipr_list[2])
                             self._data_points.append(ivrp_tuple)
             except IOError:
-                print "Cannot open {}".format(self.csv_filename)
+                PrintAndOrLog.print_and_log_msg(self.logger, "Cannot open {}"
+                                                .format(self.csv_filename))
                 exit(-1)
 
         return self._data_points
