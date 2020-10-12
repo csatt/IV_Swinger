@@ -88,14 +88,6 @@ from inspect import currentframe, getframeinfo
 from PIL import Image
 import serial
 import serial.tools.list_ports
-try:
-    # Mac only
-    # pylint: disable=import-error
-    from AppKit import NSSearchPathForDirectoriesInDomains as get_mac_dir
-    from AppKit import NSApplicationSupportDirectory as mac_app_sup_dir
-    from AppKit import NSUserDomainMask as mac_domain_mask
-except ImportError:
-    pass
 import IV_Swinger
 import IV_Swinger_plotter
 from IV_Swinger2_PV_model import (IV_Swinger2_PV_model,
@@ -2463,11 +2455,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            instantiation.
         """
         if self._app_data_dir is None:
-            if sys.platform == "darwin":
-                # Mac
-                self._app_data_dir = os.path.join(get_mac_dir(mac_app_sup_dir,
-                                                              mac_domain_mask,
-                                                              True)[0],
+            if sys.platform == "darwin":  # Mac
+                home_dir = os.path.expanduser("~")
+                self._app_data_dir = os.path.join(home_dir, "Library",
+                                                  "Application Support",
                                                   APP_NAME)
             elif sys.platform == "win32":  # Windows
                 self._app_data_dir = os.path.join(os.environ["APPDATA"],
