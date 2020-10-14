@@ -304,7 +304,7 @@ def get_saved_title(cfg_file):
     """Global function to get the title configuration from the specified
        .cfg file
     """
-    my_cfg = configparser.SafeConfigParser()
+    my_cfg = configparser.ConfigParser()
     with open(cfg_file, "r", encoding="utf-8") as cfg_fp:
         # Read values from file
         my_cfg.readfp(cfg_fp)
@@ -637,8 +637,8 @@ class Configuration(object):
     # Initializer
     def __init__(self, ivs2=None):
         self.ivs2 = ivs2
-        self.cfg = configparser.SafeConfigParser()
-        self.cfg_snapshot = configparser.SafeConfigParser()
+        self.cfg = configparser.ConfigParser()
+        self.cfg_snapshot = configparser.ConfigParser()
         self._cfg_filename = None
         self._starting_cfg_filename = None
         self.save_starting_cfg_file()
@@ -743,7 +743,7 @@ class Configuration(object):
         try:
             with open(self.cfg_filename, "r", encoding="utf-8") as cfg_fp:
                 # Blow away old config and create new one
-                self.cfg = configparser.SafeConfigParser()
+                self.cfg = configparser.ConfigParser()
                 self.cfg.readfp(cfg_fp)
                 if DEBUG_CONFIG:
                     self.cfg_dump()
@@ -766,7 +766,7 @@ class Configuration(object):
             dbg_str = ("get_snapshot: Reading config "
                        "from {}".format(self.cfg_filename))
             self.ivs2.logger.print_and_log(dbg_str)
-        self.cfg_snapshot = configparser.SafeConfigParser()
+        self.cfg_snapshot = configparser.ConfigParser()
         with open(self.cfg_filename, "r", encoding="utf-8") as cfg_fp:
             self.cfg_snapshot.readfp(cfg_fp)
 
@@ -784,7 +784,7 @@ class Configuration(object):
             self.ivs2.logger.print_and_log(dbg_str)
         with open(cfg_file, "r", encoding="utf-8") as cfg_fp:
             # Blow away old config and create new one
-            self.cfg = configparser.SafeConfigParser()
+            self.cfg = configparser.ConfigParser()
             # Read values from file
             self.cfg.readfp(cfg_fp)
             # Apply selected values to properties
@@ -1373,7 +1373,7 @@ class Configuration(object):
         # pylint: disable=too-many-statements
 
         # Start with a fresh ConfigParser object
-        self.cfg = configparser.SafeConfigParser()
+        self.cfg = configparser.ConfigParser()
 
         # General config
         section = "General"
