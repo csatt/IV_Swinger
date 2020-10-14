@@ -305,14 +305,12 @@ def get_saved_title(cfg_file):
        .cfg file
     """
     my_cfg = configparser.ConfigParser()
-    with open(cfg_file, "r", encoding="utf-8") as cfg_fp:
-        # Read values from file
-        my_cfg.readfp(cfg_fp)
-        try:
-            # Get title config
-            title = my_cfg.get("Plotting", "title")
-        except configparser.NoOptionError:
-            title = None
+    my_cfg.read(cfg_file, encoding="utf-8")
+    try:
+        # Get title config
+        title = my_cfg.get("Plotting", "title")
+    except configparser.NoOptionError:
+        title = None
     return title
 
 
@@ -740,22 +738,20 @@ class Configuration(object):
         if DEBUG_CONFIG:
             dbg_str = "get: Reading config from {}".format(self.cfg_filename)
             self.ivs2.logger.print_and_log(dbg_str)
-        try:
-            with open(self.cfg_filename, "r", encoding="utf-8") as cfg_fp:
-                # Blow away old config and create new one
-                self.cfg = configparser.ConfigParser()
-                self.cfg.readfp(cfg_fp)
-                if DEBUG_CONFIG:
-                    self.cfg_dump()
-        except IOError:
+        # Blow away old config and create new one
+        self.cfg = configparser.ConfigParser()
+        self.cfg.read(self.cfg_filename, encoding="utf-8")
+        if self.cfg.sections():
+            # File does exist ...
+            if DEBUG_CONFIG:
+                self.cfg_dump()
+            self.remove_obsolete_options()
+            self.apply_all()
+        else:
             # File doesn't exist
             self.ivs2.find_arduino_port()
             self.populate()
             self.save()
-        else:
-            # File does exist ...
-            self.remove_obsolete_options()
-            self.apply_all()
 
     # -------------------------------------------------------------------------
     def get_snapshot(self):
@@ -767,8 +763,7 @@ class Configuration(object):
                        "from {}".format(self.cfg_filename))
             self.ivs2.logger.print_and_log(dbg_str)
         self.cfg_snapshot = configparser.ConfigParser()
-        with open(self.cfg_filename, "r", encoding="utf-8") as cfg_fp:
-            self.cfg_snapshot.readfp(cfg_fp)
+        self.cfg_snapshot.read(self.cfg_filename, encoding="utf-8")
 
     # -------------------------------------------------------------------------
     def get_old_result(self, cfg_file):
@@ -782,18 +777,17 @@ class Configuration(object):
             dbg_str = ("get_old_result: Reading config "
                        "from {}".format(cfg_file))
             self.ivs2.logger.print_and_log(dbg_str)
-        with open(cfg_file, "r", encoding="utf-8") as cfg_fp:
-            # Blow away old config and create new one
-            self.cfg = configparser.ConfigParser()
-            # Read values from file
-            self.cfg.readfp(cfg_fp)
-            # Apply selected values to properties
-            self.apply_general()
-            self.apply_calibration()
-            self.apply_plotting()
-            self.apply_axes()
-            self.apply_title()
-            self.apply_pv_model()
+        # Blow away old config and create new one
+        self.cfg = configparser.ConfigParser()
+        # Read values from file
+        self.cfg.read(cfg_file, encoding="utf-8")
+        # Apply selected values to properties
+        self.apply_general()
+        self.apply_calibration()
+        self.apply_plotting()
+        self.apply_axes()
+        self.apply_title()
+        self.apply_pv_model()
         if DEBUG_CONFIG:
             self.cfg_dump("at exit of get_old_result")
 
