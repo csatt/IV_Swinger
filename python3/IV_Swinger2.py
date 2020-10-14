@@ -3430,7 +3430,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             if rc != RC_SUCCESS:
                 return rc
             rc = self.receive_msg_from_arduino()
-        if rc == RC_SUCCESS and self.msg_from_arduino == str("Ready\n"):
+        if rc == RC_SUCCESS and self.msg_from_arduino == "Ready\n":
             self.arduino_ready = True
         elif rc != RC_SUCCESS:
             return rc
@@ -3561,11 +3561,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if rc != RC_SUCCESS:
             return rc
         self.msg_from_arduino = "None"
-        while self.msg_from_arduino != str("Config processed\n"):
+        while self.msg_from_arduino != "Config processed\n":
             rc = self.receive_msg_from_arduino()
             if rc != RC_SUCCESS:
                 return rc
-            if self.msg_from_arduino == str("Config not processed\n"):
+            if self.msg_from_arduino == "Config not processed\n":
                 return RC_FAILURE
 
         return RC_SUCCESS
@@ -3580,7 +3580,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             return RC_FAILURE
 
         try:
-            self._sio.write(str("{}\n".format(msg)))
+            self._sio.write("{}\n".format(msg))
         except serial.SerialException as e:
             err_str = "ERROR: send_msg_to_arduino: ({})".format(e)
             self.logger.print_and_log(err_str)
@@ -3626,7 +3626,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             rc = self.receive_msg_from_arduino()
             if rc == RC_SUCCESS:
                 received_msgs.append(self.msg_from_arduino)
-                if self.msg_from_arduino == str("Output complete\n"):
+                if self.msg_from_arduino == "Output complete\n":
                     break
             else:
                 return rc
@@ -3921,11 +3921,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if rc != RC_SUCCESS:
             return rc
         self.msg_from_arduino = "None"
-        while self.msg_from_arduino != str("Config processed\n"):
+        while self.msg_from_arduino != "Config processed\n":
             rc = self.receive_msg_from_arduino()
             if rc != RC_SUCCESS:
                 return rc
-            if self.msg_from_arduino == str("Config not processed\n"):
+            if self.msg_from_arduino == "Config not processed\n":
                 return RC_FAILURE
             if self.msg_from_arduino.startswith("EEPROM addr"):
                 rc = self.process_eeprom_value()
@@ -4067,11 +4067,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if rc != RC_SUCCESS:
             return rc
         self.msg_from_arduino = "None"
-        while self.msg_from_arduino != str("Config processed\n"):
+        while self.msg_from_arduino != "Config processed\n":
             rc = self.receive_msg_from_arduino()
             if rc != RC_SUCCESS:
                 return rc
-            if self.msg_from_arduino == str("Config not processed\n"):
+            if self.msg_from_arduino == "Config not processed\n":
                 return RC_FAILURE
             if self.msg_from_arduino.startswith("Bandgap total ADC:"):
                 if self.parse_bandgap_msg(self.msg_from_arduino):
@@ -4135,11 +4135,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if rc != RC_SUCCESS:
             return rc
         self.msg_from_arduino = "None"
-        while self.msg_from_arduino != str("Config processed\n"):
+        while self.msg_from_arduino != "Config processed\n":
             rc = self.receive_msg_from_arduino()
             if rc != RC_SUCCESS:
                 return rc
-            if self.msg_from_arduino == str("Config not processed\n"):
+            if self.msg_from_arduino == "Config not processed\n":
                 return RC_FAILURE
             if self.msg_from_arduino.startswith("Bandgap total ADC:"):
                 if self.parse_bandgap_msg(self.msg_from_arduino):
