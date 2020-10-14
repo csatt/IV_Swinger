@@ -67,7 +67,7 @@ class IV_Swinger_test(IV_Swinger.IV_Swinger):
         self.loads_to_skip = 1
 
     def shut_down(self, lock_held=True):
-        print "Trying to shut down"
+        print("Trying to shut down")
         try:
             if not lock_held:
                 self.lock.acquire()
@@ -80,7 +80,7 @@ class IV_Swinger_test(IV_Swinger.IV_Swinger):
         finally:
             time.sleep(2)
             #os.system("shutdown -h now")
-            print "TESTING - NOT REALLY SHUTTING DOWN"
+            print("TESTING - NOT REALLY SHUTTING DOWN")
             time.sleep(5)
             lcd_msg.stop()
             self.reset_lcd()

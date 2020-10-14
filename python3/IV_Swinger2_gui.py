@@ -103,14 +103,14 @@ except ImportError:
 import shutil
 import sys
 import tempfile
-import ttk as ttk
-import Tkinter as tk
-import tkFileDialog as tkfiledialog
-import tkFont as tkfont
-import tkMessageBox as tkmsg
+import tkinter.ttk as ttk
+import tkinter as tk
+import tkinter.filedialog as tkfiledialog
+import tkinter.font as tkfont
+import tkinter.messagebox as tkmsg
 import traceback
-from ScrolledText import ScrolledText as ScrolledText
-from Tkconstants import N, S, E, W, LEFT, RIGHT, HORIZONTAL, Y, BOTH, END
+from tkinter.scrolledtext import ScrolledText as ScrolledText
+from tkinter.constants import N, S, E, W, LEFT, RIGHT, HORIZONTAL, Y, BOTH, END
 from inspect import currentframe, getframeinfo
 from send2trash import send2trash
 from PIL import Image, ImageTk
@@ -214,9 +214,9 @@ SPI_COMBO_VALS = {SPI_CLOCK_DIV2: "DIV2 (8 MHz)",
                   SPI_CLOCK_DIV32: "DIV32 (500 kHz)",
                   SPI_CLOCK_DIV64: "DIV64 (250 KHz)",
                   SPI_CLOCK_DIV128: "DIV128 (125 kHz)"}
-SPI_COMBO_VALS_INV = {v: k for k, v in SPI_COMBO_VALS.items()}
-DGS = u'\N{DEGREE SIGN}'
-SQD = u'\xb2'
+SPI_COMBO_VALS_INV = {v: k for k, v in list(SPI_COMBO_VALS.items())}
+DGS = '\N{DEGREE SIGN}'
+SQD = '\xb2'
 
 # Default plotting config
 FANCY_LABELS_DEFAULT = "Fancy"
@@ -242,8 +242,8 @@ def debug_memleak(msg_str):
     if DEBUG_MEMLEAK:
         date_time_str = IV_Swinger2.get_date_time_str()
         mem_usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        print "{}: Memory usage ({}): {}".format(date_time_str, msg_str,
-                                                 mem_usage)
+        print("{}: Memory usage ({}): {}".format(date_time_str, msg_str,
+                                                 mem_usage))
 
 
 def gen_dbg_str(msg_str):
@@ -356,7 +356,7 @@ def handle_early_exception():
     err_msg = "Unexpected error: {}\n".format(sys.exc_info()[0])
     err_msg += traceback.format_exc()
     if not getattr(sys, "frozen", False):
-        print err_msg
+        print(err_msg)
         return
     tmp_file = tempfile.NamedTemporaryFile(delete=False)
     err_msg += "\n"
@@ -4380,11 +4380,11 @@ class MenuBar(tk.Menu):
         self.selected_port.set(self.master.ivs2.usb_port)
         for serial_port in self.master.ivs2.serial_ports:
             device = serial_port.device
-            label_part2 = u''
+            label_part2 = ''
             if serial_port.manufacturer is not None:
-                label_part2 = u' ' + serial_port.manufacturer
+                label_part2 = ' ' + serial_port.manufacturer
             elif serial_port.description is not None:
-                label_part2 = u' ' + serial_port.description
+                label_part2 = ' ' + serial_port.description
             label = device + label_part2
             self.usb_port_menu.add_radiobutton(label=label,
                                                variable=self.selected_port,
@@ -8047,10 +8047,10 @@ effect. Please upgrade.
         self.pv_imp.set(pv_spec_dict["Imp"])
         self.pv_cells.set(pv_spec_dict["Cells"])
         self.pv_voc_coeff.set(pv_spec_dict["Voc temp coeff"])
-        units_str = u"{}/{}C".format(pv_spec_dict["Voc temp coeff units"], DGS)
+        units_str = "{}/{}C".format(pv_spec_dict["Voc temp coeff units"], DGS)
         self.pv_voc_coeff_units.set(units_str)
         self.pv_isc_coeff.set(pv_spec_dict["Isc temp coeff"])
-        units_str = u"{}/{}C".format(pv_spec_dict["Isc temp coeff units"], DGS)
+        units_str = "{}/{}C".format(pv_spec_dict["Isc temp coeff units"], DGS)
         self.pv_isc_coeff_units.set(units_str)
         self.pv_mpp_coeff.set(pv_spec_dict["MPP temp coeff"])
         self.pv_noct.set(pv_spec_dict["NOCT"])
@@ -8066,9 +8066,9 @@ effect. Please upgrade.
         self.pv_imp.set("")
         self.pv_cells.set("")
         self.pv_voc_coeff.set("")
-        self.pv_voc_coeff_units.set(u"%/{}C".format(DGS))
+        self.pv_voc_coeff_units.set("%/{}C".format(DGS))
         self.pv_isc_coeff.set("")
-        self.pv_isc_coeff_units.set(u"%/{}C".format(DGS))
+        self.pv_isc_coeff_units.set("%/{}C".format(DGS))
         self.pv_mpp_coeff.set("")
         self.pv_noct.set("")
 
@@ -8227,8 +8227,8 @@ effect. Please upgrade.
         voc_coeff_combo = ttk.Combobox(master=voc_coeff_entry_and_units_box,
                                        width=5,
                                        textvariable=self.pv_voc_coeff_units)
-        voc_coeff_combo["values"] = (u"%/{}C".format(DGS),
-                                     u"mV/{}C".format(DGS))
+        voc_coeff_combo["values"] = ("%/{}C".format(DGS),
+                                     "mV/{}C".format(DGS))
         voc_coeff_combo.state(["readonly"])
 
         # Isc temp coeff
@@ -8241,8 +8241,8 @@ effect. Please upgrade.
         isc_coeff_combo = ttk.Combobox(master=isc_coeff_entry_and_units_box,
                                        width=5,
                                        textvariable=self.pv_isc_coeff_units)
-        isc_coeff_combo["values"] = (u"%/{}C".format(DGS),
-                                     u"mA/{}C".format(DGS))
+        isc_coeff_combo["values"] = ("%/{}C".format(DGS),
+                                     "mA/{}C".format(DGS))
         isc_coeff_combo.state(["readonly"])
 
         # MPP temp coeff
@@ -8253,7 +8253,7 @@ effect. Please upgrade.
                                     width=8,
                                     textvariable=self.pv_mpp_coeff)
         mpp_coeff_units_label = ttk.Label(master=mpp_coeff_entry_and_units_box,
-                                          text=u"%/{}C".format(DGS))
+                                          text="%/{}C".format(DGS))
 
         # NOCT
         noct_label = ttk.Label(master=labels_entries_box, text="NOCT:")
@@ -8261,7 +8261,7 @@ effect. Please upgrade.
         noct_entry = ttk.Entry(master=noct_entry_and_units_box, width=8,
                                textvariable=self.pv_noct)
         noct_units_label = ttk.Label(master=noct_entry_and_units_box,
-                                     text=u"{}C".format(DGS))
+                                     text="{}C".format(DGS))
 
         # Test button and entries
         test_button_and_entries_box = ttk.Frame(master=labels_entries_box)
@@ -8274,12 +8274,12 @@ effect. Please upgrade.
                                      width=8,
                                      textvariable=self.pv_test_irrad)
         test_irrad_units_label = ttk.Label(master=test_button_and_entries_box,
-                                           text=u"W/m{}".format(SQD))
+                                           text="W/m{}".format(SQD))
         test_temp_entry = ttk.Entry(master=test_button_and_entries_box,
                                     width=6,
                                     textvariable=self.pv_test_cell_temp)
         test_temp_units_label = ttk.Label(master=test_button_and_entries_box,
-                                          text=u"{}C".format(DGS))
+                                          text="{}C".format(DGS))
         test_or_at_label = ttk.Label(master=test_button_and_entries_box,
                                      text="     or @ ")
         self.test_stc_button = ttk.Button(master=test_button_and_entries_box,
@@ -8325,12 +8325,12 @@ effect. Please upgrade.
         tt_text = "Open-circuit voltage temperature coefficient"
         Tooltip(voc_coeff_entry, text=tt_text, **TOP_TT_KWARGS)
         tt_text = ("Units for Voc temperature coefficient. Most datasheets "
-                   u"use %/{}C but some use mV/{}C ".format(DGS, DGS))
+                   "use %/{}C but some use mV/{}C ".format(DGS, DGS))
         Tooltip(voc_coeff_combo, text=tt_text, **TOP_TT_KWARGS)
         tt_text = "Short-circuit current temperature coefficient"
         Tooltip(isc_coeff_entry, text=tt_text, **TOP_TT_KWARGS)
         tt_text = ("Units for Isc temperature coefficient. Most datasheets "
-                   u"use %/{}C but some use mA/{}C ".format(DGS, DGS))
+                   "use %/{}C but some use mA/{}C ".format(DGS, DGS))
         Tooltip(isc_coeff_combo, text=tt_text, **TOP_TT_KWARGS)
         tt_text = "Maximum power point temperature coefficient"
         Tooltip(mpp_coeff_entry, text=tt_text, **TOP_TT_KWARGS)
@@ -8461,7 +8461,7 @@ effect. Please upgrade.
                                    textvariable=self.cell_temp_adj)
         self.cell_temp_adj.set(self.master.ivs2.cell_temp_adjust)
         temp_adj_units_label = ttk.Label(master=temp_adj_box,
-                                         text=u"{}C".format(DGS))
+                                         text="{}C".format(DGS))
 
         # Add three checkbuttons and set to values of associated
         # properties
@@ -8688,7 +8688,7 @@ effect. Please upgrade.
         pv_name_unicode = pv_name.decode("utf-8")
         if (pv_name != self.selected_pv and
                 pv_name_unicode in self.pv_model_listbox.get(0, END)):
-            err_msg = u"""
+            err_msg = """
 ERROR: PV Name
 {}
 already exists. To modify it, select

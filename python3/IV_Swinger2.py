@@ -72,7 +72,7 @@
 # shade a step and swinging an IV curve on each iteration.
 #
 import argparse
-import ConfigParser
+import configparser
 import datetime as dt
 import difflib
 import glob
@@ -304,14 +304,14 @@ def get_saved_title(cfg_file):
     """Global function to get the title configuration from the specified
        .cfg file
     """
-    my_cfg = ConfigParser.SafeConfigParser()
+    my_cfg = configparser.SafeConfigParser()
     with open(cfg_file, "r") as cfg_fp:
         # Read values from file
         my_cfg.readfp(cfg_fp)
         try:
             # Get title config
             title = my_cfg.get("Plotting", "title")
-        except ConfigParser.NoOptionError:
+        except configparser.NoOptionError:
             title = None
     return title
 
@@ -636,8 +636,8 @@ class Configuration(object):
     # Initializer
     def __init__(self, ivs2=None):
         self.ivs2 = ivs2
-        self.cfg = ConfigParser.SafeConfigParser()
-        self.cfg_snapshot = ConfigParser.SafeConfigParser()
+        self.cfg = configparser.SafeConfigParser()
+        self.cfg_snapshot = configparser.SafeConfigParser()
         self._cfg_filename = None
         self._starting_cfg_filename = None
         self.save_starting_cfg_file()
@@ -740,7 +740,7 @@ class Configuration(object):
         try:
             with open(self.cfg_filename, "r") as cfg_fp:
                 # Blow away old config and create new one
-                self.cfg = ConfigParser.SafeConfigParser()
+                self.cfg = configparser.SafeConfigParser()
                 self.cfg.readfp(cfg_fp)
                 if DEBUG_CONFIG:
                     self.cfg_dump()
@@ -763,7 +763,7 @@ class Configuration(object):
             dbg_str = ("get_snapshot: Reading config "
                        "from {}".format(self.cfg_filename))
             self.ivs2.logger.print_and_log(dbg_str)
-        self.cfg_snapshot = ConfigParser.SafeConfigParser()
+        self.cfg_snapshot = configparser.SafeConfigParser()
         with open(self.cfg_filename, "r") as cfg_fp:
             self.cfg_snapshot.readfp(cfg_fp)
 
@@ -781,7 +781,7 @@ class Configuration(object):
             self.ivs2.logger.print_and_log(dbg_str)
         with open(cfg_file, "r") as cfg_fp:
             # Blow away old config and create new one
-            self.cfg = ConfigParser.SafeConfigParser()
+            self.cfg = configparser.SafeConfigParser()
             # Read values from file
             self.cfg.readfp(cfg_fp)
             # Apply selected values to properties
@@ -914,7 +914,7 @@ class Configuration(object):
             elif config_type == CFG_STRING:
                 cfg_value = self.cfg.get(section, option)
                 return cfg_value
-        except ConfigParser.NoOptionError:
+        except configparser.NoOptionError:
             err_str = "{} not found in cfg file".format(full_name)
             self.ivs2.logger.print_and_log(err_str)
             self.cfg_set(section, option, old_prop_val)
@@ -970,7 +970,7 @@ class Configuration(object):
         full_name = "{} {}".format(section, option)
         try:
             cfg_value = self.cfg.get(section, option)
-        except ConfigParser.NoOptionError:
+        except configparser.NoOptionError:
             err_str = "{} not found in cfg file".format(full_name)
             self.ivs2.logger.print_and_log(err_str)
             self.ivs2.find_arduino_port()
@@ -1370,7 +1370,7 @@ class Configuration(object):
         # pylint: disable=too-many-statements
 
         # Start with a fresh ConfigParser object
-        self.cfg = ConfigParser.SafeConfigParser()
+        self.cfg = configparser.SafeConfigParser()
 
         # General config
         section = "General"
@@ -1935,8 +1935,8 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
                 temps_dict = {}
             if irrad is not None:
                 self.curve_names[curve_num] += " ["
-                sqd = u'\xb2'
-                self.curve_names[curve_num] += (u"{} W/m{}"
+                sqd = '\xb2'
+                self.curve_names[curve_num] += ("{} W/m{}"
                                                 .format(irrad,
                                                         sqd))
                 info_added = True
@@ -1947,8 +1947,8 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
                         self.curve_names[curve_num] += " ["
                     else:
                         self.curve_names[curve_num] += ", "
-                    dgs = u'\N{DEGREE SIGN}'
-                    self.curve_names[curve_num] += (u"{:4.2f}{}C"
+                    dgs = '\N{DEGREE SIGN}'
+                    self.curve_names[curve_num] += ("{:4.2f}{}C"
                                                     .format(temp,
                                                             dgs))
                     info_added = True
@@ -3430,7 +3430,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             if rc != RC_SUCCESS:
                 return rc
             rc = self.receive_msg_from_arduino()
-        if rc == RC_SUCCESS and self.msg_from_arduino == unicode("Ready\n"):
+        if rc == RC_SUCCESS and self.msg_from_arduino == str("Ready\n"):
             self.arduino_ready = True
         elif rc != RC_SUCCESS:
             return rc
@@ -3503,7 +3503,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                        "ASPECT_HEIGHT": self.aspect_height,
                        "ASPECT_WIDTH": self.aspect_width,
                        "SECOND_RELAY_STATE": self.second_relay_state}
-        for config_type, config_value in config_dict.iteritems():
+        for config_type, config_value in config_dict.items():
             if not self.arduino_has_config[config_type]:
                 rc = self.send_one_config_msg_to_arduino(config_type,
                                                          config_value)
@@ -3561,11 +3561,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if rc != RC_SUCCESS:
             return rc
         self.msg_from_arduino = "None"
-        while self.msg_from_arduino != unicode("Config processed\n"):
+        while self.msg_from_arduino != str("Config processed\n"):
             rc = self.receive_msg_from_arduino()
             if rc != RC_SUCCESS:
                 return rc
-            if self.msg_from_arduino == unicode("Config not processed\n"):
+            if self.msg_from_arduino == str("Config not processed\n"):
                 return RC_FAILURE
 
         return RC_SUCCESS
@@ -3580,7 +3580,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             return RC_FAILURE
 
         try:
-            self._sio.write(unicode("{}\n".format(msg)))
+            self._sio.write(str("{}\n".format(msg)))
         except serial.SerialException as e:
             err_str = "ERROR: send_msg_to_arduino: ({})".format(e)
             self.logger.print_and_log(err_str)
@@ -3626,7 +3626,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             rc = self.receive_msg_from_arduino()
             if rc == RC_SUCCESS:
                 received_msgs.append(self.msg_from_arduino)
-                if self.msg_from_arduino == unicode("Output complete\n"):
+                if self.msg_from_arduino == str("Output complete\n"):
                     break
             else:
                 return rc
@@ -3907,7 +3907,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # -------------------------------------------------------------------------
     def log_msg_from_arduino(self, msg):
         """Method to log a message from the Arduino"""
-        log_msg = u"Arduino: {}".format(msg.rstrip())
+        log_msg = "Arduino: {}".format(msg.rstrip())
         self.logger.log(log_msg)
 
     # -------------------------------------------------------------------------
@@ -3921,11 +3921,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if rc != RC_SUCCESS:
             return rc
         self.msg_from_arduino = "None"
-        while self.msg_from_arduino != unicode("Config processed\n"):
+        while self.msg_from_arduino != str("Config processed\n"):
             rc = self.receive_msg_from_arduino()
             if rc != RC_SUCCESS:
                 return rc
-            if self.msg_from_arduino == unicode("Config not processed\n"):
+            if self.msg_from_arduino == str("Config not processed\n"):
                 return RC_FAILURE
             if self.msg_from_arduino.startswith("EEPROM addr"):
                 rc = self.process_eeprom_value()
@@ -4067,11 +4067,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if rc != RC_SUCCESS:
             return rc
         self.msg_from_arduino = "None"
-        while self.msg_from_arduino != unicode("Config processed\n"):
+        while self.msg_from_arduino != str("Config processed\n"):
             rc = self.receive_msg_from_arduino()
             if rc != RC_SUCCESS:
                 return rc
-            if self.msg_from_arduino == unicode("Config not processed\n"):
+            if self.msg_from_arduino == str("Config not processed\n"):
                 return RC_FAILURE
             if self.msg_from_arduino.startswith("Bandgap total ADC:"):
                 if self.parse_bandgap_msg(self.msg_from_arduino):
@@ -4135,11 +4135,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if rc != RC_SUCCESS:
             return rc
         self.msg_from_arduino = "None"
-        while self.msg_from_arduino != unicode("Config processed\n"):
+        while self.msg_from_arduino != str("Config processed\n"):
             rc = self.receive_msg_from_arduino()
             if rc != RC_SUCCESS:
                 return rc
-            if self.msg_from_arduino == unicode("Config not processed\n"):
+            if self.msg_from_arduino == str("Config not processed\n"):
                 return RC_FAILURE
             if self.msg_from_arduino.startswith("Bandgap total ADC:"):
                 if self.parse_bandgap_msg(self.msg_from_arduino):
@@ -4956,7 +4956,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                             self.logger.print_and_log(err_str)
                             return []
                     else:
-                        adc_pair = map(float, line.split(","))
+                        adc_pair = list(map(float, line.split(",")))
                         if len(adc_pair) != 2:
                             err_str = ("ERROR: CSV line {} is not in "
                                        "expected CH0, CH1 format"
@@ -5349,18 +5349,18 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 self.pv_model.cell_temp_c is not None):
             self.ivp.csv_files = [self.pv_model.csv_filename,
                                   self.hdd_csv_data_point_filename]
-            sqd = u'\xb2'
-            dgs = u'\N{DEGREE SIGN}'
+            sqd = '\xb2'
+            dgs = '\N{DEGREE SIGN}'
             i_est = " (estimate)" if self.irrad_estimated else " (sensor)"
             t_est = (" (estimate)" if self.cell_temp_estimated else
-                     u" (sensor + {}{})".format(self.cell_temp_adjust, dgs))
+                     " (sensor + {}{})".format(self.cell_temp_adjust, dgs))
             pv_name_unicode = self.pv_model.pv_name.decode("utf-8")
-            ref_curve_name = u"{} modeled at:\n".format(pv_name_unicode)
-            ref_curve_name += (u"   {:.2f} W/m{}{}\n"
+            ref_curve_name = "{} modeled at:\n".format(pv_name_unicode)
+            ref_curve_name += ("   {:.2f} W/m{}{}\n"
                                .format(self.pv_model.irradiance, sqd, i_est))
-            ref_curve_name += (u"   {:.2f} {}C cell temp{}"
+            ref_curve_name += ("   {:.2f} {}C cell temp{}"
                                .format(self.pv_model.cell_temp_c, dgs, t_est))
-            self.ivp.curve_names = [u"{}".format(ref_curve_name),
+            self.ivp.curve_names = ["{}".format(ref_curve_name),
                                     "Measured IV Curve"]
             self.ivp.plot_ref = True
 
@@ -5553,7 +5553,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             try:
                 os.makedirs(self.logs_dir)
             except OSError:
-                print "ERROR: could not create {}".format(self.logs_dir)
+                print("ERROR: could not create {}".format(self.logs_dir))
                 return
 
         # Create the logger

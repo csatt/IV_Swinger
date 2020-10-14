@@ -1175,10 +1175,10 @@ class PV_model(object):
     def title_string(self):
         """String with the PV name, irradiance and cell temperature.
         """
-        sqd = u'\xb2'
-        dgs = u'\N{DEGREE SIGN}'
+        sqd = '\xb2'
+        dgs = '\N{DEGREE SIGN}'
         pv_name_unicode = self.pv_name.decode("utf-8")
-        return (u"{} modeled @ {} W/m{}, {} {}C cell temp"
+        return ("{} modeled @ {} W/m{}, {} {}C cell temp"
                 .format(pv_name_unicode, self.irradiance, sqd,
                         self.cell_temp_c, dgs))
 
@@ -1191,7 +1191,7 @@ class PV_model(object):
         max_power = self.vmp * self.imp if self.vmp is not None else None
         str1 = "Voc: {} V  Isc: {} A   ".format(self.voc, self.isc)
         str2 = "MPP: {} V  {} A  {} W".format(self.vmp, self.imp, max_power)
-        return u"{}\n{}\n{}".format(self.title_string, str1, str2)
+        return "{}\n{}\n{}".format(self.title_string, str1, str2)
 
     # Methods
     # -------------------------------------------------------------------------
@@ -1279,24 +1279,24 @@ class PV_model(object):
                                [i0, a, rs, rsh])
             eq4_ignored = eq4_res != 0.0
         if self.debug:
-            print "Best solution (Step 1):"
-            print "  IL: {}".format(il)
-            print "  I0: {}".format(i0)
-            print "   A: {}".format(a)
-            print "  Rs: {}".format(rs)
-            print " Rsh: {}".format(rsh)
-            print "\nResults:"
-            print "  Eq1: {}".format(eq1_res)
-            print "  Eq2: {}".format(eq2_res)
-            print "  Eq3: {}".format(eq3_res)
-            print "  Eq4: {}{}".format(eq4_res, " (Ignored)"
-                                       if eq4_ignored else "")
+            print("Best solution (Step 1):")
+            print("  IL: {}".format(il))
+            print("  I0: {}".format(i0))
+            print("   A: {}".format(a))
+            print("  Rs: {}".format(rs))
+            print(" Rsh: {}".format(rsh))
+            print("\nResults:")
+            print("  Eq1: {}".format(eq1_res))
+            print("  Eq2: {}".format(eq2_res))
+            print("  Eq3: {}".format(eq3_res))
+            print("  Eq4: {}{}".format(eq4_res, " (Ignored)"
+                                       if eq4_ignored else ""))
         abs_results = [abs(res) for res in results]
         if max(abs_results) > self.err_thresh:
             if self.debug:
-                print "  *** FAILED *** ({} is > {})".format(max(abs_results),
-                                                             self.err_thresh)
-            assert_str = u"ERROR: PV modeling for {} failed to find "
+                print("  *** FAILED *** ({} is > {})".format(max(abs_results),
+                                                             self.err_thresh))
+            assert_str = "ERROR: PV modeling for {} failed to find "
             assert_str += "a solution"
             pv_name_unicode = self.pv_name.decode("utf-8")
             assert False, assert_str.format(pv_name_unicode)
@@ -1397,7 +1397,7 @@ class PV_model(object):
             self.add_vi_points(num_points)
         for point in self.vi_points:
             volts, amps = point
-            print "{}, {}".format(volts, amps)
+            print("{}, {}".format(volts, amps))
 
     # -------------------------------------------------------------------------
     def estimate_irrad(self, measured_isc):
@@ -1495,16 +1495,16 @@ def main():
     # NOC values
     pv.run()
     pv.print_vi_points(100)
-    print pv.parms_string
-    print "Ideality factor: {}".format(pv.ideality_factor)
-    print pv.summary_string
+    print(pv.parms_string)
+    print("Ideality factor: {}".format(pv.ideality_factor))
+    print(pv.summary_string)
 
     # Now try reverse: estimate irradiance and temp from datasheet NOC
     # Voc and Isc values. They should be close to NOC irradiance and
     # temp.
     pv.estimate_irrad_and_temp(64.9, 5.16, 0.1)
-    print "est_irrad = {}  est_temp = {}".format(pv.irradiance,
-                                                 pv.cell_temp_c)
+    print("est_irrad = {}  est_temp = {}".format(pv.irradiance,
+                                                 pv.cell_temp_c))
 
 
 # Boilerplate main() call

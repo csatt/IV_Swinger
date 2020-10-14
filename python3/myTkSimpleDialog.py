@@ -26,7 +26,7 @@ askstring -- get a string from the user
 '''
 
 import sys
-from Tkinter import *
+from tkinter import *
 
 class Dialog(Toplevel):
 
@@ -185,8 +185,8 @@ class _QueryDialog(Dialog):
                  parent = None):
 
         if not parent:
-            import Tkinter
-            parent = Tkinter._default_root
+            import tkinter
+            parent = tkinter._default_root
 
         self.prompt   = prompt
         self.minvalue = minvalue
@@ -216,12 +216,12 @@ class _QueryDialog(Dialog):
 
     def validate(self):
 
-        import tkMessageBox
+        import tkinter.messagebox
 
         try:
             result = self.getresult()
         except ValueError:
-            tkMessageBox.showwarning(
+            tkinter.messagebox.showwarning(
                 "Illegal value",
                 self.errormessage + "\nPlease try again",
                 parent = self
@@ -229,7 +229,7 @@ class _QueryDialog(Dialog):
             return 0
 
         if self.minvalue is not None and result < self.minvalue:
-            tkMessageBox.showwarning(
+            tkinter.messagebox.showwarning(
                 "Too small",
                 "The allowed minimum value is %s. "
                 "Please try again." % self.minvalue,
@@ -238,7 +238,7 @@ class _QueryDialog(Dialog):
             return 0
 
         if self.maxvalue is not None and result > self.maxvalue:
-            tkMessageBox.showwarning(
+            tkinter.messagebox.showwarning(
                 "Too large",
                 "The allowed maximum value is %s. "
                 "Please try again." % self.maxvalue,
@@ -326,6 +326,6 @@ if __name__ == "__main__":
     root = Tk()
     root.update()
 
-    print askinteger("Spam", "Egg count", initialvalue=12*12)
-    print askfloat("Spam", "Egg weight\n(in tons)", minvalue=1, maxvalue=100)
-    print askstring("Spam", "Egg label", show=True)
+    print(askinteger("Spam", "Egg count", initialvalue=12*12))
+    print(askfloat("Spam", "Egg weight\n(in tons)", minvalue=1, maxvalue=100))
+    print(askstring("Spam", "Egg label", show=True))

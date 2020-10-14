@@ -1,6 +1,6 @@
 """Module to implement tooltips"""
-import ttk
-import Tkinter as tk
+import tkinter.ttk as ttk
+import tkinter as tk
 
 
 class Tooltip(object):
@@ -306,10 +306,10 @@ if __name__ == '__main__':
 
     def main():
         """Main method, for standalone testing"""
-        print 'Trying out three different wraplengths:'
+        print('Trying out three different wraplengths:')
         for i, wl in enumerate((200, 250, 400), 1):
-            print ' ', i
+            print(' ', i)
             main_01(wl)
-        print 'Done.'
+        print('Done.')
 
     main()

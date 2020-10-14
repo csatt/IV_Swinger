@@ -166,7 +166,7 @@
 # shutdown of the Raspberry Pi. Also if an unexpected exception is
 # taken, the Raspberry Pi is shut down after a short delay.
 #
-import Queue
+import queue
 import datetime as dt
 import glob
 import math
@@ -623,7 +623,7 @@ class PrintAndLog(object):
 
     def __init__(self):
         if self.log_file_name is None:
-            print "log_file_name class variable is not initialized!!"
+            print("log_file_name class variable is not initialized!!")
             exit(-1)
 
     def log(self, print_str):
@@ -639,7 +639,7 @@ class PrintAndLog(object):
         """
 
         # Print to screen
-        print print_str
+        print(print_str)
 
         # Print to log file with timestamp
         self.log(print_str)
@@ -655,7 +655,7 @@ class BeepGenerator(object):  # IVS1
 
     def __init__(self):
         if self.buzzer_gpio is None:
-            print "buzzer_gpio class variable is not initialized!!"
+            print("buzzer_gpio class variable is not initialized!!")
             exit(-1)
 
     def generate_beep(self, on_time=0.2, off_time=0.1, stop_event=None):
@@ -1146,10 +1146,10 @@ class Interpolator(object):
         # pylint: disable=too-many-locals
 
         # Convert the points to numpy so that we can do array multiplication
-        p_0, p_1, p_2, p_3 = map(numpy.array, [four_points[0],
+        p_0, p_1, p_2, p_3 = list(map(numpy.array, [four_points[0],
                                                four_points[1],
                                                four_points[2],
-                                               four_points[3]])
+                                               four_points[3]]))
 
         # Set alpha value
         if rerun_with_low_alpha:
@@ -1402,7 +1402,7 @@ class IV_Swinger(object):
         self.lock = None
         self.lcd = None
         # exception message queue
-        self.exc_queue = Queue.Queue()
+        self.exc_queue = queue.Queue()
 
     # Properties
     @property
@@ -2337,7 +2337,7 @@ class IV_Swinger(object):
             GPIO.output(self.buzzer_gpio, True)
             time.sleep(1)
             GPIO.output(self.buzzer_gpio, False)
-            print "BUTTON PRESSED - EXITING IMMEDIATELY"
+            print("BUTTON PRESSED - EXITING IMMEDIATELY")
             GPIO.cleanup()
             exit(-1)
 
@@ -4452,7 +4452,7 @@ class IV_Swinger(object):
         """
         try:
             thread_exc = self.exc_queue.get(block=False)
-        except Queue.Empty:
+        except queue.Empty:
             pass
         else:
             self.logger.print_and_log("THREAD error: {}".format(thread_exc))

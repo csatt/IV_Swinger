@@ -220,7 +220,7 @@ class PrintAndOrLog(object):
            if there is a logger. Otherwise it is printed.
         """
         if logger is None:
-            print msg_str
+            print(msg_str)
         else:
             logger.log(msg_str)
 
@@ -231,7 +231,7 @@ class PrintAndOrLog(object):
            just printed.
         """
         if logger is None:
-            print msg_str
+            print(msg_str)
         else:
             logger.print_and_log(msg_str)
 
@@ -349,7 +349,7 @@ class CommandLineProcessor(object):
                         break
                 else:
                     err_str = "ERROR: {} is neither a file nor a directory"
-                    print err_str.format(arg)
+                    print(err_str.format(arg))
                     exit(-1)
 
         return self._csv_files
@@ -384,7 +384,7 @@ class CsvParser(object):
                                                                 err_str)
                                 exit(-1)
                         else:
-                            vipr_list = map(float, line.split(","))
+                            vipr_list = list(map(float, line.split(",")))
                             if len(vipr_list) != 4:
                                 err_str = ("ERROR: CSV line {} is not in "
                                            "expected V,I,P,R "

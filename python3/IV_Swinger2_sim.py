@@ -94,11 +94,11 @@
 #
 import os
 import re
-import ttk as ttk
-import Tkinter as tk
-import tkMessageBox as tkmsg
-from ScrolledText import ScrolledText as ScrolledText
-from Tkconstants import E, W, BOTH, CENTER
+import tkinter.ttk as ttk
+import tkinter as tk
+import tkinter.messagebox as tkmsg
+from tkinter.scrolledtext import ScrolledText as ScrolledText
+from tkinter.constants import E, W, BOTH, CENTER
 import numpy as np
 import IV_Swinger2
 
@@ -987,7 +987,7 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
         us_since_prev = 0
         self.swing_time_us = 0
         prev_data_point = (None, None)
-        for point in xrange(self.num_synth_points+1):
+        for point in range(self.num_synth_points+1):
             # Voltage increment is Voc/#points
             volts = self.sim_voc * float(point) / self.num_synth_points
 
