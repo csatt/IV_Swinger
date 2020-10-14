@@ -569,7 +569,7 @@ def read_pv_specs(pv_spec_csv_file):
     """Global generator function to read a PV spec CSV file and yield each
        spec as a dict.
     """
-    with open(pv_spec_csv_file) as csvfile:
+    with open(pv_spec_csv_file, encoding="utf-8") as csvfile:
         reader = csv.DictReader(csvfile)
         assert_str = "ERROR: first row of {} does not contain "
         assert_str += "the expected values: {}"
@@ -602,7 +602,7 @@ def add_pv_spec(pv_spec_csv_file, pv_spec):
             if old_pv_spec_dict["PV Name"] != pv_spec_dict["PV Name"]:
                 pv_specs.append(old_pv_spec_dict)
 
-    with open(pv_spec_csv_file, "w+") as csvfile:
+    with open(pv_spec_csv_file, "w+", encoding="utf-8") as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=SPEC_FIELDS)
         writer.writeheader()
         for new_pv_spec_dict in sorted(pv_specs, key=lambda k: k["PV Name"]):

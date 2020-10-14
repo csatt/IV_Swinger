@@ -373,7 +373,7 @@ class CsvParser(object):
         """
         if self._data_points == []:
             try:
-                with open(self.csv_filename, "r") as f:
+                with open(self.csv_filename, "r", encoding="utf-8") as f:
                     for ii, line in enumerate(f.read().splitlines()):
                         if ii == 0:
                             expected_first_line = "Volts, Amps, Watts, Ohms"

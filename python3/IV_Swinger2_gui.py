@@ -367,7 +367,7 @@ Please copy/paste the above and send it to csatt1@gmail.com
 Alternately, you may attach this file:
 {}
 """.format(tmp_file.name)
-    with open(tmp_file.name, "a") as f:
+    with open(tmp_file.name, "a", encoding="utf-8") as f:
         f.write(err_msg)
     IV_Swinger2.sys_view_file(tmp_file.name)
 
@@ -505,7 +505,7 @@ permission to create directories (folders) in
             sys.exit()
         try:
             dummy_file = os.path.join(self.ivs2.app_data_dir, "DUMMY_FILE")
-            open(dummy_file, "a").close()
+            open(dummy_file, "a", encoding="utf-8").close()
             os.remove(dummy_file)
         except (IOError, OSError):
             err_msg = """
@@ -554,7 +554,7 @@ Or use "View Log File" on the "File" menu.
         """
         version_file = os.path.join(self.app_dir, VERSION_FILE)
         try:
-            with open(version_file, "r") as f:
+            with open(version_file, "r", encoding="utf-8") as f:
                 lines = f.read().splitlines()
                 if len(lines) != 1:
                     err_str = ("ERROR: {} has {} lines"

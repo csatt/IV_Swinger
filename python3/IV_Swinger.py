@@ -462,7 +462,7 @@ def write_csv_data_points_to_file(filename, data_points):
     """Global function to write each of the CSV data points to the output
        file.
     """
-    with open(filename, "w") as f:
+    with open(filename, "w", encoding="utf-8") as f:
         # Write headings
         f.write("Volts, Amps, Watts, Ohms\n")
         # Write data points
@@ -496,7 +496,7 @@ def write_plt_data_points_to_file(filename, data_points,
     """Global function to write/append each of the plotter data points to
        the output file.
     """
-    with open(filename, "a") as f:
+    with open(filename, "a", encoding="utf-8") as f:
         # Add new data set delimiter
         if new_data_set:
             write_plt_data_to_file(f, 0, 0, 0, new_data_set=True)
@@ -631,7 +631,7 @@ class PrintAndLog(object):
 
         # Print to log file with timestamp
         date_time_str = DateTimeStr.get_date_time_str()
-        with open(self.log_file_name, "a") as f:
+        with open(self.log_file_name, "a", encoding="utf-8") as f:
             f.write("\n{}: {}".format(date_time_str, print_str))
 
     def print_and_log(self, print_str):
@@ -3135,7 +3135,8 @@ class IV_Swinger(object):
         """Method to write the gnuplot command file"""
         # pylint: disable=too-many-arguments
 
-        with open(gp_command_filename, "w") as self.filehandle:
+        with open(gp_command_filename, "w",
+                  encoding="utf-8") as self.filehandle:
 
             # Set the figure size
             self.set_figure_size()
@@ -3833,7 +3834,7 @@ class IV_Swinger(object):
             self.output_line = "plot "
         for curve_num, df in enumerate(sd_data_point_filenames):
             if not self.use_gnuplot:
-                with open(df, "r") as f:
+                with open(df, "r", encoding="utf-8") as f:
                     # Read points from the file
                     (measured_volts,
                      measured_amps,
@@ -4410,7 +4411,7 @@ class IV_Swinger(object):
             filename = os.path.join(sd_iv_swinger_dir, "pending_usb_copy")
             if os.path.isfile(filename):
                 try:
-                    with open(filename, "r") as f:
+                    with open(filename, "r", encoding="utf-8") as f:
                         for my_date_time_str in f.read().splitlines():
                             sd_output_dir = os.path.join(sd_iv_swinger_dir,
                                                          my_date_time_str)
@@ -4440,7 +4441,7 @@ class IV_Swinger(object):
             # file in SD IV_Swinger directory
             filename = os.path.join(sd_iv_swinger_dir, "pending_usb_copy")
             try:
-                with open(filename, "a") as f:
+                with open(filename, "a", encoding="utf-8") as f:
                     f.write("{}\n".format(date_time_str))
             except (IOError, OSError) as e:
                 self.logger.print_and_log("({})".format(e))

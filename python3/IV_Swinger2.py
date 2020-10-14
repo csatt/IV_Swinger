@@ -305,7 +305,7 @@ def get_saved_title(cfg_file):
        .cfg file
     """
     my_cfg = configparser.SafeConfigParser()
-    with open(cfg_file, "r") as cfg_fp:
+    with open(cfg_file, "r", encoding="utf-8") as cfg_fp:
         # Read values from file
         my_cfg.readfp(cfg_fp)
         try:
@@ -318,7 +318,8 @@ def get_saved_title(cfg_file):
 
 def terminate_log():
     """Global function to add newline to end of log file"""
-    with open(IV_Swinger.PrintAndLog.log_file_name, "a") as f:
+    with open(IV_Swinger.PrintAndLog.log_file_name, "a",
+              encoding="utf-8") as f:
         f.write("\n")
 
 
@@ -596,7 +597,7 @@ def get_sensor_values_from_file(run_info_filename):
     irrad = None
     temps_dict = {}
     if os.path.exists(run_info_filename):
-        with open(run_info_filename, "r") as f:
+        with open(run_info_filename, "r", encoding="utf-8") as f:
             temp_format_str = "Temperature at sensor "
             temp_format_str += r"#(\d+) is ([-+]?\d*\.\d+|\d+) "
             temp_format_str += "degrees Celsius"
@@ -688,7 +689,7 @@ class Configuration(object):
             if os.path.exists(self.starting_cfg_filename):
                 os.remove(self.starting_cfg_filename)
             # Create an empty file
-            open(self.starting_cfg_filename, "a").close()
+            open(self.starting_cfg_filename, "a", encoding="utf-8").close()
 
     # -------------------------------------------------------------------------
     def log_cfg_diffs(self):
@@ -696,8 +697,10 @@ class Configuration(object):
            and the current config file. The diff is also returned to the
            caller.
         """
-        diff = difflib.ndiff(open(self.starting_cfg_filename).readlines(),
-                             open(self.cfg_filename).readlines())
+        diff = difflib.ndiff(open(self.starting_cfg_filename,
+                                  encoding="utf-8").readlines(),
+                             open(self.cfg_filename,
+                                  encoding="utf-8").readlines())
         heading_str = "Config file diffs\n                 -----------------\n"
         log_str = "{}{}".format(heading_str, "".join(diff))
         self.ivs2.logger.log(log_str)
@@ -738,7 +741,7 @@ class Configuration(object):
             dbg_str = "get: Reading config from {}".format(self.cfg_filename)
             self.ivs2.logger.print_and_log(dbg_str)
         try:
-            with open(self.cfg_filename, "r") as cfg_fp:
+            with open(self.cfg_filename, "r", encoding="utf-8") as cfg_fp:
                 # Blow away old config and create new one
                 self.cfg = configparser.SafeConfigParser()
                 self.cfg.readfp(cfg_fp)
@@ -764,7 +767,7 @@ class Configuration(object):
                        "from {}".format(self.cfg_filename))
             self.ivs2.logger.print_and_log(dbg_str)
         self.cfg_snapshot = configparser.SafeConfigParser()
-        with open(self.cfg_filename, "r") as cfg_fp:
+        with open(self.cfg_filename, "r", encoding="utf-8") as cfg_fp:
             self.cfg_snapshot.readfp(cfg_fp)
 
     # -------------------------------------------------------------------------
@@ -779,7 +782,7 @@ class Configuration(object):
             dbg_str = ("get_old_result: Reading config "
                        "from {}".format(cfg_file))
             self.ivs2.logger.print_and_log(dbg_str)
-        with open(cfg_file, "r") as cfg_fp:
+        with open(cfg_file, "r", encoding="utf-8") as cfg_fp:
             # Blow away old config and create new one
             self.cfg = configparser.SafeConfigParser()
             # Read values from file
@@ -1307,7 +1310,7 @@ class Configuration(object):
             self.cfg_dump()
         # Attempt to open the file for writing
         try:
-            with open(self.cfg_filename, "w") as cfg_fp:
+            with open(self.cfg_filename, "w", encoding="utf-8") as cfg_fp:
                 # Write config to file
                 self.cfg.write(cfg_fp)
         except IOError:
@@ -1336,7 +1339,7 @@ class Configuration(object):
             self.ivs2.logger.print_and_log(dbg_str)
         # Attempt to open the file for writing
         try:
-            with open(self.cfg_filename, "w") as cfg_fp:
+            with open(self.cfg_filename, "w", encoding="utf-8") as cfg_fp:
                 self.cfg_snapshot.write(cfg_fp)
         except IOError:
             # Failed to open file for writing
@@ -3690,7 +3693,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 #
 """
             try:
-                with open(self.run_info_filename, "w") as f:
+                with open(self.run_info_filename, "w", encoding="utf-8") as f:
                     f.write("#\n")
                     f.write("{}".format(run_date_time))
                     f.write("{}".format(boilerplate))
@@ -3710,9 +3713,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             #    - remove the sensor_info file
             self.create_run_info_file()
             try:
-                with open(self.sensor_info_filename, "r") as f:
+                with open(self.sensor_info_filename, "r",
+                          encoding="utf-8") as f:
                     sensor_lines = f.read().splitlines()
-                with open(self.run_info_filename, "a") as f:
+                with open(self.run_info_filename, "a", encoding="utf-8") as f:
                     for line in sensor_lines:
                         f.write("{}\n".format(line))
                 os.remove(self.sensor_info_filename)
@@ -3730,7 +3734,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         else:
             info_str = msg
         try:
-            with open(self.run_info_filename, "a") as f:
+            with open(self.run_info_filename, "a", encoding="utf-8") as f:
                 f.write("{}".format(info_str))
         except (IOError, OSError) as e:
             self.logger.print_and_log("({})".format(e))
@@ -3875,7 +3879,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         irrad_re = re.compile(r"Irradiance: (\d+) W/m\^2")
         ext_irrad_re = re.compile(r"(\d+) @ (\S+) deg C")
         try:
-            with open(self.run_info_filename, "r") as f:
+            with open(self.run_info_filename, "r", encoding="utf-8") as f:
                 for line in f.read().splitlines():
                     match = irrad_re.search(line)
                     if match:
@@ -3898,7 +3902,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                         self.irradiance = round_new_irradiance
                     else:
                         new_lines.append(line)
-            with open(self.run_info_filename, "w") as f:
+            with open(self.run_info_filename, "w", encoding="utf-8") as f:
                 for line in new_lines:
                     f.write("{}\n".format(line))
         except (IOError, OSError) as e:
@@ -4929,7 +4933,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            algorithm improvements. It is the only history of the raw
            readings.
         """
-        with open(filename, "w") as f:
+        with open(filename, "w", encoding="utf-8") as f:
             # Write headings
             f.write("CH0 (voltage), CH1 (current)\n")
             # Write ADC pairs
@@ -4946,7 +4950,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """
         adc_pairs = []
         try:
-            with open(filename, "r") as f:
+            with open(filename, "r", encoding="utf-8") as f:
                 for ii, line in enumerate(f.read().splitlines()):
                     if ii == 0:
                         expected_first_line = "CH0 (voltage), CH1 (current)"
