@@ -94,7 +94,7 @@
 #
 import os
 import re
-import ttk
+import ttk as ttk
 import Tkinter as tk
 import tkMessageBox as tkmsg
 from ScrolledText import ScrolledText as ScrolledText
