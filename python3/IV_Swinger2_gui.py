@@ -7617,8 +7617,7 @@ class PreferencesDialog(Dialog):
             curr = self.curr_plotting_var_vals[name]
             if prev != curr:
                 msg = ("(Preferences, Plotting) changed {} from {} to {}"
-                       .format(name, prev,
-                               curr))
+                       .format(name, prev, curr))
                 log_user_action(self.master.ivs2.logger, msg)
 
     # -------------------------------------------------------------------------
@@ -8110,8 +8109,7 @@ effect. Please upgrade.
             curr = self.curr_pv_model_var_vals[name]
             if prev != curr:
                 msg = ("(Preferences, Pv Model) changed {} from {} to {}"
-                       .format(name, prev,
-                               curr))
+                       .format(name, prev, curr))
                 log_user_action(self.master.ivs2.logger, msg)
 
     # -------------------------------------------------------------------------
@@ -8905,8 +8903,7 @@ it and then edit the parameter values.
         point_scale = self.master.config.cfg.get(section, "point scale")
 
         # Modify config
-        self.master.config.cfg_set(section, "title",
-                                   pv.title_string)
+        self.master.config.cfg_set(section, "title", pv.title_string)
         self.master.config.cfg_set(section, "plot power", False)
         self.master.config.cfg_set(section, "plot ref", False)
         self.master.config.cfg_set(section, "fancy labels", True)

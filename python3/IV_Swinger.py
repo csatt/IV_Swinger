@@ -1147,9 +1147,9 @@ class Interpolator(object):
 
         # Convert the points to numpy so that we can do array multiplication
         p_0, p_1, p_2, p_3 = list(map(numpy.array, [four_points[0],
-                                               four_points[1],
-                                               four_points[2],
-                                               four_points[3]]))
+                                                    four_points[1],
+                                                    four_points[2],
+                                                    four_points[3]]))
 
         # Set alpha value
         if rerun_with_low_alpha:
