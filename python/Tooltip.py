@@ -1,5 +1,5 @@
 """Module to implement tooltips"""
-import ttk
+import ttk as ttk
 import Tkinter as tk
 
 
