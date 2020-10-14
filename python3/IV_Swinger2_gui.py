@@ -1073,8 +1073,7 @@ This could be for one of the following reasons:
         self.plot_ref_cb.pack(anchor=W)
 
         # PV name label
-        pv_name_unicode = self.ivs2.pv_name
-        pv_name_label_text = (pv_name_unicode if
+        pv_name_label_text = (self.ivs2.pv_name if
                               self.ivs2.pv_name != "Unknown" else "")
         self.pv_name_label = ttk.Label(master=self.plot_power_ref_box,
                                        text=pv_name_label_text,
@@ -8040,7 +8039,7 @@ effect. Please upgrade.
         """Method to set the Entry widget variables based on the seleced PV
            spec.
         """
-        self.set_pv_name(pv_spec_dict["PV Name"])
+        self.pv_name.set(pv_spec_dict["PV Name"])
         self.pv_voc.set(pv_spec_dict["Voc"])
         self.pv_isc.set(pv_spec_dict["Isc"])
         self.pv_vmp.set(pv_spec_dict["Vmp"])
@@ -8059,7 +8058,7 @@ effect. Please upgrade.
     def set_entry_vars_to_empty(self):
         """Method to set the Entry widget variables to zero-length strings.
         """
-        self.set_pv_name("")
+        self.pv_name.set("")
         self.pv_voc.set("")
         self.pv_isc.set("")
         self.pv_vmp.set("")
@@ -8133,13 +8132,10 @@ effect. Please upgrade.
         # the spec file
         self.pv_model_listbox.insert(END, "NONE")
         for pv_spec_dict in self.pv_specs:
-            # Listbox entries need to be unicode
-            pv_name_unicode = pv_spec_dict["PV Name"]
-            self.pv_model_listbox.insert(END, pv_name_unicode)
+            self.pv_model_listbox.insert(END, pv_spec_dict["PV Name"])
 
         # Select entry in listbox
-        pv_name_unicode = self.master.ivs2.pv_name
-        if pv_name_unicode in self.pv_model_listbox.get(0, END):
+        if self.master.ivs2.pv_name in self.pv_model_listbox.get(0, END):
             select_val = self.master.ivs2.pv_name
         else:
             select_val = "NONE"
@@ -8533,8 +8529,7 @@ effect. Please upgrade.
     # -------------------------------------------------------------------------
     def get_curr_pv_model_listbox_index_and_name(self):
         """Method to get the currently selected index and name from the PV
-           model listbox. The (possibly unicode) name is utf-8
-           encoded in the returned value.
+           model listbox.
         """
         index_tuple = self.pv_model_listbox.curselection()
         try:
@@ -8585,20 +8580,6 @@ effect. Please upgrade.
         self.prev_pv_model_var_vals = dict(self.curr_pv_model_var_vals)
 
     # -------------------------------------------------------------------------
-    def get_pv_name(self):
-        """Method to get the (possibly unicode) name from the pv_name
-           entry widget and encode it to utf-8.
-        """
-        return self.pv_name.get()
-
-    # -------------------------------------------------------------------------
-    def set_pv_name(self, name):
-        """Method to set the name in the pv_name entry widget to the utf-8
-           decode of the name provided.
-        """
-        self.pv_name.set(name)
-
-    # -------------------------------------------------------------------------
     def update_pv_spec_from_widgets(self):
         """Method to update the PV spec whose name is in the PV Name entry with
            the current values from the entry and combobox widgets. If no
@@ -8606,7 +8587,7 @@ effect. Please upgrade.
            added.
         """
         new_spec = {}
-        new_spec["PV Name"] = self.get_pv_name()
+        new_spec["PV Name"] = self.pv_name.get()
         new_spec["Voc"] = self.pv_voc.get()
         new_spec["Isc"] = self.pv_isc.get()
         new_spec["Vmp"] = self.pv_vmp.get()
@@ -8665,7 +8646,7 @@ effect. Please upgrade.
         self.select_in_listbox(self.selected_pv)
 
         # Get the PV name from the entry widget
-        pv_name = self.get_pv_name()
+        pv_name = self.pv_name.get()
 
         # If the PV name is "NONE", select the NONE entry in the
         # listbox. The entry values will be lost, but the only
@@ -8685,23 +8666,22 @@ effect. Please upgrade.
         # from the listbox) and it already exists in the listbox,
         # display an error dialog and return after restoring the
         # unmodified name.
-        pv_name_unicode = pv_name
         if (pv_name != self.selected_pv and
-                pv_name_unicode in self.pv_model_listbox.get(0, END)):
+                pv_name in self.pv_model_listbox.get(0, END)):
             err_msg = """
 ERROR: PV Name
 {}
 already exists. To modify it, select
 it and then edit the parameter values.
-""".format(pv_name_unicode)
+""".format(pv_name)
             tkmsg_showerror(self.master, err_msg)
-            self.set_pv_name(self.selected_pv)
+            self.pv_name.set(self.selected_pv)
             return RC_FAILURE
 
         # Otherwise, but only if the pv_name is not blank ...
         if pv_name:
             # If the name is not already in the listbox, add it
-            if pv_name_unicode not in self.pv_model_listbox.get(0, END):
+            if pv_name not in self.pv_model_listbox.get(0, END):
                 # Add new entry to listbox
                 self.add_entry_to_listbox(pv_name)
 
@@ -8738,7 +8718,7 @@ it and then edit the parameter values.
         # If the PV Name has been editted, just select the NONE entry in
         # the listbox. That has the effect of deleting the editted (but
         # still pending) entry.
-        if self.get_pv_name() != curr_name:
+        if self.pv_name.get() != curr_name:
             self.select_none()
 
         # If the NONE entry is selected, do nothing
@@ -8773,11 +8753,8 @@ it and then edit the parameter values.
     def select_in_listbox(self, pv_name):
         """Method to select the listbox entry containing the specified PV name
         """
-        pv_name_unicode = pv_name
-
         # Find index
-        curr_sel = (list(self.pv_model_listbox.get(0, END))
-                    .index(pv_name_unicode))
+        curr_sel = list(self.pv_model_listbox.get(0, END)).index(pv_name)
 
         # Select new entry in listbox. Also activate that entry and make
         # sure it is visible.
@@ -8793,8 +8770,6 @@ it and then edit the parameter values.
     def add_entry_to_listbox(self, new_pv_name):
         """Method to add a new PV name to the listbox widget.
         """
-        new_pv_name_unicode = new_pv_name
-
         # Capture list of current entries (after NONE)
         pv_name_list = list(self.pv_model_listbox.get(1, END))
 
@@ -8802,7 +8777,7 @@ it and then edit the parameter values.
         self.pv_model_listbox.delete(1, END)
 
         # Recreate list with new name inserted in its place
-        pv_name_list.append(new_pv_name_unicode)
+        pv_name_list.append(new_pv_name)
         for pv_name in sorted(pv_name_list):
             self.pv_model_listbox.insert(END, pv_name)
 
@@ -8822,7 +8797,7 @@ it and then edit the parameter values.
 
         # Apply the current PV spec values to the model after checking
         # their validity
-        pv_spec_dict = self.get_curr_pv_spec_dict(self.get_pv_name())
+        pv_spec_dict = self.get_curr_pv_spec_dict(self.pv_name.get())
         if not pv_spec_dict:
             return RC_FAILURE
         pv_spec = pv_spec_from_dict(pv_spec_dict)
@@ -9422,7 +9397,7 @@ written to Arduino EEPROM.
         section = "PV Model"
         if self.master.config.cfg.has_section(section):
             option = "pv name"
-            pv_name = self.get_pv_name()
+            pv_name = self.pv_name.get()
             if not pv_name:
                 pv_name = "Unknown"
             if pv_name != self.master.config.cfg.get(section, option):

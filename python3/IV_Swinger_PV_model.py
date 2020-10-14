@@ -1177,9 +1177,8 @@ class PV_model(object):
         """
         sqd = '\xb2'
         dgs = '\N{DEGREE SIGN}'
-        pv_name_unicode = self.pv_name
         return ("{} modeled @ {} W/m{}, {} {}C cell temp"
-                .format(pv_name_unicode, self.irradiance, sqd,
+                .format(self.pv_name, self.irradiance, sqd,
                         self.cell_temp_c, dgs))
 
     # ---------------------------------
@@ -1298,8 +1297,7 @@ class PV_model(object):
                                                              self.err_thresh))
             assert_str = "ERROR: PV modeling for {} failed to find "
             assert_str += "a solution"
-            pv_name_unicode = self.pv_name
-            assert False, assert_str.format(pv_name_unicode)
+            assert False, assert_str.format(self.pv_name)
 
         # Step 2: Adjust for irradiance. For this model, this is
         # nothing more than scaling the IL parameter.

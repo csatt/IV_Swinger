@@ -5354,8 +5354,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             i_est = " (estimate)" if self.irrad_estimated else " (sensor)"
             t_est = (" (estimate)" if self.cell_temp_estimated else
                      " (sensor + {}{})".format(self.cell_temp_adjust, dgs))
-            pv_name_unicode = self.pv_model.pv_name
-            ref_curve_name = "{} modeled at:\n".format(pv_name_unicode)
+            ref_curve_name = "{} modeled at:\n".format(self.pv_model.pv_name)
             ref_curve_name += ("   {:.2f} W/m{}{}\n"
                                .format(self.pv_model.irradiance, sqd, i_est))
             ref_curve_name += ("   {:.2f} {}C cell temp{}"
