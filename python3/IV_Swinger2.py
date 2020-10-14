@@ -712,7 +712,7 @@ class Configuration(object):
         try:
             self.cfg.set(section, option, str(value))
         except UnicodeEncodeError:
-            self.cfg.set(section, option, value.encode("utf-8"))
+            self.cfg.set(section, option, value)
 
     # -------------------------------------------------------------------------
     def cfg_dump(self, dump_header=None):
@@ -5295,7 +5295,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """Method to plot results"""
         self.ivp = IV_Swinger2_plotter()
         self.ivp.title = (None if self.plot_title is None
-                          else self.plot_title.decode("utf-8"))
+                          else self.plot_title)
         self.ivp.logger = self.logger
         self.ivp.csv_files = [self.hdd_csv_data_point_filename]
         self.ivp.plot_dir = self.hdd_output_dir
@@ -5354,7 +5354,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             i_est = " (estimate)" if self.irrad_estimated else " (sensor)"
             t_est = (" (estimate)" if self.cell_temp_estimated else
                      " (sensor + {}{})".format(self.cell_temp_adjust, dgs))
-            pv_name_unicode = self.pv_model.pv_name.decode("utf-8")
+            pv_name_unicode = self.pv_model.pv_name
             ref_curve_name = "{} modeled at:\n".format(pv_name_unicode)
             ref_curve_name += ("   {:.2f} W/m{}{}\n"
                                .format(self.pv_model.irradiance, sqd, i_est))

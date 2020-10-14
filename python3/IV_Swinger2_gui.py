@@ -1073,7 +1073,7 @@ This could be for one of the following reasons:
         self.plot_ref_cb.pack(anchor=W)
 
         # PV name label
-        pv_name_unicode = self.ivs2.pv_name.decode("utf-8")
+        pv_name_unicode = self.ivs2.pv_name
         pv_name_label_text = (pv_name_unicode if
                               self.ivs2.pv_name != "Unknown" else "")
         self.pv_name_label = ttk.Label(master=self.plot_power_ref_box,
@@ -1189,7 +1189,7 @@ This could be for one of the following reasons:
             self.pv_name_label["style"] = "TLabel"
         else:
             self.plot_ref_cb.state(["!disabled"])
-            self.pv_name_label["text"] = self.ivs2.pv_name.decode("utf-8")
+            self.pv_name_label["text"] = self.ivs2.pv_name
             self.pv_name_label["style"] = "pv_name.TLabel"
 
     # -------------------------------------------------------------------------
@@ -3507,7 +3507,7 @@ class ResultsWizard(tk.Toplevel):
                                    prompt=prompt_str,
                                    initialvalue=init_val)
         if new_title:
-            new_title = new_title.encode("utf-8")
+            new_title = new_title
             if self.master.props.overlay_mode:
                 self.overlay_title = new_title
                 self.plot_overlay_and_display()
@@ -4247,7 +4247,7 @@ class ResultsWizard(tk.Toplevel):
         self.ivp = IV_Swinger2.IV_Swinger2_plotter()
         self.get_overlay_curve_names()
         self.ivp.title = (None if self.overlay_title is None
-                          else self.overlay_title.decode("utf-8"))
+                          else self.overlay_title)
         self.ivp.logger = self.master.ivs2.logger
         self.ivp.csv_files = self.selected_csv_files
         self.ivp.plot_dir = self.master.props.overlay_dir
@@ -4291,7 +4291,7 @@ class ResultsWizard(tk.Toplevel):
         for dts in curves:
             if dts in self.master.props.overlay_names:
                 # Name is user-specified
-                name = self.master.props.overlay_names[dts].decode("utf-8")
+                name = self.master.props.overlay_names[dts]
                 self.ivp.curve_names.append(name)
             else:
                 # Default name: date@time
@@ -7618,8 +7618,8 @@ class PreferencesDialog(Dialog):
             curr = self.curr_plotting_var_vals[name]
             if prev != curr:
                 msg = ("(Preferences, Plotting) changed {} from {} to {}"
-                       .format(name, prev.encode("utf-8"),
-                               curr.encode("utf-8")))
+                       .format(name, prev,
+                               curr))
                 log_user_action(self.master.ivs2.logger, msg)
 
     # -------------------------------------------------------------------------
@@ -8111,8 +8111,8 @@ effect. Please upgrade.
             curr = self.curr_pv_model_var_vals[name]
             if prev != curr:
                 msg = ("(Preferences, Pv Model) changed {} from {} to {}"
-                       .format(name, prev.encode("utf-8"),
-                               curr.encode("utf-8")))
+                       .format(name, prev,
+                               curr))
                 log_user_action(self.master.ivs2.logger, msg)
 
     # -------------------------------------------------------------------------
@@ -8134,11 +8134,11 @@ effect. Please upgrade.
         self.pv_model_listbox.insert(END, "NONE")
         for pv_spec_dict in self.pv_specs:
             # Listbox entries need to be unicode
-            pv_name_unicode = pv_spec_dict["PV Name"].decode("utf-8")
+            pv_name_unicode = pv_spec_dict["PV Name"]
             self.pv_model_listbox.insert(END, pv_name_unicode)
 
         # Select entry in listbox
-        pv_name_unicode = self.master.ivs2.pv_name.decode("utf-8")
+        pv_name_unicode = self.master.ivs2.pv_name
         if pv_name_unicode in self.pv_model_listbox.get(0, END):
             select_val = self.master.ivs2.pv_name
         else:
@@ -8539,7 +8539,7 @@ effect. Please upgrade.
         index_tuple = self.pv_model_listbox.curselection()
         try:
             index = index_tuple[0]
-            name = self.pv_model_listbox.get(index).encode("utf-8")
+            name = self.pv_model_listbox.get(index)
         except IndexError:
             traceback.print_stack()
             err_str = "IndexError in get_curr_pv_model_listbox_index_and_name"
@@ -8589,14 +8589,14 @@ effect. Please upgrade.
         """Method to get the (possibly unicode) name from the pv_name
            entry widget and encode it to utf-8.
         """
-        return self.pv_name.get().encode("utf-8")
+        return self.pv_name.get()
 
     # -------------------------------------------------------------------------
     def set_pv_name(self, name):
         """Method to set the name in the pv_name entry widget to the utf-8
            decode of the name provided.
         """
-        self.pv_name.set(name.decode("utf-8"))
+        self.pv_name.set(name)
 
     # -------------------------------------------------------------------------
     def update_pv_spec_from_widgets(self):
@@ -8685,7 +8685,7 @@ effect. Please upgrade.
         # from the listbox) and it already exists in the listbox,
         # display an error dialog and return after restoring the
         # unmodified name.
-        pv_name_unicode = pv_name.decode("utf-8")
+        pv_name_unicode = pv_name
         if (pv_name != self.selected_pv and
                 pv_name_unicode in self.pv_model_listbox.get(0, END)):
             err_msg = """
@@ -8773,7 +8773,7 @@ it and then edit the parameter values.
     def select_in_listbox(self, pv_name):
         """Method to select the listbox entry containing the specified PV name
         """
-        pv_name_unicode = pv_name.decode("utf-8")
+        pv_name_unicode = pv_name
 
         # Find index
         curr_sel = (list(self.pv_model_listbox.get(0, END))
@@ -8793,7 +8793,7 @@ it and then edit the parameter values.
     def add_entry_to_listbox(self, new_pv_name):
         """Method to add a new PV name to the listbox widget.
         """
-        new_pv_name_unicode = new_pv_name.decode("utf-8")
+        new_pv_name_unicode = new_pv_name
 
         # Capture list of current entries (after NONE)
         pv_name_list = list(self.pv_model_listbox.get(1, END))
@@ -8931,7 +8931,7 @@ it and then edit the parameter values.
 
         # Modify config
         self.master.config.cfg_set(section, "title",
-                                   pv.title_string.encode("utf-8"))
+                                   pv.title_string)
         self.master.config.cfg_set(section, "plot power", False)
         self.master.config.cfg_set(section, "plot ref", False)
         self.master.config.cfg_set(section, "fancy labels", True)
