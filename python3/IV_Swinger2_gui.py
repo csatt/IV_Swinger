@@ -3485,7 +3485,6 @@ class ResultsWizard(tk.Toplevel):
                                    prompt=prompt_str,
                                    initialvalue=init_val)
         if new_title:
-            new_title = new_title
             if self.master.overlay_mode:
                 self.overlay_title = new_title
                 self.plot_overlay_and_display()
