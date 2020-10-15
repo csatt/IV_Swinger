@@ -624,7 +624,7 @@ def get_sensor_values_from_file(run_info_filename):
 
 # Configuration class
 #
-class Configuration(object):
+class Configuration():
     """Provides support for saving and restoring configuration values. Only
        the configuration values that map to properties in the
        IV_Swinger2 class are included, but the class can be extended to

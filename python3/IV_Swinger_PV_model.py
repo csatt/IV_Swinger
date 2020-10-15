@@ -728,7 +728,7 @@ def create_pv_spec_file(pv_spec_csv_file):
 #   Classes     #
 #################
 
-class PV_model(object):
+class PV_model():
     """Class that models a PV cell or module, given its datasheet
        specifications. Methods are provided to generate the PV's
        single-diode model parameters at a given cell temperature and

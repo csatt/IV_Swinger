@@ -9440,7 +9440,7 @@ written to Arduino EEPROM.
 
 # Plotting properties class
 #
-class PlottingProps(object):
+class PlottingProps():
     """Class that holds a copy of the state of all of the properties related
        to plotting and provides a method for comparing their current
        values with the current copy.

@@ -210,7 +210,7 @@ def check_names_and_ref(ivs_extended, csv_files):
 #   Classes     #
 #################
 # The PrintAndOrLog class
-class PrintAndOrLog(object):
+class PrintAndOrLog():
     """Class to provide static methods to print and/or log messages,
        depending on whether a logger is being used
     """
@@ -236,7 +236,7 @@ class PrintAndOrLog(object):
             logger.print_and_log(msg_str)
 
 
-class CommandLineProcessor(object):
+class CommandLineProcessor():
     """Class to parse the command line args. The args property returns
        the populated args namespace from argparse. The csv_files property
        returns the list of CSV file names.
@@ -355,7 +355,7 @@ class CommandLineProcessor(object):
         return self._csv_files
 
 
-class CsvParser(object):
+class CsvParser():
     """Class to parse an IV Swinger-created CSV file and translate it to
        (I, V, R, P) tuple data points.
     """
@@ -510,7 +510,7 @@ class IV_Swinger_extended(IV_Swinger.IV_Swinger):
                 PrintAndOrLog.print_or_log_msg(self.logger, msg_str)
 
 
-class CsvFileProcessor(object):
+class CsvFileProcessor():
     """Class to process all CSV files. The command line args, the list
        of CSV files, and an extended IV Swinger object are provided by the
        user at object creation. The proc_all_csv_files method is called at
@@ -642,7 +642,7 @@ class CsvFileProcessor(object):
         return self._plt_mpp_volts
 
 
-class IV_Swinger_plotter(object):
+class IV_Swinger_plotter():
     """Main IV Swinger plotter class"""
 
     def __init__(self):

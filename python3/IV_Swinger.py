@@ -566,7 +566,7 @@ def read_measured_and_interp_points(f):
 #################
 
 # The DateTimeStr class
-class DateTimeStr(object):
+class DateTimeStr():
     """Provides a static method to return the current date and time in a
        string in the canonical yymmdd_hh_mm_ss format used by the IV
        Swinger code for directory names, file names, etc. Also provides
@@ -615,7 +615,7 @@ class DateTimeStr(object):
 
 
 # The PrintAndLog class
-class PrintAndLog(object):
+class PrintAndLog():
     """Provides printing and logging methods"""
 
     # Class variables (must be set externally before instantiation)
@@ -646,7 +646,7 @@ class PrintAndLog(object):
 
 
 # The BeepGenerator class
-class BeepGenerator(object):  # IVS1
+class BeepGenerator():  # IVS1
     """Generates beeps from the piezo buzzer"""
     # pylint: disable=too-few-public-methods
 
@@ -952,7 +952,7 @@ class SoundWarning(StoppableThread):  # IVS1
 
 #  Interpolator class
 #
-class Interpolator(object):
+class Interpolator():
     """Class to create an interpolated curve from an given set of data
        points, i.e. (I,V,R,P) tuples. Linear interpolation and
        centripetal Catmull-Rom spline interpolation are supported. It
@@ -1305,7 +1305,7 @@ class Interpolator(object):
 
 #  Main IV Swinger class
 #
-class IV_Swinger(object):
+class IV_Swinger():
     """Main IV Swinger class"""
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-many-public-methods

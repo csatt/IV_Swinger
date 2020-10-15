@@ -3,7 +3,7 @@ import tkinter.ttk as ttk
 import tkinter as tk
 
 
-class Tooltip(object):
+class Tooltip():
     """
     Creates a tooltip for a given widget as the mouse moves over it
 
