@@ -2282,7 +2282,7 @@ class Configuration(IV_Swinger2.Configuration):
         """Method that is an extension of the parent class method
         """
         # Call parent method
-        super(Configuration, self).apply_all()
+        super().apply_all()
 
         # Looping section
         if self.cfg.has_section("Looping"):
@@ -2335,7 +2335,7 @@ class Configuration(IV_Swinger2.Configuration):
         """Method that is an extension of the parent class method
         """
         # Call parent method
-        super(Configuration, self).populate()
+        super().populate()
 
         # Add looping config
         section = "Looping"
@@ -2353,7 +2353,7 @@ class Configuration(IV_Swinger2.Configuration):
         """Method that is an extension of the parent class method
         """
         # Call parent method
-        super(Configuration, self).get()
+        super().get()
 
         # If config doesn't include looping section, re-populate it
         if not self.cfg.has_section("Looping"):
