@@ -65,13 +65,6 @@
 #      class.  All other classes are instantiated by this class or by
 #      one of the classes it instantiates.
 #
-#   GraphicalUserInterfaceProps()
-#
-#      This class contains the properties for the
-#      GraphicalUserInterface() class.  It is only needed because
-#      properties don't work for classes that are not derived from the
-#      "object" class (and ttk.Frame is not).
-#
 #   Configuration()
 #
 #      This class extends the IV_Swinger2 Configuration() class, adding
@@ -447,7 +440,6 @@ class GraphicalUserInterface(ttk.Frame):
         self.ivs2 = IV_Swinger2.IV_Swinger2(app_data_dir)
         self.check_app_data_dir()
         self.init_instance_vars()
-        self.props = GraphicalUserInterfaceProps(self)
         self.app_dir = get_app_dir()
         self.go_button = None
         self.go_button_box = None
@@ -484,6 +476,174 @@ class GraphicalUserInterface(ttk.Frame):
         self.ivs2.log_initial_debug_info()
         self.log_tcl_tk_version()
         self.usb_monitor()
+
+    # Properties
+    # ---------------------------------
+    @property
+    def restore_loop(self):
+        """True if loop settings should be restored on next startup,
+           false otherwise
+        """
+        return self._restore_loop
+
+    @restore_loop.setter
+    def restore_loop(self, value):
+        if value not in set([True, False]):
+            raise ValueError("restore_loop must be boolean")
+        self._restore_loop = value
+
+    # ---------------------------------
+    @property
+    def loop_stop_on_err(self):
+        """True if looping should stop on non-fatal errors, false if
+           looping should continue on non-fatal errors
+        """
+        return self._loop_stop_on_err
+
+    @loop_stop_on_err.setter
+    def loop_stop_on_err(self, value):
+        if value not in set([True, False]):
+            raise ValueError("loop_stop_on_err must be boolean")
+        self._loop_stop_on_err = value
+
+    # ---------------------------------
+    @property
+    def loop_mode_active(self):
+        """True if loop mode is active, false otherwise
+        """
+        return self._loop_mode_active
+
+    @loop_mode_active.setter
+    def loop_mode_active(self, value):
+        if value not in set([True, False]):
+            raise ValueError("loop_mode_active must be boolean")
+        self._loop_mode_active = value
+
+    # ---------------------------------
+    @property
+    def loop_rate_limit(self):
+        """True if loop rate limiting is in effect, false otherwise
+        """
+        return self._loop_rate_limit
+
+    @loop_rate_limit.setter
+    def loop_rate_limit(self, value):
+        if value not in set([True, False]):
+            raise ValueError("loop_rate_limit must be boolean")
+        self._loop_rate_limit = value
+
+    # ---------------------------------
+    @property
+    def loop_delay(self):
+        """Seconds to delay between loops
+        """
+        return self._loop_delay
+
+    @loop_delay.setter
+    def loop_delay(self, value):
+        self._loop_delay = value
+
+    # ---------------------------------
+    @property
+    def loop_save_results(self):
+        """True if results should be saved while looping, false otherwise
+        """
+        return self._loop_save_results
+
+    @loop_save_results.setter
+    def loop_save_results(self, value):
+        if value not in set([True, False]):
+            raise ValueError("loop_save_results must be boolean")
+        self._loop_save_results = value
+
+    # ---------------------------------
+    @property
+    def loop_save_graphs(self):
+        """True if graphs should be saved while looping, false otherwise
+        """
+        return self._loop_save_graphs
+
+    @loop_save_graphs.setter
+    def loop_save_graphs(self, value):
+        if value not in set([True, False]):
+            raise ValueError("loop_save_graphs must be boolean")
+        self._loop_save_graphs = value
+
+    # ---------------------------------
+    @property
+    def suppress_cfg_file_copy(self):
+        """True if copying the config file should be suppressed
+        """
+        return self._suppress_cfg_file_copy
+
+    @suppress_cfg_file_copy.setter
+    def suppress_cfg_file_copy(self, value):
+        if value not in set([True, False]):
+            raise ValueError("suppress_cfg_file_copy must be boolean")
+        self._suppress_cfg_file_copy = value
+
+    # ---------------------------------
+    @property
+    def overlay_names(self):
+        """Dict containing mapping of dts to name for overlay curves
+        """
+        return self._overlay_names
+
+    @overlay_names.setter
+    def overlay_names(self, value):
+        self._overlay_names = value
+
+    # ---------------------------------
+    @property
+    def overlay_dir(self):
+        """Name of directory for current overlay
+        """
+        return self._overlay_dir
+
+    @overlay_dir.setter
+    def overlay_dir(self, value):
+        self._overlay_dir = value
+
+    # ---------------------------------
+    @property
+    def overlay_mode(self):
+        """True if the Results Wizard is in overlay mode
+        """
+        return self._overlay_mode
+
+    @overlay_mode.setter
+    def overlay_mode(self, value):
+        if value not in set([True, False]):
+            raise ValueError("overlay_mode must be boolean")
+        self._overlay_mode = value
+
+    # ---------------------------------
+    @property
+    def redisplay_after_axes_unlock(self):
+        """True if the current image should be redisplayed after the axes are
+           unlocked
+        """
+        return self._redisplay_after_axes_unlock
+
+    @redisplay_after_axes_unlock.setter
+    def redisplay_after_axes_unlock(self, value):
+        if value not in set([True, False]):
+            raise ValueError("redisplay_after_axes_unlock must be boolean")
+        self._redisplay_after_axes_unlock = value
+
+    # ---------------------------------
+    @property
+    def current_run_displayed(self):
+        """True if the current run is displayed on the screen (as opposed to
+           the splash screen, or an older run).
+        """
+        return self._current_run_displayed
+
+    @current_run_displayed.setter
+    def current_run_displayed(self, value):
+        if value not in set([True, False]):
+            raise ValueError("current_run_displayed must be boolean")
+        self._current_run_displayed = value
 
     # -------------------------------------------------------------------------
     def check_app_data_dir(self):
@@ -1120,7 +1280,7 @@ This could be for one of the following reasons:
         loop_rate_pad.pack(side=LEFT)
         self.loop_rate_cb.pack(side=LEFT)
         if self.config.cfg.getboolean("Looping", "restore values"):
-            if self.props.loop_rate_limit:
+            if self.loop_rate_limit:
                 self.loop_rate_cb.state(["selected"])
                 self.loop_rate_cb.update_value_str()
         tt_text = "Check to limit repetition rate of looping"
@@ -1135,7 +1295,7 @@ This could be for one of the following reasons:
         loop_save_pad.pack(side=LEFT)
         self.loop_save_cb.pack(side=LEFT)
         if self.config.cfg.getboolean("Looping", "restore values"):
-            if self.props.loop_save_results:
+            if self.loop_save_results:
                 self.loop_save_cb.state(["selected"])
                 self.loop_save_cb.update_value_str()
         tt_text = "Check to save results while looping"
@@ -1225,7 +1385,7 @@ This could be for one of the following reasons:
         """Method to handle a change in the value of the Plot Power or Plot
            Reference checkbutton.
         """
-        if self.props.current_run_displayed or self.results_wiz:
+        if self.current_run_displayed or self.results_wiz:
             run_dir = self.ivs2.hdd_output_dir
             config_dir = os.path.dirname(self.config.cfg_filename)
 
@@ -1241,7 +1401,7 @@ This could be for one of the following reasons:
             self.ivs2.plot_ref = plot
             self.config.cfg_set("Plotting", "plot ref", self.ivs2.plot_ref)
 
-        if self.props.current_run_displayed or self.results_wiz:
+        if self.current_run_displayed or self.results_wiz:
             # Redisplay the image (with the change) - saves config
             self.redisplay_img(reprocess_adc=False)
 
@@ -1278,7 +1438,7 @@ This could be for one of the following reasons:
                .format(self.v_range.get(), self.i_range.get()))
         log_user_action(self.ivs2.logger, msg)
 
-        if self.props.current_run_displayed or self.results_wiz:
+        if self.current_run_displayed or self.results_wiz:
             run_dir = self.ivs2.hdd_output_dir
             config_dir = os.path.dirname(self.config.cfg_filename)
 
@@ -1298,7 +1458,7 @@ This could be for one of the following reasons:
         self.update_axis_ranges()
         self.update_idletasks()
 
-        if self.props.current_run_displayed or self.results_wiz:
+        if self.current_run_displayed or self.results_wiz:
             if self.axes_locked.get() == "Unlock":
                 # Unlock the axes (redisplays image and saves config)
                 self.unlock_axes()
@@ -1503,7 +1663,7 @@ This could be for one of the following reasons:
         # the new size. If an IV curve is showing, regenerate it..
         if self.img_pane.splash_img_showing or not self.ivs2.hdd_output_dir:
             self.img_pane.display_splash_img()
-        elif self.props.overlay_mode:
+        elif self.overlay_mode:
             self.results_wiz.plot_overlay_and_display()
         else:
             remove_directory = False
@@ -1525,7 +1685,7 @@ This could be for one of the following reasons:
             if rc == RC_SUCCESS:
                 rc = self.plot_results()
                 if rc == RC_SUCCESS:
-                    if not self.props.suppress_cfg_file_copy:
+                    if not self.suppress_cfg_file_copy:
                         self.config.add_axes_and_title()
                     self.display_img(self.ivs2.current_img)
             elif rc == RC_NO_POINTS:
@@ -1588,9 +1748,9 @@ This could be for one of the following reasons:
            copy_dir parameter.
         """
         copy_dir = None
-        if (not self.props.suppress_cfg_file_copy and
-                (self.props.loop_save_results or
-                 not self.props.loop_mode_active)):
+        if (not self.suppress_cfg_file_copy and
+                (self.loop_save_results or
+                 not self.loop_mode_active)):
             copy_dir = self.ivs2.hdd_output_dir
 
         self.config.save(copy_dir=copy_dir)
@@ -1729,7 +1889,7 @@ This could be for one of the following reasons:
             return rc
 
         # Clear current_run_displayed flag
-        self.props.current_run_displayed = False
+        self.current_run_displayed = False
 
         # Capture the start time
         loop_start_time = dt.datetime.now()
@@ -1748,7 +1908,7 @@ This could be for one of the following reasons:
         if self.ivs2.battery_bias and self.ivs2.dyn_bias_cal:
             rc = self.ivs2.swing_battery_calibration_curve(gen_graphs=False)
             # Restore config file
-            self.props.suppress_cfg_file_copy = True
+            self.suppress_cfg_file_copy = True
             self.save_config()
             if rc == RC_SUCCESS:
                 # Generate bias battery ADC CSV file
@@ -1760,7 +1920,7 @@ This could be for one of the following reasons:
                 self.ivs2.copy_file_to_parent(bias_batt_csv_file)
                 # Clean up files, depending on mode and options
                 self.ivs2.clean_up_files(self.ivs2.hdd_output_dir, loop_mode,
-                                         self.props.loop_save_results)
+                                         self.loop_save_results)
             else:
                 err_str = ("ERROR: Failed to swing curve for bias battery")
                 tkmsg_showerror(self, message=err_str)
@@ -1772,11 +1932,11 @@ This could be for one of the following reasons:
             self.ivs2.second_relay_state = IV_Swinger2.SECOND_RELAY_ON
 
         # Allow copying the .cfg file to the run directory
-        self.props.suppress_cfg_file_copy = False
+        self.suppress_cfg_file_copy = False
 
         # Call the IVS2 method to swing the curve
-        if loop_mode and (not self.props.loop_save_results or
-                          not self.props.loop_save_graphs):
+        if loop_mode and (not self.loop_save_results or
+                          not self.loop_save_graphs):
             self.ivs2.generate_pdf = False
         self.config.remove_axes_and_title()
         rc = self.ivs2.swing_curve(loop_mode=loop_mode)
@@ -1787,9 +1947,9 @@ This could be for one of the following reasons:
         if rc == RC_SUCCESS:
             # Update the image pane with the new curve GIF
             self.display_img(self.ivs2.current_img)
-            self.props.current_run_displayed = True
+            self.current_run_displayed = True
         elif (loop_mode and
-              not self.props.loop_stop_on_err and
+              not self.loop_stop_on_err and
               (rc == RC_ZERO_ISC or rc == RC_ZERO_VOC or
                rc == RC_ISC_TIMEOUT)):
             # If it failed and we're in loop mode with the stop-on-error option
@@ -1806,8 +1966,8 @@ This could be for one of the following reasons:
         if loop_mode:
             elapsed_time = dt.datetime.now() - loop_start_time
             elapsed_ms = int(round(elapsed_time.total_seconds() * 1000))
-            delay_ms = self.props.loop_delay * 1000 - elapsed_ms
-            if not self.props.loop_rate_limit or delay_ms <= 0:
+            delay_ms = self.loop_delay * 1000 - elapsed_ms
+            if not self.loop_rate_limit or delay_ms <= 0:
                 delay_ms = 1
             thread_id = self.after(int(delay_ms),
                                    lambda: self.swing_loop(loop_mode=True,
@@ -1820,8 +1980,8 @@ This could be for one of the following reasons:
 
         # Clean up files, depending on mode and options
         self.ivs2.clean_up_files(self.ivs2.hdd_output_dir, loop_mode,
-                                 self.props.loop_save_results,
-                                 self.props.loop_save_graphs)
+                                 self.loop_save_results,
+                                 self.loop_save_graphs)
 
         return RC_SUCCESS
 
@@ -2050,9 +2210,9 @@ bias was actually applied.
     def close_gui(self):
         """Method to perform actions needed when the GUI is closed"""
         # Clean up before closing
-        if self.props.overlay_dir is not None:
+        if self.overlay_dir is not None:
             self.results_wiz.rm_overlay_if_unfinished()
-            self.ivs2.clean_up_files(self.props.overlay_dir)
+            self.ivs2.clean_up_files(self.overlay_dir)
         if self.ivs2.hdd_output_dir is not None:
             self.ivs2.clean_up_files(self.ivs2.hdd_output_dir)
         IV_Swinger2.close_plots()
@@ -2104,187 +2264,6 @@ bias was actually applied.
         self.root.mainloop()
 
 
-# GUI properties class
-#
-class GraphicalUserInterfaceProps(object):
-    """Class to hold the properties for the GraphicalUserInterface class.
-       This is necessary because properties only work with new-style
-       classes (i.e. those derived from "object")
-    """
-    # pylint: disable=protected-access
-
-    # Initializer
-    def __init__(self, master=None):
-        self.master = master
-
-    # ---------------------------------
-    @property
-    def restore_loop(self):
-        """True if loop settings should be restored on next startup,
-           false otherwise
-        """
-        return self.master._restore_loop
-
-    @restore_loop.setter
-    def restore_loop(self, value):
-        if value not in set([True, False]):
-            raise ValueError("restore_loop must be boolean")
-        self.master._restore_loop = value
-
-    # ---------------------------------
-    @property
-    def loop_stop_on_err(self):
-        """True if looping should stop on non-fatal errors, false if
-           looping should continue on non-fatal errors
-        """
-        return self.master._loop_stop_on_err
-
-    @loop_stop_on_err.setter
-    def loop_stop_on_err(self, value):
-        if value not in set([True, False]):
-            raise ValueError("loop_stop_on_err must be boolean")
-        self.master._loop_stop_on_err = value
-
-    # ---------------------------------
-    @property
-    def loop_mode_active(self):
-        """True if loop mode is active, false otherwise
-        """
-        return self.master._loop_mode_active
-
-    @loop_mode_active.setter
-    def loop_mode_active(self, value):
-        if value not in set([True, False]):
-            raise ValueError("loop_mode_active must be boolean")
-        self.master._loop_mode_active = value
-
-    # ---------------------------------
-    @property
-    def loop_rate_limit(self):
-        """True if loop rate limiting is in effect, false otherwise
-        """
-        return self.master._loop_rate_limit
-
-    @loop_rate_limit.setter
-    def loop_rate_limit(self, value):
-        if value not in set([True, False]):
-            raise ValueError("loop_rate_limit must be boolean")
-        self.master._loop_rate_limit = value
-
-    # ---------------------------------
-    @property
-    def loop_delay(self):
-        """Seconds to delay between loops
-        """
-        return self.master._loop_delay
-
-    @loop_delay.setter
-    def loop_delay(self, value):
-        self.master._loop_delay = value
-
-    # ---------------------------------
-    @property
-    def loop_save_results(self):
-        """True if results should be saved while looping, false otherwise
-        """
-        return self.master._loop_save_results
-
-    @loop_save_results.setter
-    def loop_save_results(self, value):
-        if value not in set([True, False]):
-            raise ValueError("loop_save_results must be boolean")
-        self.master._loop_save_results = value
-
-    # ---------------------------------
-    @property
-    def loop_save_graphs(self):
-        """True if graphs should be saved while looping, false otherwise
-        """
-        return self.master._loop_save_graphs
-
-    @loop_save_graphs.setter
-    def loop_save_graphs(self, value):
-        if value not in set([True, False]):
-            raise ValueError("loop_save_graphs must be boolean")
-        self.master._loop_save_graphs = value
-
-    # ---------------------------------
-    @property
-    def suppress_cfg_file_copy(self):
-        """True if copying the config file should be suppressed
-        """
-        return self.master._suppress_cfg_file_copy
-
-    @suppress_cfg_file_copy.setter
-    def suppress_cfg_file_copy(self, value):
-        if value not in set([True, False]):
-            raise ValueError("suppress_cfg_file_copy must be boolean")
-        self.master._suppress_cfg_file_copy = value
-
-    # ---------------------------------
-    @property
-    def overlay_names(self):
-        """Dict containing mapping of dts to name for overlay curves
-        """
-        return self.master._overlay_names
-
-    @overlay_names.setter
-    def overlay_names(self, value):
-        self.master._overlay_names = value
-
-    # ---------------------------------
-    @property
-    def overlay_dir(self):
-        """Name of directory for current overlay
-        """
-        return self.master._overlay_dir
-
-    @overlay_dir.setter
-    def overlay_dir(self, value):
-        self.master._overlay_dir = value
-
-    # ---------------------------------
-    @property
-    def overlay_mode(self):
-        """True if the Results Wizard is in overlay mode
-        """
-        return self.master._overlay_mode
-
-    @overlay_mode.setter
-    def overlay_mode(self, value):
-        if value not in set([True, False]):
-            raise ValueError("overlay_mode must be boolean")
-        self.master._overlay_mode = value
-
-    # ---------------------------------
-    @property
-    def redisplay_after_axes_unlock(self):
-        """True if the current image should be redisplayed after the axes are
-           unlocked
-        """
-        return self.master._redisplay_after_axes_unlock
-
-    @redisplay_after_axes_unlock.setter
-    def redisplay_after_axes_unlock(self, value):
-        if value not in set([True, False]):
-            raise ValueError("redisplay_after_axes_unlock must be boolean")
-        self.master._redisplay_after_axes_unlock = value
-
-    # ---------------------------------
-    @property
-    def current_run_displayed(self):
-        """True if the current run is displayed on the screen (as opposed to
-           the splash screen, or an older run).
-        """
-        return self.master._current_run_displayed
-
-    @current_run_displayed.setter
-    def current_run_displayed(self, value):
-        if value not in set([True, False]):
-            raise ValueError("current_run_displayed must be boolean")
-        self.master._current_run_displayed = value
-
-
 # GUI Configuration class
 #
 class Configuration(IV_Swinger2.Configuration):
@@ -2318,38 +2297,38 @@ class Configuration(IV_Swinger2.Configuration):
 
         # Restore values
         args = (section, "restore values", CFG_BOOLEAN,
-                self.gui.props.restore_loop)
-        self.gui.props.restore_loop = self.apply_one(*args)
+                self.gui.restore_loop)
+        self.gui.restore_loop = self.apply_one(*args)
 
         # Stop on error
         args = (section, "stop on error", CFG_BOOLEAN,
-                self.gui.props.loop_stop_on_err)
-        self.gui.props.loop_stop_on_err = self.apply_one(*args)
+                self.gui.loop_stop_on_err)
+        self.gui.loop_stop_on_err = self.apply_one(*args)
 
-        if self.gui.props.restore_loop:
+        if self.gui.restore_loop:
             # Loop mode
             args = (section, "loop mode", CFG_BOOLEAN,
-                    self.gui.props.loop_mode_active)
-            self.gui.props.loop_mode_active = self.apply_one(*args)
+                    self.gui.loop_mode_active)
+            self.gui.loop_mode_active = self.apply_one(*args)
 
             # Rate limit
             args = (section, "rate limit", CFG_BOOLEAN,
-                    self.gui.props.loop_rate_limit)
-            self.gui.props.loop_rate_limit = self.apply_one(*args)
+                    self.gui.loop_rate_limit)
+            self.gui.loop_rate_limit = self.apply_one(*args)
 
             # Delay
-            args = (section, "delay", CFG_INT, self.gui.props.loop_delay)
-            self.gui.props.loop_delay = self.apply_one(*args)
+            args = (section, "delay", CFG_INT, self.gui.loop_delay)
+            self.gui.loop_delay = self.apply_one(*args)
 
             # Save results
             args = (section, "save results", CFG_BOOLEAN,
-                    self.gui.props.loop_save_results)
-            self.gui.props.loop_save_results = self.apply_one(*args)
+                    self.gui.loop_save_results)
+            self.gui.loop_save_results = self.apply_one(*args)
 
             # Save graphs
             args = (section, "save graphs", CFG_BOOLEAN,
-                    self.gui.props.loop_save_graphs)
-            self.gui.props.loop_save_graphs = self.apply_one(*args)
+                    self.gui.loop_save_graphs)
+            self.gui.loop_save_graphs = self.apply_one(*args)
 
     # -------------------------------------------------------------------------
     def populate(self):
@@ -2361,13 +2340,13 @@ class Configuration(IV_Swinger2.Configuration):
         # Add looping config
         section = "Looping"
         self.cfg.add_section(section)
-        self.cfg_set(section, "restore values", self.gui.props.restore_loop)
-        self.cfg_set(section, "stop on error", self.gui.props.loop_stop_on_err)
-        self.cfg_set(section, "loop mode", self.gui.props.loop_mode_active)
-        self.cfg_set(section, "rate limit", self.gui.props.loop_rate_limit)
-        self.cfg_set(section, "delay", self.gui.props.loop_delay)
-        self.cfg_set(section, "save results", self.gui.props.loop_save_results)
-        self.cfg_set(section, "save graphs", self.gui.props.loop_save_graphs)
+        self.cfg_set(section, "restore values", self.gui.restore_loop)
+        self.cfg_set(section, "stop on error", self.gui.loop_stop_on_err)
+        self.cfg_set(section, "loop mode", self.gui.loop_mode_active)
+        self.cfg_set(section, "rate limit", self.gui.loop_rate_limit)
+        self.cfg_set(section, "delay", self.gui.loop_delay)
+        self.cfg_set(section, "save results", self.gui.loop_save_results)
+        self.cfg_set(section, "save graphs", self.gui.loop_save_graphs)
 
     # -------------------------------------------------------------------------
     def get(self):
@@ -2721,7 +2700,7 @@ class ResultsWizard(tk.Toplevel):
             title_str = ""
         else:
             title_str = "   {}".format(title)
-            self.master.props.overlay_names[subdir] = title
+            self.master.overlay_names[subdir] = title
 
         # Add child time item (iid is full date_time_str)
         text = xlated_time + title_str
@@ -2742,7 +2721,7 @@ class ResultsWizard(tk.Toplevel):
 
         # If we're in overlay mode ask user if they want to save the
         # overlay
-        if self.master.props.overlay_mode:
+        if self.master.overlay_mode:
             msg_str = "Save overlay before quitting Results Wizard?"
             save_overlay = tkmsg_askyesno(self.master,
                                           "Save overlay?", msg_str,
@@ -2759,14 +2738,14 @@ class ResultsWizard(tk.Toplevel):
                 log_user_action(self.master.ivs2.logger, msg)
                 # No: turn off overlay mode and display non-overlaid
                 # image
-                self.master.props.overlay_mode = False
+                self.master.overlay_mode = False
                 self.overlay_title = None
                 self.master.redisplay_img()
         # Remove incomplete overlay
         self.rm_overlay_if_unfinished()
         self.restore_master()
-        self.master.props.overlay_mode = False
-        self.master.props.overlay_dir = None
+        self.master.overlay_mode = False
+        self.master.overlay_dir = None
         self.master.results_wiz = None
         self.destroy()
 
@@ -2788,15 +2767,15 @@ class ResultsWizard(tk.Toplevel):
         # the axes locked to the values from the last result that was
         # browsed. Otherwise unlock the axes.
         if self.master.axes_locked.get() == "Unlock":
-            self.master.props.redisplay_after_axes_unlock = False
+            self.master.redisplay_after_axes_unlock = False
             self.master.unlock_axes()
-            self.master.props.redisplay_after_axes_unlock = True
+            self.master.redisplay_after_axes_unlock = True
         # The last selected run remains displayed, but the config file
         # has been restored. The user can apply changes to the displayed
         # run, but we need to suppress copying the config file or else
         # the run's config file will be overwritten with the restored
         # one.
-        self.master.props.suppress_cfg_file_copy = True
+        self.master.suppress_cfg_file_copy = True
 
     # -------------------------------------------------------------------------
     def select(self, event=None):
@@ -2811,7 +2790,7 @@ class ResultsWizard(tk.Toplevel):
         # If multiple items are selected, last one (oldest) is
         # displayed
         selection = selections[-1]
-        if self.master.props.overlay_mode:
+        if self.master.overlay_mode:
             self.overlay_runs(event=None)
         elif selection.startswith("overlay_"):
             self.overlay_select_actions(selection)
@@ -2820,7 +2799,7 @@ class ResultsWizard(tk.Toplevel):
         # Clear the flag that indicates that the current run is displayed on
         # the screen. No exception is made if the selected run is the current
         # run.
-        self.master.props.current_run_displayed = False
+        self.master.current_run_displayed = False
 
     # -------------------------------------------------------------------------
     def overlay_select_actions(self, selection):
@@ -2939,7 +2918,7 @@ class ResultsWizard(tk.Toplevel):
     def update_to_selected_config(self, run_dir):
         """Method to read config file, if it exists, and update the config
         """
-        self.master.props.suppress_cfg_file_copy = False
+        self.master.suppress_cfg_file_copy = False
         cfg_file = os.path.join(run_dir, "{}.cfg".format(APP_NAME))
         if cfg_file == self.master.config.cfg_filename:
             return
@@ -2957,7 +2936,7 @@ class ResultsWizard(tk.Toplevel):
             self.master.i_range.set("<unknown>")
             # Set flag to suppress copying the .cfg file if there
             # wasn't already one in this directory
-            self.master.props.suppress_cfg_file_copy = True
+            self.master.suppress_cfg_file_copy = True
 
     # -------------------------------------------------------------------------
     def change_folder(self, event=None):
@@ -3219,7 +3198,7 @@ class ResultsWizard(tk.Toplevel):
             return
 
         # Display error dialog and return if in overlay mode
-        if self.master.props.overlay_mode:
+        if self.master.overlay_mode:
             err_msg = "ERROR: cannot perform a delete in overlay mode"
             tkmsg_showerror(self.master, message=err_msg)
             return
@@ -3278,7 +3257,7 @@ class ResultsWizard(tk.Toplevel):
             return
 
         # Display error dialog and return if in overlay mode
-        if self.master.props.overlay_mode:
+        if self.master.overlay_mode:
             err_msg = "ERROR: cannot perform a copy in overlay mode"
             tkmsg_showerror(self.master, message=err_msg)
             return
@@ -3469,7 +3448,7 @@ class ResultsWizard(tk.Toplevel):
         msg = "(Wizard) clicked Change Title button"
         log_user_action(self.master.ivs2.logger, msg)
 
-        if self.master.props.overlay_mode:
+        if self.master.overlay_mode:
             prompt_title_str = "Change overlay title"
             prompt_str = "Enter new overlay title"
             init_val = ("IV Swinger Plot for {} Runs"
@@ -3507,7 +3486,7 @@ class ResultsWizard(tk.Toplevel):
                                    initialvalue=init_val)
         if new_title:
             new_title = new_title
-            if self.master.props.overlay_mode:
+            if self.master.overlay_mode:
                 self.overlay_title = new_title
                 self.plot_overlay_and_display()
             else:
@@ -3517,12 +3496,12 @@ class ResultsWizard(tk.Toplevel):
                     text = time_of_day
                     self.tree.item(dts, text=text)
                     self.master.ivs2.plot_title = None
-                    del self.master.props.overlay_names[dts]
+                    del self.master.overlay_names[dts]
                 else:
                     text = "{}   {}".format(time_of_day, new_title)
                     self.tree.item(dts, text=text)
                     self.master.ivs2.plot_title = new_title
-                    self.master.props.overlay_names[dts] = new_title
+                    self.master.overlay_names[dts] = new_title
                 self.master.redisplay_img(reprocess_adc=False)
 
     # -------------------------------------------------------------------------
@@ -3541,7 +3520,7 @@ class ResultsWizard(tk.Toplevel):
         if img is not None and os.path.exists(img):
             (basename, _) = os.path.splitext(img)
             pdf = "{}.pdf".format(basename)
-            if self.master.props.overlay_mode:
+            if self.master.overlay_mode:
                 # In overlay mode, the PDF is only generated when the Finished
                 # button is pressed, so we have to generate it "on demand" when
                 # the View PDF button is pressed.
@@ -3579,7 +3558,7 @@ class ResultsWizard(tk.Toplevel):
             return
 
         # Display error dialog and return if in overlay mode
-        if self.master.props.overlay_mode:
+        if self.master.overlay_mode:
             err_msg = "ERROR: cannot perform an update in overlay mode"
             tkmsg_showerror(self.master, message=err_msg)
             return
@@ -3627,9 +3606,9 @@ class ResultsWizard(tk.Toplevel):
             # is automatic - otherwise, all updates will use the
             # current lock values
             if self.master.axes_locked.get() == "Unlock":
-                self.master.props.redisplay_after_axes_unlock = False
+                self.master.redisplay_after_axes_unlock = False
                 self.master.unlock_axes()
-                self.master.props.redisplay_after_axes_unlock = True
+                self.master.redisplay_after_axes_unlock = True
             else:
                 self.master.ivs2.plot_max_x = float(self.master.v_range.get())
                 self.master.ivs2.plot_max_y = float(self.master.i_range.get())
@@ -3671,15 +3650,15 @@ class ResultsWizard(tk.Toplevel):
             return RC_FAILURE
 
         # Check for none selected
-        if not self.master.props.overlay_mode and not self.overlaid_runs:
+        if not self.master.overlay_mode and not self.overlaid_runs:
             info_str = ("Select at least one run to begin an overlay")
             tkmsg_showerror(self.master, message=info_str)
             return RC_FAILURE
 
         # Enter overlay mode (if not already in it)
-        if not self.master.props.overlay_mode:
+        if not self.master.overlay_mode:
             self.add_overlay_widgets()
-            self.master.props.overlay_mode = True
+            self.master.overlay_mode = True
             self.make_overlay_dir()
 
         # Populate the overlay treeview
@@ -3705,7 +3684,7 @@ class ResultsWizard(tk.Toplevel):
            runs are added to the end of the list in oldest-to-newest
            order.
         """
-        if not self.master.props.overlay_mode:
+        if not self.master.overlay_mode:
             # First time: oldest-to-newest
             self.overlaid_runs.sort(reverse=False)
             self.chron_dir = "forward"
@@ -3751,7 +3730,7 @@ class ResultsWizard(tk.Toplevel):
     def add_new_overlay_to_tree(self):
         """Method to add a just-created overlay to the Treeview
         """
-        overlay_dir = self.master.props.overlay_dir
+        overlay_dir = self.master.overlay_dir
         overlay = IV_Swinger2.extract_date_time_str(overlay_dir)
         self.overlay_iid = "overlay_{}".format(overlay)
         parent = "overlays"
@@ -4011,8 +3990,8 @@ class ResultsWizard(tk.Toplevel):
         for run_dir in run_dirs:
             dts = os.path.basename(run_dir)
             date_time = date_at_time_from_dts(dts)
-            if dts in self.master.props.overlay_names:
-                name = self.master.props.overlay_names[dts]
+            if dts in self.master.overlay_names:
+                name = self.master.overlay_names[dts]
             else:
                 name = date_time
             self.overlay_widget_treeview.insert("", "end", dts,
@@ -4062,8 +4041,8 @@ class ResultsWizard(tk.Toplevel):
 
         # Open dialog to add or change name
         prompt_str = "Enter name for {} curve".format(date_time)
-        if dts in self.master.props.overlay_names:
-            init_val = self.master.props.overlay_names[dts]
+        if dts in self.master.overlay_names:
+            init_val = self.master.overlay_names[dts]
         else:
             init_val = date_time
         new_name = tksd_askstring(self.master,
@@ -4074,7 +4053,7 @@ class ResultsWizard(tk.Toplevel):
             msg = ("""(Wizard) renamed overlay curve from "{}" to "{}" """
                    .format(init_val, new_name))
             log_user_action(self.master.ivs2.logger, msg)
-            self.master.props.overlay_names[dts] = new_name
+            self.master.overlay_names[dts] = new_name
             self.populate_overlay_treeview(self.overlaid_runs)
             self.plot_overlay_and_display()
 
@@ -4110,7 +4089,7 @@ class ResultsWizard(tk.Toplevel):
         log_user_action(self.master.ivs2.logger, msg)
 
         # Exit overlay mode and remove widgets
-        self.master.props.overlay_mode = False
+        self.master.overlay_mode = False
         self.overlay_title = None
         self.remove_overlay_widgets()
 
@@ -4121,9 +4100,9 @@ class ResultsWizard(tk.Toplevel):
             pass
 
         # Remove overlay directory
-        if self.master.props.overlay_dir == os.getcwd():
+        if self.master.overlay_dir == os.getcwd():
             os.chdir("..")
-        shutil.rmtree(self.master.props.overlay_dir)
+        shutil.rmtree(self.master.overlay_dir)
 
     # -------------------------------------------------------------------------
     def overlay_finished(self, event=None):
@@ -4141,7 +4120,7 @@ class ResultsWizard(tk.Toplevel):
         self.plot_graphs_to_pdf()
 
         # Exit overlay mode and remove widgets
-        self.master.props.overlay_mode = False
+        self.master.overlay_mode = False
         self.overlay_title = None
         self.remove_overlay_widgets()
 
@@ -4167,19 +4146,19 @@ class ResultsWizard(tk.Toplevel):
            exist at all). Returns True if it was removed (or didn't
            exist) and False otherwise.
         """
-        if self.master.props.overlay_dir is not None:
-            if not os.path.exists(self.master.props.overlay_dir):
+        if self.master.overlay_dir is not None:
+            if not os.path.exists(self.master.overlay_dir):
                 return True
             # Remove directory if it doesn't contain overlaid PDF
-            dts = os.path.basename(self.master.props.overlay_dir)
+            dts = os.path.basename(self.master.overlay_dir)
             overlay_pdf = "overlaid_{}.pdf".format(dts)
-            if overlay_pdf not in os.listdir(self.master.props.overlay_dir):
-                if self.master.props.overlay_dir == os.getcwd():
+            if overlay_pdf not in os.listdir(self.master.overlay_dir):
+                if self.master.overlay_dir == os.getcwd():
                     os.chdir("..")
-                shutil.rmtree(self.master.props.overlay_dir)
+                shutil.rmtree(self.master.overlay_dir)
                 return True
             # Clean up the directory
-            self.master.ivs2.clean_up_files(self.master.props.overlay_dir,
+            self.master.ivs2.clean_up_files(self.master.overlay_dir,
                                             loop_mode=False)
         return False
 
@@ -4233,11 +4212,11 @@ class ResultsWizard(tk.Toplevel):
         date_time_str = IV_Swinger2.get_date_time_str()
 
         # Create overlay directory
-        self.master.props.overlay_dir = os.path.join(self.results_dir,
-                                                     "overlays",
-                                                     date_time_str)
-        if not os.path.exists(self.master.props.overlay_dir):
-            os.makedirs(self.master.props.overlay_dir)
+        self.master.overlay_dir = os.path.join(self.results_dir,
+                                               "overlays",
+                                               date_time_str)
+        if not os.path.exists(self.master.overlay_dir):
+            os.makedirs(self.master.overlay_dir)
 
     # -------------------------------------------------------------------------
     def plot_overlay(self):
@@ -4249,7 +4228,7 @@ class ResultsWizard(tk.Toplevel):
                           else self.overlay_title)
         self.ivp.logger = self.master.ivs2.logger
         self.ivp.csv_files = self.selected_csv_files
-        self.ivp.plot_dir = self.master.props.overlay_dir
+        self.ivp.plot_dir = self.master.overlay_dir
         self.ivp.x_pixels = self.master.ivs2.x_pixels
         self.ivp.generate_pdf = False
         self.ivp.fancy_labels = self.master.ivs2.fancy_labels
@@ -4288,9 +4267,9 @@ class ResultsWizard(tk.Toplevel):
         self.ivp.curve_names = []
         curves = self.overlay_widget_treeview.get_children()
         for dts in curves:
-            if dts in self.master.props.overlay_names:
+            if dts in self.master.overlay_names:
                 # Name is user-specified
-                name = self.master.props.overlay_names[dts]
+                name = self.master.overlay_names[dts]
                 self.ivp.curve_names.append(name)
             else:
                 # Default name: date@time
@@ -4447,7 +4426,7 @@ class MenuBar(tk.Menu):
         #     Data points are valid
         if (self.master.results_wiz is None and
                 self.master.ivs2.arduino_ready and
-                self.master.props.current_run_displayed and
+                self.master.current_run_displayed and
                 len(self.master.ivs2.data_points) > 1):
             kwargs = {"state": "normal"}
         else:
@@ -4464,7 +4443,7 @@ class MenuBar(tk.Menu):
         #     Irradiance value is valid
         if (self.master.results_wiz is None and
                 self.master.ivs2.arduino_ready and
-                self.master.props.current_run_displayed and
+                self.master.current_run_displayed and
                 self.master.ivs2.irradiance is not None):
             kwargs = {"state": "normal"}
         else:
@@ -7015,7 +6994,7 @@ calibration, NO to cancel."""
                 self.reestablish_arduino_comm_reqd = True
             rc = self.master.ivs2.swing_battery_calibration_curve()
             # Restore config file
-            self.master.props.suppress_cfg_file_copy = True
+            self.master.suppress_cfg_file_copy = True
             self.master.save_config()
             if rc == RC_SUCCESS:
                 # Display curve
@@ -8837,7 +8816,7 @@ it and then edit the parameter values.
         self.master.ivs2.pv_model.get_data_points(PV_MODEL_CURVE_NUM_POINTS)
 
         # Generate the test curve
-        self.master.props.suppress_cfg_file_copy = False
+        self.master.suppress_cfg_file_copy = False
         self.master.ivs2.gen_pv_test_curve()
 
         # Display the image
@@ -9310,7 +9289,7 @@ it and then edit the parameter values.
                 if (stop_on_err != self.master.config.cfg.getboolean(section,
                                                                      option)):
                     self.master.config.cfg_set(section, option, stop_on_err)
-                    self.master.props.loop_stop_on_err = stop_on_err
+                    self.master.loop_stop_on_err = stop_on_err
                     looping_opt_changed = True
             if looping_opt_changed:
                 # Save config
@@ -9439,7 +9418,7 @@ written to Arduino EEPROM.
 
         if ((pv_model_opt_changed or pv_spec_changed) and
                 (self.master.results_wiz is not None or
-                 self.master.props.current_run_displayed)):
+                 self.master.current_run_displayed)):
             # Redisplay image (saves config)
             self.master.redisplay_img()
             self.pv_model_revert_redisplay = True
@@ -10190,8 +10169,8 @@ class LockAxes(ttk.Checkbutton):
         self.gui.update_axis_ranges()
         # (Optionally) redisplay the image with the new settings (saves
         # config)
-        if ((self.gui.props.current_run_displayed or self.gui.results_wiz) and
-                self.gui.props.redisplay_after_axes_unlock):
+        if ((self.gui.current_run_displayed or self.gui.results_wiz) and
+                self.gui.redisplay_after_axes_unlock):
             self.gui.redisplay_img(reprocess_adc=False)
 
 
@@ -10230,7 +10209,7 @@ class LoopMode(ttk.Checkbutton):
         log_user_action(self.gui.ivs2.logger, msg)
         if self.loop_mode.get() == "On":
             self.gui.loop_mode.set("On")
-            self.gui.props.loop_mode_active = True
+            self.gui.loop_mode_active = True
             self.rate_limit.state(["!disabled"])
             self.save_results.state(["!disabled"])
             if self.lock_axes.instate(["selected"]):
@@ -10245,19 +10224,19 @@ class LoopMode(ttk.Checkbutton):
             self.lock_axes.state(["disabled"])
         else:
             self.gui.loop_mode.set("Off")
-            self.gui.props.loop_mode_active = False
+            self.gui.loop_mode_active = False
             self.rate_limit.state(["disabled"])
             self.save_results.state(["disabled"])
             self.lock_axes.state(["!disabled"])
             if not self.axes_already_locked:
-                self.gui.props.redisplay_after_axes_unlock = False
+                self.gui.redisplay_after_axes_unlock = False
                 self.lock_axes.invoke()  # Unlock axes
-                self.gui.props.redisplay_after_axes_unlock = True
+                self.gui.redisplay_after_axes_unlock = True
 
         # Save values to config
         self.gui.config.cfg_set("Looping", "loop mode",
-                                self.gui.props.loop_mode_active)
-        self.gui.props.suppress_cfg_file_copy = True
+                                self.gui.loop_mode_active)
+        self.gui.suppress_cfg_file_copy = True
         self.gui.save_config()
 
 
@@ -10292,7 +10271,7 @@ class LoopRateLimit(ttk.Checkbutton):
         if self.value_label_obj is not None:
             self.value_label_obj.destroy()
         if self.loop_rate_limit.get() == "On":
-            curr_loop_delay = self.gui.props.loop_delay
+            curr_loop_delay = self.gui.loop_delay
             prompt_str = "Enter seconds to delay between loops:"
             new_loop_delay = tksd_askfloat(self.gui,
                                            title="Loop delay",
@@ -10301,29 +10280,29 @@ class LoopRateLimit(ttk.Checkbutton):
             if new_loop_delay:
                 msg = "Set loop delay to {}".format(new_loop_delay)
                 log_user_action(self.gui.ivs2.logger, msg)
-                self.gui.props.loop_rate_limit = True
-                self.gui.props.loop_delay = new_loop_delay
+                self.gui.loop_rate_limit = True
+                self.gui.loop_delay = new_loop_delay
                 self.update_value_str()
             else:
                 msg = "Canceled loop delay (unchecked Loop Mode Rate Limit)"
                 log_user_action(self.gui.ivs2.logger, msg)
-                self.gui.props.loop_rate_limit = False
-                self.gui.props.loop_delay = 0
+                self.gui.loop_rate_limit = False
+                self.gui.loop_delay = 0
                 self.state(["!selected"])
         else:
-            self.gui.props.loop_rate_limit = False
+            self.gui.loop_rate_limit = False
 
         # Save values to config
         self.gui.config.cfg_set("Looping", "rate limit",
-                                self.gui.props.loop_rate_limit)
+                                self.gui.loop_rate_limit)
         self.gui.config.cfg_set("Looping", "delay",
-                                self.gui.props.loop_delay)
+                                self.gui.loop_delay)
         self.gui.save_config()
 
     # -------------------------------------------------------------------------
     def update_value_str(self):
         """Method to update the string in the rate limit label"""
-        value_str = "= {}s".format(self.gui.props.loop_delay)
+        value_str = "= {}s".format(self.gui.loop_delay)
         self.value_label_obj = ttk.Label(self.master, text=value_str)
         self.value_label_obj.pack(side=LEFT)
 
@@ -10359,7 +10338,7 @@ class LoopSaveResults(ttk.Checkbutton):
         if self.value_label_obj is not None:
             self.value_label_obj.destroy()
         if self.loop_save_results.get() == "On":
-            self.gui.props.loop_save_results = True
+            self.gui.loop_save_results = True
             include_graphs = tkmsg_askyesno(self.gui,
                                             "Include graphs?",
                                             "Default is to save CSV files "
@@ -10370,23 +10349,23 @@ class LoopSaveResults(ttk.Checkbutton):
                    .format("CSV results only in"
                            if not include_graphs else "all results in"))
             log_user_action(self.gui.ivs2.logger, msg)
-            self.gui.props.loop_save_graphs = include_graphs
+            self.gui.loop_save_graphs = include_graphs
             self.update_value_str()
         else:
-            self.gui.props.loop_save_results = False
+            self.gui.loop_save_results = False
             self.configure(text="Save Results")
 
         # Save values to config
         self.gui.config.cfg_set("Looping", "save results",
-                                self.gui.props.loop_save_results)
+                                self.gui.loop_save_results)
         self.gui.config.cfg_set("Looping", "save graphs",
-                                self.gui.props.loop_save_graphs)
+                                self.gui.loop_save_graphs)
         self.gui.save_config()
 
     # -------------------------------------------------------------------------
     def update_value_str(self):
         """Method to update the string in the save results label"""
-        if self.gui.props.loop_save_graphs:
+        if self.gui.loop_save_graphs:
             value_str = "(All)"
         else:
             value_str = "(CSV only)"
