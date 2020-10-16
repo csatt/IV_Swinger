@@ -4,7 +4,7 @@
 #
 # fix_info_plist.py: Support script for IV Swinger 2 Mac executable build
 #
-# Copyright (C) 2017, 2019  Chris Satterlee
+# Copyright (C) 2017, 2019, 2020  Chris Satterlee
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -48,6 +48,7 @@
 #     number in the version.txt file
 #   - Adds NSHumanReadableCopyright with the copyright string
 #   - Adds NSHighResolutionCapable, set to True
+#   - Adds NSRequiresAquaSystemAppearance, set to False (Dark Mode)
 #
 #  usage: fix_info_plist.py [-h] info_plist_file
 #
@@ -57,6 +58,8 @@
 #  optional arguments:
 #    -h, --help       show this help message and exit
 #
+from __future__ import print_function
+from __future__ import unicode_literals
 import argparse
 import plistlib
 import os
@@ -69,21 +72,18 @@ def get_version(app_path):
         with open(version_file, "r") as f:
             lines = f.read().splitlines()
             if len(lines) != 1:
-                err_str = ("ERROR: " + version_file + " has " +
-                           str(len(lines)) + " lines")
-                print err_str
+                print("ERROR: {} has {} lines"
+                      .format(version_file, len(lines)))
                 return "vFIXME"
             version = lines[0]
             if len(version) == 0 or version[0] != 'v':
-                err_str = ("ERROR: " + version_file + " has invalid " +
-                           "version: " + version)
-                print err_str
+                print("ERROR: {} has invalid version: {}"
+                      .format(version_file, version))
                 return "vFIXME"
-            print "Application version: " + version
+            print("Application version: {}".format(version))
             return version
     except IOError:
-        err_str = "ERROR: " + version_file + " doesn't exist"
-        print err_str
+        print("ERROR: {} doesn't exist".format(version_file))
         return "vFIXME"
 
 
@@ -100,16 +100,31 @@ version_from_file = get_version(app_path)   # vX.X.X
 version = version_from_file[1:]             # X.X.X
 
 # Read Info.plist into a plist object
-plist = plistlib.readPlist(args.info_plist[0])
+try:
+    # Python 3
+    with open(args.info_plist[0], 'rb') as fp:
+        plist = plistlib.load(fp)
+except AttributeError:
+    # Python 2
+    plist = plistlib.readPlist(args.info_plist[0])
 
 # Change version number
 plist['CFBundleShortVersionString'] = version
 
 # Add copyright string
-plist['NSHumanReadableCopyright'] = u"Copyright © 2017  Chris Satterlee"
+plist['NSHumanReadableCopyright'] = u"Copyright © 2020  Chris Satterlee"
 
 # Enable retina display resolution
 plist['NSHighResolutionCapable'] = True
 
+# Enable dark mode
+plist['NSRequiresAquaSystemAppearance'] = False
+
 # Write the modified plist back to the Info.plist file
-plistlib.writePlist(plist, args.info_plist[0])
+try:
+    # Python 3
+    with open(args.info_plist[0], 'wb') as fp:
+        plistlib.dump(plist, fp)
+except AttributeError:
+    # Python 2
+    plistlib.writePlist(plist, args.info_plist[0])
