@@ -4,7 +4,7 @@
 # Modified from http://dmgbuild.readthedocs.io/en/latest/example.html
 #
 ###############################################################################
-from __future__ import unicode_literals
+from __future__ import print_function
 
 import biplist
 import os.path
@@ -45,29 +45,25 @@ def get_version(app_path):
         with open(version_file, "r") as f:
             lines = f.read().splitlines()
             if len(lines) != 1:
-                err_str = ("ERROR: " + version_file + " has " +
-                           str(len(lines)) + " lines")
-                print err_str
+                print("ERROR: {} has {} lines".format(version_file,
+                                                      len(lines)))
                 return "vFIXME"
             version = lines[0]
             if len(version) == 0 or version[0] != 'v':
-                err_str = ("ERROR: " + version_file + " has invalid " +
-                           "version: " + version)
-                print err_str
+                print("ERROR: {} has invalid version: {}"
+                      .format(version_file, version))
                 return "vFIXME"
-            print "Application version: " + version
+            print("Application version: {}".format(version))
             return version
     except IOError:
-        err_str = "ERROR: " + version_file + " doesn't exist"
-        print err_str
+        print("ERROR: {} doesn't exist".format(version_file))
         return "vFIXME"
 
 
 # .. Basics ...................................................................
 
 # Uncomment to override the output filename
-version = get_version(application)
-filename = "IV_Swinger2_" + version + "_mac.dmg"
+filename = "IV_Swinger2_{}_mac.dmg".format(get_version(application))
 
 # Uncomment to override the output volume name
 volume_name = 'IV Swinger2 install'
@@ -76,7 +72,8 @@ volume_name = 'IV Swinger2 install'
 format = defines.get('format', 'UDZO')
 
 # Volume size (must be large enough for your files)
-size = defines.get('size', '100M')
+# Comment out for auto-sizing
+#size = defines.get('size', '100M')
 
 # Files to include
 files = [application]
@@ -128,10 +125,10 @@ try:
                               "build_tools",
                               "DMG_background.jpg")
 except KeyError:
-    print "**************************************************************"
-    print "* ERROR: you must have the environment variable $GITHUB set  *"
-    print "*  e.g.:   export GITHUB=\"$HOME/GitHub\"                      *"
-    print "**************************************************************"
+    print("**************************************************************")
+    print("* ERROR: you must have the environment variable $GITHUB set  *")
+    print("*  e.g.:   export GITHUB=\"$HOME/GitHub\"                      *")
+    print("**************************************************************")
     raise
 
 show_status_bar = False
