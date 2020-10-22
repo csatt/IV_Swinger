@@ -61,6 +61,8 @@
 #   -o OUTFILE, --outfile OUTFILE
 #                         Name of output file
 #                         (default=IV_Swinger_<version>_win.wxs)
+from __future__ import print_function
+from io import open
 import argparse
 from bs4 import BeautifulSoup
 import os
@@ -76,24 +78,21 @@ UPGRADE_CODE = "{c09606ca-ca7e-47ea-9f0f-fbc246d877c9}"
 def get_version(app_path):
     version_file = os.path.join(app_path, "version.txt")
     try:
-        with open(version_file, "r") as f:
+        with open(version_file, "r", encoding="utf-8") as f:
             lines = f.read().splitlines()
             if len(lines) != 1:
-                err_str = ("ERROR: " + version_file + " has " +
-                           str(len(lines)) + " lines")
-                print err_str
+                print("ERROR: {} has {} lines"
+                      .format(version_file, len(lines)))
                 return "vFIXME"
             version = lines[0]
             if len(version) == 0 or version[0] != 'v':
-                err_str = ("ERROR: " + version_file + " has invalid " +
-                           "version: " + version)
-                print err_str
+                print("ERROR: {} has invalid version: {}"
+                      .format(version_file, version))
                 return "vFIXME"
-            print "Application version: " + version
+            print("Application version: {}".format(version))
             return version
     except IOError:
-        err_str = "ERROR: " + version_file + " doesn't exist"
-        print err_str
+        print("ERROR: {} doesn't exist".format(version_file))
         return "vFIXME"
 
 
@@ -117,7 +116,7 @@ parser.add_argument("input_wxs", metavar='input_wxs_file',
 args = parser.parse_args()
 
 # Read input file into a BeautifulSoup object using XML parsing
-soup = BeautifulSoup(open(args.input_wxs[0]), "xml")
+soup = BeautifulSoup(open(args.input_wxs[0], encoding="utf-8"), "xml")
 
 
 def prettify_4space(s, encoding=None, formatter="minimal"):
@@ -334,5 +333,5 @@ add_upgrade_tag()
 add_install_execute_sequence()
 
 # Write the updated XML to the output file
-with open(args.outfile, "w") as f:
+with open(args.outfile, "w", encoding="utf-8") as f:
     f.write(prettify_4space(soup))
