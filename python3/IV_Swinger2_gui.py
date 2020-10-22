@@ -106,6 +106,11 @@ from tkinter.scrolledtext import ScrolledText as ScrolledText
 from tkinter.constants import N, S, E, W, LEFT, RIGHT, HORIZONTAL, Y, BOTH, END
 from inspect import currentframe, getframeinfo
 from send2trash import send2trash
+import matplotlib
+import numpy
+import scipy
+import serial
+import PIL
 from PIL import Image, ImageTk
 from Tooltip import Tooltip
 import myTkSimpleDialog as tksd
@@ -474,7 +479,7 @@ class GraphicalUserInterface(ttk.Frame):
         self.create_menu_bar()
         self.create_widgets()
         self.ivs2.log_initial_debug_info()
-        self.log_tcl_tk_version()
+        self.log_python_and_tcl_tk_versions()
         self.usb_monitor()
 
     # Properties
@@ -1014,9 +1019,21 @@ This could be for one of the following reasons:
         self.create_looping_controls()
 
     # -------------------------------------------------------------------------
-    def log_tcl_tk_version(self):
-        """Method to log the Tcl/Tk version
+    def log_python_and_tcl_tk_versions(self):
+        """Method to log the version of Python that is being used as well as
+           the versions of several of the imported packages and the Tcl/Tk
+           version.
         """
+        self.ivs2.logger.log("Python version: {}.{}.{}"
+                             .format(sys.version_info[0],
+                                     sys.version_info[1],
+                                     sys.version_info[2]))
+        self.ivs2.logger.log("Matplotlib version: {}"
+                             .format(matplotlib.__version__))
+        self.ivs2.logger.log("Numpy version: {}".format(numpy.__version__))
+        self.ivs2.logger.log("SciPy version: {}".format(scipy.__version__))
+        self.ivs2.logger.log("PySerial version: {}".format(serial.__version__))
+        self.ivs2.logger.log("Pillow version: {}".format(PIL.__version__))
         self.ivs2.logger.log("Tcl/Tk version: {}"
                              .format(tk.Tcl().eval("info patchlevel")))
 
