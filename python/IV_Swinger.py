@@ -192,10 +192,10 @@ if sys.platform != "win32":
     # Suppress matplotlib import on RPi 1 (too slow))
     if not os.uname()[4].startswith("armv6"):
         import matplotlib.pyplot as plt
-        from matplotlib.font_manager import findSystemFonts, createFontList
+        import matplotlib.font_manager
 else:  # Windows
     import matplotlib.pyplot as plt
-    from matplotlib.font_manager import findSystemFonts, createFontList
+    import matplotlib.font_manager
 
 #################
 #   Constants   #
@@ -3244,11 +3244,9 @@ class IV_Swinger(object):
            plots. The list is returned to the caller (as a string with
            newlines) and is also written to the log file.
         """
-        font_set = set()
-        for font in createFontList(findSystemFonts()):
-            font_set.add(font.name)
+        fonts = {f.name for f in matplotlib.font_manager.fontManager.ttflist}
         font_names_str = ""
-        for font_name in sorted(font_set):
+        for font_name in sorted(fonts):
             font_names_str += "{}\n".format(font_name)
         self.logger.log("Plotting fonts:\n{}".format(font_names_str))
         return font_names_str
