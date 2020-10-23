@@ -8560,6 +8560,8 @@ effect. Please upgrade.
             index = index_tuple[0]
             name = self.pv_model_listbox.get(index).encode("utf-8")
         except IndexError:
+            # This was a trap for Issue #123. It probably isn't needed
+            # anymore.
             traceback.print_stack()
             err_str = "IndexError in get_curr_pv_model_listbox_index_and_name"
             self.master.ivs2.logger.print_and_log(err_str)
@@ -8585,6 +8587,14 @@ effect. Please upgrade.
            changes.
         """
         # pylint: disable=unused-argument
+
+        # For some reason, the <<ListboxSelect>> event can get triggered
+        # even when the focus is on a different widget.  Work around
+        # this by checking the focus and returning if it is not the
+        # listbox. This is the fix for Issue #123.
+        if event is not None and (self.master.root.focus_get() !=
+                                  self.pv_model_listbox):
+            return
 
         # Get the name of the selected listbox entry
         _, curr_name = self.get_curr_pv_model_listbox_index_and_name()
