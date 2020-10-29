@@ -1216,34 +1216,34 @@ class Interpolator():
         p1_p2_points = c.tolist()
         if rerun_with_low_alpha:
             return p1_p2_points
-        else:
-            # Determine direction of voltage and current from p1 to
-            # p2. Normal case is v_p2_gt_v_p1 and i_p2_lte_i_p1.
-            v_p2_gt_v_p1 = True
-            if four_points[2][0] <= four_points[1][0]:
-                v_p2_gt_v_p1 = False
-            v_p2_lte_v_p1 = not v_p2_gt_v_p1
-            i_p2_gt_i_p1 = True
-            if four_points[2][1] <= four_points[1][1]:
-                i_p2_gt_i_p1 = False
-            i_p2_lte_i_p1 = not i_p2_gt_i_p1
-            for ii, point in enumerate(p1_p2_points):
-                if ii:
-                    v_a = p1_p2_points[ii - 1][0]
-                    v_b = point[0]
-                    i_a = p1_p2_points[ii - 1][1]
-                    i_b = point[1]
-                    # If the voltage or current are heading in a
-                    # different direction than they are from p1 to p2,
-                    # break and re-run with low alpha
-                    v_diff_dir = ((v_p2_gt_v_p1 and v_b <= v_a) or
-                                  (v_p2_lte_v_p1 and v_b > v_a))
-                    i_diff_dir = ((i_p2_gt_i_p1 and i_b <= i_a) or
-                                  (i_p2_lte_i_p1 and i_b > i_a))
-                    if v_diff_dir or i_diff_dir:
-                        break
-            else:  # no break
-                return p1_p2_points
+
+        # Determine direction of voltage and current from p1 to
+        # p2. Normal case is v_p2_gt_v_p1 and i_p2_lte_i_p1.
+        v_p2_gt_v_p1 = True
+        if four_points[2][0] <= four_points[1][0]:
+            v_p2_gt_v_p1 = False
+        v_p2_lte_v_p1 = not v_p2_gt_v_p1
+        i_p2_gt_i_p1 = True
+        if four_points[2][1] <= four_points[1][1]:
+            i_p2_gt_i_p1 = False
+        i_p2_lte_i_p1 = not i_p2_gt_i_p1
+        for ii, point in enumerate(p1_p2_points):
+            if ii:
+                v_a = p1_p2_points[ii - 1][0]
+                v_b = point[0]
+                i_a = p1_p2_points[ii - 1][1]
+                i_b = point[1]
+                # If the voltage or current are heading in a
+                # different direction than they are from p1 to p2,
+                # break and re-run with low alpha
+                v_diff_dir = ((v_p2_gt_v_p1 and v_b <= v_a) or
+                              (v_p2_lte_v_p1 and v_b > v_a))
+                i_diff_dir = ((i_p2_gt_i_p1 and i_b <= i_a) or
+                              (i_p2_lte_i_p1 and i_b > i_a))
+                if v_diff_dir or i_diff_dir:
+                    break
+        else:  # no break
+            return p1_p2_points
 
         # We'll get here only if we hit the "break" above, meaning we
         # need to re-run with low alpha

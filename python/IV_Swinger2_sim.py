@@ -311,10 +311,9 @@ def shorten_value(value):
         if k_value == int(k_value):
             return "{}k".format(int(k_value))
         return "{}k".format(k_value)
-    else:
-        if value == int(value):
-            return "{}".format(int(value))
-        return "{}".format(value)
+    if value == int(value):
+        return "{}".format(int(value))
+    return "{}".format(value)
 
 
 def selectall(event):

@@ -899,16 +899,16 @@ class Configuration():
             # First check for a value of "None" and return None in that case
             if self.cfg.get(section, option) == "None":
                 return None
-            elif config_type == CFG_FLOAT:
+            if config_type == CFG_FLOAT:
                 cfg_value = self.cfg.getfloat(section, option)
                 return float(cfg_value)
-            elif config_type == CFG_INT:
+            if config_type == CFG_INT:
                 cfg_value = self.cfg.getint(section, option)
                 return int(cfg_value)
-            elif config_type == CFG_BOOLEAN:
+            if config_type == CFG_BOOLEAN:
                 cfg_value = self.cfg.getboolean(section, option)
                 return bool(cfg_value)
-            elif config_type == CFG_STRING:
+            if config_type == CFG_STRING:
                 cfg_value = self.cfg.get(section, option)
                 return cfg_value
         except configparser.NoOptionError:
@@ -4233,13 +4233,13 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                              self._arduino_ver_patch == test_ver_patch)
             if sketch_ver_lt:
                 return SKETCH_VER_LT
-            elif sketch_ver_eq:
+            if sketch_ver_eq:
                 return SKETCH_VER_EQ
             return SKETCH_VER_GT
-        else:
-            err_str = "ERROR: Bad test version: {}".format(test_version)
-            self.logger.print_and_log(err_str)
-            return SKETCH_VER_ERR
+        # else, no match
+        err_str = "ERROR: Bad test version: {}".format(test_version)
+        self.logger.print_and_log(err_str)
+        return SKETCH_VER_ERR
 
     # -------------------------------------------------------------------------
     def arduino_sketch_ver_lt(self, test_version):
@@ -4517,7 +4517,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 # Use average if there is a mix of increases and
                 # decreases in the extrapolated Isc values
                 return sum(new_isc_ch1_vals) / float(len(new_isc_ch1_vals))
-            elif total_increase > 0:
+            if total_increase > 0:
                 # If the values are all increasing, then subtract the
                 # average increase from the first value.  This is the
                 # case where the curve is inflecting downward from the
@@ -4530,10 +4530,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             # continues to do so.
             avg_decrease = total_decrease / float(len(new_isc_ch1_vals))
             return new_isc_ch1_vals[0] + avg_decrease
-        else:
-            # Just return the existing Isc value if extrapolation was
-            # not performed (shouldn't ever get here now).
-            return adc_pairs[0][1]
+
+        # else, no new_isc_ch1_vals:
+        # Just return the existing Isc value if extrapolation was
+        # not performed (shouldn't ever get here now).
+        return adc_pairs[0][1]
 
     # -------------------------------------------------------------------------
     def find_first_downward_deflection(self, adc_pairs):

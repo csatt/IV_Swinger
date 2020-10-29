@@ -1627,10 +1627,9 @@ This could be for one of the following reasons:
         if self.prefs_dialog_active:
             # Do nothing if a Preferences dialog already exists
             return
-        else:
-            self.prefs_dialog_active = True
-            PreferencesDialog(self)
-            self.prefs_dialog_active = False
+        self.prefs_dialog_active = True
+        PreferencesDialog(self)
+        self.prefs_dialog_active = False
 
         # There's a weird bug where the button takes its "pressed"
         # appearance and never turns back to its normal appearance when the
@@ -2767,20 +2766,19 @@ class ResultsWizard(tk.Toplevel):
                                           "Save overlay?", msg_str,
                                           default=tkmsg.NO)
             if save_overlay:
+                # Yes: same as if Finished button had been pressed
                 msg = "(Main) saved pending overlay on Results Wizard close"
                 log_user_action(self.master.ivs2.logger, msg)
-                # Yes: same as if Finished button had been pressed
                 self.overlay_finished(event=None)
                 return
-            else:
-                msg = "(Main) discarded pending overlay on Results Wizard"
-                msg += " close"
-                log_user_action(self.master.ivs2.logger, msg)
-                # No: turn off overlay mode and display non-overlaid
-                # image
-                self.master.props.overlay_mode = False
-                self.overlay_title = None
-                self.master.redisplay_img()
+            # No: turn off overlay mode and display non-overlaid
+            # image
+            msg = "(Main) discarded pending overlay on Results Wizard"
+            msg += " close"
+            log_user_action(self.master.ivs2.logger, msg)
+            self.master.props.overlay_mode = False
+            self.overlay_title = None
+            self.master.redisplay_img()
         # Remove incomplete overlay
         self.rm_overlay_if_unfinished()
         self.restore_master()
@@ -2824,9 +2822,8 @@ class ResultsWizard(tk.Toplevel):
         selections = self.tree.selection()
         if not selections:
             return
-        else:
-            msg = "(Wizard) selected {}".format(selections)
-            log_user_action(self.master.ivs2.logger, msg)
+        msg = "(Wizard) selected {}".format(selections)
+        log_user_action(self.master.ivs2.logger, msg)
         # If multiple items are selected, last one (oldest) is
         # displayed
         selection = selections[-1]
@@ -4221,7 +4218,7 @@ class ResultsWizard(tk.Toplevel):
                            .format(csv_dir))
                 tkmsg_showerror(self.master, message=err_str)
                 return RC_FAILURE
-            elif csv_files_found > 1:
+            if csv_files_found > 1:
                 err_str = ("ERROR: multiple data point CSV files found in {}"
                            .format(csv_dir))
                 tkmsg_showerror(self.master, message=err_str)
