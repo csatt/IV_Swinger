@@ -2417,8 +2417,6 @@ class IV_Swinger():
             time.sleep(1)
             lcd_msg.stop()
 
-        return
-
     # -------------------------------------------------------------------------
     def reset_lcd(self):  # IVS1
         """Method to reset the LCD"""
