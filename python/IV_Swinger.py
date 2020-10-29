@@ -624,7 +624,7 @@ class PrintAndLog(object):
     def __init__(self):
         if self.log_file_name is None:
             print "log_file_name class variable is not initialized!!"
-            exit(-1)
+            sys.exit(-1)
 
     def log(self, print_str):
         """Print to the log file only"""
@@ -656,7 +656,7 @@ class BeepGenerator(object):  # IVS1
     def __init__(self):
         if self.buzzer_gpio is None:
             print "buzzer_gpio class variable is not initialized!!"
-            exit(-1)
+            sys.exit(-1)
 
     def generate_beep(self, on_time=0.2, off_time=0.1, stop_event=None):
         """Method to activate the piezo buzzer to generate a loud
@@ -772,7 +772,7 @@ class ScrollingMessage(StoppableThread):  # IVS1
                        .format(err_var))
             self.logger.print_and_log(err_msg)
             self.exc_queue.put(err_msg)
-            exit(-1)
+            sys.exit(-1)
 
     def scrolling_message(self, text, repeat_count=0):
         """Method to display a longer message on the 16x2 LCD display.
@@ -815,7 +815,7 @@ class ScrollingMessage(StoppableThread):  # IVS1
                                .format(text))
                     self.logger.print_and_log(err_msg)
                     self.exc_queue.put(err_msg)
-                    exit(-1)
+                    sys.exit(-1)
             else:
                 char_count[line] += 1
 
@@ -826,21 +826,21 @@ class ScrollingMessage(StoppableThread):  # IVS1
                            "before newline in text:\n{}".format(text))
                 self.logger.print_and_log(err_msg)
                 self.exc_queue.put(err_msg)
-                exit(-1)
+                sys.exit(-1)
             elif char_count[1] > ScrollingMessage.lcd_mem_chars_per_line:
                 err_msg = ("ERROR (scrolling_message): "
                            ">40 characters after newline in text:\n{}"
                            .format(text))
                 self.logger.print_and_log(err_msg)
                 self.exc_queue.put(err_msg)
-                exit(-1)
+                sys.exit(-1)
         elif char_count[0] > (ScrollingMessage.lcd_lines *
                               ScrollingMessage.lcd_mem_chars_per_line):
             err_msg = ("ERROR (scrolling_message): "
                        ">80 characters in text:\n{}".format(text))
             self.logger.print_and_log(err_msg)
             self.exc_queue.put(err_msg)
-            exit(-1)
+            sys.exit(-1)
 
         # Determine maximum number of characters in longer line and number
         # of hidden characters in that line
@@ -925,7 +925,7 @@ class ScrollingMessage(StoppableThread):  # IVS1
                                               .format(sys.exc_info()[0]))
                     self.logger.print_and_log(traceback.format_exc())
                     self.exc_queue.put("Exception in scrolling_message")
-                    exit(-1)
+                    sys.exit(-1)
 
 
 #  Class to continuously sound a warning until signalled to stop
@@ -2339,7 +2339,7 @@ class IV_Swinger(object):
             GPIO.output(self.buzzer_gpio, False)
             print "BUTTON PRESSED - EXITING IMMEDIATELY"
             GPIO.cleanup()
-            exit(-1)
+            sys.exit(-1)
 
         # Register pushbutton callback method
         GPIO.add_event_detect(self.button_gpio, GPIO.RISING,
@@ -4454,7 +4454,7 @@ class IV_Swinger(object):
             pass
         else:
             self.logger.print_and_log("THREAD error: {}".format(thread_exc))
-            exit(-1)
+            sys.exit(-1)
 
     # -------------------------------------------------------------------------
     def run_meat(self, io_extender):  # IVS1
