@@ -517,15 +517,12 @@ def noise_reduction(adc_pairs, starting_rot_thresh=5.0,
             rot_degrees = rotation_at_point(pairs_list, point)
             if abs(rot_degrees) > rot_thresh:
                 deviation = True
-                if point >= dist and point < (num_points - dist):
+                if dist <= point < (num_points - dist):
                     long_rot_degrees = rotation_at_point(pairs_list,
                                                          point,
                                                          dist)
-                    if ((long_rot_degrees > 0) and (rot_degrees > 0) and
-                            (long_rot_degrees > rot_degrees)):
-                        deviation = False
-                    if ((long_rot_degrees <= 0) and (rot_degrees < 0) and
-                            (long_rot_degrees < rot_degrees)):
+                    if (long_rot_degrees > rot_degrees > 0 or
+                            long_rot_degrees < rot_degrees < 0):
                         deviation = False
                 if deviation:
                     curr_point = pairs_list[point]
@@ -561,7 +558,7 @@ def noise_reduction(adc_pairs, starting_rot_thresh=5.0,
         # performed is less than the ppm_thresh parameter, but only
         # if we've done at least one correction (as indicated by
         # max_corr_ppm having its initial value of -1)
-        if max_corr_ppm > 0 and max_corr_ppm < ppm_thresh:
+        if 0 < max_corr_ppm < ppm_thresh:
             break
 
         rot_thresh /= thresh_divisor
@@ -4404,8 +4401,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             pt0_ch0 = float(adc_pairs_corrected[0][0])
             pt1_ch0 = float(adc_pairs_corrected[1][0])
             voc_ch0 = float(adc_pairs_corrected[-1][0])
-            if ((pt1_ch0 / voc_ch0) > MIN_PT1_TO_VOC_RATIO_FOR_ISC and
-                    (pt0_ch0 / voc_ch0) < MIN_PT1_TO_VOC_RATIO_FOR_ISC):
+            if ((pt1_ch0 / voc_ch0) > MIN_PT1_TO_VOC_RATIO_FOR_ISC >
+                    (pt0_ch0 / voc_ch0)):
                 del adc_pairs_corrected[0]
                 suppress_isc_point = True
 

@@ -1161,7 +1161,7 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
                     continue
                 vdiv_ratio = r2_ohms / vdiv_ohms
                 err = ideal_vdiv_ratio - vdiv_ratio
-                if err > 0 and err < least_err:
+                if 0 < err < least_err:
                     self.vdiv_r1 = r1_ohms
                     self.vdiv_r2 = r2_ohms
                     if r1_ohms == ZERO_OHMS:
@@ -1206,7 +1206,7 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
                     continue
                 amm_op_amp_gain = 1.0 + (rf_ohms / rg_ohms)
                 err = self.adc_vref - (v_shunt_max * amm_op_amp_gain)
-                if err > 0 and err < least_err:
+                if 0 < err < least_err:
                     self.amm_op_amp_rf = rf_ohms
                     self.amm_op_amp_rg = rg_ohms
                     if rf_ohms == ZERO_OHMS:
