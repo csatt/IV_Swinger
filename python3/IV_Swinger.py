@@ -1013,7 +1013,7 @@ class Interpolator():
                 # Set the number of interpolated points to zero unless
                 # one end of the segment is the given point with the
                 # highest power in which case it is set to 100
-                if (point_num != mwp_num) and ((point_num + 1) != mwp_num):
+                if mwp_num not in (point_num, point_num + 1):
                     num_interp_points = 0
                 else:
                     num_interp_points = 100

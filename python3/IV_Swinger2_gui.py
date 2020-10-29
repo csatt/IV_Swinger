@@ -1967,8 +1967,7 @@ This could be for one of the following reasons:
             self.current_run_displayed = True
         elif (loop_mode and
               not self.loop_stop_on_err and
-              (rc == RC_ZERO_ISC or rc == RC_ZERO_VOC or
-               rc == RC_ISC_TIMEOUT)):
+              rc in (RC_ZERO_ISC, RC_ZERO_VOC, RC_ISC_TIMEOUT)):
             # If it failed and we're in loop mode with the stop-on-error option
             # disabled and the error is non-fatal, just clean up and continue
             # after displaying the error message on the screen
