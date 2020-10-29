@@ -4803,8 +4803,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 # point so we can interpolate the Isc point
                 last_negv_point = (biased_ch0_adc, scaled_ch1_adc)
                 continue
-            else:
-                biased_adc_pairs.append((biased_ch0_adc, scaled_ch1_adc))
+            biased_adc_pairs.append((biased_ch0_adc, scaled_ch1_adc))
 
         # Some points of the biased curve were discarded because they
         # had a negative voltage.  The first non-discarded point has a

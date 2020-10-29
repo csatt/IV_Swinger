@@ -4530,7 +4530,7 @@ class IV_Swinger():
                 msg_text = ["Turn switch ON",
                             "to begin IV\ncurve tracing"]
                 continue
-            elif voc_volts == 0.0:
+            if voc_volts == 0.0:
                 msg_text = "Voc is 0 volts!!\nConnect PV now"
                 self.logger.print_and_log(msg_text)
                 warning_thread = SoundWarning(on_time=0.1, off_time=10)
@@ -4554,173 +4554,173 @@ class IV_Swinger():
                 msg_text = ["Turn switch ON",
                             "to begin IV\ncurve tracing"]
                 continue
-            else:
-                # Form the date/time string used for the directory
-                # names.  Note that the date/time is when the DPST
-                # switch is turned on.
-                date_time_str = DateTimeStr.get_date_time_str()
 
-                # Swing out the IV curve!
-                data_points = self.swing_iv_curve(io_extender, adc, voc_volts)
+            # Form the date/time string used for the directory
+            # names.  Note that the date/time is when the DPST
+            # switch is turned on.
+            date_time_str = DateTimeStr.get_date_time_str()
 
-                # If data_points is an empty list it means the load=NONE
-                # current measurement was zero. This could be because no
-                # light was falling on the panel. Display a message on
-                # the LCD and go back to the beginning of the loop.
-                if not data_points:
-                    msg_text = "Isc is 0 amps\nTry again"
-                    self.logger.print_and_log(msg_text)
-                    warning_thread = SoundWarning(on_time=0.1, off_time=0.2)
-                    warning_thread.start()
-                    lcd_msg = ScrollingMessage(msg_text, self.lcd,
-                                               beep=False, lock=None,
-                                               exc_queue=self.exc_queue)
-                    lcd_msg.start()
-                    time.sleep(3)
-                    lcd_msg.stop()
-                    warning_thread.stop()
-                    self.lock.release()
-                    msg_text = ["Turn switch ON",
-                                "to begin IV\ncurve tracing"]
-                    continue
+            # Swing out the IV curve!
+            data_points = self.swing_iv_curve(io_extender, adc, voc_volts)
 
-                # Release lock
-                self.lock.release()
-
-                # Ask user to turn off the DPST switch
-                self.prompt_and_wait_for_dpst_off()
-
-                # Turn off all relays
-                turn_off_all_relays(io_extender)
-
-                # Clean up LCD after relay switching
-                self.reset_lcd()
-
-                # Find the measured point number with the highest power
-                max_watt_point_number = (
-                    IV_Swinger.get_max_watt_point_number(data_points))
-
-                # Extrapolate Isc value and store in first element of
-                # data_points list (overwrite placeholder)
-                data_points[0] = self.extrapolate_isc(data_points,
-                                                      max_watt_point_number)
-                isc_amps = data_points[0][AMPS_INDEX]
-
-                # Add Voc values to the end of the data point list
-                voc_data_point = (voc_amps, voc_volts, voc_ohms, voc_watts)
-                data_points.append(voc_data_point)
-
-                # Create the SD card output directory
-                sd_iv_swinger_dirs = self.create_iv_swinger_dirs([""])
-                sd_iv_swinger_dir = sd_iv_swinger_dirs[0]  # only one
-                sd_output_dir = os.path.join(sd_iv_swinger_dir,
-                                             date_time_str)
-                os.makedirs(sd_output_dir)
-
-                # Create the leaf file names
-                csv_dp_leaf_name = ("data_points_{}.csv"
-                                    .format(date_time_str))
-                gp_command_leaf_name = ("gp_command_file_{}"
-                                        .format(date_time_str))
-                plt_dp_leaf_name = ("plt_data_points_{}"
-                                    .format(date_time_str))
-                plt_img_leaf_name = ("plt_data_points_{}.pdf"
-                                     .format(date_time_str))
-
-                # Get the full-path names of the SD card output files
-                sd_csv_data_point_filename = os.path.join(sd_output_dir,
-                                                          csv_dp_leaf_name)
-                sd_gp_command_filename = os.path.join(sd_output_dir,
-                                                      gp_command_leaf_name)
-                sd_plt_data_point_filename = os.path.join(sd_output_dir,
-                                                          plt_dp_leaf_name)
-                sd_plt_img_filename = os.path.join(sd_output_dir,
-                                                   plt_img_leaf_name)
-
-                # Write the CSV data points to the SD card file
-                write_csv_data_points_to_file(sd_csv_data_point_filename,
-                                              data_points)
-
-                # Write the plotter data points to the SD card files
-                write_plt_data_points_to_file(sd_plt_data_point_filename,
-                                              data_points,
-                                              new_data_set=False)
-
-                # Create an interpolator object with the data_points
-                interpolator = Interpolator(data_points)
-
-                # Get the interpolated data set and MPP
-                if self.use_spline_interpolation:
-                    interp_points = interpolator.spline_interpolated_curve
-                    interpolated_mpp = interpolator.spline_interpolated_mpp
-                else:
-                    interp_points = interpolator.linear_interpolated_curve
-                    interpolated_mpp = interpolator.linear_interpolated_mpp
-
-                # Add the interpolated data set to the plotter data
-                # point file
-                write_plt_data_points_to_file(sd_plt_data_point_filename,
-                                              interp_points,
-                                              new_data_set=True)
-
-                # Extract the MPP values
-                mpp_amps = interpolated_mpp[AMPS_INDEX]
-                mpp_volts = interpolated_mpp[VOLTS_INDEX]
-                mpp_ohms = interpolated_mpp[OHMS_INDEX]
-                mpp_watts = interpolated_mpp[WATTS_INDEX]
-
-                # Print MPP info
-                self.logger.print_and_log("==========================")
-                print_str = ("Maximum power point (MPP): "
-                             "Amps: {:.6f}   Volts: {:.6f}   "
-                             "Ohms: {:.6f}   Watts: {:.6f}"
-                             .format(mpp_amps, mpp_volts,
-                                     mpp_ohms, mpp_watts))
-                self.logger.print_and_log(print_str)
-
-                # Display max power on LCD
-                self.check_for_thread_errors()
-                with self.lock:
-                    self.lcd.clear()
-                    self.lcd.message(" Max Power:\n     {:.2f} W"
-                                     .format(mpp_watts))
-                    time.sleep(2)
-
-                if voc_volts != 0.0:
-                    # Plot with plotter (gnuplot or pyplot)
-                    self.plot_with_plotter(sd_gp_command_filename
-                                           [sd_plt_data_point_filename],
-                                           sd_plt_img_filename,
-                                           [isc_amps],
-                                           [voc_volts],
-                                           [mpp_amps],
-                                           [mpp_volts],
-                                           self.use_spline_interpolation)
-
-                # Copy CSV and PDF files to /IV_Swinger/csv and
-                # /IV_Swinger/pdf
-                for file_type in ["csv", "pdf"]:
-                    file_glob = os.path.join(sd_output_dir, "*.", file_type)
-                    files = glob.glob(file_glob)
-                    for f in files:
-                        shutil.copy(f, os.path.join(sd_iv_swinger_dir,
-                                                    file_type))
-
-                # Copy files to USB
-                self.copy_files_to_usb(date_time_str, sd_output_dir,
-                                       sd_iv_swinger_dir)
-
-                # Display message
-                outdir_msg = "Output folder:\n{}".format(date_time_str)
-                self.logger.print_and_log(outdir_msg)
-                self.logger.print_and_log("")
-                lcd_msg = ScrollingMessage(outdir_msg, self.lcd, beep=False,
-                                           lock=self.lock,
+            # If data_points is an empty list it means the load=NONE
+            # current measurement was zero. This could be because no
+            # light was falling on the panel. Display a message on
+            # the LCD and go back to the beginning of the loop.
+            if not data_points:
+                msg_text = "Isc is 0 amps\nTry again"
+                self.logger.print_and_log(msg_text)
+                warning_thread = SoundWarning(on_time=0.1, off_time=0.2)
+                warning_thread.start()
+                lcd_msg = ScrollingMessage(msg_text, self.lcd,
+                                           beep=False, lock=None,
                                            exc_queue=self.exc_queue)
                 lcd_msg.start()
                 time.sleep(3)
                 lcd_msg.stop()
-                msg_text = [outdir_msg, "Turn switch ON\nto start again"]
+                warning_thread.stop()
+                self.lock.release()
+                msg_text = ["Turn switch ON",
+                            "to begin IV\ncurve tracing"]
+                continue
+
+            # Release lock
+            self.lock.release()
+
+            # Ask user to turn off the DPST switch
+            self.prompt_and_wait_for_dpst_off()
+
+            # Turn off all relays
+            turn_off_all_relays(io_extender)
+
+            # Clean up LCD after relay switching
+            self.reset_lcd()
+
+            # Find the measured point number with the highest power
+            max_watt_point_number = (
+                IV_Swinger.get_max_watt_point_number(data_points))
+
+            # Extrapolate Isc value and store in first element of
+            # data_points list (overwrite placeholder)
+            data_points[0] = self.extrapolate_isc(data_points,
+                                                  max_watt_point_number)
+            isc_amps = data_points[0][AMPS_INDEX]
+
+            # Add Voc values to the end of the data point list
+            voc_data_point = (voc_amps, voc_volts, voc_ohms, voc_watts)
+            data_points.append(voc_data_point)
+
+            # Create the SD card output directory
+            sd_iv_swinger_dirs = self.create_iv_swinger_dirs([""])
+            sd_iv_swinger_dir = sd_iv_swinger_dirs[0]  # only one
+            sd_output_dir = os.path.join(sd_iv_swinger_dir,
+                                         date_time_str)
+            os.makedirs(sd_output_dir)
+
+            # Create the leaf file names
+            csv_dp_leaf_name = ("data_points_{}.csv"
+                                .format(date_time_str))
+            gp_command_leaf_name = ("gp_command_file_{}"
+                                    .format(date_time_str))
+            plt_dp_leaf_name = ("plt_data_points_{}"
+                                .format(date_time_str))
+            plt_img_leaf_name = ("plt_data_points_{}.pdf"
+                                 .format(date_time_str))
+
+            # Get the full-path names of the SD card output files
+            sd_csv_data_point_filename = os.path.join(sd_output_dir,
+                                                      csv_dp_leaf_name)
+            sd_gp_command_filename = os.path.join(sd_output_dir,
+                                                  gp_command_leaf_name)
+            sd_plt_data_point_filename = os.path.join(sd_output_dir,
+                                                      plt_dp_leaf_name)
+            sd_plt_img_filename = os.path.join(sd_output_dir,
+                                               plt_img_leaf_name)
+
+            # Write the CSV data points to the SD card file
+            write_csv_data_points_to_file(sd_csv_data_point_filename,
+                                          data_points)
+
+            # Write the plotter data points to the SD card files
+            write_plt_data_points_to_file(sd_plt_data_point_filename,
+                                          data_points,
+                                          new_data_set=False)
+
+            # Create an interpolator object with the data_points
+            interpolator = Interpolator(data_points)
+
+            # Get the interpolated data set and MPP
+            if self.use_spline_interpolation:
+                interp_points = interpolator.spline_interpolated_curve
+                interpolated_mpp = interpolator.spline_interpolated_mpp
+            else:
+                interp_points = interpolator.linear_interpolated_curve
+                interpolated_mpp = interpolator.linear_interpolated_mpp
+
+            # Add the interpolated data set to the plotter data
+            # point file
+            write_plt_data_points_to_file(sd_plt_data_point_filename,
+                                          interp_points,
+                                          new_data_set=True)
+
+            # Extract the MPP values
+            mpp_amps = interpolated_mpp[AMPS_INDEX]
+            mpp_volts = interpolated_mpp[VOLTS_INDEX]
+            mpp_ohms = interpolated_mpp[OHMS_INDEX]
+            mpp_watts = interpolated_mpp[WATTS_INDEX]
+
+            # Print MPP info
+            self.logger.print_and_log("==========================")
+            print_str = ("Maximum power point (MPP): "
+                         "Amps: {:.6f}   Volts: {:.6f}   "
+                         "Ohms: {:.6f}   Watts: {:.6f}"
+                         .format(mpp_amps, mpp_volts,
+                                 mpp_ohms, mpp_watts))
+            self.logger.print_and_log(print_str)
+
+            # Display max power on LCD
+            self.check_for_thread_errors()
+            with self.lock:
+                self.lcd.clear()
+                self.lcd.message(" Max Power:\n     {:.2f} W"
+                                 .format(mpp_watts))
+                time.sleep(2)
+
+            if voc_volts != 0.0:
+                # Plot with plotter (gnuplot or pyplot)
+                self.plot_with_plotter(sd_gp_command_filename
+                                       [sd_plt_data_point_filename],
+                                       sd_plt_img_filename,
+                                       [isc_amps],
+                                       [voc_volts],
+                                       [mpp_amps],
+                                       [mpp_volts],
+                                       self.use_spline_interpolation)
+
+            # Copy CSV and PDF files to /IV_Swinger/csv and
+            # /IV_Swinger/pdf
+            for file_type in ["csv", "pdf"]:
+                file_glob = os.path.join(sd_output_dir, "*.", file_type)
+                files = glob.glob(file_glob)
+                for f in files:
+                    shutil.copy(f, os.path.join(sd_iv_swinger_dir,
+                                                file_type))
+
+            # Copy files to USB
+            self.copy_files_to_usb(date_time_str, sd_output_dir,
+                                   sd_iv_swinger_dir)
+
+            # Display message
+            outdir_msg = "Output folder:\n{}".format(date_time_str)
+            self.logger.print_and_log(outdir_msg)
+            self.logger.print_and_log("")
+            lcd_msg = ScrollingMessage(outdir_msg, self.lcd, beep=False,
+                                       lock=self.lock,
+                                       exc_queue=self.exc_queue)
+            lcd_msg.start()
+            time.sleep(3)
+            lcd_msg.stop()
+            msg_text = [outdir_msg, "Turn switch ON\nto start again"]
 
     # -------------------------------------------------------------------------
     def init_other_class_variables(self):  # IVS1
