@@ -592,7 +592,7 @@ def add_pv_spec(pv_spec_csv_file, pv_spec):
     """
     check_pv_spec(pv_spec)
     # Create a dict from the spec values and the field names
-    pv_spec_dict = {key: value for (key, value) in zip(SPEC_FIELDS, pv_spec)}
+    pv_spec_dict = dict(zip(SPEC_FIELDS, pv_spec))
     # Start the (unordered) list of specs with the new one
     pv_specs = [pv_spec_dict]
     if os.path.exists(pv_spec_csv_file):
@@ -1383,7 +1383,7 @@ class PV_model():
         """Method to add the specfied number of V,I points for the
            modeled curve to the vi_points property.
         """
-        self.vi_points = [point for point in self.gen_vi_points(num_points)]
+        self.vi_points = self.gen_vi_points(num_points)
 
     # -------------------------------------------------------------------------
     def print_vi_points(self, num_points):
