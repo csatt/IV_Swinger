@@ -116,6 +116,7 @@ from send2trash import send2trash
 import matplotlib
 if sys.platform == "darwin":  # Mac
     matplotlib.use("TkAgg")  # https://stackoverflow.com/a/34109240/3443477
+    # pylint: disable=wrong-import-position
 import numpy
 import scipy
 import serial
