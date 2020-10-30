@@ -6571,10 +6571,9 @@ for the DMM measured test value"""
             if test_dmm_milliunits != 0:
                 test_err_pct = ((test_cal_milliunits /
                                  test_dmm_milliunits) - 1) * 100
-                label_str = ("Error:  {}{} m{}  ({}{} %)"
-                             .format(err_sign, int(test_err_milliunits),
-                                     self.unit_abbrev,
-                                     err_sign, round(test_err_pct, 3)))
+                label_str = ("Error:  {sign}{} m{}  ({sign}{} %)"
+                             .format(int(test_err_milliunits), self.unit_abbrev,
+                                     round(test_err_pct, 3), sign=err_sign))
             else:
                 label_str = ("Error:  {}{} m{}  (infinite %)"
                              .format(err_sign, int(test_err_milliunits),
@@ -8345,12 +8344,12 @@ effect. Please upgrade.
         tt_text = "Open-circuit voltage temperature coefficient"
         Tooltip(voc_coeff_entry, text=tt_text, **TOP_TT_KWARGS)
         tt_text = ("Units for Voc temperature coefficient. Most datasheets "
-                   u"use %/{}C but some use mV/{}C ".format(DGS, DGS))
+                   u"use %/{dgs}C but some use mV/{dgs}C ".format(dgs=DGS))
         Tooltip(voc_coeff_combo, text=tt_text, **TOP_TT_KWARGS)
         tt_text = "Short-circuit current temperature coefficient"
         Tooltip(isc_coeff_entry, text=tt_text, **TOP_TT_KWARGS)
         tt_text = ("Units for Isc temperature coefficient. Most datasheets "
-                   u"use %/{}C but some use mA/{}C ".format(DGS, DGS))
+                   u"use %/{dgs}C but some use mA/{dgs}C ".format(dgs=DGS))
         Tooltip(isc_coeff_combo, text=tt_text, **TOP_TT_KWARGS)
         tt_text = "Maximum power point temperature coefficient"
         Tooltip(mpp_coeff_entry, text=tt_text, **TOP_TT_KWARGS)
