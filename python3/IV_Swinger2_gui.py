@@ -4301,6 +4301,7 @@ class MenuBar(tk.Menu):
     """Class that implements the menu bar"""
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-many-public-methods
+    # pylint: disable=too-many-ancestors
 
     # Initializer
     def __init__(self, master=None):
