@@ -102,7 +102,7 @@ import tkinter.filedialog as tkfiledialog
 import tkinter.font as tkfont
 import tkinter.messagebox as tkmsg
 import traceback
-from tkinter.scrolledtext import ScrolledText as ScrolledText
+from tkinter.scrolledtext import ScrolledText
 from tkinter.constants import N, S, E, W, LEFT, RIGHT, HORIZONTAL, Y, BOTH, END
 from inspect import currentframe, getframeinfo
 from send2trash import send2trash

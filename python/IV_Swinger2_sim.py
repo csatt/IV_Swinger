@@ -97,7 +97,7 @@ import re
 import ttk as ttk
 import Tkinter as tk
 import tkMessageBox as tkmsg
-from ScrolledText import ScrolledText as ScrolledText
+from ScrolledText import ScrolledText
 from Tkconstants import E, W, BOTH, CENTER
 import numpy as np
 import IV_Swinger2

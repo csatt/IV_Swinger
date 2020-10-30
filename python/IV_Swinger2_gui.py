@@ -109,7 +109,7 @@ import tkFileDialog as tkfiledialog
 import tkFont as tkfont
 import tkMessageBox as tkmsg
 import traceback
-from ScrolledText import ScrolledText as ScrolledText
+from ScrolledText import ScrolledText
 from Tkconstants import N, S, E, W, LEFT, RIGHT, HORIZONTAL, Y, BOTH, END
 from inspect import currentframe, getframeinfo
 from send2trash import send2trash
