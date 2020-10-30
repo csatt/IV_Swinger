@@ -5010,7 +5010,7 @@ class Dialog(tk.Toplevel):
         """Method to create the dialog body. This method should be
            overridden.
         """
-        pass  # override
+        # override
 
     # -------------------------------------------------------------------------
     def buttonbox(self, master):
@@ -5070,7 +5070,7 @@ class Dialog(tk.Toplevel):
         """Method that snapshots current values for revert. Should be
            overridden to do what is appropriate for the derived class.
         """
-        pass
+        # override
 
     # -------------------------------------------------------------------------
     def validate(self):  # pylint: disable=no-self-use
@@ -5085,7 +5085,7 @@ class Dialog(tk.Toplevel):
         """Method that reverts values from the snapshot. Should be overridden
            to do what is appropriate for the derived class.
         """
-        pass
+        # override
 
     # -------------------------------------------------------------------------
     def apply(self):
@@ -5093,7 +5093,7 @@ class Dialog(tk.Toplevel):
            overridden to do what is appropriate for the derived
            class.
         """
-        pass
+        # override
 
     # -------------------------------------------------------------------------
     def close(self, event=None):
