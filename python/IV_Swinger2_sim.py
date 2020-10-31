@@ -197,6 +197,7 @@ BLEED_RESISTORS = [(2.0, 5.0, "AC05000002008JAC00"),
 # Simulator GUI
 SLIDER_LENGTH = 200
 MFG_PN_ENTRY_WIDTH = 20
+DUMMY_EVENT = tk.Event()
 
 # From IV_Swinger2
 INFINITE_VAL = IV_Swinger2.INFINITE_VAL
@@ -2217,7 +2218,7 @@ class SimulatorDialog(tk.Toplevel):
         self.shunt_ohms.set(str(SHUNT_DEFAULT / 1000000.0))
         self.shunt_wattage.set(SHUNT_WATTAGE_DEFAULT)
         self.shunt_mfg_pn.set(SHUNT_MFG_PN_DEFAULT)
-        self.shunt_ohms_widget_actions()
+        self.shunt_ohms_widget_actions(event=DUMMY_EVENT)
 
     # -------------------------------------------------------------------------
     def restore_load_cap_defaults(self):
@@ -2227,7 +2228,7 @@ class SimulatorDialog(tk.Toplevel):
         self.load_cap_uf.set(str(LOAD_CAP_UF_DEFAULT))
         self.load_cap_v.set(LOAD_CAP_V_DEFAULT)
         self.load_cap_mfg_pn.set(LOAD_CAP_MFG_PN_DEFAULT)
-        self.load_cap_widget_actions()
+        self.load_cap_widget_actions(event=DUMMY_EVENT)
 
     # -------------------------------------------------------------------------
     def restore_rb_defaults(self):
@@ -2237,7 +2238,7 @@ class SimulatorDialog(tk.Toplevel):
         self.rb_ohms.set(str(RB_OHMS_DEFAULT))
         self.rb_wattage.set(RB_WATTAGE_DEFAULT)
         self.rb_mfg_pn.set(RB_MFG_PN_DEFAULT)
-        self.rb_widget_actions()
+        self.rb_widget_actions(event=DUMMY_EVENT)
 
     # -------------------------------------------------------------------------
     def show_simulator_help(self):
@@ -2620,21 +2621,24 @@ class SimulatorDialog(tk.Toplevel):
                 self.rb_mfg_pn.set("Unknown")
 
     # -------------------------------------------------------------------------
-    def update_all_widgets(self, event=None):
+    def update_all_widgets(self):
         """Method to update all of the widgets and their associated properties
         """
         # Relay type, Isc, Voc
-        self.isc_and_voc_widget_actions(event)
+        self.isc_and_voc_widget_actions()
         # R1, R2, Rf, Rg
-        self.r1_r2_rf_and_rg_widget_actions(event)
+        self.r1_r2_rf_and_rg_widget_actions()
         # Shunt
-        self.shunt_ohms_widget_actions(event)
+        self.shunt_ohms_widget_actions()
+        self.update_shunt_wattage()
         # Load caps
-        self.load_cap_widget_actions(event)
+        self.load_cap_widget_actions()
+        self.update_load_cap_v()
         # Rb
-        self.rb_widget_actions(event)
+        self.rb_widget_actions()
+        self.update_rb_wattage()
         # All values on Other Controls tab
-        self.other_entries_actions(event)
+        self.other_entries_actions()
 
     # -------------------------------------------------------------------------
     def isc_and_voc_widget_actions(self, event=None):
@@ -2702,7 +2706,6 @@ class SimulatorDialog(tk.Toplevel):
            simulator properties, and their entry widget variables are
            set accordingly.
         """
-        # pylint: disable=unused-argument
         shunt_resistance_changed = False
         if self.ivs2_sim.amm_shunt_resistance != float(self.shunt_ohms.get()):
             shunt_resistance_changed = True
@@ -2712,7 +2715,8 @@ class SimulatorDialog(tk.Toplevel):
         shunt_resistance = self.ivs2_sim.amm_shunt_resistance
         shunt_index = shunt_index_from_ohms(shunt_resistance)
         self.shunt_slider_index.set(shunt_index)
-        if shunt_resistance in [shunt[0] for shunt in SHUNT_RESISTORS]:
+        if (shunt_resistance in [shunt[0] for shunt in SHUNT_RESISTORS]
+                and isinstance(event, tk.Event)):
             self.ivs2_sim.shunt_wattage = SHUNT_RESISTORS[shunt_index][1]
             self.ivs2_sim.shunt_mfg_pn = SHUNT_RESISTORS[shunt_index][2]
             self.shunt_wattage.set(self.ivs2_sim.shunt_wattage)
@@ -2740,7 +2744,6 @@ class SimulatorDialog(tk.Toplevel):
            capacitance and the user shouldn't have to make this choice
            even if they are manually choosing the other components.
         """
-        # pylint: disable=unused-argument
         load_capacitance_changed = False
         if self.ivs2_sim.load_cap_uf != float(self.load_cap_uf.get()):
             load_capacitance_changed = True
@@ -2748,7 +2751,8 @@ class SimulatorDialog(tk.Toplevel):
         load_cap_index = load_cap_index_from_uf(self.ivs2_sim.load_cap_uf)
         # Load cap slider is in opposite order from LOAD_CAPACITORS
         self.load_cap_slider_index.set(len(LOAD_CAPACITORS)-load_cap_index-1)
-        if self.ivs2_sim.load_cap_uf in [cap[0] for cap in LOAD_CAPACITORS]:
+        if (self.ivs2_sim.load_cap_uf in [cap[0] for cap in LOAD_CAPACITORS]
+                and isinstance(event, tk.Event)):
             self.ivs2_sim.load_cap_v = LOAD_CAPACITORS[load_cap_index][1]
             self.ivs2_sim.load_cap_mfg_pn = LOAD_CAPACITORS[load_cap_index][4]
             self.load_cap_v.set(self.ivs2_sim.load_cap_v)
@@ -2773,9 +2777,7 @@ class SimulatorDialog(tk.Toplevel):
            the BLEED_RESISTORS list, its wattage and manufacturer part
            number are used to set the associated simulator properties,
            and their entry widget variables are set accordingly.
-
         """
-        # pylint: disable=unused-argument
         rb_ohms_changed = False
         if self.ivs2_sim.rb_ohms != float(self.rb_ohms.get()):
             rb_ohms_changed = True
@@ -2783,7 +2785,8 @@ class SimulatorDialog(tk.Toplevel):
         self.ivs2_sim.rb_ohms = float(self.rb_ohms.get())
         rb_index = rb_index_from_ohms(self.ivs2_sim.rb_ohms)
         self.rb_slider_index.set(rb_index)
-        if self.ivs2_sim.rb_ohms in [rb[0] for rb in BLEED_RESISTORS]:
+        if (self.ivs2_sim.rb_ohms in [rb[0] for rb in BLEED_RESISTORS]
+                and isinstance(event, tk.Event)):
             self.ivs2_sim.rb_wattage = BLEED_RESISTORS[rb_index][1]
             self.ivs2_sim.rb_mfg_pn = BLEED_RESISTORS[rb_index][2]
             self.rb_wattage.set(self.ivs2_sim.rb_wattage)
