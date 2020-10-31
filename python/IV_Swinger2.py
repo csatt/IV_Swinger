@@ -2022,7 +2022,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # pylint: disable=too-many-public-methods
 
     # Initializer
-    def __init__(self, app_data_dir=None):
+    def __init__(self, app_data_dir=None, logger=None):
         # pylint: disable=too-many-statements
         IV_Swinger.IV_Swinger.__init__(self)
         self.lcd = None
@@ -2138,7 +2138,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self.pyserial_version = serial.__version__
         self.pillow_version = pillow_version
         # Configure logging and find serial ports
-        self.configure_logging()
+        self.configure_logging(logger)
         self.find_serial_ports()
 
     # Properties
@@ -5551,8 +5551,13 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self.plot_max_y = self.ivp.max_y
 
     # -------------------------------------------------------------------------
-    def configure_logging(self):
+    def configure_logging(self, logger=None):
         """Method to set up logging"""
+        # If using an existing logger, just set the logger attribute to
+        # it and return
+        if logger is not None:
+            self.logger = logger
+            return
 
         # Generate the date/time string from the current time
         date_time_str = IV_Swinger.DateTimeStr.get_date_time_str()

@@ -4908,7 +4908,7 @@ will exit.
         """
         msg = """(MenuBar, Help) selected "Run Simulator" entry"""
         log_user_action(self.master.ivs2.logger, msg)
-        IV_Swinger2_sim.SimulatorDialog(self.master)
+        IV_Swinger2_sim.SimulatorDialog(self.master, self.master.ivs2.logger)
         self.master.mac_grayed_menu_workaround()
 
 
@@ -6530,8 +6530,9 @@ for the DMM measured test value"""
                 test_err_pct = ((test_cal_milliunits /
                                  test_dmm_milliunits) - 1) * 100
                 label_str = ("Error:  {sign}{} m{}  ({sign}{} %)"
-                             .format(int(test_err_milliunits), self.unit_abbrev,
-                                     round(test_err_pct, 3), sign=err_sign))
+                             .format(int(test_err_milliunits),
+                                     self.unit_abbrev, round(test_err_pct, 3),
+                                     sign=err_sign))
             else:
                 label_str = ("Error:  {}{} m{}  (infinite %)"
                              .format(err_sign, int(test_err_milliunits),

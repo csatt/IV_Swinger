@@ -378,8 +378,8 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-many-public-methods
 
-    def __init__(self, app_data_dir=None):
-        IV_Swinger2.IV_Swinger2.__init__(self)
+    def __init__(self, app_data_dir=None, logger=None):
+        IV_Swinger2.IV_Swinger2.__init__(self, logger=logger)
         # Property variables
         self._sim_isc = SIM_ISC_DEFAULT
         self._sim_voc = SIM_VOC_DEFAULT
@@ -1519,7 +1519,7 @@ class SimulatorDialog(tk.Toplevel):
     # pylint: disable=too-many-public-methods
 
     # Initializer
-    def __init__(self, master=None):
+    def __init__(self, master=None, logger=None):
         tk.Toplevel.__init__(self, master=master)
         self.master = master
         # Hack: determine if we're running under the IVS2 GUI or
@@ -1549,7 +1549,7 @@ class SimulatorDialog(tk.Toplevel):
         self.results_tab = None
 
         # Create an IV_Swinger2_sim object
-        self.ivs2_sim = IV_Swinger2_sim()
+        self.ivs2_sim = IV_Swinger2_sim(logger=logger)
 
         # Create the widget variable objects
         self.create_widget_vars()
