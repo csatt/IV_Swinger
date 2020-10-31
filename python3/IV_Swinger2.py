@@ -86,12 +86,14 @@ import sys
 import time
 from inspect import currentframe, getframeinfo
 from PIL import Image
+from PIL import __version__ as pillow_version
 import serial
 import serial.tools.list_ports
 import IV_Swinger
 import IV_Swinger_plotter
 from IV_Swinger2_PV_model import (IV_Swinger2_PV_model,
                                   PV_MODEL_CURVE_NUM_POINTS)
+from IV_Swinger_PV_model import scipy_version
 
 #################
 #   Constants   #
@@ -2130,6 +2132,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self.hdd_unfiltered_adc_pairs_csv_filename = None
         self.hdd_csv_data_point_filename = None
         self.hdd_adc_pairs_csv_filename = None
+        self.pyserial_version = serial.__version__
+        self.pillow_version = pillow_version
         # Configure logging and find serial ports
         self.configure_logging()
         self.find_serial_ports()
@@ -4893,6 +4897,14 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """Method to write pre-run debug info to the log file"""
         self.logger.log("app_data_dir = {}".format(self.app_data_dir))
         self.logger.log("log_file_name = {}".format(self.logger.log_file_name))
+        self.logger.log("Running on: {}".format(self.os_version))
+        self.logger.log("Python version: {}".format(self.python_version))
+        self.logger.log("Matplotlib version: {}"
+                        .format(self.matplotlib_version))
+        self.logger.log("NumPy version: {}".format(self.numpy_version))
+        self.logger.log("SciPy version: {}".format(scipy_version))
+        self.logger.log("PySerial version: {}".format(self.pyserial_version))
+        self.logger.log("Pillow version: {}".format(self.pillow_version))
 
     # -------------------------------------------------------------------------
     def create_hdd_output_dir(self, date_time_str, subdir=""):

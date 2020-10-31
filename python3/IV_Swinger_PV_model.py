@@ -183,6 +183,7 @@ import os
 import warnings
 import numpy as np
 from scipy.optimize import root
+from scipy import __version__ as scipy_version
 
 #################
 #   Constants   #

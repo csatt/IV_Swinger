@@ -171,6 +171,7 @@ import datetime as dt
 import glob
 import math
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -178,24 +179,25 @@ import sys
 import threading
 import time
 import traceback
-import numpy
 
 # Conditionally import RPi-specific modules. This is so this module can
 # be imported on other platforms for post-processing the output files.
-if sys.platform != "win32":
-    if os.uname()[4].startswith("arm"):
-        import Adafruit_ADS1x15
-        import Adafruit_CharLCD
-        import Adafruit_MCP230xx
-        import RPi.GPIO as GPIO  # pylint: disable=import-error
-if sys.platform != "win32":
+if os.uname()[4].startswith("arm"):
+    import Adafruit_ADS1x15
+    import Adafruit_CharLCD
+    import Adafruit_MCP230xx
+    import RPi.GPIO as GPIO  # pylint: disable=import-error
+if not os.uname()[4].startswith("armv6"):
     # Suppress matplotlib import on RPi 1 (too slow))
-    if not os.uname()[4].startswith("armv6"):
-        import matplotlib.pyplot as plt
-        import matplotlib.font_manager
-else:  # Windows
+    if sys.platform == "darwin":  # Mac
+        from matplotlib import use as matplotlib_use
+        # https://stackoverflow.com/a/34109240/3443477
+        matplotlib_use("TkAgg")
     import matplotlib.pyplot as plt
     import matplotlib.font_manager
+    from matplotlib import __version__ as matplotlib_version
+# pylint: disable=wrong-import-position
+import numpy
 
 #################
 #   Constants   #
@@ -1403,6 +1405,15 @@ class IV_Swinger(object):
         self.lcd = None
         # exception message queue
         self.exc_queue = Queue.Queue()
+        self.os_version = platform.platform()
+        self.python_version = "{}.{}.{}".format(sys.version_info[0],
+                                                sys.version_info[1],
+                                                sys.version_info[2])
+        try:
+            self.matplotlib_version = matplotlib_version
+        except NameError:
+            self.matplotlib_version = "N/A"
+        self.numpy_version = numpy.__version__
 
     # Properties
     @property
