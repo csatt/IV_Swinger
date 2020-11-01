@@ -267,83 +267,6 @@ def get_app_dir():
     return os.path.abspath(os.path.dirname(__file__))
 
 
-def tkmsg_showinfo(master, message):
-    """Global function that creates a tkMessageBox object and calls
-       its showinfo method, passing the message from the caller. The
-       purpose of this is to add the workaround for the Mac grayed
-       menu bug.
-    """
-    tkmsg.showinfo(message=message)
-    master.mac_grayed_menu_workaround()
-
-
-def tkmsg_showwarning(master, message):
-    """Global function that creates a tkMessageBox object and calls
-       its showwarning method, passing the message from the caller. The
-       purpose of this is to add the workaround for the Mac grayed
-       menu bug.
-    """
-    tkmsg.showwarning(message=message)
-    master.mac_grayed_menu_workaround()
-
-
-def tkmsg_showerror(master, message):
-    """Global function that creates a tkMessageBox object and calls
-       its showerror method, passing the message from the caller. The
-       purpose of this is to add the workaround for the Mac grayed
-       menu bug.
-    """
-    tkmsg.showerror(message=message)
-    master.mac_grayed_menu_workaround()
-
-
-def tkmsg_askyesno(master, title, message, default):
-    """Global function that creates a tkMessageBox object and calls
-       its askyesno method, passing the args from the caller. The
-       purpose of this is to add the workaround for the Mac grayed
-       menu bug.
-    """
-    answer = tkmsg.askyesno(title, message=message, default=default)
-    master.mac_grayed_menu_workaround()
-    return answer
-
-
-def tksd_askstring(master, title, prompt, initialvalue):
-    """Global function that creates a tkSimpleDialog object and calls
-       its askstring method, passing the args from the caller. The
-       purpose of this is to add the workaround for the Mac grayed
-       menu bug.
-    """
-    answer = tksd.askstring(title=title, prompt=prompt,
-                            initialvalue=initialvalue)
-    master.mac_grayed_menu_workaround()
-    return answer
-
-
-def tksd_askinteger(master, title, prompt, initialvalue):
-    """Global function that creates a tkSimpleDialog object and calls
-       its askinteger method, passing the args from the caller. The
-       purpose of this is to add the workaround for the Mac grayed
-       menu bug.
-    """
-    answer = tksd.askinteger(title=title, prompt=prompt,
-                             initialvalue=initialvalue)
-    master.mac_grayed_menu_workaround()
-    return answer
-
-
-def tksd_askfloat(master, title, prompt, initialvalue):
-    """Global function that creates a tkSimpleDialog object and calls
-       its askfloat method, passing the args from the caller. The
-       purpose of this is to add the workaround for the Mac grayed
-       menu bug.
-    """
-    answer = tksd.askfloat(title=title, prompt=prompt,
-                           initialvalue=initialvalue)
-    master.mac_grayed_menu_workaround()
-    return answer
-
-
 def handle_early_exception():
     """Global function that prints the stack trace for an early exception
        (i.e. detected before mainloop() is started) to a temporary file
@@ -418,6 +341,131 @@ def log_user_action(logger, msg):
     """Global function to log a GUI action by the user"""
     user_action_msg = "User: {}".format(msg)
     logger.log(user_action_msg)
+
+
+def retry_if_pdf_permission_denied(func, *args):
+    """Method to call another function (with its args) that may fail due to
+       a "Permission denied" exception on a PDF file. If the
+       exception is encountered, the user is prompted to close the
+       file if they have it open in a viewer. Then the function is
+       called again.
+    """
+    try:
+        rc = func(*args)
+    except IOError as e:
+        if pdf_permission_denied(e):
+            err_str = ("({})"
+                       "\n\n"
+                       "PDF could not be written. If you have it open in "
+                       "a viewer, close it BEFORE clicking OK.".format(e))
+            tkmsg.showerror(message=err_str)
+            try:
+                rc = func(*args)
+            except IOError as e:
+                rc = RC_FAILURE
+                if pdf_permission_denied(e):
+                    err_str = ("({})"
+                               "\n\n"
+                               "PDF still could not be written. "
+                               "It will not be updated.".format(e))
+                    tkmsg.showerror(message=err_str)
+    return rc
+
+
+def show_baud_mismatch_dialog():
+    """Method to display an error dialog on a (probable) baud mismatch
+       error
+    """
+    baud_mismatch_str = """
+ERROR: Decode error on serial data from
+Arduino
+
+This is mostly likely a baud rate
+mismatch. The baud rate is hardcoded in
+the Arduino sketch, and this must match
+the rate specified in Preferences.
+"""
+    tkmsg.showerror(message=baud_mismatch_str)
+
+
+def show_timeout_dialog():
+    """Method to display an error dialog on an Arduino timeout"""
+    timeout_str = """
+ERROR: Timed out waiting for message
+from Arduino
+
+Check that the IV Swinger 2 is connected
+to a USB port and the green LED on the
+Arduino is lit.
+
+Check that the correct port is selected
+on the "USB Port" menu.
+"""
+    tkmsg.showerror(message=timeout_str)
+
+
+def show_serial_exception_dialog():
+    """Method to display an error dialog on USB serial exception"""
+    serial_exception_str = """
+ERROR: problem opening USB port to
+communicate with Arduino
+
+Check that the IV Swinger 2 is connected
+to a USB port and the green LED on the
+Arduino is lit.
+
+Check that the correct port is selected
+on the "USB Port" menu.
+"""
+    tkmsg.showerror(message=serial_exception_str)
+
+
+def show_no_points_dialog():
+    """Method to display an error dialog when there are no points to
+       display
+    """
+    no_points_str = """
+ERROR: No points to display
+
+This could be a result of selecting "Battery bias" in Preferences when no
+bias was actually applied.
+"""
+    tkmsg.showerror(message=no_points_str)
+
+
+def ok_to_trash(num_selected_runs, num_selected_overlays):
+    """Method to prompt the user before moving runs and overlays to the
+       trash
+    """
+    msg_str = ""
+    if num_selected_runs:
+        msg_str += ("Send {} runs to the trash?\n"
+                    .format(num_selected_runs))
+    if num_selected_overlays:
+        msg_str += ("Send {} overlays to the trash?\n"
+                    .format(num_selected_overlays))
+    granted = tkmsg.askyesno("OK to send to trash?", msg_str,
+                             default=tkmsg.NO)
+    return granted
+
+
+def adj_ratio_is_too_extreme(adj_ratio):
+    """Method to check the adjustment ratio. If it is < 0.85 or > 1.15,
+       display error dialog and return True. Otherwise return False.
+    """
+    if adj_ratio < 0.85 or adj_ratio > 1.15:
+        err_msg = """
+ERROR: Calibration ratio
+({})
+must be between 0.85 and 1.15.
+More extreme ratios indicate
+something is wrong with the
+hardware and calibration is
+not the solution
+""".format(adj_ratio)
+        tkmsg.showerror(message=err_msg)
+        return True
+    return False
 
 
 #################
@@ -666,7 +714,7 @@ class GraphicalUserInterface(ttk.Frame):
 FATAL ERROR: This user does not have
 permission to create directories (folders) in
 {}""".format(app_data_parent)
-            tkmsg_showerror(self, err_msg)
+            tkmsg.showerror(err_msg)
             sys.exit()
         try:
             dummy_file = os.path.join(self.ivs2.app_data_dir, "DUMMY_FILE")
@@ -677,7 +725,7 @@ permission to create directories (folders) in
 FATAL ERROR: This user does not have
 permission to create files in
 {}""".format(self.ivs2.app_data_dir)
-            tkmsg_showerror(self, err_msg)
+            tkmsg.showerror(err_msg)
             sys.exit()
 
     # -------------------------------------------------------------------------
@@ -703,7 +751,7 @@ Log file: {}
 
 Or use "View Log File" on the "File" menu.
 """.format(os.path.normpath(self.ivs2.logger.log_file_name))
-        tkmsg_showerror(self, exception_msg)
+        tkmsg.showerror(exception_msg)
 
     # -------------------------------------------------------------------------
     def memory_monitor(self):
@@ -859,21 +907,6 @@ This could be for one of the following reasons:
         """Method to create the menu bar
         """
         self.menu_bar = MenuBar(master=self)
-
-    # -------------------------------------------------------------------------
-    def mac_grayed_menu_workaround(self):
-        """Method to work around a Mac bug in the version of Tk (8.5.9) that
-           is included with OSX/MacOS versions since 10.7 (Lion) and up to at
-           least 10.13 (High Sierra) that has the effect that if the user
-           looks at the menu while a "modal" window is active, the menu items
-           remain disabled (grayed out) even after the modal window is
-           closed. See https://bugs.python.org/issue21757. Although this can
-           be solved by installing Python from python.org, we'll opt to work
-           around the problem by recreating the menu bar whenever a modal
-           window is closed.
-        """
-        if self.win_sys == "aqua":  # Mac
-            self.create_menu_bar()
 
     # -------------------------------------------------------------------------
     def pseudo_dialog_resize_disable(self, dialog):
@@ -1694,7 +1727,7 @@ This could be for one of the following reasons:
                         self.config.add_axes_and_title()
                     self.display_img(self.ivs2.current_img)
             elif rc == RC_NO_POINTS:
-                self.show_no_points_dialog()
+                show_no_points_dialog()
             if remove_directory:
                 if self.ivs2.hdd_output_dir == os.getcwd():
                     os.chdir("..")
@@ -1711,38 +1744,9 @@ This could be for one of the following reasons:
            option for user to retry if the file is open in a viewer
            (Windows issue).
         """
-        rc = self.retry_if_pdf_permission_denied(self.ivs2.plot_results)
+        rc = retry_if_pdf_permission_denied(self.ivs2.plot_results)
         if rc == RC_PV_MODEL_FAILURE:
             self.show_pv_model_failure_dialog()
-        return rc
-
-    # -------------------------------------------------------------------------
-    def retry_if_pdf_permission_denied(self, func, *args):
-        """Method to call another function (with its args) that may fail due to
-           a "Permission denied" exception on a PDF file. If the
-           exception is encountered, the user is prompted to close the
-           file if they have it open in a viewer. Then the function is
-           called again.
-        """
-        try:
-            rc = func(*args)
-        except IOError as e:
-            if pdf_permission_denied(e):
-                err_str = ("({})"
-                           "\n\n"
-                           "PDF could not be written. If you have it open in "
-                           "a viewer, close it BEFORE clicking OK.".format(e))
-                tkmsg_showerror(self, message=err_str)
-                try:
-                    rc = func(*args)
-                except IOError as e:
-                    rc = RC_FAILURE
-                    if pdf_permission_denied(e):
-                        err_str = ("({})"
-                                   "\n\n"
-                                   "PDF still could not be written. "
-                                   "It will not be updated.".format(e))
-                        tkmsg_showerror(self, message=err_str)
         return rc
 
     # -------------------------------------------------------------------------
@@ -1927,7 +1931,7 @@ This could be for one of the following reasons:
                                          self.loop_save_results)
             else:
                 err_str = ("ERROR: Failed to swing curve for bias battery")
-                tkmsg_showerror(self, message=err_str)
+                tkmsg.showerror(message=err_str)
                 return show_error_dialog_clean_up_and_return(rc)
 
         # Turn second relay on for battery + PV curve. This is done
@@ -2071,88 +2075,27 @@ This could be for one of the following reasons:
         self.loop_save_cb.state(["!disabled"])
 
     # -------------------------------------------------------------------------
-    def show_baud_mismatch_dialog(self):
-        """Method to display an error dialog on a (probable) baud mismatch
-           error
-        """
-        baud_mismatch_str = """
-ERROR: Decode error on serial data from
-Arduino
-
-This is mostly likely a baud rate
-mismatch. The baud rate is hardcoded in
-the Arduino sketch, and this must match
-the rate specified in Preferences.
-"""
-        tkmsg_showerror(self, message=baud_mismatch_str)
-
-    # -------------------------------------------------------------------------
-    def show_timeout_dialog(self):
-        """Method to display an error dialog on an Arduino timeout"""
-        timeout_str = """
-ERROR: Timed out waiting for message
-from Arduino
-
-Check that the IV Swinger 2 is connected
-to a USB port and the green LED on the
-Arduino is lit.
-
-Check that the correct port is selected
-on the "USB Port" menu.
-"""
-        tkmsg_showerror(self, message=timeout_str)
-
-    # -------------------------------------------------------------------------
-    def show_serial_exception_dialog(self):
-        """Method to display an error dialog on USB serial exception"""
-        serial_exception_str = """
-ERROR: problem opening USB port to
-communicate with Arduino
-
-Check that the IV Swinger 2 is connected
-to a USB port and the green LED on the
-Arduino is lit.
-
-Check that the correct port is selected
-on the "USB Port" menu.
-"""
-        tkmsg_showerror(self, message=serial_exception_str)
-
-    # -------------------------------------------------------------------------
     def show_zero_voc_dialog(self):
         """Method to display an error dialog when Voc = 0"""
-        tkmsg_showerror(self, message=self.zero_voc_str)
+        tkmsg.showerror(message=self.zero_voc_str)
 
     # -------------------------------------------------------------------------
     def show_zero_isc_dialog(self):
         """Method to display an error dialog when Isc = 0"""
-        tkmsg_showerror(self, message=self.zero_isc_str)
+        tkmsg.showerror(message=self.zero_isc_str)
 
     # -------------------------------------------------------------------------
     def show_isc_timeout_dialog(self):
         """Method to display an error dialog when there is an Isc stable
            timeout
         """
-        tkmsg_showerror(self, message=self.isc_timeout_str)
-
-    # -------------------------------------------------------------------------
-    def show_no_points_dialog(self):
-        """Method to display an error dialog when there are no points to
-           display
-        """
-        no_points_str = """
-ERROR: No points to display
-
-This could be a result of selecting "Battery bias" in Preferences when no
-bias was actually applied.
-"""
-        tkmsg_showerror(self, message=no_points_str)
+        tkmsg.showerror(message=self.isc_timeout_str)
 
     # -------------------------------------------------------------------------
     def show_pv_model_failure_dialog(self):
         """Method to display an error dialog when there is a PV model failure
         """
-        tkmsg_showerror(self, message=self.pv_model_failure_str)
+        tkmsg.showerror(message=self.pv_model_failure_str)
 
     # -------------------------------------------------------------------------
     def show_error_dialog(self, rc):
@@ -2160,11 +2103,11 @@ bias was actually applied.
            value of the bad return code
         """
         if rc == RC_BAUD_MISMATCH:
-            self.show_baud_mismatch_dialog()
+            show_baud_mismatch_dialog()
         elif rc == RC_TIMEOUT:
-            self.show_timeout_dialog()
+            show_timeout_dialog()
         elif rc == RC_SERIAL_EXCEPTION:
-            self.show_serial_exception_dialog()
+            show_serial_exception_dialog()
         elif rc == RC_ZERO_VOC:
             self.show_zero_voc_dialog()
         elif rc == RC_ZERO_ISC:
@@ -2172,7 +2115,7 @@ bias was actually applied.
         elif rc == RC_ISC_TIMEOUT:
             self.show_isc_timeout_dialog()
         elif rc == RC_NO_POINTS:
-            self.show_no_points_dialog()
+            show_no_points_dialog()
         elif rc == RC_PV_MODEL_FAILURE:
             self.show_pv_model_failure_dialog()
 
@@ -2726,8 +2669,7 @@ class ResultsWizard(tk.Toplevel):
         # overlay
         if self.master.overlay_mode:
             msg_str = "Save overlay before quitting Results Wizard?"
-            save_overlay = tkmsg_askyesno(self.master,
-                                          "Save overlay?", msg_str,
+            save_overlay = tkmsg.askyesno("Save overlay?", msg_str,
                                           default=tkmsg.NO)
             if save_overlay:
                 # Yes: same as if Finished button had been pressed
@@ -2865,7 +2807,7 @@ class ResultsWizard(tk.Toplevel):
         if not os.path.isdir(run_dir):
             err_str = "ERROR: directory {} does not exist".format(run_dir)
             self.master.ivs2.logger.print_and_log(err_str)
-            tkmsg_showerror(self.master, message=err_str)
+            tkmsg.showerror(message=err_str)
             return None
         return run_dir
 
@@ -2954,7 +2896,6 @@ class ResultsWizard(tk.Toplevel):
         if self.master.win_sys == "aqua":  # Mac
             options["message"] = options["title"]
         new_dir = tkfiledialog.askdirectory(**options)
-        self.master.mac_grayed_menu_workaround()
         if new_dir:
             self.results_dir = os.path.normpath(new_dir)
             self.populate_tree()
@@ -3009,7 +2950,7 @@ class ResultsWizard(tk.Toplevel):
         desktop_path = os.path.expanduser(os.path.join("~", "Desktop"))
         if not os.path.exists(desktop_path):
             err_str = "ERROR: {} does not exist".format(desktop_path)
-            tkmsg_showerror(self.master, message=err_str)
+            tkmsg.showerror(message=err_str)
 
         # Define shortcut name
         desktop_shortcut_path = os.path.join(desktop_path, "IV_Swinger2")
@@ -3066,7 +3007,7 @@ class ResultsWizard(tk.Toplevel):
             msg_str = "ERROR: could not create shortcut"
         else:
             msg_str = "ERROR: Programming bug"
-        tkmsg_showerror(self.master, message=msg_str)
+        tkmsg.showerror(message=msg_str)
         msg = "Result of Make desktop shortcut: {}".format(msg_str)
         self.master.ivs2.logger.log(msg)
 
@@ -3158,7 +3099,6 @@ class ResultsWizard(tk.Toplevel):
         if self.master.win_sys == "aqua":  # Mac
             options["message"] = options["title"]
         copy_dest = tkfiledialog.askdirectory(**options)
-        self.master.mac_grayed_menu_workaround()
         if not copy_dest:  # Cancel
             return RC_FAILURE
         self.copy_dest = os.path.normpath(copy_dest)
@@ -3171,7 +3111,7 @@ class ResultsWizard(tk.Toplevel):
         # Check that it is writeable
         if not os.access(self.copy_dest, os.W_OK | os.X_OK):
             err_str = "ERROR: {} is not writeable".format(self.copy_dest)
-            tkmsg_showerror(self.master, message=err_str)
+            tkmsg.showerror(message=err_str)
             return RC_FAILURE
 
         return RC_SUCCESS
@@ -3193,19 +3133,18 @@ class ResultsWizard(tk.Toplevel):
 
         # Display error dialog and return if nothing is selected
         if not selected_runs and not selected_overlays:
-            tkmsg_showerror(self.master,
-                            message="ERROR: no runs or overlays are selected")
+            tkmsg.showerror(message="ERROR: no runs or overlays are selected")
             return
 
         # Display error dialog and return if in overlay mode
         if self.master.overlay_mode:
             err_msg = "ERROR: cannot perform a delete in overlay mode"
-            tkmsg_showerror(self.master, message=err_msg)
+            tkmsg.showerror(message=err_msg)
             return
 
         all_selected = selected_runs + selected_overlays
 
-        if self.ok_to_trash(len(selected_runs), len(selected_overlays)):
+        if ok_to_trash(len(selected_runs), len(selected_overlays)):
             # Send selected runs and overlays to trash
             for selected in all_selected:
                 try:
@@ -3217,23 +3156,6 @@ class ResultsWizard(tk.Toplevel):
 
             # Delete them from the treeview
             self.tree.delete(*self.tree.selection())
-
-    # -------------------------------------------------------------------------
-    def ok_to_trash(self, num_selected_runs, num_selected_overlays):
-        """Method to prompt the user before moving runs and overlays to the
-           trash
-        """
-        msg_str = ""
-        if num_selected_runs:
-            msg_str += ("Send {} runs to the trash?\n"
-                        .format(num_selected_runs))
-        if num_selected_overlays:
-            msg_str += ("Send {} overlays to the trash?\n"
-                        .format(num_selected_overlays))
-        granted = tkmsg_askyesno(self.master,
-                                 "OK to send to trash?", msg_str,
-                                 default=tkmsg.NO)
-        return granted
 
     # -------------------------------------------------------------------------
     def copy_selected(self, event=None):
@@ -3252,14 +3174,13 @@ class ResultsWizard(tk.Toplevel):
 
         # Display error dialog and return if nothing is selected
         if not selected_runs and not selected_overlays:
-            tkmsg_showerror(self.master,
-                            message="ERROR: no runs or overlays are selected")
+            tkmsg.showerror(message="ERROR: no runs or overlays are selected")
             return
 
         # Display error dialog and return if in overlay mode
         if self.master.overlay_mode:
             err_msg = "ERROR: cannot perform a copy in overlay mode"
-            tkmsg_showerror(self.master, message=err_msg)
+            tkmsg.showerror(message=err_msg)
             return
 
         # Get destination from user
@@ -3354,7 +3275,7 @@ class ResultsWizard(tk.Toplevel):
             if dest_dir == src_dir:
                 err_str = ("ERROR: source and destination are the same: {}"
                            .format(os.path.dirname(dest_dir)))
-                tkmsg_showerror(self.master, message=err_str)
+                tkmsg.showerror(message=err_str)
                 return False
             if os.path.exists(dest_dir):
                 existing_dest_dirs.append(dest_dir)
@@ -3371,8 +3292,7 @@ class ResultsWizard(tk.Toplevel):
                 for dest_dir in existing_dest_dirs:
                     msg_str += "  {}\n".format(dest_dir)
             msg_str += "\nOverwrite all?"
-            overwrite = tkmsg_askyesno(self.master,
-                                       "Overwrite all?", msg_str,
+            overwrite = tkmsg.askyesno("Overwrite all?", msg_str,
                                        default=tkmsg.NO)
         return overwrite
 
@@ -3392,7 +3312,7 @@ class ResultsWizard(tk.Toplevel):
                     except (IOError, OSError, shutil.Error) as e:
                         err_str = ("ERROR: removing {} ({})"
                                    .format(dest_dir, e))
-                        tkmsg_showerror(self.master, message=err_str)
+                        tkmsg.showerror(message=err_str)
                         continue
                 else:
                     continue  # pragma: no cover (coverage bug?)
@@ -3407,7 +3327,7 @@ class ResultsWizard(tk.Toplevel):
             except (IOError, OSError, shutil.Error) as e:
                 err_str = ("ERROR: error copying {} to {}\n({})"
                            .format(src_dir, dest_dir, e))
-                tkmsg_showerror(self.master, message=err_str)
+                tkmsg.showerror(message=err_str)
 
         return num_copied
 
@@ -3436,7 +3356,7 @@ class ResultsWizard(tk.Toplevel):
                    .format(num_copied["overlays"],
                            num_copied["runs"],
                            os.path.join(self.copy_dest, APP_NAME)))
-        tkmsg_showinfo(self.master, message=msg_str)
+        tkmsg.showinfo(message=msg_str)
 
     # -------------------------------------------------------------------------
     def change_title(self, event=None):
@@ -3459,8 +3379,7 @@ class ResultsWizard(tk.Toplevel):
             selected_overlays = self.get_selected_overlays()
             # Display error dialog and return if any overlays are selected
             if selected_overlays:
-                tkmsg_showerror(self.master,
-                                message=("ERROR: cannot change title on "
+                tkmsg.showerror(message=("ERROR: cannot change title on "
                                          "completed overlays"))
                 return
             sel_runs = self.get_selected_runs(include_whole_days=False)
@@ -3474,14 +3393,13 @@ class ResultsWizard(tk.Toplevel):
             elif len(sel_runs) > 1:
                 err_str = ("ERROR: Title can only be changed on one run "
                            "at a time")
-                tkmsg_showerror(self.master, message=err_str)
+                tkmsg.showerror(message=err_str)
                 return
             else:
                 err_str = ("ERROR: No run selected")
-                tkmsg_showerror(self.master, message=err_str)
+                tkmsg.showerror(message=err_str)
                 return
-        new_title = tksd_askstring(self.master,
-                                   title=prompt_title_str,
+        new_title = tksd.askstring(title=prompt_title_str,
                                    prompt=prompt_str,
                                    initialvalue=init_val)
         if new_title:
@@ -3528,7 +3446,7 @@ class ResultsWizard(tk.Toplevel):
                 IV_Swinger2.sys_view_file(pdf)
                 return
         err_str = ("ERROR: No PDF to display")
-        tkmsg_showerror(self.master, message=err_str)
+        tkmsg.showerror(message=err_str)
 
     # -------------------------------------------------------------------------
     def plot_graphs_to_pdf(self):
@@ -3536,9 +3454,9 @@ class ResultsWizard(tk.Toplevel):
            the same name. Adds option for user to retry if the file is
            open in a viewer (Windows issue).
         """
-        self.master.retry_if_pdf_permission_denied(self.ivp.plot_graphs_to_pdf,
-                                                   self.ivp.ivsp_ivse,
-                                                   self.ivp.csv_proc)
+        retry_if_pdf_permission_denied(self.ivp.plot_graphs_to_pdf,
+                                       self.ivp.ivsp_ivse,
+                                       self.ivp.csv_proc)
 
     # -------------------------------------------------------------------------
     def update_selected(self, event=None):
@@ -3552,14 +3470,13 @@ class ResultsWizard(tk.Toplevel):
         # Display error dialog and return if any overlays are selected
         selected_overlays = self.get_selected_overlays()
         if selected_overlays:
-            tkmsg_showerror(self.master,
-                            message="ERROR: overlays cannot be updated")
+            tkmsg.showerror(message="ERROR: overlays cannot be updated")
             return
 
         # Display error dialog and return if in overlay mode
         if self.master.overlay_mode:
             err_msg = "ERROR: cannot perform an update in overlay mode"
-            tkmsg_showerror(self.master, message=err_msg)
+            tkmsg.showerror(message=err_msg)
             return
 
         # Get the selected run(s) from the Treeview (sorted from
@@ -3567,8 +3484,7 @@ class ResultsWizard(tk.Toplevel):
         # runs are selected
         selected_runs = sorted(self.get_selected_runs())
         if not selected_runs:
-            tkmsg_showerror(self.master,
-                            message="ERROR: no runs are selected")
+            tkmsg.showerror(message="ERROR: no runs are selected")
             return
 
         # Loop through runs, regenerating/redisplaying
@@ -3624,8 +3540,7 @@ class ResultsWizard(tk.Toplevel):
 
         # Display done message if multiple runs selected
         if len(selected_runs) > 1:
-            tkmsg_showinfo(self.master,
-                           message="Batch update complete")
+            tkmsg.showinfo(message="Batch update complete")
 
     # -------------------------------------------------------------------------
     def overlay_runs(self, event=None):
@@ -3645,13 +3560,13 @@ class ResultsWizard(tk.Toplevel):
         if len(self.overlaid_runs) > max_overlays:
             err_str = ("ERROR: Maximum of {} overlays supported ({} requested)"
                        .format(max_overlays, len(self.overlaid_runs)))
-            tkmsg_showerror(self.master, message=err_str)
+            tkmsg.showerror(message=err_str)
             return RC_FAILURE
 
         # Check for none selected
         if not self.master.overlay_mode and not self.overlaid_runs:
             info_str = ("Select at least one run to begin an overlay")
-            tkmsg_showerror(self.master, message=info_str)
+            tkmsg.showerror(message=info_str)
             return RC_FAILURE
 
         # Enter overlay mode (if not already in it)
@@ -3976,7 +3891,7 @@ class ResultsWizard(tk.Toplevel):
         log_user_action(self.master.ivs2.logger, msg)
         help_str = ("Double-click items below to rename.\n"
                     "Drag items to change order.")
-        tkmsg_showinfo(self.master, message=help_str)
+        tkmsg.showinfo(message=help_str)
 
     # -------------------------------------------------------------------------
     def populate_overlay_treeview(self, run_dirs):
@@ -4044,8 +3959,7 @@ class ResultsWizard(tk.Toplevel):
             init_val = self.master.overlay_names[dts]
         else:
             init_val = date_time
-        new_name = tksd_askstring(self.master,
-                                  title="Change name",
+        new_name = tksd.askstring(title="Change name",
                                   prompt=prompt_str,
                                   initialvalue=init_val)
         if new_name:
@@ -4178,12 +4092,12 @@ class ResultsWizard(tk.Toplevel):
             if not csv_files_found:
                 err_str = ("ERROR: no data point CSV file found in {}"
                            .format(csv_dir))
-                tkmsg_showerror(self.master, message=err_str)
+                tkmsg.showerror(message=err_str)
                 return RC_FAILURE
             if csv_files_found > 1:
                 err_str = ("ERROR: multiple data point CSV files found in {}"
                            .format(csv_dir))
-                tkmsg_showerror(self.master, message=err_str)
+                tkmsg.showerror(message=err_str)
                 return RC_FAILURE
 
         return RC_SUCCESS
@@ -4508,8 +4422,7 @@ Copyright (C) 2017-2019  Chris Satterlee
         if sketch_ver != "Unknown":
             sketch_ver_str = ("Arduino sketch version: {}\n\n"
                               .format(sketch_ver))
-        tkmsg_showinfo(self.master,
-                       message=version_str+sketch_ver_str+about_str)
+        tkmsg.showinfo(message=version_str+sketch_ver_str+about_str)
 
     # -------------------------------------------------------------------------
     def view_log_file(self):
@@ -4533,7 +4446,6 @@ Copyright (C) 2017-2019  Chris Satterlee
         if self.master.win_sys == "aqua":  # Mac
             options["message"] = options["title"]
         log_file = tkfiledialog.askopenfilename(**options)
-        self.master.mac_grayed_menu_workaround()
         if log_file:
             msg = ("(MenuBar, File, View Log File) selected log file {}"
                    .format(os.path.normpath(log_file)))
@@ -4630,8 +4542,7 @@ Copyright (C) 2017-2019  Chris Satterlee
             self.master.ivs2.set_vref_from_bandgap()
         curr_vref = self.master.ivs2.adc_vref
         prompt_str = "Enter measured voltage of +5V reference:"
-        new_vref = tksd_askfloat(self.master,
-                                 title="+5V (Vref) Calibration",
+        new_vref = tksd.askfloat(title="+5V (Vref) Calibration",
                                  prompt=prompt_str,
                                  initialvalue=curr_vref)
         if new_vref:
@@ -4660,7 +4571,7 @@ be performed using a curve that has
 battery bias applied unless dynamic
 bias battery calibration was enabled.
 """
-            tkmsg_showerror(self.master, message=err_msg)
+            tkmsg.showerror(message=err_msg)
             return
 
         v_cal_b = self.master.ivs2.v_cal_b
@@ -4672,7 +4583,7 @@ calibration is active.
 Performing a basic calibration
 may degrade results.
 """
-                tkmsg_showwarning(self.master, message=warn_msg)
+                tkmsg.showwarning(message=warn_msg)
 
         data_points = self.master.ivs2.data_points
         curr_voc = round(data_points[-1][IV_Swinger2.VOLTS_INDEX], 5)
@@ -4681,18 +4592,17 @@ may degrade results.
 ERROR: Voc must be larger than
 {} to perform voltage calibration.
 """.format(v_cal_b)
-            tkmsg_showerror(self.master, message=err_msg)
+            tkmsg.showerror(message=err_msg)
             return
         prompt_str = "Enter measured Voc value:"
-        new_voc = tksd_askfloat(self.master,
-                                title="Voltage Calibration - basic",
+        new_voc = tksd.askfloat(title="Voltage Calibration - basic",
                                 prompt=prompt_str,
                                 initialvalue=curr_voc)
         if new_voc:
             if not self.master.ivs2.battery_bias:
                 # Normal case: just scale v_cal proportionally
                 adj_ratio = (new_voc - v_cal_b) / (curr_voc - v_cal_b)
-                if self.adj_ratio_is_too_extreme(adj_ratio):
+                if adj_ratio_is_too_extreme(adj_ratio):
                     return
                 new_v_cal = self.master.ivs2.v_cal * adj_ratio
                 self.master.ivs2.v_cal = new_v_cal
@@ -4732,7 +4642,7 @@ calibration is active.
 Performing a basic calibration
 may degrade results.
 """
-            tkmsg_showwarning(self.master, message=warn_msg)
+            tkmsg.showwarning(message=warn_msg)
         data_points = self.master.ivs2.data_points
         curr_isc = round(data_points[0][IV_Swinger2.AMPS_INDEX], 5)
         if curr_isc <= i_cal_b:
@@ -4740,16 +4650,15 @@ may degrade results.
 ERROR: Isc must be larger than
 {} to perform current calibration.
 """.format(i_cal_b)
-            tkmsg_showerror(self.master, message=err_msg)
+            tkmsg.showerror(message=err_msg)
             return
         prompt_str = "Enter measured Isc value:"
-        new_isc = tksd_askfloat(self.master,
-                                title="Current Calibration - basic",
+        new_isc = tksd.askfloat(title="Current Calibration - basic",
                                 prompt=prompt_str,
                                 initialvalue=curr_isc)
         if new_isc:
             adj_ratio = (new_isc - i_cal_b) / (curr_isc - i_cal_b)
-            if self.adj_ratio_is_too_extreme(adj_ratio):
+            if adj_ratio_is_too_extreme(adj_ratio):
                 return
             new_i_cal = self.master.ivs2.i_cal * adj_ratio
             self.master.ivs2.i_cal = new_i_cal
@@ -4758,25 +4667,6 @@ ERROR: Isc must be larger than
             self.update_values_in_eeprom()
             # Redisplay the image with the new settings (saves config)
             self.master.redisplay_img(reprocess_adc=True)
-
-    # -------------------------------------------------------------------------
-    def adj_ratio_is_too_extreme(self, adj_ratio):
-        """Method to check the adjustment ratio. If it is < 0.85 or > 1.15,
-           display error dialog and return True. Otherwise return False.
-        """
-        if adj_ratio < 0.85 or adj_ratio > 1.15:
-            err_msg = """
-ERROR: Calibration ratio
-({})
-must be between 0.85 and 1.15.
-More extreme ratios indicate
-something is wrong with the
-hardware and calibration is
-not the solution
-""".format(adj_ratio)
-            tkmsg_showerror(self.master, message=err_msg)
-            return True
-        return False
 
     # -------------------------------------------------------------------------
     def get_v_cal_value_adv(self):
@@ -4805,8 +4695,7 @@ not the solution
         log_user_action(self.master.ivs2.logger, msg)
         curr_irradiance = self.master.ivs2.irradiance
         prompt_str = "Enter measured W/m^2 value:"
-        new_irradiance = tksd_askfloat(self.master,
-                                       title="Pyranometer Calibration",
+        new_irradiance = tksd.askfloat(title="Pyranometer Calibration",
                                        prompt=prompt_str,
                                        initialvalue=curr_irradiance)
         if new_irradiance:
@@ -4837,7 +4726,7 @@ WARNING: Calibration values cannot be stored on the IV Swinger 2 hardware with
 this version of the Arduino software. Please upgrade.
 """
             self.master.save_config()
-            tkmsg_showwarning(self.master, message=warning_str)
+            tkmsg.showwarning(message=warning_str)
         else:
             self.master.reestablish_arduino_comm(write_eeprom=True)
 
@@ -4869,7 +4758,7 @@ this version of the Arduino software. Please upgrade.
             err_str = ("ERROR: The Arduino sketch does not support "
                        "invalidating the EEPROM. You must update it "
                        "to use this feature.")
-            tkmsg_showerror(self.master, message=err_str)
+            tkmsg.showerror(message=err_str)
             return
         msg_str = """
 Are you SURE you want to invalidate the
@@ -4879,8 +4768,7 @@ IV Swinger 2 hardware (voltage, current,
 resistors). After the invalidate, the app
 will exit.
 """
-        inval_eeprom = tkmsg_askyesno(self.master,
-                                      "Invalidate EEPROM?", msg_str,
+        inval_eeprom = tkmsg.askyesno("Invalidate EEPROM?", msg_str,
                                       default=tkmsg.NO)
         if inval_eeprom:
             self.master.ivs2.invalidate_arduino_eeprom()
@@ -4909,7 +4797,6 @@ will exit.
         msg = """(MenuBar, Help) selected "Run Simulator" entry"""
         log_user_action(self.master.ivs2.logger, msg)
         IV_Swinger2_sim.SimulatorDialog(self.master, self.master.ivs2.logger)
-        self.master.mac_grayed_menu_workaround()
 
 
 # Generic dialog class (based on
@@ -5086,8 +4973,6 @@ class Dialog(tk.Toplevel):
         # put focus back to the master window
         self.master.focus_set()
         self.destroy()
-        if not self.parent_is_modal:
-            self.master.mac_grayed_menu_workaround()
 
 
 # Global help dialog class
@@ -6372,8 +6257,7 @@ good results"""
             if m != self.m:
                 msg_str = """
 Are you sure you want to manually set the slope value?"""
-                answer_is_yes = tkmsg_askyesno(self.master,
-                                               "Set slope?", msg_str,
+                answer_is_yes = tkmsg.askyesno("Set slope?", msg_str,
                                                default=tkmsg.NO)
                 if answer_is_yes:
                     self.m = m
@@ -6418,8 +6302,7 @@ doesn't look right. It should be between
             if b != self.b:
                 msg_str = """
 Are you sure you want to manually set the intercept value?"""
-                answer_is_yes = tkmsg_askyesno(self.master,
-                                               "Set intercept?", msg_str,
+                answer_is_yes = tkmsg.askyesno("Set intercept?", msg_str,
                                                default=tkmsg.NO)
                 if answer_is_yes:
                     self.b = b
@@ -6755,14 +6638,9 @@ class ResistorValuesDialog(Dialog):
             if shunt_uohms <= 1.0:
                 err_str += "\n  Shunt value must be >1 (unit is microohms)"
         if len(err_str) > len("ERROR:"):
-            self.show_resistor_error_dialog(err_str)
+            tkmsg.showerror(err_str)
             return False
         return True
-
-    # -------------------------------------------------------------------------
-    def show_resistor_error_dialog(self, err_str):
-        """Method to display an error dialog for bad resistor values"""
-        tkmsg_showerror(self.master, message=err_str)
 
     # -------------------------------------------------------------------------
     def revert(self):
@@ -6943,7 +6821,7 @@ performed immediately before EVERY curve is swung."""
             err_str = ("ERROR: The Arduino sketch does not support dynamic "
                        "bias calibration. You must update it to use this "
                        "feature.")
-            tkmsg_showerror(self.master, message=err_str)
+            tkmsg.showerror(message=err_str)
         elif dyn_bias_cal != self.master.ivs2.dyn_bias_cal:
             self.master.ivs2.dyn_bias_cal = dyn_bias_cal
             # Update and save config
@@ -6975,7 +6853,7 @@ performed immediately before EVERY curve is swung."""
         """
         if not self.master.ivs2.arduino_ready:
             err_str = ("ERROR: The IV Swinger 2 is not connected.")
-            tkmsg_showerror(self.master, message=err_str)
+            tkmsg.showerror(message=err_str)
             return
         if not self.ready_to_calibrate:
             title_str = "Ready to calibrate bias battery?"
@@ -6985,8 +6863,7 @@ Swinger 2 bottom black and top red
 binding posts WITHOUT THE PV CELL in
 series?  Click YES to perform the
 calibration, NO to cancel."""
-            self.ready_to_calibrate = tkmsg_askyesno(self.master,
-                                                     title_str,
+            self.ready_to_calibrate = tkmsg.askyesno(title_str,
                                                      msg_str,
                                                      default=tkmsg.YES)
         if self.ready_to_calibrate:
@@ -7016,8 +6893,7 @@ the displayed curve:
      expected Isc of the PV cell at a
      voltage > 1.0V
 """
-                    self.curve_looks_ok = tkmsg_askyesno(self.master,
-                                                         title_str,
+                    self.curve_looks_ok = tkmsg.askyesno(title_str,
                                                          msg_str,
                                                          default=tkmsg.YES)
                 if self.curve_looks_ok:
@@ -7030,7 +6906,7 @@ the displayed curve:
                 self.master.ivs2.clean_up_files(output_dir)
             else:
                 err_str = ("ERROR: Failed to swing curve for bias battery")
-                tkmsg_showerror(self.master, message=err_str)
+                tkmsg.showerror(message=err_str)
                 self.master.show_error_dialog(rc)
                 # Clean up
                 output_dir = self.master.ivs2.hdd_output_dir
@@ -7885,7 +7761,7 @@ value now.
             self.relay_active_high_str.set("Disabled")
             if self.master.ivs2.relay_active_high:
                 self.relay_active_high_str.set("Enabled")
-            tkmsg_showerror(self.master, message=error_str)
+            tkmsg.showerror(message=error_str)
         elif self.master.ivs2.arduino_sketch_supports_active_high_relay:
             warning_str = """
 WARNING: Changing the "Relay is
@@ -7900,7 +7776,7 @@ trigger pin. It should NEVER be
 checked for an IV Swinger 2 that
 uses SSRs or damage could result!
 """
-            tkmsg_showwarning(self.master, message=warning_str)
+            tkmsg.showwarning(message=warning_str)
         else:  # sketch does not support
             error_str = """
 ERROR: This version of the Arduino
@@ -7909,7 +7785,7 @@ only. Changing this value has no
 effect. Please upgrade.
 """
             self.relay_active_high_str.set("Disabled")
-            tkmsg_showerror(self.master, message=error_str)
+            tkmsg.showerror(message=error_str)
 
     # -------------------------------------------------------------------------
     def show_arduino_help(self):
@@ -8586,7 +8462,7 @@ effect. Please upgrade.
             pv_spec = pv_spec_from_dict(new_spec)
             check_pv_spec(pv_spec)
         except AssertionError as e:
-            tkmsg_showerror(self.master, message=e)
+            tkmsg.showerror(message=e)
             return RC_FAILURE
 
         # Update
@@ -8639,7 +8515,7 @@ effect. Please upgrade.
         # If the PV name entry is blank, display an error dialog and
         # return.
         if self.selected_pv != "NONE" and not pv_name:
-            tkmsg_showerror(self.master, "ERROR: Please enter a PV Name")
+            tkmsg.showerror("ERROR: Please enter a PV Name")
             return RC_FAILURE
 
         # If the PV name entry is changed (i.e. not the current name
@@ -8654,7 +8530,7 @@ ERROR: PV Name
 already exists. To modify it, select
 it and then edit the parameter values.
 """.format(pv_name)
-            tkmsg_showerror(self.master, err_msg)
+            tkmsg.showerror(err_msg)
             self.pv_name.set(self.selected_pv)
             return RC_FAILURE
 
@@ -8784,7 +8660,7 @@ it and then edit the parameter values.
         try:
             check_pv_spec(pv_spec)
         except AssertionError as e:
-            tkmsg_showerror(self.master, message=e)
+            tkmsg.showerror(message=e)
             return RC_FAILURE
         self.master.ivs2.pv_model.apply_pv_spec_dict(pv_spec_dict)
         return RC_SUCCESS
@@ -8808,14 +8684,14 @@ it and then edit the parameter values.
         try:
             rc = self.master.ivs2.pv_model.run()
         except AssertionError as e:
-            tkmsg_showerror(self.master, message=e)
+            tkmsg.showerror(message=e)
             return
         if rc:
             msg = ("WARNING: IMPERFECT MODELING. The PV modeling was not able "
                    "to find a solution where the target MPP is the point with "
                    "the maximum power. The modeled curve does pass through "
                    "this point, but a different point has higher power.")
-            tkmsg_showwarning(self.master, message=msg)
+            tkmsg.showwarning(message=msg)
         self.master.ivs2.pv_model.get_data_points(PV_MODEL_CURVE_NUM_POINTS)
 
         # Generate the test curve
@@ -9097,7 +8973,7 @@ it and then edit the parameter values.
                 err_str += ("\n  Aspect width must be no more than {}"
                             .format(MAX_ASPECT))
         if len(err_str) > len("ERROR:"):
-            self.show_prefs_error_dialog(err_str)
+            tkmsg.showerror(err_str)
             return False
 
         # ------------------------ PV Model --------------------------
@@ -9109,11 +8985,6 @@ it and then edit the parameter values.
 
         # If none of the checks above failed, return True
         return True
-
-    # -------------------------------------------------------------------------
-    def show_prefs_error_dialog(self, err_str):
-        """Method to display an error dialog for bad Preferences values"""
-        tkmsg_showerror(self.master, message=err_str)
 
     # -------------------------------------------------------------------------
     def revert(self):
@@ -9358,7 +9229,7 @@ it and then edit the parameter values.
 ERROR: The relay_active_high value could not be
 written to Arduino EEPROM.
 """
-                    tkmsg_showerror(self.master, error_msg)
+                    tkmsg.showerror(error_msg)
 
         # Apply and save the config if anything changed
         if arduino_opt_changed:
@@ -10047,7 +9918,7 @@ have write permission to the application
 folder. An Administrator account should
 be used for the install.
 """.format(self.img_file)
-            tkmsg_showerror(self.master, message=err_msg)
+            tkmsg.showerror(message=err_msg)
             sys.exit()
         else:
             self.display_img()
@@ -10276,8 +10147,7 @@ class LoopRateLimit(ttk.Checkbutton):
         if self.loop_rate_limit.get() == "On":
             curr_loop_delay = self.gui.loop_delay
             prompt_str = "Enter seconds to delay between loops:"
-            new_loop_delay = tksd_askfloat(self.gui,
-                                           title="Loop delay",
+            new_loop_delay = tksd.askfloat(title="Loop delay",
                                            prompt=prompt_str,
                                            initialvalue=curr_loop_delay)
             if new_loop_delay:
@@ -10342,8 +10212,7 @@ class LoopSaveResults(ttk.Checkbutton):
             self.value_label_obj.destroy()
         if self.loop_save_results.get() == "On":
             self.gui.loop_save_results = True
-            include_graphs = tkmsg_askyesno(self.gui,
-                                            "Include graphs?",
+            include_graphs = tkmsg.askyesno("Include graphs?",
                                             "Default is to save CSV files "
                                             "only. Do you want to save PDFs"
                                             " and GIFs too?",
