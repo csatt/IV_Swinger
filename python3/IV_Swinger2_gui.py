@@ -8099,6 +8099,7 @@ effect. Please upgrade.
         listbox_and_scrollbar_box = ttk.Frame(master=master)
         self.pv_model_listbox = tk.Listbox(master=listbox_and_scrollbar_box,
                                            height=10, width=50, bd=0)
+        self.pv_model_listbox.configure(exportselection=False) # Issue #123
         pv_scroll = ttk.Scrollbar(master=listbox_and_scrollbar_box,
                                   command=self.pv_model_listbox.yview)
         self.pv_model_listbox.config(yscrollcommand=pv_scroll.set)
@@ -8540,14 +8541,6 @@ effect. Please upgrade.
            changes.
         """
         # pylint: disable=unused-argument
-
-        # For some reason, the <<ListboxSelect>> event can get triggered
-        # even when the focus is on a different widget.  Work around
-        # this by checking the focus and returning if it is not the
-        # listbox. This is the fix for Issue #123.
-        if event is not None and (self.master.root.focus_get() !=
-                                  self.pv_model_listbox):
-            return
 
         # Get the name of the selected listbox entry
         _, curr_name = self.get_curr_pv_model_listbox_index_and_name()
