@@ -193,12 +193,14 @@ import traceback
 
 # Conditionally import RPi-specific modules. This is so this module can
 # be imported on other platforms for post-processing the output files.
-if os.uname()[4].startswith("arm"):
+try:
     import Adafruit_ADS1x15
     import Adafruit_CharLCD
     import Adafruit_MCP230xx
     import RPi.GPIO as GPIO  # pylint: disable=import-error
-if not os.uname()[4].startswith("armv6"):
+except ImportError:
+    pass
+if not platform.machine().startswith("armv6"):
     # Suppress matplotlib import on RPi 1 (too slow))
     if sys.platform == "darwin":  # Mac
         from matplotlib import use as matplotlib_use
