@@ -6,7 +6,7 @@
 #
 # IV_Swinger.py: IV Swinger control module
 #
-# Copyright (C) 2016, 2017, 2018, 2019  Chris Satterlee
+# Copyright (C) 2016, 2017, 2018, 2019, 2020  Chris Satterlee
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -36,6 +36,17 @@
 # design files, and software can be found at:
 #
 #    https://github.com/csatt/IV_Swinger
+#
+###############################################################################
+#
+# NOTE: This module was originally written for IV Swinger 1. The
+# remainder of this comment block pertains to IV Swinger 1. Much of the
+# code in this module is specific to IV Swinger 1 and is not used for IV
+# Swinger 2. On the other hand, a lot of the code was applicable to IV
+# Swinger 2, so it was re-used as much as possible. The comment '# IVS1'
+# identifies code that is not used at all for IV Swinger 2, and that
+# comment is used when running code coverage to exclude the
+# IVS1-specific code from the coverage metrics.
 #
 ###############################################################################
 #

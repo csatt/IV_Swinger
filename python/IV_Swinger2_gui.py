@@ -4524,7 +4524,7 @@ and software can be found at:
 
    https://github.com/csatt/IV_Swinger
 
-Copyright (C) 2017-2019  Chris Satterlee
+Copyright (C) 2017-2020  Chris Satterlee
 """
         sketch_ver = self.master.ivs2.arduino_sketch_ver
         sketch_ver_str = ""
@@ -8124,7 +8124,7 @@ effect. Please upgrade.
         listbox_and_scrollbar_box = ttk.Frame(master=master)
         self.pv_model_listbox = tk.Listbox(master=listbox_and_scrollbar_box,
                                            height=10, width=50, bd=0)
-        self.pv_model_listbox.configure(exportselection=False) # Issue #123
+        self.pv_model_listbox.configure(exportselection=False)  # Issue #123
         pv_scroll = ttk.Scrollbar(master=listbox_and_scrollbar_box,
                                   command=self.pv_model_listbox.yview)
         self.pv_model_listbox.config(yscrollcommand=pv_scroll.set)

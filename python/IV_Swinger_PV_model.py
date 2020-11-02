@@ -210,6 +210,7 @@ SPEC_FIELDS = ["PV Name", "Voc", "Isc", "Vmp", "Imp", "Cells",
                "Isc temp coeff", "Isc temp coeff units",
                "MPP temp coeff", "MPP temp coeff units",
                "NOCT"]
+SCIPY_VERSION = scipy_version  # for flake8
 
 
 ########################
