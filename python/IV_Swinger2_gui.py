@@ -2972,9 +2972,9 @@ class ResultsWizard(tk.Toplevel):
         options = {}
         options["initialdir"] = self.results_dir
         options["parent"] = self.master
-        options["title"] = "Choose Folder"
-        if self.master.win_sys == "aqua":  # Mac
-            options["message"] = options["title"]
+        title_opt = ("message" if self.master.win_sys == "aqua"  # Mac
+                     else "title")
+        options[title_opt] = "Choose Folder"
         new_dir = tkfiledialog.askdirectory(**options)
         self.master.mac_grayed_menu_workaround()
         if new_dir:
@@ -3176,9 +3176,9 @@ class ResultsWizard(tk.Toplevel):
         # Open a tkfiledialog to get user to choose a destination
         options = {}
         options["parent"] = self.master
-        options["title"] = "Choose Copy Destination"
-        if self.master.win_sys == "aqua":  # Mac
-            options["message"] = options["title"]
+        title_opt = ("message" if self.master.win_sys == "aqua"  # Mac
+                     else "title")
+        options[title_opt] = "Choose Copy Destination"
         copy_dest = tkfiledialog.askdirectory(**options)
         self.master.mac_grayed_menu_workaround()
         if not copy_dest:  # Cancel
@@ -4552,9 +4552,9 @@ Copyright (C) 2017-2020  Chris Satterlee
         options["initialdir"] = initial_dir
         options["initialfile"] = initial_file
         options["parent"] = self.master
-        options["title"] = "Choose log file"
-        if self.master.win_sys == "aqua":  # Mac
-            options["message"] = options["title"]
+        title_opt = ("message" if self.master.win_sys == "aqua"  # Mac
+                     else "title")
+        options[title_opt] = "Choose Log File"
         log_file = tkfiledialog.askopenfilename(**options)
         self.master.mac_grayed_menu_workaround()
         if log_file:
