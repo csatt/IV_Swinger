@@ -5,64 +5,99 @@ Do NOT use this directory for running these tools. If you do that, then
 the output files might accidently get committed to the repo, and that is
 not what we want.
 
+The instructions below are for building the Python 3 code. Building the
+Python 2 code is very similar but not documented since builds should use
+the Python 3 code moving forward.
+
 --------------------------------------------------------------------------------
-Instructions for Mac build:
+Instructions for Mac build (Python 3):
 
   1) Install pyinstaller:
 
-       % sudo pip install pyinstaller
+       % pip install pyinstaller
 
   2) Install dmgbuild:
 
-       % sudo pip install dmgbuild   <== DIDN'T WORK FOR ME
-     OR
-       - Download tar.gz file from https://pypi.python.org/pypi/dmgbuild
-       - Unzip into ~/Downloads
-       % cd ~/Downloads/dmgbuild-1.2.1  (or whatever the version is now)
-       % sudo python setup.py build install
+       % pip install dmgbuild
+       % pip install biplist
 
   3) Set environment variable $GITHUB to point to the parent directory
      of your clone of the IV_Swinger GitHub repo, e.g.:
 
        % export GITHUB="$HOME/GitHub"
 
+     Or to make it permanent (assuming you use bash):
+
+       % echo 'export GITHUB="$HOME/GitHub"' >> ~/.bash_profile
+
   4) Update the version string in $GITHUB/IV_Swinger/python/version.txt
 
   5) Complete all testing using straight Python (this assumes that
      you have installed all of the required Python packages):
 
-       % cd $GITHUB/IV_Swinger/python
+       % cd $GITHUB/IV_Swinger/python3
        % python IV_Swinger2_gui.py
 
   6) Create a build folder/directory somewhere NOT under $GITHUB, e.g.:
 
        % mkdir $HOME/IV_Swinger2_build
 
-  7) Run pyinstaller script in that folder:
+  7) (Possibly) perform pyinstaller workarounds:
+
+     a) This patches a Tcl/Tk bug:
+
+        % sudo sed -i .bak "s#\[msgcat::mc#\[::tk::msgcat::mc#g" /usr/local/opt/tcl-tk/lib/tk8.6/console.tcl
+
+        See: https://github.com/pyinstaller/pyinstaller/issues/3820 and
+        https://github.com/pyinstaller/pyinstaller/issues/5175 At some
+        point this will be fixed in Tcl/Tk and there is a workaround
+        going into the pyinstaller code (probably release 4.1).
+
+     b) The following prevent a huge spew of pyinstaller warnings:
+
+       i) Go into the pyinstaller hooks directory (change the 3.x.x appropriately):
+       
+          % cd ~/.pyenv/versions/3.x.x/Python.framework/Versions/3.x/lib/python3.x/site-packages/PyInstaller/hooks
+
+          This assumes you are using pyenv.
+
+      ii) Manually edit the file, hook-matplotlib.backends.py
+
+          Change the list of backend names to:
+
+            backend_names = ['pdf']
+
+     iii) Rename the following files (or just remove them):
+      
+          % mv hook-gi.repository.GObject.py hook-gi.repository.GObject.py.bak
+          % mv hook-gi.repository.Gio.py hook-gi.repository.Gio.py.bak 
+       
+
+  8) Run pyinstaller script in the build folder:
 
        % cd $HOME/IV_Swinger2_build
-       % $GITHUB/IV_Swinger/build_tools/mac_run_pyi
+       % $GITHUB/IV_Swinger/build_tools/mac_run_pyi python3
 
-       NOTE: this generates a lot of warnings and errors. See the
-             section "Acceptable Mac errors and warnings" below.
+       NOTE: this generates some warnings and errors. See the section
+             "Acceptable Mac errors and warnings" below.
 
-  8) Test the generated executable:
+  9) Test the generated executable:
 
        % cd $HOME/IV_Swinger2_build/dist
        % open IV\ Swinger\ 2.app
 
-  9) Build the DMG with dmgbuild:
+ 10) Build the DMG with dmgbuild:
 
        % cd $HOME/IV_Swinger2_build
        % $GITHUB/IV_Swinger/build_tools/mac_build_dmg
 
- 10) Test the DMG:
+ 11) Test the DMG:
 
        % open *.dmg
 
        Follow instructions to install
 
- 11) Test the installed app by launching from Applications folder
+ 12) Test the installed app by launching from Applications folder
 
 --------------------------------------------------------------------------------
 Acceptable Mac errors and warnings
@@ -71,29 +106,20 @@ The mac_run_pyi script may generate the following, which are all OK:
 
  - Anything labeled "INFO:" is ok
 
- - Traceback (most recent call last):
-     File "<string>", line 2, in <module>
-   ImportError: No module named win32com
+ - WARNING: Hidden import "pkg_resources.py2_warn" not found!
+ - WARNING: Hidden import "pkg_resources.markers" not found!
+ - WARNING: library setupapi required via ctypes not found
+ - WARNING: library Advapi32 required via ctypes not found
+ - WARNING: library user32 required via ctypes not found
 
- - 12582 WARNING:   Removing import PIL.ImageTk from module Tkinter
-    => and other similar WARNINGs
-
- - NibLoaderError: Invalid NIB file [/System/Library/Frameworks/Python.framework/Versions/2.7/Extras/lib/python/matplotlib/backends/Matplotlib.nib]
-
- - RuntimeError: The WebAgg backend requires Tornado.
-
- - 20663 WARNING: library Advapi32 required via ctypes not found
-   20664 WARNING: library setupapi required via ctypes not found
-
- - 25290 WARNING: failed to copy flags of /System/Library/Frameworks/Tcl.framework/Versions/8.5/Resources/Scripts/msgs/hi.msg
-    => and other similar WARNINGs
+ - .../site-packages/setuptools/distutils_patch.py:25: UserWarning: Distutils was imported before Setuptools. This usage is discouraged and may exhibit undesirable behaviors or errors. Please use Setuptools' objects directly or at least import Setuptools first.
 
 --------------------------------------------------------------------------------
-Instructions for Windows build:
+Instructions for Windows build (Python 3):
 
 NOTE: it is assumed that you already have python and pip installed as
       well as all of the python packages required to run IV_Swinger2_gui.py
-      using straight Python.
+      using straight Python (See README file in python3 directory).
 
   1) Install WiX, pyinstaller, BeautifulSoup4, and lxml:
 
@@ -113,7 +139,7 @@ NOTE: it is assumed that you already have python and pip installed as
 
   4) Complete all testing using straight Python:
 
-       cd %GITHUB%\IV_Swinger\python
+       cd %GITHUB%\IV_Swinger\python3
        python IV_Swinger2_gui.py
 
   5) Create a build folder/directory somewhere NOT under %GITHUB%, e.g.:
@@ -123,10 +149,10 @@ NOTE: it is assumed that you already have python and pip installed as
   6) Run the run_pyi.bat script in that folder:
 
        cd %HOME%\IV_Swinger2_build
-       %GITHUB%\IV_Swinger\build_tools\run_pyi.bat
+       %GITHUB%\IV_Swinger\build_tools\run_pyi.bat python3
 
-       NOTE: this generates a lot of warnings and errors. See the
-             section "Acceptable Windows errors and warnings" below.
+       NOTE: this generates some warnings and errors. See the section
+             "Acceptable Windows errors and warnings" below.
 
   7) Test the generated executable:
 
@@ -167,8 +193,11 @@ The run_pyi.bat script may generate the following, which are all OK:
 
  - Anything labeled "INFO:" is ok
  
- - 12582 WARNING:   Removing import PIL.ImageTk from module Tkinter
-    => and other similar WARNINGs
+ - ModuleNotFoundError: No module named 'win32com'
+ - ModuleNotFoundError: No module named 'tornado'
+
+ - WARNING: Hidden import "pkg_resources.py2_warn" not found!
+ - WARNING: Hidden import "pkg_resources.markers" not found!
 
  - RuntimeError: The WebAgg backend requires Tornado.
 

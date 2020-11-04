@@ -1,0 +1,127 @@
+This directory contains the Python 2 source code for IV Swinger 1 and IV
+Swinger 2. For now, this co-exists with the Python 3 code in the
+parallel python3 directory, and both are being maintained.
+
+--------------------------------------------------------------------------------
+Anyone who is running the IV Swinger python code directly is highly
+encouraged to use the Python 3 code.
+--------------------------------------------------------------------------------
+
+
+Installing Python 2 and required packages
+-----------------------------------------
+
+ macOS with System Python:
+ -------------------------
+  
+  Up to at least Big Sur (10.16), macOS includes Python 2.7.10 as the
+  "system" Python. This is what you get if you just type "python" in a
+  Terminal window without installing anything. In Catalina and Big Sure,
+  it is deprecated and may not be included at all in later macOS
+  releases. Tcl/Tk (which is used for the Tkinter GUI code) is also
+  included, but is also an old version (8.5.9). To run the IV Swinger 2
+  Python 2 code with the macOS system Python, you just need to install
+  some Python packages using "pip" as follow:
+
+      % pip install Pillow pyserial numpy matplotlib scipy Send2Trash
+
+  If you don't have pip, see https://pip.pypa.io/en/stable/installing/
+
+  Note that Dark Mode is not supported with the pre-installed Python and
+  Tcl/Tk.
+
+
+ macOS with Python 2.7.18:
+ -------------------------
+
+  First, ask yourself, "why would I want to do this?" If you are going
+  to go to the trouble of installing Python, you should install the
+  latest Python 3 and run the Python 3 IV Swinger 2 code.
+
+  There are multiple ways to install Python 2.7.18 (the last Python 2
+  release). The easiest is to download and run the installer from
+  python.org. But the best way (in my opinion) is to use the pyenv
+  tool. This makes it easy to switch between different Python versions:
+
+    - Install homebrew per instructions at https://brew.sh/
+
+      % /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+
+         or update it, if it is already installed:
+
+      % brew update
+
+    - Install pyenv using homebrew
+
+      % brew install pyenv
+
+    - Set up your bash profile for pyenv:
+
+      % echo -e 'if command -v pyenv 1>/dev/null 2>&1; then\n  eval "$(pyenv init -)"\nfi' >> ~/.bash_profile
+
+      For non-bash shells, see https://github.com/pyenv/pyenv
+
+    - Install tcl-tk:
+
+      % brew install tcl-tk
+
+    - Install python 2.7.18 with config for tcl/tk and pyinstaller:
+
+      % env PYTHON_CONFIGURE_OPTS="--with-tcltk-includes='-I/usr/local/opt/tcl-tk/include' --with-tcltk-libs='-L/usr/local/opt/tcl-tk/lib -ltcl8.6 -ltk8.6' --enable-framework" pyenv install 2.7.18
+
+    - Configure pyenv to use Python 2.7.18 in the IV_Swinger/python directory:
+
+      % cd <your GitHub path>/IV_Swinger/python
+      % pyenv local 2.7.18
+      % python -V
+      2.7.18
+
+    - Install Python packages required by the IV Swinger 2 code:
+
+      % cd <your GitHub path>/IV_Swinger/python
+      % pip install Pillow pyserial numpy matplotlib scipy Send2Trash
+
+    - Test:
+
+      % cd <your GitHub path>/IV_Swinger/python
+      % python IV_Swinger2_gui.py
+
+
+ Windows with Python 2.7.18:
+ ---------------------------
+
+  First, ask yourself, "why would I want to do this?" If you are going
+  to go to the trouble of installing Python, you should install the
+  latest Python 3 and run the Python 3 IV Swinger 2 code.
+
+  There are multiple ways to install Python 2.7.18 (the last Python 2
+  release). The easiest is to download and run the installer from
+  python.org. But the best way (in my opinion) is to use the Windows
+  port of the pyenv tool. This makes it easy to switch between different
+  Python versions:
+
+    - Install and configure pyenv-win using instructions at:
+
+        https://github.com/pyenv-win/pyenv-win#installation
+
+    - Install python 2.7.18:
+
+      > pyenv install 2.7.18
+
+    - Configure pyenv to use Python 2.7.18 in the IV_Swinger/python directory:
+
+      > cd <your GitHub path>\IV_Swinger\python
+      > pyenv local 2.7.18
+      > python -V
+      2.7.18
+
+    - Install Python packages required by the IV Swinger 3 code:
+
+      > cd <your GitHub path>\IV_Swinger\python
+      > pip install Pillow pyserial numpy matplotlib scipy Send2Trash
+
+    - Test:
+
+      > cd <your GitHub path>\IV_Swinger\python
+      > python IV_Swinger2_gui.py
+

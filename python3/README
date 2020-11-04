@@ -1,0 +1,105 @@
+This directory contains the Python 3 source code for IV Swinger 1 and IV
+Swinger 2.
+
+
+Installing Python 3 and required packages
+-----------------------------------------
+
+NOTE: 3.x.x below should be replaced with the actual Python version you
+      are installing, e.g. 3.8.5.
+
+
+ macOS with Python 3.x.x:
+ ------------------------
+
+  There are multiple ways to install Python 3.x.x. The easiest is to
+  download and run the installer from python.org. But the best way (in
+  my opinion) is to use the pyenv tool. This makes it easy to switch
+  between different Python versions:
+
+    - Install homebrew per instructions at https://brew.sh/
+
+      % /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+
+         or update it, if it is already installed:
+
+      % brew update
+
+    - Install pyenv using homebrew
+
+      % brew install pyenv
+
+    - Set up your bash profile for pyenv:
+
+      % echo -e 'if command -v pyenv 1>/dev/null 2>&1; then\n  eval "$(pyenv init -)"\nfi' >> ~/.bash_profile
+
+      For non-bash shells, see https://github.com/pyenv/pyenv
+
+    - Install tcl-tk:
+
+      % brew install tcl-tk
+
+    - Install python 3.x.x with config for tcl/tk and pyinstaller:
+
+      % env PYTHON_CONFIGURE_OPTS="--with-tcltk-includes='-I/usr/local/opt/tcl-tk/include' --with-tcltk-libs='-L/usr/local/opt/tcl-tk/lib -ltcl8.6 -ltk8.6' --enable-framework" pyenv install 3.x.x
+
+    - Configure pyenv to use Python 3.x.x in the IV_Swinger/python directory:
+
+      % cd <your GitHub path>/IV_Swinger/python
+      % pyenv local 3.x.x
+      % python -V
+      3.x.x
+
+    - Install Python packages required by the IV Swinger 3 code:
+
+      % cd <your GitHub path>/IV_Swinger/python
+      % pip install Pillow pyserial numpy scipy Send2Trash
+      % pip install matplotlib==3.2.2
+
+      NOTE: The downlevel matplotlib install is needed to work around a
+            problem when pyinstaller is used to build the Mac .app
+            executable. See:
+            https://stackoverflow.com/questions/63503976/nameerror-name-defaultparams-is-not-defined-while-running-the-exe-converted
+            If there are no plans to build with pyinstaller, or if this
+            bug has been fixed, this is not necessary.
+
+    - Test:
+
+      % cd <your GitHub path>/IV_Swinger/python
+      % python IV_Swinger2_gui.py
+
+
+ Windows with Python 3.x.x:
+ ---------------------------
+
+  There are multiple ways to install Python 3.x.x. The easiest is to
+  download and run the installer from python.org. But the best way (in
+  my opinion) is to use the Windows port of the pyenv tool. This makes
+  it easy to switch between different Python versions:
+
+
+    - Install and configure pyenv-win using instructions at:
+
+        https://github.com/pyenv-win/pyenv-win#installation
+
+    - Install python 3.x.x:
+
+      > pyenv install 3.x.x
+
+    - Configure pyenv to use Python 3.x.x in the IV_Swinger/python directory:
+
+      > cd <your GitHub path>\IV_Swinger\python
+      > pyenv local 3.x.x
+      > python -V
+      3.x.x
+
+    - Install Python packages required by the IV Swinger 2 code:
+
+      > cd <your GitHub path>\IV_Swinger\python
+      > pip install Pillow pyserial numpy matplotlib scipy Send2Trash
+
+    - Test:
+
+      > cd <your GitHub path>\IV_Swinger\python
+      > python IV_Swinger2_gui.py
+
