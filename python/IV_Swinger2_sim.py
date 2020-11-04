@@ -3069,6 +3069,7 @@ class SimulatorDialog(tk.Toplevel):
         self.results_tab = ttk.Frame(self.nb)
         self.nb.add(self.results_tab, text="Results")
         self.populate_results_tab()
+        self.update_idletasks()
 
     # -------------------------------------------------------------------------
     def simulate_button_actions(self, event=None):
