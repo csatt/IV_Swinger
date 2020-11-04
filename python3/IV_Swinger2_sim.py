@@ -2539,12 +2539,10 @@ class SimulatorDialog(tk.Toplevel):
 
         # Results ScrolledText widget
         font = "Arial"
-        results_text = ScrolledText(results_widget_box, height=35,
+        results_text = ScrolledText(results_widget_box, height=35, width=65,
                                     borderwidth=10)
         results_text.tag_configure("body_tag", font=font)
-        results_text.tag_configure("heading_tag", font=font, underline=True)
         results_text.insert("end", self.ivs2_sim.results_text, ("body_tag"))
-        results_text.pack(fill=BOTH, expand=True)
 
         # Layout
         results_widget_box.grid(column=0, row=0, sticky=W, columnspan=2)
