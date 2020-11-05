@@ -10286,6 +10286,8 @@ class LoopMode(ttk.Checkbutton):
                 self.lock_axes.invoke()  # Unlock axes
                 self.gui.props.redisplay_after_axes_unlock = True
 
+        self.update_idletasks()
+
         # Save values to config
         self.gui.config.cfg_set("Looping", "loop mode",
                                 self.gui.props.loop_mode_active)
@@ -10344,6 +10346,8 @@ class LoopRateLimit(ttk.Checkbutton):
                 self.state(["!selected"])
         else:
             self.gui.props.loop_rate_limit = False
+
+        self.update_idletasks()
 
         # Save values to config
         self.gui.config.cfg_set("Looping", "rate limit",
@@ -10407,6 +10411,8 @@ class LoopSaveResults(ttk.Checkbutton):
         else:
             self.gui.props.loop_save_results = False
             self.configure(text="Save Results")
+
+        self.update_idletasks()
 
         # Save values to config
         self.gui.config.cfg_set("Looping", "save results",
