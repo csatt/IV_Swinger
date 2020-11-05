@@ -714,7 +714,7 @@ class GraphicalUserInterface(ttk.Frame):
 FATAL ERROR: This user does not have
 permission to create directories (folders) in
 {}""".format(app_data_parent)
-            tkmsg.showerror(err_msg)
+            tkmsg.showerror(message=err_msg)
             sys.exit()
         try:
             dummy_file = os.path.join(self.ivs2.app_data_dir, "DUMMY_FILE")
@@ -725,7 +725,7 @@ permission to create directories (folders) in
 FATAL ERROR: This user does not have
 permission to create files in
 {}""".format(self.ivs2.app_data_dir)
-            tkmsg.showerror(err_msg)
+            tkmsg.showerror(message=err_msg)
             sys.exit()
 
     # -------------------------------------------------------------------------
@@ -751,7 +751,7 @@ Log file: {}
 
 Or use "View Log File" on the "File" menu.
 """.format(os.path.normpath(self.ivs2.logger.log_file_name))
-        tkmsg.showerror(exception_msg)
+        tkmsg.showerror(message=exception_msg)
 
     # -------------------------------------------------------------------------
     def memory_monitor(self):
@@ -6638,7 +6638,7 @@ class ResistorValuesDialog(Dialog):
             if shunt_uohms <= 1.0:
                 err_str += "\n  Shunt value must be >1 (unit is microohms)"
         if len(err_str) > len("ERROR:"):
-            tkmsg.showerror(err_str)
+            tkmsg.showerror(message=err_str)
             return False
         return True
 
@@ -8515,7 +8515,7 @@ effect. Please upgrade.
         # If the PV name entry is blank, display an error dialog and
         # return.
         if self.selected_pv != "NONE" and not pv_name:
-            tkmsg.showerror("ERROR: Please enter a PV Name")
+            tkmsg.showerror(message="ERROR: Please enter a PV Name")
             return RC_FAILURE
 
         # If the PV name entry is changed (i.e. not the current name
@@ -8530,7 +8530,7 @@ ERROR: PV Name
 already exists. To modify it, select
 it and then edit the parameter values.
 """.format(pv_name)
-            tkmsg.showerror(err_msg)
+            tkmsg.showerror(message=err_msg)
             self.pv_name.set(self.selected_pv)
             return RC_FAILURE
 
@@ -8973,7 +8973,7 @@ it and then edit the parameter values.
                 err_str += ("\n  Aspect width must be no more than {}"
                             .format(MAX_ASPECT))
         if len(err_str) > len("ERROR:"):
-            tkmsg.showerror(err_str)
+            tkmsg.showerror(message=err_str)
             return False
 
         # ------------------------ PV Model --------------------------
@@ -9229,7 +9229,7 @@ it and then edit the parameter values.
 ERROR: The relay_active_high value could not be
 written to Arduino EEPROM.
 """
-                    tkmsg.showerror(error_msg)
+                    tkmsg.showerror(message=error_msg)
 
         # Apply and save the config if anything changed
         if arduino_opt_changed:
