@@ -2342,7 +2342,7 @@ class Configuration(IV_Swinger2.Configuration):
             self.gui.props.loop_rate_limit = self.apply_one(*args)
 
             # Delay
-            args = (section, "delay", CFG_INT, self.gui.props.loop_delay)
+            args = (section, "delay", CFG_FLOAT, self.gui.props.loop_delay)
             self.gui.props.loop_delay = self.apply_one(*args)
 
             # Save results
