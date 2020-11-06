@@ -1074,6 +1074,7 @@ This could be for one of the following reasons:
         self.img_size_combo.bind("<<ComboboxSelected>>", self.update_img_size)
         self.img_size_combo.bind("<Return>", self.update_img_size)
         self.img_size_combo.grid(**self.grid_args["img_size_combo"])
+        self.update_idletasks()
 
     # -------------------------------------------------------------------------
     def create_version_label(self):
@@ -1319,8 +1320,8 @@ This could be for one of the following reasons:
         self.loop_rate_cb.pack(side=LEFT)
         if self.config.cfg.getboolean("Looping", "restore values"):
             if self.loop_rate_limit:
-                self.loop_rate_cb.state(["selected"])
-                self.loop_rate_cb.update_value_str()
+                self.loop_rate.set("On")
+                self.loop_rate_cb.update_text_str()
         tt_text = "Check to limit repetition rate of looping"
         Tooltip(self.loop_rate_cb, text=tt_text, **BOT_TT_KWARGS)
 
@@ -1334,8 +1335,8 @@ This could be for one of the following reasons:
         self.loop_save_cb.pack(side=LEFT)
         if self.config.cfg.getboolean("Looping", "restore values"):
             if self.loop_save_results:
-                self.loop_save_cb.state(["selected"])
-                self.loop_save_cb.update_value_str()
+                self.loop_save.set("On")
+                self.loop_save_cb.update_text_str()
         tt_text = "Check to save results while looping"
         Tooltip(self.loop_save_cb, text=tt_text, **BOT_TT_KWARGS)
 
@@ -1356,6 +1357,7 @@ This could be for one of the following reasons:
 
         # Grid placement within main GUI
         looping_controls_box.grid(**self.grid_args["looping_controls_box"])
+        self.update_idletasks()
 
     # -------------------------------------------------------------------------
     def update_plot_power_cb(self):
@@ -10133,7 +10135,6 @@ class LoopRateLimit(ttk.Checkbutton):
         self.master = master
         self.gui = gui
         self.loop_rate_limit = variable
-        self.value_label_obj = None
         self.state(["disabled"])
 
     # -------------------------------------------------------------------------
@@ -10144,8 +10145,6 @@ class LoopRateLimit(ttk.Checkbutton):
                .format("checked" if self.loop_rate_limit.get() == "On"
                        else "unchecked"))
         log_user_action(self.gui.ivs2.logger, msg)
-        if self.value_label_obj is not None:
-            self.value_label_obj.destroy()
         if self.loop_rate_limit.get() == "On":
             curr_loop_delay = self.gui.loop_delay
             prompt_str = "Enter seconds to delay between loops:"
@@ -10157,15 +10156,16 @@ class LoopRateLimit(ttk.Checkbutton):
                 log_user_action(self.gui.ivs2.logger, msg)
                 self.gui.loop_rate_limit = True
                 self.gui.loop_delay = new_loop_delay
-                self.update_value_str()
             else:
                 msg = "Canceled loop delay (unchecked Loop Mode Rate Limit)"
                 log_user_action(self.gui.ivs2.logger, msg)
                 self.gui.loop_rate_limit = False
                 self.gui.loop_delay = 0
-                self.state(["!selected"])
+                self.loop_rate_limit.set("Off")
         else:
             self.gui.loop_rate_limit = False
+
+        self.update_text_str()
 
         self.update_idletasks()
 
@@ -10177,11 +10177,12 @@ class LoopRateLimit(ttk.Checkbutton):
         self.gui.save_config()
 
     # -------------------------------------------------------------------------
-    def update_value_str(self):
-        """Method to update the string in the rate limit label"""
-        value_str = "= {}s".format(self.gui.loop_delay)
-        self.value_label_obj = ttk.Label(self.master, text=value_str)
-        self.value_label_obj.pack(side=LEFT)
+    def update_text_str(self):
+        """Method to update the rate limit label"""
+        text_str = "Rate Limit"
+        if self.gui.loop_delay and self.loop_rate_limit.get() == "On":
+            text_str += " = {}s".format(self.gui.loop_delay)
+        self.configure(text=text_str)
 
 
 # Loop save results checkbutton class
@@ -10201,7 +10202,6 @@ class LoopSaveResults(ttk.Checkbutton):
         self.master = master
         self.gui = gui
         self.loop_save_results = variable
-        self.value_label_obj = None
         self.state(["disabled"])
 
     # -------------------------------------------------------------------------
@@ -10212,8 +10212,6 @@ class LoopSaveResults(ttk.Checkbutton):
                .format("checked" if self.loop_save_results.get() == "On"
                        else "unchecked"))
         log_user_action(self.gui.ivs2.logger, msg)
-        if self.value_label_obj is not None:
-            self.value_label_obj.destroy()
         if self.loop_save_results.get() == "On":
             self.gui.loop_save_results = True
             include_graphs = tkmsg.askyesno("Include graphs?",
@@ -10226,10 +10224,11 @@ class LoopSaveResults(ttk.Checkbutton):
                            if not include_graphs else "all results in"))
             log_user_action(self.gui.ivs2.logger, msg)
             self.gui.loop_save_graphs = include_graphs
-            self.update_value_str()
         else:
             self.gui.loop_save_results = False
             self.configure(text="Save Results")
+
+        self.update_text_str()
 
         self.update_idletasks()
 
@@ -10241,14 +10240,14 @@ class LoopSaveResults(ttk.Checkbutton):
         self.gui.save_config()
 
     # -------------------------------------------------------------------------
-    def update_value_str(self):
-        """Method to update the string in the save results label"""
-        if self.gui.loop_save_graphs:
-            value_str = "(All)"
-        else:
-            value_str = "(CSV only)"
-        self.value_label_obj = ttk.Label(self.master, text=value_str)
-        self.value_label_obj.pack(side=LEFT)
+    def update_text_str(self):
+        """Method to update the save results label"""
+        text_str = "Save Results "
+        if (self.gui.loop_save_results and
+                self.loop_save_results.get() == "On"):
+            text_str += ("(All)" if self.gui.loop_save_graphs
+                         else "(CSV only)")
+        self.configure(text=text_str)
 
 
 ############
