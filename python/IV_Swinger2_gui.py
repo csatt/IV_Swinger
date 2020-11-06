@@ -3520,7 +3520,8 @@ class ResultsWizard(tk.Toplevel):
                     text = time_of_day
                     self.tree.item(dts, text=text)
                     self.master.ivs2.plot_title = None
-                    del self.master.props.overlay_names[dts]
+                    if dts in self.master.props.overlay_names:
+                        del self.master.props.overlay_names[dts]
                 else:
                     text = "{}   {}".format(time_of_day, new_title)
                     self.tree.item(dts, text=text)
