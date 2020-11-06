@@ -146,7 +146,6 @@
 #
 import argparse
 import os
-import sys
 
 import IV_Swinger
 
@@ -351,7 +350,7 @@ class CommandLineProcessor(object):
                 else:
                     err_str = "ERROR: {} is neither a file nor a directory"
                     print err_str.format(arg)
-                    sys.exit(-1)
+                    return []
 
         return self._csv_files
 
@@ -383,7 +382,7 @@ class CsvParser(object):
                                            .format(expected_first_line))
                                 PrintAndOrLog.print_and_log_msg(self.logger,
                                                                 err_str)
-                                sys.exit(-1)
+                                return []
                         else:
                             vipr_list = map(float, line.split(","))
                             if len(vipr_list) != 4:
@@ -392,7 +391,7 @@ class CsvParser(object):
                                            "format".format(ii + 1))
                                 PrintAndOrLog.print_and_log_msg(self.logger,
                                                                 err_str)
-                                sys.exit(-1)
+                                return []
                             # Swap V <-> I and P <-> R
                             ivrp_tuple = (vipr_list[1], vipr_list[0],
                                           vipr_list[3], vipr_list[2])
@@ -400,7 +399,7 @@ class CsvParser(object):
             except IOError:
                 PrintAndOrLog.print_and_log_msg(self.logger, "Cannot open {}"
                                                 .format(self.csv_filename))
-                sys.exit(-1)
+                return []
 
         return self._data_points
 

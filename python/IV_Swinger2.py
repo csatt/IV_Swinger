@@ -1979,6 +1979,11 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         self.ivsp_ivse.v_sat = self.v_sat
         self.ivsp_ivse.i_sat = self.i_sat
 
+        # Make sure CSV files exist
+        for csv_file in self.csv_files:
+            assert_str = "ERROR: CSV file {} doesn't exist".format(csv_file)
+            assert os.path.exists(csv_file), assert_str
+
         # Process all CSV files
         self.csv_proc = IV_Swinger_plotter.CsvFileProcessor(self.args,
                                                             self.csv_files,
