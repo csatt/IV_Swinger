@@ -3681,19 +3681,14 @@ class ResultsWizard(tk.Toplevel):
         self.overlay_widget_buttonbox = ttk.Frame(self.overlay_widget_box)
         self.overlay_help_button = ttk.Button(self.overlay_widget_buttonbox,
                                               text="Help",
-                                              width=5,
                                               command=self.overlay_help)
         self.overlay_cancel_button = ttk.Button(self.overlay_widget_buttonbox,
                                                 text="Cancel",
-                                                width=7,
                                                 command=self.overlay_cancel)
         tt_text = "Exit overlay mode without saving"
         Tooltip(self.overlay_cancel_button, text=tt_text, **TOP_TT_KWARGS)
-        overlay_button_pad = ttk.Label(self.overlay_widget_buttonbox,
-                                       text="    ")
         self.overlay_finish_button = ttk.Button(self.overlay_widget_buttonbox,
                                                 text="Finished",
-                                                width=9,
                                                 command=self.overlay_finished)
         tt_text = ("Save overlay and generate PDF. NOTE: Overlays cannot be "
                    "modified once they have been saved.")
@@ -3715,11 +3710,10 @@ class ResultsWizard(tk.Toplevel):
         self.overlay_widget_label.grid(column=0, row=0, sticky=(W))
         self.overlay_widget_treeview.grid(column=0, row=1, sticky=(W))
         self.overlay_widget_cb_box.grid(column=0, row=2, sticky=(W))
-        self.overlay_widget_buttonbox.grid(column=0, row=3, sticky=(W))
+        self.overlay_widget_buttonbox.grid(column=0, row=3, sticky=(E, W))
         self.overlay_help_button.pack(side=LEFT)
         self.overlay_cancel_button.pack(side=LEFT)
-        overlay_button_pad.pack(side=LEFT)
-        self.overlay_finish_button.pack(side=LEFT)
+        self.overlay_finish_button.pack(side=RIGHT)
 
     # -------------------------------------------------------------------------
     def add_overlay_label_cbs(self):
