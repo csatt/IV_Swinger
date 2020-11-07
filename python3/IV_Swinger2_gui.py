@@ -2524,8 +2524,9 @@ class ResultsWizard(tk.Toplevel):
         self.tree.insert("", "end", text="WORKING...")
         self.master.root.after(100, self.populate_tree)
         tt_text = ("Click on path at the top to change. Shift-click and "
-                   "Control-click can be used to select multiple runs "
-                   "for overlaying, updating, deleting or copying.")
+                   "Control-click (or Command-click) can be used to select "
+                   "multiple runs for overlaying, updating, deleting or "
+                   "copying.")
         Tooltip(self.tree, text=tt_text, **TOP_TT_KWARGS)
         self.tree.pack(side=LEFT)
         self.treescroll.pack(side=LEFT, fill=Y)
@@ -3854,9 +3855,9 @@ class ResultsWizard(tk.Toplevel):
 
         # Tooltip
         tt_text = ("Double-click to rename. Drag and drop to reorder. "
-                   "Click on Date/Time heading to sort chronologically. "
-                   "Add or remove curves using Control-click in the selection "
-                   "tree view pane above.")
+                   "Click on Date/Time heading to sort chronologically. Add "
+                   "or remove curves using Control-click (or Command-click) "
+                   "in the selection tree view pane above.")
         Tooltip(self.overlay_widget_treeview, text=tt_text,
                 **TOP_TT_KWARGS)
 
@@ -9799,8 +9800,8 @@ button is pressed are plotted and listed in the "Overlay Runs" pane.
 Adding and removing:"""
         help_text_1 = """
 Curves may be added to or removed from the current overlay by changing the
-selection in the main Results Wizard tree view pane (Shift-click and
-Control-click are useful).
+selection in the main Results Wizard tree view pane. Shift-click and
+Control-click (or Command-click) are useful.
 """
         help_heading_2 = """
 Naming:"""
