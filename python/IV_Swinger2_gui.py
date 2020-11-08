@@ -1538,6 +1538,8 @@ This could be for one of the following reasons:
                     self.display_img(self.ivs2.current_img)
             elif rc == RC_NO_POINTS:
                 self.show_no_points_dialog()
+            else:
+                self.show_process_adc_values_err_dialog(rc)
             if remove_directory:
                 if self.ivs2.hdd_output_dir == os.getcwd():
                     os.chdir("..")
@@ -1990,6 +1992,19 @@ This could be a result of selecting "Battery bias" in Preferences when no
 bias was actually applied.
 """
         tkmsg_showerror(self, message=no_points_str)
+
+    # -------------------------------------------------------------------------
+    def show_process_adc_values_err_dialog(self, rc):
+        """Method to display an error dialog when the process_adc_values
+           method returns a bad rc value other than RC_NO_POINTS
+        """
+        if rc == RC_ZERO_VOC:
+            err_str = "ERROR: Voc is zero volts"
+        elif rc == RC_ZERO_ISC:
+            err_str = "ERROR: Isc is zero amps"
+        else:
+            err_str = "ERROR: process_adc_values returned {}".format(rc)
+        tkmsg_showerror(self, message=err_str)
 
     # -------------------------------------------------------------------------
     def show_pv_model_failure_dialog(self):

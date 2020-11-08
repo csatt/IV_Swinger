@@ -433,6 +433,19 @@ bias was actually applied.
     tkmsg.showerror(message=no_points_str)
 
 
+def show_process_adc_values_err_dialog(rc):
+    """Method to display an error dialog when the process_adc_values
+       method returns a bad rc value other than RC_NO_POINTS
+    """
+    if rc == RC_ZERO_VOC:
+        err_str = "ERROR: Voc is zero volts"
+    elif rc == RC_ZERO_ISC:
+        err_str = "ERROR: Isc is zero amps"
+    else:
+        err_str = "ERROR: process_adc_values returned {}".format(rc)
+    tkmsg.showerror(message=err_str)
+
+
 def ok_to_trash(num_selected_runs, num_selected_overlays):
     """Method to prompt the user before moving runs and overlays to the
        trash
@@ -1730,6 +1743,8 @@ This could be for one of the following reasons:
                     self.display_img(self.ivs2.current_img)
             elif rc == RC_NO_POINTS:
                 show_no_points_dialog()
+            else:
+                show_process_adc_values_err_dialog(rc)
             if remove_directory:
                 if self.ivs2.hdd_output_dir == os.getcwd():
                     os.chdir("..")
