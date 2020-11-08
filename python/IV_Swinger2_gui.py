@@ -3333,7 +3333,8 @@ class ResultsWizard(tk.Toplevel):
                     # Add all the day's runs to the list
                     selected_runs.append(os.path.join(self.results_dir, child))
 
-        return selected_runs
+        # Return list with duplicates removed
+        return list(dict.fromkeys(selected_runs))
 
     # -------------------------------------------------------------------------
     def get_selected_overlays(self):
