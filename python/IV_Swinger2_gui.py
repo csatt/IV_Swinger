@@ -2832,7 +2832,7 @@ class ResultsWizard(tk.Toplevel):
         # displayed
         selection = selections[-1]
         if self.master.props.overlay_mode:
-            self.overlay_runs(event=None)
+            self.overlay_runs(event="reselect")
         elif selection.startswith("overlay_"):
             self.overlay_select_actions(selection)
         elif IV_Swinger2.is_date_time_str(selection):
@@ -3675,8 +3675,9 @@ class ResultsWizard(tk.Toplevel):
         """Method to overlay the selected runs
         """
         # pylint: disable=unused-argument
-        msg = "(Wizard) clicked Overlay button"
-        log_user_action(self.master.ivs2.logger, msg)
+        if event != "reselect":
+            msg = "(Wizard) clicked Overlay button"
+            log_user_action(self.master.ivs2.logger, msg)
 
         # Get the selected run(s) from the Treeview
         # Sort in oldest-to-newest order
@@ -4055,9 +4056,9 @@ class ResultsWizard(tk.Toplevel):
            drag-and-drop
         """
         # pylint: disable=unused-argument
-        msg = "(Wizard) dragged and dropped overlay curve"
-        log_user_action(self.master.ivs2.logger, msg)
         if self.overlays_reordered:
+            msg = "(Wizard) dragged and dropped overlay curve"
+            log_user_action(self.master.ivs2.logger, msg)
             self.reorder_selected_csv_files()
             self.plot_overlay_and_display()
         self.overlays_reordered = False
