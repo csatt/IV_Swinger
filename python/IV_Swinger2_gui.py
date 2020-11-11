@@ -4293,8 +4293,9 @@ class ResultsWizard(tk.Toplevel):
     def plot_overlay_and_display(self):
         """Method to generate the overlay plot and display it
         """
-        self.plot_overlay()
-        self.master.display_img(self.overlay_img)
+        if self.selected_csv_files:
+            self.plot_overlay()
+            self.master.display_img(self.overlay_img)
 
     # -------------------------------------------------------------------------
     def get_overlay_curve_names(self):
