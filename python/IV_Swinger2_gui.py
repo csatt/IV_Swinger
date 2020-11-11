@@ -9944,7 +9944,7 @@ If irradiance and/or temperature are not measured, the reference curve is
 generated using estimated values based on the measured Voc and Isc of the PV
 under test. Of course, this assumes that the Isc and/or Voc are "correct" and
 that all out-of-spec effects are manifested on the curve between those two
-two points only. The "Use estimated irradiance" and "Use estimated cell temp"
+points only. The "Use estimated irradiance" and "Use estimated cell temp"
 checkbuttons force estimation when measured values ARE present. When measured
 values are not present, estimation is always used and those controls are not
 relevant.
