@@ -1040,7 +1040,6 @@ This could be for one of the following reasons:
            disable the button.
         """
         self.go_button.configure(style="go_stop_button_disabled.TButton")
-        self.go_button.configure(style=None)
         self.go_button.state(["disabled"])
 
     # -------------------------------------------------------------------------
@@ -1882,6 +1881,7 @@ This could be for one of the following reasons:
            is stopped, and the button is removed.
         """
         self.stop_button = GoStopButton(master=self.go_button_box, text="STOP")
+        self.stop_button.configure(style="go_stop_button.TButton")
         self.stop_button["width"] = self.go_button["width"]
         # Tooltip
         tt_text = "Press button to stop looping"
