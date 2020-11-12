@@ -6674,7 +6674,7 @@ class ResistorValuesDialog(Dialog):
                              width=8,
                              textvariable=self.r1_str)
         r1_ohms = self.master.config.cfg.getfloat("Calibration", "r1 ohms")
-        self.r1_str.set(r1_ohms)
+        self.r1_str.set(int(r1_ohms))
 
         # Add label and entry box to select R2 resistance
         r2_label = ttk.Label(master=frame, text="R2 (ohms):")
@@ -6682,7 +6682,7 @@ class ResistorValuesDialog(Dialog):
                              width=8,
                              textvariable=self.r2_str)
         r2_ohms = self.master.config.cfg.getfloat("Calibration", "r2 ohms")
-        self.r2_str.set(r2_ohms)
+        self.r2_str.set(int(r2_ohms))
 
         # Add label and entry box to select RF resistance
         rf_label = ttk.Label(master=frame, text="RF (ohms):")
@@ -6690,7 +6690,7 @@ class ResistorValuesDialog(Dialog):
                              width=8,
                              textvariable=self.rf_str)
         rf_ohms = self.master.config.cfg.getfloat("Calibration", "rf ohms")
-        self.rf_str.set(rf_ohms)
+        self.rf_str.set(int(rf_ohms))
 
         # Add label and entry box to select RG resistance
         rg_label = ttk.Label(master=frame, text="RG (ohms):")
@@ -6698,7 +6698,7 @@ class ResistorValuesDialog(Dialog):
                              width=8,
                              textvariable=self.rg_str)
         rg_ohms = self.master.config.cfg.getfloat("Calibration", "rg ohms")
-        self.rg_str.set(rg_ohms)
+        self.rg_str.set(int(rg_ohms))
 
         # Add label and entry box to select Shunt resistance
         shunt_label = ttk.Label(master=frame, text="Shunt (microohms):")
@@ -6709,7 +6709,7 @@ class ResistorValuesDialog(Dialog):
                                                           "shunt max volts")
         shunt_uohms = ((shunt_max_volts /
                         self.master.ivs2.amm_shunt_max_amps) * 1000000.0)
-        self.shunt_str.set(shunt_uohms)
+        self.shunt_str.set(int(shunt_uohms))
 
         # Add Restore Defaults button in its own container box
         restore_box = ttk.Frame(master=frame, padding=10)
@@ -6747,11 +6747,11 @@ class ResistorValuesDialog(Dialog):
         # pylint: disable=unused-argument
         msg = "(ResistorValuesDialog) clicked Restore Defaults button"
         log_user_action(self.master.ivs2.logger, msg)
-        self.r1_str.set(str(R1_DEFAULT))
-        self.r2_str.set(str(R2_DEFAULT))
-        self.rf_str.set(str(RF_DEFAULT))
-        self.rg_str.set(str(RG_DEFAULT))
-        self.shunt_str.set(str(SHUNT_DEFAULT))
+        self.r1_str.set(str(int(R1_DEFAULT)))
+        self.r2_str.set(str(int(R2_DEFAULT)))
+        self.rf_str.set(str(int(RF_DEFAULT)))
+        self.rg_str.set(str(int(RG_DEFAULT)))
+        self.shunt_str.set(str(int(SHUNT_DEFAULT)))
 
     # -------------------------------------------------------------------------
     def snapshot(self):
@@ -6775,23 +6775,23 @@ class ResistorValuesDialog(Dialog):
            values"""
         err_str = "ERROR:"
         try:
-            r1_ohms = float(self.r1_str.get())
-            r2_ohms = float(self.r2_str.get())
-            rf_ohms = float(self.rf_str.get())
-            rg_ohms = float(self.rg_str.get())
-            shunt_uohms = float(self.shunt_str.get())
+            r1_ohms = int(self.r1_str.get())
+            r2_ohms = int(self.r2_str.get())
+            rf_ohms = int(self.rf_str.get())
+            rg_ohms = int(self.rg_str.get())
+            shunt_uohms = int(self.shunt_str.get())
         except ValueError:
-            err_str += "\n  All fields must be floating point"
+            err_str += "\n  All fields must be integers"
         else:
-            if r1_ohms < 0.0:
+            if r1_ohms < 0:
                 err_str += "\n  R1 value must be zero or positive"
-            if r2_ohms <= 0.0:
+            if r2_ohms <= 0:
                 err_str += "\n  R2 value must be positive"
-            if rf_ohms < 0.0:
+            if rf_ohms < 0:
                 err_str += "\n  RF value must be zero or positive"
-            if rg_ohms <= 0.0:
+            if rg_ohms <= 0:
                 err_str += "\n  RG value must be positive"
-            if shunt_uohms <= 1.0:
+            if shunt_uohms <= 1:
                 err_str += "\n  Shunt value must be >1 (unit is microohms)"
         if len(err_str) > len("ERROR:"):
             self.show_resistor_error_dialog(err_str)
