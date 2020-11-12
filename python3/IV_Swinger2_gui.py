@@ -8711,7 +8711,6 @@ it and then edit the parameter values.
         self.master.ivs2.pv_model.get_data_points(PV_MODEL_CURVE_NUM_POINTS)
 
         # Generate the test curve
-        self.master.suppress_cfg_file_copy = False
         self.master.ivs2.gen_pv_test_curve()
 
         # Display the image
@@ -8785,6 +8784,7 @@ it and then edit the parameter values.
         self.master.config.cfg_set(section, "point scale", 0.0)
 
         # Save modified config
+        self.master.suppress_cfg_file_copy = False
         self.master.save_config()
 
         # Restore starting vals
@@ -8793,6 +8793,10 @@ it and then edit the parameter values.
         self.master.config.cfg_set(section, "fancy labels", fancy_labels)
         self.master.config.cfg_set(section, "linear", linear)
         self.master.config.cfg_set(section, "point scale", point_scale)
+
+        # Save restored config
+        self.master.suppress_cfg_file_copy = True
+        self.master.save_config()
 
     # -------------------------------------------------------------------------
     def show_pv_model_help(self):
