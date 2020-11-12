@@ -5525,7 +5525,7 @@ class AdvEmrCurrentCalHelpDialog(Dialog):
         help_text_1 = """
 This current calibration method works on IV Swinger 2 hardware with
 electromechanical relays (EMRs). Its advantage over the basic current
-calibration is that uses two points instead of just one. This can
+calibration is that it uses two points instead of just one. This can
 improve the accuracy of the calibration over the complete range.
 
 Required conditions:
@@ -5666,9 +5666,9 @@ class AdvVoltageCalHelpDialog(Dialog):
         """Method to create the dialog body, which is just a Text widget"""
         help_text_1 = """
 This voltage calibration method works on all types of IV Swinger 2
-hardware.  Its advantage over the basic current calibration is that uses
-two points instead of just one. This can improve the accuracy of the
-calibration over the complete range.
+hardware.  Its advantage over the basic current calibration is that it
+uses two points instead of just one. This can improve the accuracy of
+the calibration over the complete range.
 
 A DC power supply is required to perform this calibration. This is
 because the Voc of a PV module or cell is not controllable. The DC power
