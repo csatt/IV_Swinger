@@ -1214,8 +1214,10 @@ This could be for one of the following reasons:
 
         # Go button
         self.go_button = GoStopButton(master=self.go_button_box)
-        if not self.ivs2.arduino_ready:
-            self.disable_go_button()
+        self.disable_go_button()
+        if self.ivs2.arduino_ready:
+            self.enable_go_button()
+
         # Tooltip
         tt_text = ("Trigger an IV curve trace (if connected). If loop mode is "
                    "selected, this button changes to a STOP button and curve "
