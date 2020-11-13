@@ -1254,6 +1254,12 @@ This could be for one of the following reasons:
             # Redisplay the image (with the change) - saves config
             self.redisplay_img(reprocess_adc=False)
 
+            # Display dialog if checking Plot Reference did not
+            # sucessfully generate a reference curve
+            if (button == "ref" and self.ivs2.plot_ref and
+                    self.ivs2.pv_model.csv_filename is None):
+                self.show_pv_model_failure_dialog()
+
             # Restore the config file from the snapshot
             self.restore_config(run_dir, config_dir, cfg_file,
                                 original_cfg_file)
@@ -1810,6 +1816,12 @@ This could be for one of the following reasons:
             # Otherwise return without generating graphs if it failed,
             # displaying reason in a dialog
             return show_error_dialog_clean_up_and_return(rc)
+
+        # Display dialog if Plot Reference checked but a reference curve
+        # was not generated. Suppress this in loop mode.
+        if (not loop_mode and self.ivs2.plot_ref and
+                self.ivs2.pv_model.csv_filename is None):
+            self.show_pv_model_failure_dialog()
 
         # Schedule another call with "after" if looping
         if loop_mode:
