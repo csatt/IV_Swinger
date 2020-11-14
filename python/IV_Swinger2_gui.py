@@ -1539,7 +1539,7 @@ This could be for one of the following reasons:
                 rc = self.ivs2.process_adc_values()
             if rc == RC_SUCCESS:
                 rc = self.plot_results()
-                if rc == RC_SUCCESS or rc == RC_PV_MODEL_FAILURE:
+                if rc in (RC_SUCCESS, RC_PV_MODEL_FAILURE):
                     if not self.props.suppress_cfg_file_copy:
                         self.config.add_axes_and_title()
                     self.display_img(self.ivs2.current_img)
