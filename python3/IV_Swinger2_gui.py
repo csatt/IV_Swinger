@@ -711,6 +711,15 @@ class GraphicalUserInterface(ttk.Frame):
             raise ValueError("current_run_displayed must be boolean")
         self._current_run_displayed = value
 
+    # Derived properties
+    # ---------------------------------
+    @property
+    def looping(self):
+        """True if looping is active, which can be inferred from the existence
+           of the Stop button
+        """
+        return self.stop_button is not None and self.stop_button.winfo_exists()
+
     # -------------------------------------------------------------------------
     def check_app_data_dir(self):
         """Method to check that directories can be created in the the parent of
@@ -1779,9 +1788,8 @@ This could be for one of the following reasons:
            copy_dir parameter.
         """
         copy_dir = None
-        if (not self.suppress_cfg_file_copy and
-                (self.loop_save_results or
-                 not self.loop_mode_active)):
+        if not self.suppress_cfg_file_copy and (not self.looping or
+                                                self.loop_save_results):
             copy_dir = self.ivs2.hdd_output_dir
 
         self.config.save(copy_dir=copy_dir)

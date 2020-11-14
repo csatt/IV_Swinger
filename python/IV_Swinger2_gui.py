@@ -1604,8 +1604,8 @@ This could be for one of the following reasons:
         """
         copy_dir = None
         if (not self.props.suppress_cfg_file_copy and
-                (self.props.loop_save_results or
-                 not self.props.loop_mode_active)):
+            (not self.props.looping or
+             self.props.loop_save_results)):
             copy_dir = self.ivs2.hdd_output_dir
 
         self.config.save(copy_dir=copy_dir)
@@ -2318,6 +2318,16 @@ class GraphicalUserInterfaceProps(object):
         if value not in set([True, False]):
             raise ValueError("current_run_displayed must be boolean")
         self.master._current_run_displayed = value
+
+    # Derived properties
+    # ---------------------------------
+    @property
+    def looping(self):
+        """True if looping is active, which can be inferred from the existence
+           of the Stop button
+        """
+        return (self.master.stop_button is not None and
+                self.master.stop_button.winfo_exists())
 
 
 # GUI Configuration class
