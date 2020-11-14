@@ -1539,7 +1539,7 @@ This could be for one of the following reasons:
                 rc = self.ivs2.process_adc_values()
             if rc == RC_SUCCESS:
                 rc = self.plot_results()
-                if rc == RC_SUCCESS:
+                if rc == RC_SUCCESS or rc == RC_PV_MODEL_FAILURE:
                     if not self.props.suppress_cfg_file_copy:
                         self.config.add_axes_and_title()
                     self.display_img(self.ivs2.current_img)
@@ -1564,8 +1564,6 @@ This could be for one of the following reasons:
            (Windows issue).
         """
         rc = self.retry_if_pdf_permission_denied(self.ivs2.plot_results)
-        if rc == RC_PV_MODEL_FAILURE:
-            self.show_pv_model_failure_dialog()
         return rc
 
     # -------------------------------------------------------------------------
@@ -1800,10 +1798,18 @@ This could be for one of the following reasons:
         self.config.update_vref()
         self.ivs2.generate_pdf = True
 
-        if rc == RC_SUCCESS:
+        plot_ref_failed = (self.ivs2.plot_ref and
+                           (rc == RC_PV_MODEL_FAILURE or
+                            self.ivs2.pv_model.csv_filename is None))
+        if rc == RC_SUCCESS or plot_ref_failed:
             # Update the image pane with the new curve GIF
             self.display_img(self.ivs2.current_img)
             self.props.current_run_displayed = True
+            if plot_ref_failed and not loop_mode:
+                # Display dialog if Plot Reference checked but a
+                # reference curve was not generated. Suppress this in
+                # loop mode.
+                self.show_pv_model_failure_dialog()
         elif (loop_mode and
               not self.props.loop_stop_on_err and
               rc in (RC_ZERO_ISC, RC_ZERO_VOC, RC_ISC_TIMEOUT)):
@@ -1816,12 +1822,6 @@ This could be for one of the following reasons:
             # Otherwise return without generating graphs if it failed,
             # displaying reason in a dialog
             return show_error_dialog_clean_up_and_return(rc)
-
-        # Display dialog if Plot Reference checked but a reference curve
-        # was not generated. Suppress this in loop mode.
-        if (not loop_mode and self.ivs2.plot_ref and
-                self.ivs2.pv_model.csv_filename is None):
-            self.show_pv_model_failure_dialog()
 
         # Schedule another call with "after" if looping
         if loop_mode:

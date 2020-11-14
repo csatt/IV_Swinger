@@ -5305,6 +5305,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # -------------------------------------------------------------------------
     def plot_results(self, v_sat_override=None, i_sat_override=None):
         """Method to plot results"""
+        rc = RC_SUCCESS
         self.ivp = IV_Swinger2_plotter()
         self.ivp.title = (None if self.plot_title is None
                           else self.plot_title)
@@ -5335,12 +5336,12 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             try:
                 self.add_reference_curve()
             except AssertionError:
-                return RC_PV_MODEL_FAILURE
+                rc = RC_PV_MODEL_FAILURE
         self.ivp.run()
         self.current_img = self.ivp.current_img
         self.plot_max_x = self.ivp.max_x
         self.plot_max_y = self.ivp.max_y
-        return RC_SUCCESS
+        return rc
 
     # -------------------------------------------------------------------------
     def add_reference_curve(self):
