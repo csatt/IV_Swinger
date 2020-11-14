@@ -2434,6 +2434,9 @@ class ResultsWizard(tk.Toplevel):
            wizard is running
         """
         self.master.results_button.state(["disabled"])
+        self.master.loop_mode_cb.state(["disabled"])
+        self.master.loop_rate_cb.state(["disabled"])
+        self.master.loop_save_cb.state(["disabled"])
         self.master.disable_go_button()
 
     # -------------------------------------------------------------------------
@@ -2733,6 +2736,10 @@ class ResultsWizard(tk.Toplevel):
         """
         self.master.focus_set()
         self.master.results_button.state(["!disabled"])
+        self.master.loop_mode_cb.state(["!disabled"])
+        if self.master.loop_mode_active:
+            self.master.loop_rate_cb.state(["!disabled"])
+            self.master.loop_save_cb.state(["!disabled"])
         if self.master.ivs2.arduino_ready:
             self.master.enable_go_button()
         self.master.config.cfg_filename = None  # property will restore
