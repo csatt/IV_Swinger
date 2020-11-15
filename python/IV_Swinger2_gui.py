@@ -1169,6 +1169,13 @@ This could be for one of the following reasons:
         self.update_idletasks()
 
     # -------------------------------------------------------------------------
+    def turn_off_loop_mode(self):
+        """Method to turn off loop mode
+        """
+        if self.loop_mode.get() == "On":
+            self.loop_mode_cb.invoke()
+
+    # -------------------------------------------------------------------------
     def update_plot_power_cb(self):
         """Method to set the plot_power StringVar to the correct value, based
            on the value in the config
@@ -2527,6 +2534,7 @@ class ResultsWizard(tk.Toplevel):
         self.master.loop_rate_cb.state(["disabled"])
         self.master.loop_save_cb.state(["disabled"])
         self.master.disable_go_button()
+        self.master.turn_off_loop_mode()  # Issue #146
 
     # -------------------------------------------------------------------------
     def change_min_height(self, min_height):
@@ -8925,6 +8933,9 @@ it and then edit the parameter values.
 
         # Clean up files
         self.master.ivs2.clean_up_files(self.master.ivs2.hdd_output_dir)
+
+        # Turn off loop mode (Issue #146)
+        self.master.turn_off_loop_mode()
 
     # -------------------------------------------------------------------------
     def pv_test_button_actions(self, event=None):
