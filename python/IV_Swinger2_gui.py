@@ -1611,8 +1611,7 @@ This could be for one of the following reasons:
         """
         copy_dir = None
         if (not self.props.suppress_cfg_file_copy and
-            (not self.props.looping or
-             self.props.loop_save_results)):
+                (not self.props.looping or self.props.loop_save_results)):
             copy_dir = self.ivs2.hdd_output_dir
 
         self.config.save(copy_dir=copy_dir)
