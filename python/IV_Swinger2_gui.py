@@ -811,8 +811,8 @@ This could be for one of the following reasons:
     # -------------------------------------------------------------------------
     def create_widgets(self):
         """Method to create the main window's widgets"""
-        total_cols = 12
-        pad_cols = 2
+        total_cols = 10
+        pad_cols = 3
         column = 1
         row = 1
         # Grid layout
@@ -830,7 +830,7 @@ This could be for one of the following reasons:
         self.grid_args["prefs_results_buttons"] = {"column": column,
                                                    "row": row,
                                                    "rowspan": 3}
-        column += pad_cols
+        column += 1
         self.grid_args["axis_ranges_box"] = {"column": column,
                                              "row": row,
                                              "rowspan": 3,
@@ -839,7 +839,7 @@ This could be for one of the following reasons:
         self.grid_args["go_button_box"] = {"column": column,
                                            "row": row,
                                            "rowspan": 3}
-        column += 1
+        column += pad_cols
         self.grid_args["power_ref_box"] = {"column": column,
                                            "row": row,
                                            "rowspan": 3}
@@ -10466,7 +10466,6 @@ class LoopSaveResults(ttk.Checkbutton):
             self.gui.props.loop_save_graphs = include_graphs
         else:
             self.gui.props.loop_save_results = False
-            self.configure(text="Save Results")
 
         self.update_text_str()
 
