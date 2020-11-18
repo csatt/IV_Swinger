@@ -2449,11 +2449,11 @@ class ResultsWizard(tk.Toplevel):
            wizard is running
         """
         self.master.results_button.state(["disabled"])
+        self.master.turn_off_loop_mode()  # Issue #146
         self.master.loop_mode_cb.state(["disabled"])
         self.master.loop_rate_cb.state(["disabled"])
         self.master.loop_save_cb.state(["disabled"])
         self.master.disable_go_button()
-        self.master.turn_off_loop_mode()  # Issue #146
 
     # -------------------------------------------------------------------------
     def change_min_height(self, min_height):
