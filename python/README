@@ -115,10 +115,10 @@ Installing Python 2 and required packages
       > python -V
       2.7.18
 
-    - Install Python packages required by the IV Swinger 3 code:
+    - Install Python packages required by the IV Swinger 2 code:
 
       > cd <your GitHub path>\IV_Swinger\python
-      > pip install Pillow pyserial numpy matplotlib scipy Send2Trash
+      > pip install Pillow pyserial numpy matplotlib scipy Send2Trash pywin32
 
     - Test:
 

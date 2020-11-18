@@ -115,11 +115,9 @@ from IV_Swinger_PV_model import (read_pv_specs, create_pv_spec_file,
                                  pv_spec_from_dict, check_pv_spec, add_pv_spec,
                                  STC_IRRAD, NOC_IRRAD, STC_T_C)
 from IV_Swinger2_PV_model import PV_MODEL_CURVE_NUM_POINTS
-try:
+if sys.platform == "win32":
     # Windows only
     import win32com.client  # pylint: disable=import-error
-except ImportError:
-    pass
 
 #################
 #   Constants   #
