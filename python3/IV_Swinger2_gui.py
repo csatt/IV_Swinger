@@ -3756,7 +3756,7 @@ class ResultsWizard(tk.Toplevel):
 
         # Increase the minimum height of the wizard window to
         # accomodate the overlay widget box
-        self.change_min_height(WIZARD_MIN_HEIGHT_PIXELS + 230)
+        self.change_min_height(WIZARD_MIN_HEIGHT_PIXELS + 260)
 
         # Layout
         self.overlay_widget_box.grid(column=0, row=1, sticky=(N, S, E, W))
