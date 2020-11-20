@@ -3162,9 +3162,6 @@ class IV_Swinger(object):
             # Set the figure size
             self.set_figure_size()
 
-            # Adjust margins
-            self.adjust_margins()
-
             # Set output to the plot image filename
             output_line = 'set output "{}"\n'.format(img_filename)
             self.filehandle.write(output_line)
@@ -3182,6 +3179,9 @@ class IV_Swinger(object):
             # Set the X and Y ranges
             max_x = self.set_x_range(voc_volts)
             max_y = self.set_y_range(isc_amps, mpp_amps)
+
+            # Adjust margins
+            self.adjust_margins()
 
             # Display ticks and grid lines on graph
             self.set_x_ticks(max_x)
