@@ -3139,6 +3139,9 @@ class SimulatorHelpDialog(tk.Toplevel):
         # Set the dialog geometry
         set_dialog_geometry(self, 360, 2000)
 
+        # Register callback for when the dialog is closed
+        self.protocol("WM_DELETE_WINDOW", self.done)
+
         # Map Ctrl-A and Cmd-A (Mac) to select-all for Text widgets
         # (which includes ScrolledText)
         self.master.bind_class("Text", "<Control-a>", selectall)
@@ -3257,6 +3260,13 @@ and parallel resistances, temperature, etc.
             self.text.insert("end", help_heading, ("heading_tag"))
             self.text.insert("end", help_text[ii], ("body_tag"))
         self.text.pack(fill=BOTH, expand=True)
+
+    # -------------------------------------------------------------------------
+    def done(self):
+        """Method called when simulator help dialog is closed
+        """
+        self.master.focus_set()
+        self.destroy()
 
 
 ############
