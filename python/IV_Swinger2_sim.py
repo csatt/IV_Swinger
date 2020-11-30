@@ -1210,10 +1210,6 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
                 if 0 < err < least_err:
                     self.amm_op_amp_rf = rf_ohms
                     self.amm_op_amp_rg = rg_ohms
-                    if rf_ohms == ZERO_OHMS:
-                        self.amm_op_amp_rf = 0.0
-                    if rg_ohms == ZERO_OHMS:
-                        self.amm_op_amp_rg = 0.0
                     least_err = err
 
     # -------------------------------------------------------------------------
