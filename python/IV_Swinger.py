@@ -208,6 +208,7 @@ if not platform.machine().startswith("armv6"):
         matplotlib_use("TkAgg")
     import matplotlib.pyplot as plt
     import matplotlib.font_manager
+    matplotlib.rcParams['pdf.fonttype'] = 42  # TrueType
     from matplotlib import __version__ as matplotlib_version
 # pylint: disable=wrong-import-position
 import numpy

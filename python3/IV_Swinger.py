@@ -205,7 +205,9 @@ if not platform.machine().startswith("armv6"):
     # Suppress matplotlib import on RPi 1 (too slow))
     import matplotlib.pyplot as plt
     import matplotlib.font_manager
+    matplotlib.rcParams['pdf.fonttype'] = 42  # TrueType
     from matplotlib import __version__ as matplotlib_version
+
 
 #################
 #   Constants   #
