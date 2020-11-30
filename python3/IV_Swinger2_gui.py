@@ -969,7 +969,7 @@ This could be for one of the following reasons:
             # fact that (at least on Mac) the "resizable" option
             # doesn't work for width only.
             if max_height is None:
-                max_height = dialog.winfo_height()
+                max_height = dialog.winfo_screenheight()
             dialog.minsize(width, min_height)
             dialog.maxsize(width, max_height)
 
@@ -8814,7 +8814,6 @@ it and then edit the parameter values.
         point_scale = self.master.config.cfg.get(section, "point scale")
         plot_max_x = self.master.config.cfg.get(section, "plot max x")
         plot_max_y = self.master.config.cfg.get(section, "plot max y")
-        
 
         # Modify config
         self.master.config.cfg_set(section, "title", pv.title_string)

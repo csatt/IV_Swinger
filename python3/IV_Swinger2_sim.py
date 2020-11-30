@@ -354,7 +354,7 @@ def set_dialog_geometry(dialog, min_height=None, max_height=None):
     width, _ = get_dialog_width_and_height(dialog)
     if min_height is not None:
         if max_height is None:
-            max_height = dialog.winfo_height()
+            max_height = dialog.winfo_screenheight()
         dialog.minsize(width, min_height)
         dialog.maxsize(width, max_height)
         dialog.geometry("{}x{}+{}+5".format(width, min_height,
@@ -3133,7 +3133,7 @@ class SimulatorHelpDialog(tk.Toplevel):
         body.pack(fill=BOTH, expand=True)
 
         # Set the dialog geometry
-        set_dialog_geometry(self, 360, 2000)
+        set_dialog_geometry(self, min_height=self.master.winfo_height()//2)
 
         # Register callback for when the dialog is closed
         self.protocol("WM_DELETE_WINDOW", self.done)
