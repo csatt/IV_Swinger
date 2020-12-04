@@ -1733,7 +1733,6 @@ This could be for one of the following reasons:
            the programmed delay. In that sense it appears to be a
            loop. Unlike an actual loop, however, it is non-blocking.
            This is essential in order for the GUI not to lock up.
-
         """
         # pylint: disable=too-many-statements
         def show_error_dialog_clean_up_and_return(rc):
@@ -2049,8 +2048,6 @@ bias was actually applied.
             self.show_isc_timeout_dialog()
         elif rc == RC_NO_POINTS:
             self.show_no_points_dialog()
-        elif rc == RC_PV_MODEL_FAILURE:
-            self.show_pv_model_failure_dialog()
 
     # -------------------------------------------------------------------------
     def start_on_top(self):
@@ -2832,9 +2829,6 @@ class ResultsWizard(tk.Toplevel):
         self.master.focus_set()
         self.master.results_button.state(["!disabled"])
         self.master.loop_mode_cb.state(["!disabled"])
-        if self.master.props.loop_mode_active:
-            self.master.loop_rate_cb.state(["!disabled"])
-            self.master.loop_save_cb.state(["!disabled"])
         if self.master.ivs2.arduino_ready:
             self.master.enable_go_button()
         self.master.config.cfg_filename = None  # property will restore
@@ -8855,16 +8849,9 @@ it and then edit the parameter values.
         if rc != RC_SUCCESS:
             return rc
 
-        # Apply the current PV spec values to the model after checking
-        # their validity
+        # Apply the current PV spec values to the model
         pv_spec_dict = self.get_curr_pv_spec_dict(self.get_pv_name())
         if not pv_spec_dict:
-            return RC_FAILURE
-        pv_spec = pv_spec_from_dict(pv_spec_dict)
-        try:
-            check_pv_spec(pv_spec)
-        except AssertionError as e:
-            tkmsg_showerror(self.master, message=e)
             return RC_FAILURE
         self.master.ivs2.pv_model.apply_pv_spec_dict(pv_spec_dict)
         return RC_SUCCESS
