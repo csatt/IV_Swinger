@@ -2135,6 +2135,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._irrad_estimated = False
         self._cell_temp_estimated = False
         self._use_curr_pv_model_props = False
+        self._assertion_msg = None
         self.msg_from_arduino = "None"
         self.eeprom_values_received = False
         self.hdd_unfiltered_adc_pairs_csv_filename = None
@@ -3035,6 +3036,16 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if value not in set([True, False]):
             raise ValueError(" must be boolean")
         self._use_curr_pv_model_props = value
+
+    # ---------------------------------
+    @property
+    def assertion_msg(self):
+        """Captured message from most recent assertion error (if any)"""
+        return self._assertion_msg
+
+    @assertion_msg.setter
+    def assertion_msg(self, value):
+        self._assertion_msg = value
 
     # ---------------------------------
     @property
@@ -5337,7 +5348,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if self.pv_name != "Unknown" and self.plot_ref:
             try:
                 self.add_reference_curve()
-            except AssertionError:
+            except AssertionError as e:
+                self.assertion_msg = e
                 rc = RC_PV_MODEL_FAILURE
         self.ivp.run()
         self.current_img = self.ivp.current_img

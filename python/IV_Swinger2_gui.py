@@ -1548,6 +1548,8 @@ This could be for one of the following reasons:
                     if not self.props.suppress_cfg_file_copy:
                         self.config.add_axes_and_title()
                     self.display_img(self.ivs2.current_img)
+                    if rc == RC_PV_MODEL_FAILURE:
+                        self.show_pv_model_failure_dialog()
             elif rc == RC_NO_POINTS:
                 self.show_no_points_dialog()
             else:
@@ -2027,7 +2029,11 @@ bias was actually applied.
     def show_pv_model_failure_dialog(self):
         """Method to display an error dialog when there is a PV model failure
         """
-        tkmsg_showerror(self, message=self.pv_model_failure_str)
+        if self.ivs2.assertion_msg is not None:
+            tkmsg_showerror(self, message=self.ivs2.assertion_msg)
+            self.ivs2.assertion_msg = None
+        else:
+            tkmsg_showerror(self, message=self.pv_model_failure_str)
 
     # -------------------------------------------------------------------------
     def show_error_dialog(self, rc):
