@@ -1420,7 +1420,8 @@ class PV_model(object):
         """Method to estimate cell temperature from the irradiance, given a
            measured Isc.
         """
-        self.cell_temp_c = (((1 / ((self.irradiance * self.isc_stc) /
+        irrad = self.irradiance if self.irradiance > 0 else 0.001
+        self.cell_temp_c = (((1 / ((irrad * self.isc_stc) /
                                    (STC_IRRAD * measured_isc))) - 1.0) /
                             (self.isc_temp_coeff_pct_per_deg/100.0)) + STC_T_C
 
