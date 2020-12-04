@@ -979,10 +979,8 @@ This could be for one of the following reasons:
         # is to the right of the root window. Last choice is whichever
         # side has more space, overlapping root window by as much as
         # necessary to leave 10 pixels of screen.
-        m = re.match(r".*([-+]\d+)([-+]\d+)", self.root.geometry())
-        left_pixels_avail = int(m.group(1))
-        m = re.match(r"(\d+)x(\d+)", self.root.geometry())
-        root_width = int(m.group(1))
+        left_pixels_avail = self.root.winfo_x()
+        root_width = self.root.winfo_width()
         right_pixels_avail = (self.winfo_screenwidth() - left_pixels_avail -
                               root_width)
         if left_pixels_avail < 0:
