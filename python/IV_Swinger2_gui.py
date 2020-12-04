@@ -5974,7 +5974,7 @@ calibration values before committing them."""
         pt_1_button_box = ttk.Frame(master=frame, padding=10)
         pt_1_button = ttk.Button(pt_1_button_box,
                                  text="Get Point 1",
-                                 command=self.get_pt_1_uncal_value)
+                                 command=lambda: self.get_pt_uncal_value(1))
         pt_1_uncal_value_label = ttk.Label(pt_1_button_box,
                                            textvariable=self.pt_1_uncal_value)
         self.update_uncal_value(pt_1=True)
@@ -5997,7 +5997,7 @@ calibration values before committing them."""
         pt_2_button_box = ttk.Frame(master=frame, padding=10)
         pt_2_button = ttk.Button(pt_2_button_box,
                                  text="Get Point 2",
-                                 command=self.get_pt_2_uncal_value)
+                                 command=lambda: self.get_pt_uncal_value(2))
         pt_2_uncal_value_label = ttk.Label(pt_2_button_box,
                                            textvariable=self.pt_2_uncal_value)
         self.update_uncal_value(pt_1=False)
@@ -6198,12 +6198,15 @@ to use this feature"""
         return True
 
     # -------------------------------------------------------------------------
-    def get_pt_1_uncal_value(self):
-        """Method to get the uncalibrated value for point 1 from the hardware,
-           set the x1 attribute with its value, and update the label
-           after the button.
+    def get_pt_uncal_value(self, point):
+        """Method to get the uncalibrated value for point 1 or 2 from the
+           hardware, set the x1 or x2 attribute with its value, and
+           update the label after the button.
         """
-        self.pt_1_dmm_value.set("")
+        if point == 1:
+            self.pt_1_dmm_value.set("")
+        else:
+            self.pt_2_dmm_value.set("")
         rc = self.get_uncal_value()
         if rc == RC_SUCCESS:
             if self.type_is_current():
@@ -6212,9 +6215,12 @@ to use this feature"""
                 uncal_value_str = self.master.ivs2.get_adv_voltage_cal_volts()
             try:
                 uncal_value = float(uncal_value_str)
-                self.update_uncal_value(pt_1=True)
+                self.update_uncal_value(pt_1=(point == 1))
                 if uncal_value > 0.0:
-                    self.x1 = uncal_value
+                    if point == 1:
+                        self.x1 = uncal_value
+                    else:
+                        self.x2 = uncal_value
                 else:
                     error_msg = """
 ERROR: Hardware measured value must be greater than zero"""
@@ -6223,33 +6229,6 @@ ERROR: Hardware measured value must be greater than zero"""
                 error_msg = """
 ERROR: Hardware returned invalid measured value ("{}")
 """.format(uncal_value_str)
-                tkmsg.showerror(message=error_msg)
-
-    # -------------------------------------------------------------------------
-    def get_pt_2_uncal_value(self):
-        """Method to get the uncalibrated value for point 2 from the hardware,
-           set the x2 attribute with its value, and update the label
-           after the button.
-        """
-        self.pt_2_dmm_value.set("")
-        rc = self.get_uncal_value()
-        if rc == RC_SUCCESS:
-            if self.type_is_current():
-                uncal_value_str = self.master.ivs2.get_adv_current_cal_amps()
-            else:
-                uncal_value_str = self.master.ivs2.get_adv_voltage_cal_volts()
-            try:
-                uncal_value = float(uncal_value_str)
-                self.update_uncal_value(pt_1=False)
-                if uncal_value > 0.0:
-                    self.x2 = uncal_value
-                else:
-                    error_msg = """
-ERROR: Hardware measured value must be greater than zero"""
-                    tkmsg.showerror(message=error_msg)
-            except ValueError:
-                error_msg = """
-ERROR: Hardware measured value must be valid"""
                 tkmsg.showerror(message=error_msg)
 
     # -------------------------------------------------------------------------
