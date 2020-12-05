@@ -3293,6 +3293,7 @@ class ResultsWizard(tk.Toplevel):
                 except OSError:
                     err_str = ("WARNING: Couldn't send {} to trash"
                                .format(selected))
+                    tkmsg_showerror(self, message=err_msg)
                     self.master.ivs2.logger.print_and_log(err_str)
 
             # Delete them from the treeview
@@ -4156,6 +4157,26 @@ class ResultsWizard(tk.Toplevel):
         OverlayHelpDialog(self.master)
 
     # -------------------------------------------------------------------------
+    def rm_overlay_dir(self):
+        """Method to remove the overlay directory. On windows, this can fail if
+           the user has generated the overlay PDF by clicking on the
+           View PDF button and has not closed the PDF viewer. In that
+           case, the user is given the opportunity to close the PDF
+           viewer so the overlay directory can be removed.
+        """
+        try:
+            shutil.rmtree(self.master.props.overlay_dir)
+        except OSError:
+            err_str = ("Overlay could not be removed. If you have the PDF "
+                       "open in a viewer, close it BEFORE clicking OK.")
+            tkmsg_showerror(self, message=err_str)
+            try:
+                shutil.rmtree(self.master.props.overlay_dir)
+            except OSError:
+                err_str = "Overlay could still not be removed"
+                tkmsg_showerror(self, message=err_str)
+
+    # -------------------------------------------------------------------------
     def overlay_cancel(self, event=None):
         """Method to perform actions when Cancel button is pressed.
            Overlay mode is exited and the widgets are removed. The runs
@@ -4179,7 +4200,7 @@ class ResultsWizard(tk.Toplevel):
         # Remove overlay directory
         if self.master.props.overlay_dir == os.getcwd():
             os.chdir("..")
-        shutil.rmtree(self.master.props.overlay_dir)
+        self.rm_overlay_dir()
 
     # -------------------------------------------------------------------------
     def overlay_finished(self, event=None):
@@ -4232,7 +4253,7 @@ class ResultsWizard(tk.Toplevel):
             if overlay_pdf not in os.listdir(self.master.props.overlay_dir):
                 if self.master.props.overlay_dir == os.getcwd():
                     os.chdir("..")
-                shutil.rmtree(self.master.props.overlay_dir)
+                self.rm_overlay_dir()
                 return True
             # Clean up the directory
             self.master.ivs2.clean_up_files(self.master.props.overlay_dir,
