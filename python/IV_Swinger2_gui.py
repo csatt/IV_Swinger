@@ -1566,9 +1566,13 @@ This could be for one of the following reasons:
     def plot_results(self):
         """Wrapper method around the IV_Swinger2 method of the same name. Adds
            option for user to retry if the file is open in a viewer
-           (Windows issue).
+           (Windows issue). Also catches assertion and displays dialog.
         """
-        rc = self.retry_if_pdf_permission_denied(self.ivs2.plot_results)
+        try:
+            rc = self.retry_if_pdf_permission_denied(self.ivs2.plot_results)
+        except AssertionError as e:
+            tkmsg_showerror(self, message=e)
+            rc = RC_FAILURE
         return rc
 
     # -------------------------------------------------------------------------
