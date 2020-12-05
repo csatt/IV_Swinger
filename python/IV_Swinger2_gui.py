@@ -4169,12 +4169,12 @@ class ResultsWizard(tk.Toplevel):
         except OSError:
             err_str = ("Overlay could not be removed. If you have the PDF "
                        "open in a viewer, close it BEFORE clicking OK.")
-            tkmsg_showerror(self, message=err_str)
+            tkmsg_showerror(self.master, message=err_str)
             try:
                 shutil.rmtree(self.master.props.overlay_dir)
             except OSError:
                 err_str = "Overlay could still not be removed"
-                tkmsg_showerror(self, message=err_str)
+                tkmsg_showerror(self.master, message=err_str)
 
     # -------------------------------------------------------------------------
     def overlay_cancel(self, event=None):
