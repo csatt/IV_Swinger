@@ -8103,7 +8103,7 @@ effect. Please upgrade.
                                     width=8,
                                     textvariable=self.pv_voc_coeff)
         voc_coeff_combo = ttk.Combobox(master=voc_coeff_entry_and_units_box,
-                                       width=5,
+                                       width=6,
                                        textvariable=self.pv_voc_coeff_units)
         voc_coeff_combo["values"] = ("%/{}C".format(DGS),
                                      "mV/{}C".format(DGS))
@@ -8117,7 +8117,7 @@ effect. Please upgrade.
                                     width=8,
                                     textvariable=self.pv_isc_coeff)
         isc_coeff_combo = ttk.Combobox(master=isc_coeff_entry_and_units_box,
-                                       width=5,
+                                       width=6,
                                        textvariable=self.pv_isc_coeff_units)
         isc_coeff_combo["values"] = ("%/{}C".format(DGS),
                                      "mA/{}C".format(DGS))
