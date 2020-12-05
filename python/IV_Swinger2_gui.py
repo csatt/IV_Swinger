@@ -2911,12 +2911,14 @@ class ResultsWizard(tk.Toplevel):
         (csv_data_point_file,
          adc_csv_file,
          gif_file) = self.get_csv_and_gif_names(run_dir, selection)
-        if csv_data_point_file is None and adc_csv_file is None:
-            return
 
         # If GIF file exists, display it now
         if gif_file is not None:
             self.master.display_img(gif_file)
+
+        # Need at least one of the CSV files to proceed
+        if csv_data_point_file is None and adc_csv_file is None:
+            return
 
         # Prepare IVS2 object for regeneration of plot with modified
         # options
