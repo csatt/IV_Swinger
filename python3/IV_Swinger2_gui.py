@@ -291,16 +291,6 @@ Alternately, you may attach this file:
     IV_Swinger2.sys_view_file(tmp_file.name)
 
 
-def get_dialog_width_and_height(dialog):
-    """Global function to parse the width and height of a dialog from its
-       current geometry
-    """
-    m = re.match(r"(\d+)x(\d+)", dialog.geometry())
-    width = int(m.group(1))
-    height = int(m.group(2))
-    return width, height
-
-
 def pdf_permission_denied(e):
     """Global function to search an exception message for the pattern that
        indicates that the problem is that permission to write a PDF was
@@ -939,7 +929,8 @@ This could be for one of the following reasons:
         self.update_idletasks()
 
         # Get current window width and height
-        width, height = get_dialog_width_and_height(dialog)
+        width = dialog.winfo_width()
+        height = dialog.winfo_height()
 
         # Set the minimum and maximum to the current width and height,
         # effectively disabling resizing
@@ -961,7 +952,7 @@ This could be for one of the following reasons:
         self.update_idletasks()
 
         # Get current window width
-        width, _ = get_dialog_width_and_height(dialog)
+        width = dialog.winfo_width()
 
         if min_height is not None:
             # Disable width resizing by setting min and max width to
@@ -2464,7 +2455,7 @@ class ResultsWizard(tk.Toplevel):
            value
         """
         # Get current window width
-        width, _ = get_dialog_width_and_height(self)
+        width = self.winfo_width()
 
         # Set minimum size using current width and requested height
         self.minsize(width, min_height)
