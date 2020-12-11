@@ -5831,10 +5831,12 @@ calibration values before committing them."""
         ssr_radio_button = ttk.Radiobutton(relay_type_radio_button_box,
                                            text="Solid-state (SSR)",
                                            variable=self.relay_type,
+                                           command=self.log_radio_ssr,
                                            value="SSR")
         emr_radio_button = ttk.Radiobutton(relay_type_radio_button_box,
                                            text="Electromechanical (EMR)",
                                            variable=self.relay_type,
+                                           command=self.log_radio_emr,
                                            value="EMR")
         self.relay_type.set(self.master.ivs2.relay_type)
 
@@ -6033,8 +6035,24 @@ calibration values before committing them."""
         frame.pack()
 
     # ------------------------------------------------------------------------
+    def log_radio_ssr(self):
+        """Log selection of SSR relay type"""
+        log_user_action(self.master.ivs2.logger,
+                        "(AdvCurrentCalDialog) selected relay type SSR")
+
+    # ------------------------------------------------------------------------
+    def log_radio_emr(self):
+        """Log selection of EMR relay type"""
+        log_user_action(self.master.ivs2.logger,
+                        "(AdvCurrentCalDialog) selected relay type EMR")
+
+    # ------------------------------------------------------------------------
     def show_adv_cal_help(self):
         """Display advanced current/voltage calibration help"""
+        msg = ("({}) clicked Help button"
+               .format("AdvCurrentCalDialog" if self.type_is_current()
+                       else "AdvVoltageCalDialog"))
+        log_user_action(self.master.ivs2.logger, msg)
         if self.type_is_current():
             if not self.relay_type_is_valid():
                 return RC_FAILURE
@@ -6082,8 +6100,14 @@ to use this feature"""
         """
         if point == 1:
             self.pt_1_dmm_value.set("")
+            point_str = "1"
         else:
             self.pt_2_dmm_value.set("")
+            point_str = "2"
+        msg = ("({}) clicked Get Point {} button"
+               .format("AdvCurrentCalDialog" if self.type_is_current()
+                       else "AdvVoltageCalDialog", point_str))
+        log_user_action(self.master.ivs2.logger, msg)
         rc = self.get_uncal_value()
         if rc == RC_SUCCESS:
             if self.type_is_current():
@@ -6383,6 +6407,10 @@ doesn't look right. It should be between
         """Method to get the uncalibrated test value from the hardware and
            update the label.
         """
+        msg = ("({}) clicked Test button"
+               .format("AdvCurrentCalDialog" if self.type_is_current()
+                       else "AdvVoltageCalDialog"))
+        log_user_action(self.master.ivs2.logger, msg)
         self.test_dmm_value.set("")
         rc = self.get_uncal_value()
         if rc == RC_SUCCESS:
