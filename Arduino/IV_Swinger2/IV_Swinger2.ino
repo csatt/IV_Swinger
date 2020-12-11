@@ -1250,6 +1250,7 @@ void do_ssr_curr_cal() {
   bool result_valid = true;
   int adc_ch1_val;
   long adc_ch1_val_sum, adc_ch1_val_p1_avg, adc_ch1_val_avg_cnt;
+  long exclude_cnt, delta_from_p1_avg;
   float adc_ch1_val_p2_avg;
   long start_usecs, elapsed_usecs;
 
@@ -1315,19 +1316,26 @@ void do_ssr_curr_cal() {
   // Pass 2
   //
   // Loop the rest of the way. Accumulate sum of ADC values that are
-  // within 0.5% of the Loop 1 average, and the count of such
-  // values. Again, bail out if ADC saturated is seen.
+  // within 0.5% (or 1 ADC count, whichever is greater) of the Loop 1
+  // average, and the count of such values. Again, bail out if ADC
+  // saturated is seen.
   //
   adc_ch1_val_sum = 0;
   adc_ch1_val_avg_cnt = 0;
+  exclude_cnt = 0;
   while ((elapsed_usecs < SSR_CAL_USECS) && result_valid) {
     adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
-    // Include values within +-0.5% of adc_ch1_val_p1_avg
-    if ((abs(adc_ch1_val - adc_ch1_val_p1_avg) * 200) < adc_ch1_val_p1_avg) {
+    // Include values within +-0.5% of adc_ch1_val_p1_avg and values
+    // that are within 1 of adc_ch1_val_p1_avg
+    delta_from_p1_avg = abs(adc_ch1_val - adc_ch1_val_p1_avg);
+    if (((delta_from_p1_avg * 200) < adc_ch1_val_p1_avg) ||
+        (delta_from_p1_avg <= 1)) {
       adc_ch1_val_sum += adc_ch1_val;
       adc_ch1_val_avg_cnt++;
       if (adc_ch1_val == ADC_SAT)
         result_valid = false;
+    } else {
+      exclude_cnt++;
     }
     elapsed_usecs = micros() - start_usecs;
   }
@@ -1342,9 +1350,8 @@ void do_ssr_curr_cal() {
     // Compute the Pass 2 average
     adc_ch1_val_p2_avg = adc_ch1_val_avg_cnt ?
       float(adc_ch1_val_sum) / float(adc_ch1_val_avg_cnt) : 0.0;
-    if ((abs(adc_ch1_val_p2_avg -
-             float(adc_ch1_val_p1_avg)) * 100) > adc_ch1_val_p2_avg) {
-      // Difference between Pass 1 and Pass 2 averages is > 1%
+    if (exclude_cnt > adc_ch1_val_avg_cnt) {
+      // Majority of Pass 2 values excluded => unstable
       Serial.print(F("SSR current calibration ADC not stable. Pass 1: "));
       result_valid = false;
     } else {
