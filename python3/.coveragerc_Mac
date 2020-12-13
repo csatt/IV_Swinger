@@ -73,7 +73,7 @@ exclude_lines =
     show_baud_mismatch_dialog
     show_process_adc_values_err_dialog
     show_timeout_dialog
-    tkmsg_showerror
+    tkmsg.showerror
     warnings.warn
     ############################
     # Debug
