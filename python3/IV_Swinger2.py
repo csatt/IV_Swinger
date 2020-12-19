@@ -2493,7 +2493,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     @hdd_output_dir.setter
     def hdd_output_dir(self, value):
-        if not os.path.isabs(value):
+        if value is not None and not os.path.isabs(value):
             raise ValueError("hdd_output_dir must be an absolute path")
         self._hdd_output_dir = value
 
@@ -4010,6 +4010,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
         # Receive ADC data from Arduino and store in adc_pairs property
         # (list of tuples)
+        self.hdd_output_dir = None
         rc = self.receive_data_from_arduino()
         if rc != RC_SUCCESS:
             return rc
