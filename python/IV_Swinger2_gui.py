@@ -6601,8 +6601,8 @@ entering a DMM measured value"""
             self.test_dmm_units = float(self.test_dmm_value.get())
             self.update_test_err_val()
             uncal_units = float(uncal_units_str)
-            log_str = ("{} cal test (uncal, dmm): {}, {:.6f}"
-                       .format(self.cal_type, uncal_units,
+            log_str = ("{} cal test (uncal, cal, dmm): {}, {}, {}"
+                       .format(self.cal_type, uncal_units, self.test_cal_units,
                                self.test_dmm_units))
             self.master.ivs2.logger.log(log_str)
         except ValueError:
