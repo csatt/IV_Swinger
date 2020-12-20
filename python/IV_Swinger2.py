@@ -5597,12 +5597,13 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     # -------------------------------------------------------------------------
     def clean_up_after_failure(self, run_dir):
-        """Method to remove the run directory after a failed run if it contains
-           fewer than two files (which would be the ADC CSV file and
-           the data points CSV file)
+        """Method to remove the run directory after a failed run if it does not
+           contain both the ADC CSV file and the data points CSV file.
         """
         files = glob.glob("{}/*".format(run_dir))
-        if len(files) < 2:
+        do_cleanup = (self.hdd_adc_pairs_csv_filename not in files or
+                      self.hdd_csv_data_point_filename not in files)
+        if do_cleanup:
             for f in files:
                 self.clean_up_file(f)
             if run_dir == os.getcwd():
