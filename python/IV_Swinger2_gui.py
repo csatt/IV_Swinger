@@ -2471,6 +2471,7 @@ class ResultsWizard(tk.Toplevel):
         self.master = master
         self.title("Results Wizard")
         self.results_dir = self.master.ivs2.app_data_dir
+        self.run_dir = None
         self.chron_dir = None
         self.copy_dest = None
         self.dates = None
@@ -2860,6 +2861,10 @@ class ResultsWizard(tk.Toplevel):
         # If multiple items are selected, last one (oldest) is
         # displayed
         selection = selections[-1]
+        if IV_Swinger2.is_date_time_str(selection):
+            self.run_dir = self.get_run_dir(selection)
+        else:
+            self.run_dir = None
         if self.master.props.overlay_mode:
             self.overlay_runs(event="reselect")
         elif selection.startswith("overlay_"):
@@ -2894,14 +2899,13 @@ class ResultsWizard(tk.Toplevel):
            actions
         """
         # Get full path to run directory
-        run_dir = self.get_run_dir(selection)
-        if run_dir is None:
+        if self.run_dir is None:
             return
 
         # Get names of CSV and GIF files
         (csv_data_point_file,
          adc_csv_file,
-         gif_file) = self.get_csv_and_gif_names(run_dir, selection)
+         gif_file) = self.get_csv_and_gif_names(self.run_dir, selection)
 
         # If GIF file exists, display it now
         if gif_file is not None:
@@ -2913,10 +2917,10 @@ class ResultsWizard(tk.Toplevel):
 
         # Prepare IVS2 object for regeneration of plot with modified
         # options
-        self.prep_ivs2_for_redisplay(run_dir, adc_csv_file)
+        self.prep_ivs2_for_redisplay(self.run_dir, adc_csv_file)
 
         # If config file exists, read it in and update the config
-        self.update_to_selected_config(run_dir)
+        self.update_to_selected_config(self.run_dir)
 
         # If GIF file doesn't exist, generate it from data point CSV
         # file and display it
@@ -4634,30 +4638,28 @@ Copyright (C) 2017-2020  Chris Satterlee
     # -------------------------------------------------------------------------
     def get_initial_log_file_name(self, log_dir, current_log):
         """Method to choose the most likely log file as the default selection
-           for the view_log_file method.  If the config file name has a
-           date_time_str in its name, we're in the Results Wizard, and
-           the relevant log file is the one that contains the info for
-           the selected run.  That is the one that has a date_time_str
-           that is older than or equal to the config file's, but the
-           newest such log file. Otherwise, the current log file is the
-           default.
+           for the view_log_file method. If we're in the Results Wizard
+           and a run is selected, the relevant log file is the one that
+           contains the info for the selected run. That is the one that
+           has a date_time_str that is older than or equal to the run
+           directory's, but the newest such log file. Otherwise, the
+           current session's log file is the default.
         """
-        cfg_filename = self.master.config.cfg_filename
-        cfg_dts = IV_Swinger2.extract_date_time_str(cfg_filename)
-        cfg_dir = os.path.dirname(cfg_filename)
-        cfg_dir_logs = os.path.join(os.path.dirname(cfg_dir), "logs")
-        if os.path.isdir(cfg_dir_logs):
-            search_dir = cfg_dir_logs
-        else:
-            search_dir = log_dir
-        if IV_Swinger2.is_date_time_str(cfg_dts):
+        if (self.master.results_wiz is not None and
+                self.master.results_wiz.run_dir is not None):
+            run_dir = self.master.results_wiz.run_dir
+            run_dir_dts = IV_Swinger2.extract_date_time_str(run_dir)
+            run_dir_logs = os.path.join(os.path.dirname(run_dir), "logs")
+            search_dir = (run_dir_logs if os.path.isdir(run_dir_logs)
+                          else log_dir)
             # Search list of log files, sorted newest to oldest
             for log_file in sorted(os.listdir(search_dir), reverse=True):
-                if log_file.startswith("log_") and log_file.endswith(".txt"):
+                if (log_file.startswith("log_") and
+                        log_file.endswith(".txt")):
                     log_dts = IV_Swinger2.extract_date_time_str(log_file)
-                    if IV_Swinger2.is_date_time_str(log_dts):
-                        if log_dts <= cfg_dts:  # older than or equal to
-                            return (search_dir, log_file)
+                    if (IV_Swinger2.is_date_time_str(log_dts) and
+                            log_dts <= run_dir_dts):  # older than or equal to
+                        return (search_dir, log_file)
         # Default is the current log file
         return (log_dir, current_log)
 
