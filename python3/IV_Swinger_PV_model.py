@@ -332,7 +332,7 @@ def test_eq5(rsh, i0_a_rs_isc):
     i0, a, rs, isc = i0_a_rs_isc
     eq5_result = ((i0 * rsh * np.exp((isc*rs)/a) + a) /
                   (rsh * (i0 * rs * np.exp((isc*rs)/a) + a) +
-                   (rsh*a)) + 1/rsh)
+                   (rs*a)) + 1/rsh)
     return eq5_result
 
 
