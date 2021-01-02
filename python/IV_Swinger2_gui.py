@@ -9686,8 +9686,7 @@ class FontListDialog(Dialog):
         body_text = """
 Choose (copy/paste) from the following list of plotting fonts. Beware,
 however, that it is not guaranteed that all of these fonts will behave
-correctly. Some (e.g. Wingdings) may even require the application to be
-closed and reopened if they are used. This list is also in the log file.\n
+correctly. This list is also in the log file.\n
 """
         body_text += self.master.ivs2.get_and_log_pyplot_font_names()
         self.text = ScrolledText(master, height=1, borderwidth=10)
@@ -9742,8 +9741,7 @@ Font name:
   to a default font. The "List" button generates a list of fonts in a dialog
   from which you may copy and paste. The list is also written to the log file.
   However, it is not guaranteed that all of those fonts will behave
-  correctly. Some (e.g. Wingdings) may even require the application to be
-  closed and reopened if they are used.
+  correctly.
 
 Font scale, Line scale, and Point scale:
   The default font size, line thickness, and size of the "dots" indicating the

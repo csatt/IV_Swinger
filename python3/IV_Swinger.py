@@ -190,6 +190,7 @@ import sys
 import threading
 import time
 import traceback
+import warnings
 import numpy
 
 # Conditionally import RPi-specific modules. This is so this module can
@@ -205,7 +206,6 @@ if not platform.machine().startswith("armv6"):
     # Suppress matplotlib import on RPi 1 (too slow))
     import matplotlib.pyplot as plt
     import matplotlib.font_manager
-    matplotlib.rcParams['pdf.fonttype'] = 42  # TrueType
     from matplotlib import __version__ as matplotlib_version
 
 
@@ -392,6 +392,7 @@ PLOT_COLORS = ["#0000ff",
 DEFAULT_MARKER_POINTSIZE = 6.0
 DEFAULT_LINEWIDTH = 2.5
 POWER_LINEWIDTH_MULT = 1.25
+DEFAULT_FONT = "Arial Unicode MS"
 
 # ADC
 ADS1115 = 0x01  # 16-bit ADC
@@ -1383,7 +1384,7 @@ class IV_Swinger():
         self._label_all_mpps = False
         self._mpp_watts_only = False
         self._fancy_labels = False
-        self._font_name = "Arial Unicode MS"
+        self._font_name = DEFAULT_FONT
         self._title_fontsize = 14
         self._axislabel_fontsize = 11
         self._ticklabel_fontsize = 9
@@ -3237,8 +3238,9 @@ class IV_Swinger():
                                    sd_data_point_filenames, sd_img_filename,
                                    isc_amps, voc_volts, mpp_amps, mpp_volts)
         else:
-            self.plot_with_pyplot(sd_data_point_filenames, sd_img_filename,
-                                  isc_amps, voc_volts, mpp_amps, mpp_volts)
+            self.plot_with_pyplot_with_retry(sd_data_point_filenames,
+                                             sd_img_filename, isc_amps,
+                                             voc_volts, mpp_amps, mpp_volts)
 
     # -------------------------------------------------------------------------
     def plot_with_gnuplot(self, sd_gp_command_filename,
@@ -3348,6 +3350,31 @@ class IV_Swinger():
 
         # Clear the figure in preparation for the next plot
         plt.clf()
+
+    # -------------------------------------------------------------------------
+    def plot_with_pyplot_with_retry(self, sd_data_point_filenames,
+                                    sd_img_filename, isc_amps, voc_volts,
+                                    mpp_amps, mpp_volts):
+        """Method to run the plot_with_pyplot method, retrying with the default
+           font if it fails due to an unsupported font.
+        """
+        # pylint: disable=too-many-arguments
+        try:
+            with warnings.catch_warnings():
+                filter_str = r"Glyph \d+ missing from current font"
+                warnings.filterwarnings("ignore", filter_str,
+                                        RuntimeWarning)
+                self.plot_with_pyplot(sd_data_point_filenames, sd_img_filename,
+                                      isc_amps, voc_volts, mpp_amps, mpp_volts)
+        except RuntimeError as e:
+            if str(e) == "TrueType font is missing table":
+                plt.clf()
+                log_str = "Couldn't create {} with font {}; using default font"
+                self.logger.print_and_log(log_str.format(sd_img_filename,
+                                                         self.font_name))
+                self.font_name = DEFAULT_FONT
+                self.plot_with_pyplot(sd_data_point_filenames, sd_img_filename,
+                                      isc_amps, voc_volts, mpp_amps, mpp_volts)
 
     # -------------------------------------------------------------------------
     def plot_labeled_points(self, isc_amps, mpp_amps, mpp_volts, voc_volts):
