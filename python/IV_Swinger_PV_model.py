@@ -330,9 +330,8 @@ def test_eq5(rsh, i0_a_rs_isc):
        should be the negative reciprocal of Rsh.
     """
     i0, a, rs, isc = i0_a_rs_isc
-    eq5_result = ((i0 * rsh * np.exp((isc*rs)/a) + a) /
-                  (rsh * (i0 * rs * np.exp((isc*rs)/a) + a) +
-                   (rs*a)) + 1/rsh)
+    eq5_result = (1/rsh - (i0 * rsh * np.exp(mpp_exp_term) + a) /
+                  (rsh * (i0 * rs * np.exp(mpp_exp_term) + a) + (rs*a)))
     return eq5_result
 
 
