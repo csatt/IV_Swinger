@@ -83,7 +83,7 @@
 #            where:
 #               k = Boltzmann constant (1.381E-23 J/K)
 #               T = cell temperature (K)
-#               q = charge of an electron (-1.602E-19 C)
+#               q = charge of an electron (1.602E-19 C)
 #          = 25.7 mV at 25 degrees C (298.15 K)
 #
 # At a given cell temperature, the value (n*Ns*Vth) is constant, which
@@ -127,13 +127,15 @@
 #  Eq 4: Power is at its peak (i.e. dP/DV=0) at the MPP
 #  Eq 5: The reciprocal of the slope at the Isc point is -Rsh
 #
-# Numerical methods are also required for solving these simultaneous
-# equations.
-#
-# After extensive experimentation, it was found that the SciPy root
-# solver typically could not find a reasonable solution when all five
-# equations were used. In most cases, using the first four, with a
-# hardcoded value for Rsh (usually "infinite") achieves good results.
+# The SciPy root solver is also used for solving these simultaneous
+# equations. However, there are cases where this fails to converge. In
+# some such cases using using only the first four equations with a fixed
+# value for Rsh converges and produces a good result. And in some cases,
+# equation #4 must be ignored altogether for the solver to converge.  In
+# that case, the result is imperfect because there is a point on the
+# modeled curve that has a higher power than the specified MPP. But the
+# curve does pass through the specified MPP, and the modeled curve is
+# usable for most purposes.
 #
 # To generate the IV curve at STC, the parameters are derived using the
 # STC values from the datasheet. That is nice, but not very useful other
@@ -155,7 +157,7 @@
 #
 # Note that the MPP temperature coefficient specifies a power delta, and
 # does not split out its current and voltage components. We assume that
-# the current component is equal to the Isc temperature coefficient and
+# the current component is equal to the Isc temperature coefficient, and
 # the voltage component is derived based on that and the power
 # coefficient.
 #
@@ -167,17 +169,18 @@
 #            - Calculate temperature-adjusted Voc (@ 1000 W/m^2)
 #            - Calculate temperature-adjusted Vmp (@ 1000 W/m^2)
 #            - Calculate temperature-adjusted Imp (@ 1000 W/m^2)
-#            - Use root solver to determine IL, I0, A and Rs
+#            - Use root solver to determine IL, I0, A, Rs and Rsh
 #
 #    Step 2 (adjust for irradiance):
 #            - scale IL from step 1 by irradiance/STC_irradiance
-#            - Use I0, A and Rs from step 1
+#            - Use I0, A, Rs and Rsh from step 1
 #            - Generate curve using root solver
 #
 # This module also supports a reverse computation, where the measured
 # Voc and Isc are provided and the temperature and/or irradiance are
 # derived.
 #
+import datetime as dt
 import csv
 import os
 import warnings
@@ -191,7 +194,7 @@ from scipy import __version__ as scipy_version
 # Default property values (can be overridden)
 DEFAULT_I0_GUESSES = [1e-8, 1e-9, 3e-8]
 DEFAULT_RS_GUESSES = [0.1, 0.2, 0.7, 0.9, 0.0, 0.6, 0.3, 0.4, 0.5]
-DEFAULT_RSH_VALS = [1e15]
+DEFAULT_RSH_GUESSES = [1e15, 100]
 DEFAULT_ERR_THRESH = 0.001
 
 # Other constants
@@ -243,7 +246,7 @@ def test_voc(voc, il_i0_a_rsh):
        In this case, the single-diode equation is simplified by the fact
        that the current is zero at the Voc point. The Rs parameter is
        not relevant since it is multiplied by current in the full
-       single-diode equation. This function is used as one of the four
+       single-diode equation. This function is used as one of the five
        simultaneous equations (#1) used by the test_parms function to
        determine the parameter values. It is also used for identifying
        the Voc once the parameter values are known.  It is intended to
@@ -253,7 +256,7 @@ def test_voc(voc, il_i0_a_rsh):
        sufficiently close to zero.
     """
     il, i0, a, rsh = il_i0_a_rsh
-    voc_exp_term = voc/a if voc/a < 100 else 100
+    voc_exp_term = voc/a if voc/a < 100 else 100  # prevent overflow
     return il - i0 * np.expm1(voc_exp_term) - voc/rsh
 
 
@@ -265,7 +268,7 @@ def test_isc(isc, il_i0_a_rs_rsh):
        are perfect (given the Isc value), the value returned will be
        zero.  In this case, the single-diode equation is simplified by
        the fact that the voltage is zero at the Isc point. This function
-       is used as one of the four simultaneous equations (#1) used by
+       is used as one of the five simultaneous equations (#2) used by
        the test_parms function to determine the parameter values. It may
        also be used for identifying the Isc once the parameter values are
        known.  It is intended to be passed to the SciPy root solver. The
@@ -330,66 +333,104 @@ def test_eq5(rsh, i0_a_rs_isc):
        should be the negative reciprocal of Rsh.
     """
     i0, a, rs, isc = i0_a_rs_isc
+    mpp_exp_term = (isc*rs)/a if (isc*rs)/a < 100 else 100
     eq5_result = (1/rsh - (i0 * rsh * np.exp(mpp_exp_term) + a) /
                   (rsh * (i0 * rs * np.exp(mpp_exp_term) + a) + (rs*a)))
     return eq5_result
 
 
-def test_parms(il_i0_a_rs, rsh_voc_isc_vmp_imp_ignore_eq4):
-    """Function to test the four parameter values (IL, I0, A, and Rs), given
-       the Rsh value and using the following known values from the
-       curve:
+def test_parms(il_i0_a_rs_rsh, voc_isc_vmp_imp_ignore_eq4):
+    """Function to test all five parameter values (IL, I0, A, Rs, and Rsh),
+       given the following known values from the curve:
 
           Voc = open-circuit voltage
           Isc = short-circuit current
           Vmp = voltage at maximum power point
           Imp = current at maximum power point
 
-       In this case, four equations are required because there are four
-       unknowns to solve for:
+       Five equations are required because there are five unknowns to
+       solve for:
 
           Eq 1: Single-diode equation with I=0 and V=Voc
           Eq 2: Single-diode equation with I=Isc and V=0
           Eq 3: Single-diode equation with I=Imp and V=Vmp
-          Eq 4: dP/DV=0 with I=Imp and V=Vmp
+          Eq 4: dP/dV=0 with I=Imp and V=Vmp
+          Eq 5: dI/dV = -1/Rsh with I=Isc and V=0
 
-       The first three are very straightforward. The fourth requires
-       using implicit differentiation (see
+       The first three are very straightforward. The fourth and fifth
+       require using implicit differentiation (see
        https://en.wikipedia.org/wiki/Implicit_function) to find the
        derivative of the single-diode equation, with I being the
-       differentiation variable and V being the dependent variable. The
-       De Soto and Ibrahim papers have a form of this equation. I used
-       the tool at derivative-calculator.net to derive a slightly
-       simplified, but equivalent equation.
+       differentiation variable and V being the dependent variable. See
+       the design document for more details on this math.
 
-       This function is used for determining the four parameter values
+       This function is used for determining the five parameter values
        given known voltage and current values at the Voc, Isc, and
-       maximum power points. It also requires a specified value for the
-       shunt resistance, Rsh. The function is intended to be passed to
-       the SciPy root solver. The root solver repeatedly calls it using
-       progressively better guesses for the four parameters until it has
-       identified values that result in all four return values being
+       maximum power points. The function is intended to be passed to
+       the SciPy root solver, which repeatedly calls it using
+       progressively better guesses for the five parameters until it has
+       identified values that result in all five return values being
        sufficiently close to zero.
 
-       Note that the Ibrahim paper has a fifth equation that, in theory,
-       makes it possible to solve for Rsh in addition to the other
-       parameters. However, in practice, this often does not converge or
-       produces incorrect results (e.g. negative numbers). Experience
-       has shown that using an effectively infinite value for Rsh
-       results in a solution at STC that is a nearly perfect fit for the
-       datasheet values for the majority if PV modules. Instead of
-       hardcoding the Rsh value, the caller passes its value in the
-       first entry in the rsh_voc_isc_vmp_imp_ignore_eq4 list.
-
        In some cases, a good solution cannot be found that satisfies all
-       four equations. This may be the rare case where an infinite Rsh
-       does not fit well with the datasheet values, or it may be flawed
-       datasheet values. The last entry in the
-       rsh_voc_isc_vmp_imp_ignore_eq4 list is a flag that, when True,
-       causes the 4th equation to be ignored. This is done by forcing
-       its return value to zero. In this case the resulting curve will
-       "hit" all three points (Isc, Voc, MPP). But the "MPP" won't
-       necessarily be the point with the maximum power on that curve.
+       five equations. This may be due to flawed datasheet values. The
+       last entry in the voc_isc_vmp_imp_ignore_eq4 list is a flag that,
+       when True, causes the 4th equation to be ignored. This is done by
+       forcing its return value to zero. In this case the resulting
+       curve will "hit" all three points (Isc, Voc, MPP). But the "MPP"
+       won't necessarily be the point with the maximum power on that
+       curve.
+
+       The test_first_four_parms function is called to determine the
+       results of the first four equations, and then the test_eq5
+       function is called to determine the result of the fifth.
+    """
+    # The caller passes the test values for IL, I0, A, Rs, and Rsh in a
+    # numpy array (a simple list works too though).
+    il, i0, a, rs, rsh = il_i0_a_rs_rsh
+
+    # Steer away from negative numbers
+    if i0 < 0 or a < 0 or rs < 0 or rsh < 0:
+        return [999, 999, 999, 999, 999]
+
+    # Equation #1 - #4: call test_first_four_parms function
+    il_i0_a_rs = [il, i0, a, rs]
+    rsh_voc_isc_vmp_imp_ignore_eq4 = [rsh] + voc_isc_vmp_imp_ignore_eq4
+    (eq1_result,
+     eq2_result,
+     eq3_result,
+     eq4_result) = test_first_four_parms(il_i0_a_rs,
+                                         rsh_voc_isc_vmp_imp_ignore_eq4)
+
+    # Equation #5 is the Isc slope equation. It equals zero if the slope
+    # of the curve at the Isc point is equal to -1/Rsh, i.e.:
+    #
+    #   dI/dV = -1/Rsh  @ I=Isc, V=0
+    #
+    # dI/dV is the derivative of the single-diode equation, with I being
+    # the differentiation variable and V being the dependent variable.
+    # The test_eq5 function implements equation #5.
+    #
+    isc = voc_isc_vmp_imp_ignore_eq4[1]
+    rsh = 0.0001 if rsh == 0 else rsh  # prevent divide-by-zero
+    eq5_result = test_eq5(rsh, [i0, a, rs, isc])
+    return [eq1_result, eq2_result, eq3_result, eq4_result, eq5_result]
+
+
+def test_first_four_parms(il_i0_a_rs, rsh_voc_isc_vmp_imp_ignore_eq4):
+    """Function to test the four parameter values (IL, I0, A, and Rs), given
+       the Rsh value and the Voc, Isc, Vmp and Imp values from the
+       curve.
+
+       Only the first four equations are considered for this function.
+       In some cases, the root solver is able to find a solution given a
+       fixed value for Rsh (and relieved of having to satisfy equation
+       #5) when it otherwise fails if it is asked to solve all five
+       equations for all five parameters. Having a separate function for
+       the first four equations/parameters makes it possible to invoke
+       the root solver in this way as a fallback.
+
+       See the test_parms docstring for more details.
     """
     # pylint: disable=too-many-locals
 
@@ -440,11 +481,11 @@ def test_parms(il_i0_a_rs, rsh_voc_isc_vmp_imp_ignore_eq4):
     #
     eq3_result = test_eq3(vmp_imp, il_i0_a_rs_rsh)
 
-    # Equation #4 is the MPP power equation (dP/dV = 0).  It equals zero
+    # Equation #4 is the MPP power equation (dP/dV = 0). It equals zero
     # if the point at V=Vmp and I=Imp is the point with the highest
-    # power. It is the derivative of the single-diode equation, with I
-    # being the differentiation variable and V being the dependent
-    # variable.
+    # power. At the MPP, dP/dV = Imp + Vmp * dI/dV. dI/dV is the
+    # derivative of the single-diode equation, with I being the
+    # differentiation variable and V being the dependent variable.
     #
     # The test_eq4 function implements equation #4.
     #
@@ -453,32 +494,8 @@ def test_parms(il_i0_a_rs, rsh_voc_isc_vmp_imp_ignore_eq4):
     return [eq1_result, eq2_result, eq3_result, eq4_result]
 
 
-def test_all_five_parms(il_i0_a_rs_rsh, voc_isc_vmp_imp_ignore_eq4):
-    """Function to add Rsh to the input variables and to add Equation
-       #5. This function can be used with the SciPy root solver to solve
-       for Rsh as well as the four other parameters. However, it slows
-       down the solver and sometimes causes it to fail to find a
-       solution.
-    """
-    il, i0, a, rs, rsh = il_i0_a_rs_rsh
-    il_i0_a_rs = [il, i0, a, rs]
-    rsh_voc_isc_vmp_imp_ignore_eq4 = [rsh] + voc_isc_vmp_imp_ignore_eq4
-    isc = voc_isc_vmp_imp_ignore_eq4[1]
-
-    # Steer away from negative numbers
-    if i0 < 0 or a < 0 or rs < 0 or rsh < 0:
-        return [999, 999, 999, 999, 999]
-
-    (eq1_result,
-     eq2_result,
-     eq3_result,
-     eq4_result) = test_parms(il_i0_a_rs, rsh_voc_isc_vmp_imp_ignore_eq4)
-    eq5_result = test_eq5(rsh, [i0, a, rs, isc])
-    return [eq1_result, eq2_result, eq3_result, eq4_result, eq5_result]
-
-
 def find_parms(voc_isc_vmp_imp, il_guess, i0_guesses, a_guess, rs_guesses,
-               rsh_vals, err_thresh, use_eq5):
+               rsh_guesses, err_thresh):
     """Function to use the SciPy root solver to find the values of the IL,
        I0, A, Rs and Rsh parameters.
 
@@ -494,71 +511,96 @@ def find_parms(voc_isc_vmp_imp, il_guess, i0_guesses, a_guess, rs_guesses,
          - A list of guesses for I0
          - A single guess for A
          - A list of guesses for Rs
-         - A list of Rsh values to try
+         - A list of guesses for Rsh
 
        It then loops, calling the root solver with the different
-       combinations of guesses and Rsh values. Since this can be
-       time-consuming, it declares success and terminates if a solution
-       is found that is "good enough". It is "good enough" if none of
-       the equations has an absolute value greater than err_thresh.
+       combinations of guesses. Since this can be time-consuming, it
+       declares success and terminates if a solution is found that is
+       "good enough". It is "good enough" if none of the equations has
+       an absolute value greater than err_thresh. Performance is
+       optimized if the guesses are ordered from most to least likely to
+       succeed.
 
-       If the use_eq5 parameter is True, then all five equations are
-       passed to the root solver. Otherwise, only the first four
-       equations are used (which is faster and more often successful.)
-
-       If a solution is not found that satisfies the four (or five)
-       equations (see test_parms and test_all_five_parms), the whole
-       thing is repeated with Equation #4 ignored.
+       The outermost loop first tries all the inner loops with
+       ignore_eq4 set to False. The second-to-outermost loop first tries
+       all the inner loops with use_eq5 set to True. Ideally, a solution
+       is found before either of these loops repeats, meaning all five
+       equations are satisfied within a margin of err_thresh. If not,
+       then the the second-to-outermost loop sets use_eq5 to False,
+       which causes the innermost loop to run the root solver only for
+       the first four equations (and with the exact values for Rsh from
+       the guesses list. If that too fails, then the outermost loop sets
+       ignore_eq4 to True, which causes the root solver to be "fooled"
+       into thinking that equation #4 is always satified. This results
+       in an imperfect modeling, but usually better than nothing.
     """
     # pylint: disable=too-many-arguments
     # pylint: disable=too-many-locals
+    # pylint: disable=too-many-nested-blocks
     voc, isc, vmp, imp = voc_isc_vmp_imp
     best_max_abs_err = 999999999
     for ignore_eq4 in [False, True]:
-        for rsh in rsh_vals:
-            for i0_guess in i0_guesses:
-                for rs_guess in rs_guesses:
-                    guesses = [il_guess, i0_guess, a_guess, rs_guess]
-                    if use_eq5:
-                        guesses.append(rsh)
-                    with warnings.catch_warnings():
-                        # Suppress printing annoying messages for cases
-                        # that aren't working out
-                        filter_str = "The iteration is not making "
-                        filter_str += "good progress"
-                        warnings.filterwarnings("ignore", filter_str,
-                                                RuntimeWarning)
-                        filter_str = "The number of calls to function has "
-                        filter_str += "reached maxfev"
-                        warnings.filterwarnings("ignore", filter_str,
-                                                RuntimeWarning)
-                        if use_eq5:
-                            # Run SciPy root solver, using test_all_five_parms
-                            # function with guesses for all five parameters
-                            sol = root(test_all_five_parms, guesses,
-                                       args=[voc, isc, vmp, imp, ignore_eq4])
-                        else:
-                            # Run SciPy root solver, using test_parms
-                            # function and current Rsh and guesses for other
-                            # parameters
-                            sol = root(test_parms, guesses,
-                                       args=[rsh, voc, isc, vmp, imp,
-                                             ignore_eq4])
-                    solutions = sol.x
-                    results = sol.fun
-                    worst_abs_err = 0
-                    for res in results:
-                        worst_abs_err = (abs(res) if abs(res) > worst_abs_err
-                                         else worst_abs_err)
-                    if worst_abs_err < best_max_abs_err:
-                        best_parms = (solutions if use_eq5
-                                      else np.append(solutions, rsh))
-                        best_max_abs_err = worst_abs_err
-                        best_results = results
-                    if worst_abs_err < err_thresh:
-                        return [best_parms, best_results]
+        for use_eq5 in [True, False]:
+            for rsh_guess in rsh_guesses:
+                for i0_guess in i0_guesses:
+                    for rs_guess in rs_guesses:
+                        with warnings.catch_warnings():
+                            # Suppress printing annoying messages for cases
+                            # that aren't working out
+                            filter_str = "The iteration is not making "
+                            filter_str += "good progress"
+                            warnings.filterwarnings("ignore", filter_str,
+                                                    RuntimeWarning)
+                            filter_str = "The number of calls to function has "
+                            filter_str += "reached maxfev"
+                            warnings.filterwarnings("ignore", filter_str,
+                                                    RuntimeWarning)
+                            if use_eq5:
+                                # Run SciPy root solver, using
+                                # test_parms function with guesses for
+                                # all five parameters and specified
+                                # values for Voc, isc, vmp and imp
+                                guesses = [il_guess, i0_guess, a_guess,
+                                           rs_guess, rsh_guess]
+                                sol = root(test_parms, guesses,
+                                           args=[voc, isc, vmp, imp,
+                                                 ignore_eq4])
+                            else:
+                                # Run SciPy root solver, using
+                                # test_first_four_parms function with
+                                # guesses for first four parameters and
+                                # specified values for rsh, Voc, isc,
+                                # vmp and imp
+                                guesses = [il_guess, i0_guess, a_guess,
+                                           rs_guess]
+                                sol = root(test_first_four_parms, guesses,
+                                           args=[rsh_guess, voc, isc, vmp, imp,
+                                                 ignore_eq4])
+                        solutions = sol.x
+                        results = sol.fun
 
-    # Should never get here, but if we do, return the best results seen
+                        # Find worst error in results
+                        worst_abs_err = 0
+                        for res in results:
+                            worst_abs_err = (abs(res)
+                                             if abs(res) > worst_abs_err
+                                             else worst_abs_err)
+
+                        # If that's the best so far, update best_parms
+                        # and best_results
+                        if worst_abs_err < best_max_abs_err:
+                            best_parms = (solutions if use_eq5
+                                          else np.append(solutions, rsh_guess))
+                            best_max_abs_err = worst_abs_err
+                            best_results = results
+
+                        # If it's less than err_thresh, we are
+                        # done. Return the parameters and results
+                        if worst_abs_err < err_thresh:
+                            return [best_parms, best_results]
+
+    # If no results met the err_thresh criterion, return the best
+    # results seen
     return [best_parms, best_results]
 
 
@@ -723,6 +765,9 @@ def create_pv_spec_file(pv_spec_csv_file):
     pv_specs.append(["Risen Energy RSM72-6-385BMDG",
                      45.40, 8.24, 37.10, 7.75,
                      72, -0.29, "%", 0.05, "%", -0.39, "%", 45.0])
+    pv_specs.append(["Risen Energy Poly 156mm cell 4.29W",
+                     0.632, 8.668, 0.526, 8.156,
+                     1, -0.32, "%", 0.06, "%", -0.44, "%", ""])
     pv_specs.append(["GCL-SI GCL-M3/72H-405", 49.23, 10.39, 40.96, 9.89,
                      72, -0.3, "%", 0.06, "%", -0.39, "%", 44.0])
     pv_specs.append(["Talesun Hipro M350", 47.4, 9.5, 39.3, 8.92,
@@ -755,6 +800,7 @@ class PV_model():
     def __init__(self):
         self.debug = False
         self.vi_points = []
+        self.run_ms = 0
         # Property variables
         self._pv_name = None
         self._voc_stc = None
@@ -768,7 +814,7 @@ class PV_model():
         self._noct = None
         self._i0_guesses = DEFAULT_I0_GUESSES
         self._rs_guesses = DEFAULT_RS_GUESSES
-        self._rsh_vals = DEFAULT_RSH_VALS
+        self._rsh_guesses = DEFAULT_RSH_GUESSES
         self._err_thresh = DEFAULT_ERR_THRESH
         self._irradiance = STC_IRRAD
         self._cell_temp_c = STC_T_C
@@ -779,7 +825,6 @@ class PV_model():
         self._rsh = None
         self._vmp = None
         self._imp = None
-        self._use_eq5 = False
 
     # Properties
     # ---------------------------------
@@ -897,7 +942,8 @@ class PV_model():
     # ---------------------------------
     @property
     def i0_guesses(self):
-        """List of guess for the I0 parameter to try with the SciPy root solver
+        """List of guesses for the I0 parameter to try with the SciPy root
+           solver
         """
         return self._i0_guesses
 
@@ -908,7 +954,8 @@ class PV_model():
     # ---------------------------------
     @property
     def rs_guesses(self):
-        """List of guess for the Rs parameter to try with the SciPy root solver
+        """List of guesses for the Rs parameter to try with the SciPy root
+           solver
         """
         return self._rs_guesses
 
@@ -918,16 +965,15 @@ class PV_model():
 
     # ---------------------------------
     @property
-    def rsh_vals(self):
-        """List of shunt resistance (Rsh) values to try. The one resulting in
-           the best fit will be chosen. The default is a single value,
-           1e15, which is effectively infinite.
+    def rsh_guesses(self):
+        """List of guesses for the Rsh parameter to try with the SciPy root
+           solver
         """
-        return self._rsh_vals
+        return self._rsh_guesses
 
-    @rsh_vals.setter
-    def rsh_vals(self, value):
-        self._rsh_vals = value
+    @rsh_guesses.setter
+    def rsh_guesses(self, value):
+        self._rsh_guesses = value
 
     # ---------------------------------
     @property
@@ -1042,17 +1088,6 @@ class PV_model():
     @imp.setter
     def imp(self, value):
         self._imp = value
-
-    # ---------------------------------
-    @property
-    def use_eq5(self):
-        """True if equation #5 should be used.
-        """
-        return self._use_eq5
-
-    @use_eq5.setter
-    def use_eq5(self, value):
-        self._use_eq5 = value
 
     # Derived properties
     # ---------------------------------
@@ -1278,6 +1313,7 @@ class PV_model():
            value is returned by the method.
         """
         # pylint: disable=too-many-locals
+        start_time = dt.datetime.now()
 
         # Reset the vi_points, vmp, and imp properties since they won't
         # be valid if this method is being run with new property values.
@@ -1295,8 +1331,8 @@ class PV_model():
                                     self.i0_guesses,
                                     self.a_guess,
                                     self.rs_guesses,
-                                    self.rsh_vals,
-                                    self.err_thresh, self.use_eq5)
+                                    self.rsh_guesses,
+                                    self.err_thresh)
         il, i0, a, rs, rsh = parms
         eq1_res, eq2_res, eq3_res, eq4_res = results[0:4]
         eq5_res = test_eq5(rsh, [i0, a, rs, self.isc_at_temp])
@@ -1332,8 +1368,9 @@ class PV_model():
         # nothing more than scaling the IL parameter.
         il *= (self.irradiance / STC_IRRAD)
 
-        # If the root-solving was successful, set the property values of
-        # the five parameters to the modeled values.
+        # If the root-solving was successful (which it was if we have
+        # gotten this far), set the property values of the five
+        # parameters to the modeled values.
         self.il = il
         self.i0 = i0
         self.a = a
@@ -1342,6 +1379,10 @@ class PV_model():
 
         # Update the Vmp and Imp properties
         self.update_mpp()
+
+        # Record the run time
+        elapsed_time = dt.datetime.now() - start_time
+        self.run_ms = int(round(elapsed_time.total_seconds() * 1000))
 
         # For callers who care, the return value indicates if Eq4 was
         # ignored
@@ -1518,7 +1559,6 @@ def main():
     pv.mpp_temp_coeff_pct_per_deg = -0.29  # % per degree C
     pv.irradiance = NOC_IRRAD
     pv.cell_temp_c = 41.5  # NOCT from datasheet
-    pv.use_eq5 = False
     pv.debug = False
 
     # Run model. Voc, Isc, Vmp, Imp and Pmp should be close to datasheet
@@ -1528,6 +1568,7 @@ def main():
     print(pv.parms_string)
     print("Ideality factor: {}".format(pv.ideality_factor))
     print(pv.summary_string)
+    print("PV model time: {} ms".format(pv.run_ms))
 
     # Now try reverse: estimate irradiance and temp from datasheet NOC
     # Voc and Isc values. They should be close to NOC irradiance and

@@ -5550,7 +5550,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self.ivp.title = self.pv_model.title_string
         self.ivp.logger = self.logger
         self.ivp.csv_files = [self.hdd_csv_data_point_filename]
-        self.ivp.curve_names = [self.pv_model.parms_string_w_newlines]
+        legend_str = ("{}\nModel time: {} ms"
+                      .format(self.pv_model.parms_string_w_newlines,
+                              self.pv_model.run_ms))
+        self.ivp.curve_names = [legend_str]
         self.ivp.plot_dir = self.hdd_output_dir
         self.ivp.x_pixels = self.x_pixels
         self.ivp.generate_pdf = True
