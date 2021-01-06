@@ -822,6 +822,11 @@ class PV_model(object):
         self._rsh = None
         self._vmp = None
         self._imp = None
+        self._eq1_result = None
+        self._eq2_result = None
+        self._eq3_result = None
+        self._eq4_result = None
+        self._eq5_result = None
 
     # Properties
     # ---------------------------------
@@ -1085,6 +1090,56 @@ class PV_model(object):
     @imp.setter
     def imp(self, value):
         self._imp = value
+
+    # ---------------------------------
+    @property
+    def eq1_result(self):
+        """Result of equation #1 (Step #1)"""
+        return self._eq1_result
+
+    @eq1_result.setter
+    def eq1_result(self, value):
+        self._eq1_result = value
+
+    # ---------------------------------
+    @property
+    def eq2_result(self):
+        """Result of equation #2 (Step #1)"""
+        return self._eq2_result
+
+    @eq2_result.setter
+    def eq2_result(self, value):
+        self._eq2_result = value
+
+    # ---------------------------------
+    @property
+    def eq3_result(self):
+        """Result of equation #3 (Step #1)"""
+        return self._eq3_result
+
+    @eq3_result.setter
+    def eq3_result(self, value):
+        self._eq3_result = value
+
+    # ---------------------------------
+    @property
+    def eq4_result(self):
+        """Result of equation #4 (Step #1)"""
+        return self._eq4_result
+
+    @eq4_result.setter
+    def eq4_result(self, value):
+        self._eq4_result = value
+
+    # ---------------------------------
+    @property
+    def eq5_result(self):
+        """Result of equation #5 (Step #1)"""
+        return self._eq5_result
+
+    @eq5_result.setter
+    def eq5_result(self, value):
+        self._eq5_result = value
 
     # Derived properties
     # ---------------------------------
@@ -1354,6 +1409,11 @@ class PV_model(object):
             print "  Eq4: {}{}".format(eq4_res, " (Ignored)"
                                        if eq4_ignored else "")
             print "  Eq5: {}".format(eq5_res)
+        self.eq1_result = eq1_res
+        self.eq2_result = eq2_res
+        self.eq3_result = eq3_res
+        self.eq4_result = eq4_res
+        self.eq5_result = eq5_res
         abs_results = [abs(res) for res in results]
         if max(abs_results) > self.err_thresh:
             if self.debug:

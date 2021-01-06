@@ -5535,6 +5535,38 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         # Write info to the log file
         self.logger.log("================== PV Test =========================")
         self.logger.log("Output directory: {}".format(self.hdd_output_dir))
+        self.logger.log("PV name: {}".format(self.pv_model.pv_name))
+        self.logger.log("Voc (STC): {}".format(self.pv_model.voc_stc))
+        self.logger.log("Isc (STC): {}".format(self.pv_model.isc_stc))
+        self.logger.log("Vmp (STC): {}".format(self.pv_model.vmp_stc))
+        self.logger.log("Imp (STC): {}".format(self.pv_model.imp_stc))
+        self.logger.log("# cells: {}".format(self.pv_model.num_cells))
+        self.logger.log("Voc temp coeff (%/C): {}"
+                        .format(self.pv_model.voc_temp_coeff_pct_per_deg))
+        self.logger.log("Isc temp coeff (%/C): {}"
+                        .format(self.pv_model.isc_temp_coeff_pct_per_deg))
+        self.logger.log("MPP temp coeff (%/C): {}"
+                        .format(self.pv_model.mpp_temp_coeff_pct_per_deg))
+        self.logger.log("NOCT: {}".format(self.pv_model.noct))
+        self.logger.log("Irradiance: {}".format(self.pv_model.irradiance))
+        self.logger.log("Cell temp (C): {}".format(self.pv_model.cell_temp_c))
+        self.logger.log("IL: {}".format(self.pv_model.il))
+        self.logger.log("I0: {}".format(self.pv_model.i0))
+        self.logger.log("A: {}  (n = {})"
+                        .format(self.pv_model.a,
+                                self.pv_model.ideality_factor))
+        self.logger.log("Rs: {}".format(self.pv_model.rs))
+        self.logger.log("Rsh: {}".format(self.pv_model.rsh))
+        self.logger.log("Voc: {}".format(self.pv_model.voc))
+        self.logger.log("Isc: {}".format(self.pv_model.isc))
+        self.logger.log("Vmp: {}".format(self.pv_model.vmp))
+        self.logger.log("Imp: {}".format(self.pv_model.imp))
+        self.logger.log("Eq #1: {}".format(self.pv_model.eq1_result))
+        self.logger.log("Eq #2: {}".format(self.pv_model.eq2_result))
+        self.logger.log("Eq #3: {}".format(self.pv_model.eq3_result))
+        self.logger.log("Eq #4: {}".format(self.pv_model.eq4_result))
+        self.logger.log("Eq #5: {}".format(self.pv_model.eq5_result))
+        self.logger.log("====================================================")
 
         # Get the name of the CSV files
         self.get_csv_filenames(self.hdd_output_dir, date_time_str)
