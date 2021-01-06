@@ -192,8 +192,8 @@ from scipy import __version__ as scipy_version
 #   Constants   #
 #################
 # Default property values (can be overridden)
-DEFAULT_I0_GUESSES = [1e-8, 1e-9, 3e-8]
-DEFAULT_RS_GUESSES = [0.1, 0.2, 0.7, 0.9, 0.0, 0.6, 0.3, 0.4, 0.5]
+DEFAULT_I0_GUESSES = [1e-8, 1e-9, 1e-10, 3e-8]
+DEFAULT_RS_GUESSES = [0.1, 0.2, 0.0, 0.6, 0.7, 0.9, 0.5]
 DEFAULT_RSH_GUESSES = [1e15, 100]
 DEFAULT_ERR_THRESH = 0.001
 
@@ -203,10 +203,8 @@ NOC_IRRAD = 800.0
 STC_T_C = 25.0
 BOLTZMANN_K = 1.38066e-23  # Boltzmann constant (Joules/Kelvin)
 TEMP_K_0_DEG_C = 273.15  # Kelvins at 0 degrees C
-STC_T_K = TEMP_K_0_DEG_C + STC_T_C  # STC temp (Kelvins)
 ELECTRON_CHG_Q = 1.60218e-19  # electron charge (coulombs)
-K_T_OVER_Q_STC = BOLTZMANN_K * STC_T_K / ELECTRON_CHG_Q
-IDEALITY_FACTOR_GUESS = 1.5
+IDEALITY_FACTOR_GUESS = 1.0
 CELL_VOC_GUESS = 0.67
 SPEC_FIELDS = ["PV Name", "Voc", "Isc", "Vmp", "Imp", "Cells",
                "Voc temp coeff", "Voc temp coeff units",
@@ -390,7 +388,7 @@ def test_parms(il_i0_a_rs_rsh, voc_isc_vmp_imp_ignore_eq4):
     il, i0, a, rs, rsh = il_i0_a_rs_rsh
 
     # Steer away from negative numbers
-    if i0 < 0 or a < 0 or rs < 0 or rsh < 0:
+    if i0 < 0 or a < 0 or rs < 0 or rsh <= 0:
         return [999, 999, 999, 999, 999]
 
     # Equation #1 - #4: call test_first_four_parms function
@@ -412,7 +410,6 @@ def test_parms(il_i0_a_rs_rsh, voc_isc_vmp_imp_ignore_eq4):
     # The test_eq5 function implements equation #5.
     #
     isc = voc_isc_vmp_imp_ignore_eq4[1]
-    rsh = 0.0001 if rsh == 0 else rsh  # prevent divide-by-zero
     eq5_result = test_eq5(rsh, [i0, a, rs, isc])
     return [eq1_result, eq2_result, eq3_result, eq4_result, eq5_result]
 
@@ -1114,7 +1111,8 @@ class PV_model(object):
         """Guess for A parameter for root solver"""
         num_cells = (self.num_cells if self.num_cells is not None else
                      round(self.voc_stc / CELL_VOC_GUESS))
-        return IDEALITY_FACTOR_GUESS * num_cells * K_T_OVER_Q_STC
+        kt_over_q = BOLTZMANN_K * self.cell_temp_k / ELECTRON_CHG_Q
+        return IDEALITY_FACTOR_GUESS * num_cells * kt_over_q
 
     # ---------------------------------
     @property
