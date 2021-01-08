@@ -107,6 +107,29 @@ class IV_Swinger2_PV_model(IV_Swinger_PV_model.PV_model):
 ############
 def main():
     """Main function"""
+    def plot_and_view_modeled_curve(pv):
+        """Local function to plot the modeled curve and view the PDF. The PV
+           model must be run and its get_data_points() method called
+           before calling this function. Files are created in the same
+           directory as the model's CSV file containing the modeled data
+           points.
+        """
+        # Create plotter object and run it to create PDF
+        ivp = IV_Swinger2.IV_Swinger2_plotter()
+        ivp.title = pv.title_string
+        ivp.csv_files = [pv.csv_filename]
+        ivp.curve_names = [pv.parms_string_w_newlines]
+        ivp.plot_dir = os.path.dirname(pv.csv_filename)
+        ivp.linear = False
+        ivp.point_scale = 0.0  # Change to 1.0 to see the points
+        ivp.generate_gif = False
+        ivp.run()
+
+        # View the PDF and clean up
+        basename, _ = os.path.splitext(os.path.basename(pv.csv_filename))
+        IV_Swinger2.sys_view_file("{}.pdf".format(basename))
+        os.remove("plt_{}".format(basename))
+
     # Create the PV spec CSV file in the current directory
     pv_spec_file = os.path.join("{}".format(os.getcwd()),
                                 "IV_Swinger2_PV_model_pv_spec.csv")
@@ -135,31 +158,8 @@ def main():
     plot_and_view_modeled_curve(pv)
 
 
-# (Not quite) boilerplate main() call
+# Boilerplate main() call
 if __name__ == '__main__':
+    # pylint: disable=cyclic-import
     import IV_Swinger2
-
-    def plot_and_view_modeled_curve(pv):
-        """Function to plot the modeled curve and view the PDF. The PV model
-           must be run and its get_data_points() method called before
-           calling this function. Files are created in the same
-           directory as the model's CSV file containing the modeled data
-           points.
-        """
-        # Create plotter object and run it to create PDF
-        ivp = IV_Swinger2.IV_Swinger2_plotter()
-        ivp.title = pv.title_string
-        ivp.csv_files = [pv.csv_filename]
-        ivp.curve_names = [pv.parms_string_w_newlines]
-        ivp.plot_dir = os.path.dirname(pv.csv_filename)
-        ivp.linear = False
-        ivp.point_scale = 0.0  # Change to 1.0 to see the points
-        ivp.generate_gif = False
-        ivp.run()
-
-        # View the PDF and clean up
-        basename, _ = os.path.splitext(os.path.basename(pv.csv_filename))
-        IV_Swinger2.sys_view_file("{}.pdf".format(basename))
-        os.remove("plt_{}".format(basename))
-
     main()
