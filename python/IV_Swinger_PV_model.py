@@ -497,7 +497,7 @@ def find_parms(voc_isc_vmp_imp, il_guess, i0_guesses, a_guess, rs_guesses,
        I0, A, Rs and Rsh parameters.
 
        The root solver's success depends heavily on being provided with
-       "good" guesses for the values it is solving for. Suprisingly,
+       "good" guesses for the values it is solving for. Surprisingly,
        guesses that are closest to the final solution value are not
        always the best.
 
@@ -1353,7 +1353,7 @@ class PV_model(object):
 
     # -------------------------------------------------------------------------
     def run(self):
-        """Method to run the model once it is has been populated with
+        """Method to run the model once it has been populated with
            the input values. Once this method has been run, the
            properties with the single-diode model parameters will
            contain their derived values and the properties for the Voc,
@@ -1363,7 +1363,7 @@ class PV_model(object):
            exception is raised.
 
            If the "solution" required ignoring Equation #4 (see the
-           find_parms() method), no exception is raised, but a True
+           find_parms() function), no exception is raised, but a True
            value is returned by the method.
         """
         # pylint: disable=too-many-locals
@@ -1470,7 +1470,7 @@ class PV_model(object):
     def gen_vi_points(self, num_points):
         """Method to generate a list of V,I points for the modeled curve. This
            generator can be run only after a successful execution of the
-           run() method. Each point is yielded as an (v,i) tuple,
+           run() method. Each point is yielded as a (v,i) tuple.
         """
         mpp_added = False
         if self.voc is None:
@@ -1484,7 +1484,7 @@ class PV_model(object):
         for ii in range(num_loops):
             # Voltage increments are proportional to the square root of
             # the point number. This results in large voltage increments
-            # at Isc end of the curve and very small voltage increments
+            # at the Isc end of the curve and very small voltage increments
             # at the Voc end. This gives better resolution around the
             # MPP and also on the steep tail end of the curve where
             # small voltage increments map to large current increments.
@@ -1571,18 +1571,17 @@ class PV_model(object):
     # -------------------------------------------------------------------------
     def estimate_irrad_and_temp(self, measured_voc, measured_isc,
                                 temp_err_thresh):
-        """Method to estimate the irradiance and temperature, given measured
-           values for Voc and Isc. This uses an iterative algorithm. The
-           first step for each iteration is to estimate the irradiance.
-           This is based on the estimated temperature and the measured
+        """Method to estimate both irradiance and cell temperature, given
+           measured values for Voc and Isc. This uses an iterative
+           algorithm. The first step for each iteration is to estimate
+           the irradiance using the estimate_irrad() method.  This is
+           based on the estimated temperature and the measured
            Isc. Initially, the estimated temperature is 45 degrees C,
-           which is a typical NOCT. The model is then run with the
-           estimated temperature and irradiance. The resulting Voc is
-           then compared with the measured Voc to determine the error in
-           the estimated temperature. The estimated temperature is
-           adjusted accordingly, and the next iteration uses that
-           value. The iterations continue while the error in the
-           estimated temperature is greater than the specified
+           which is a typical NOCT. The temperature estimate is then
+           updated by running the estimate_temp() method. The error
+           between the previous end current estimated temperature is
+           then calculated. The iterations continue while the error in
+           the estimated temperature is greater than the specified
            threshold.
         """
         self.cell_temp_c = 45.0  # Initial temperature estimate
