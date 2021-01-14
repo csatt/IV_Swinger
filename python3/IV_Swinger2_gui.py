@@ -105,6 +105,7 @@ import traceback
 from tkinter.scrolledtext import ScrolledText
 from tkinter.constants import N, S, E, W, LEFT, RIGHT, HORIZONTAL, Y, BOTH, END
 from inspect import currentframe, getframeinfo
+from configparser import NoOptionError
 from send2trash import send2trash
 from PIL import Image, ImageTk
 from Tooltip import Tooltip
@@ -8830,8 +8831,12 @@ it and then edit the parameter values.
         fancy_labels = self.master.config.cfg.get(section, "fancy labels")
         linear = self.master.config.cfg.get(section, "linear")
         point_scale = self.master.config.cfg.get(section, "point scale")
-        plot_max_x = self.master.config.cfg.get(section, "plot max x")
-        plot_max_y = self.master.config.cfg.get(section, "plot max y")
+        try:
+            plot_max_x = self.master.config.cfg.get(section, "plot max x")
+            plot_max_y = self.master.config.cfg.get(section, "plot max y")
+            restore_plot_max = True
+        except NoOptionError:
+            restore_plot_max = False
 
         # Modify config
         self.master.config.cfg_set(section, "title", pv.title_string)
@@ -8855,8 +8860,9 @@ it and then edit the parameter values.
         self.master.config.cfg_set(section, "fancy labels", fancy_labels)
         self.master.config.cfg_set(section, "linear", linear)
         self.master.config.cfg_set(section, "point scale", point_scale)
-        self.master.config.cfg_set(section, "plot max x", plot_max_x)
-        self.master.config.cfg_set(section, "plot max y", plot_max_y)
+        if restore_plot_max:
+            self.master.config.cfg_set(section, "plot max x", plot_max_x)
+            self.master.config.cfg_set(section, "plot max y", plot_max_y)
 
         # Save restored config
         self.master.suppress_cfg_file_copy = True
