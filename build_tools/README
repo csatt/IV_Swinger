@@ -30,7 +30,7 @@ Instructions for Mac build (Python 3):
 
        % echo 'export GITHUB="$HOME/GitHub"' >> ~/.bash_profile
 
-  4) Update the version string in $GITHUB/IV_Swinger/python/version.txt
+  4) Update the version string in $GITHUB/IV_Swinger/python3/version.txt
 
   5) Complete all testing using straight Python (this assumes that
      you have installed all of the required Python packages):

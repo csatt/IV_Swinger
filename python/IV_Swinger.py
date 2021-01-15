@@ -6,7 +6,7 @@
 #
 # IV_Swinger.py: IV Swinger control module
 #
-# Copyright (C) 2016, 2017, 2018, 2019, 2020  Chris Satterlee
+# Copyright (C) 2016-2021  Chris Satterlee
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

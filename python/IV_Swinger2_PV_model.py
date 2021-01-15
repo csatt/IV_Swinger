@@ -5,7 +5,7 @@
 #
 # IV_Swinger2_PV_model.py: IV Swinger 2 PV modeling module
 #
-# Copyright (C) 2020  Chris Satterlee
+# Copyright (C) 2020, 2021  Chris Satterlee
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

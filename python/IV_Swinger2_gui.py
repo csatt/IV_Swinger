@@ -6,7 +6,7 @@
 #
 # IV_Swinger2_gui.py: IV Swinger 2 GUI application module
 #
-# Copyright (C) 2017,2018,2019,2020  Chris Satterlee
+# Copyright (C) 2017-2021  Chris Satterlee
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -4597,7 +4597,7 @@ and software can be found at:
 
    https://github.com/csatt/IV_Swinger
 
-Copyright (C) 2017-2020  Chris Satterlee
+Copyright (C) 2017-2021  Chris Satterlee
 """
         sketch_ver = self.master.ivs2.arduino_sketch_ver
         sketch_ver_str = ""
