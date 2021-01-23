@@ -4,7 +4,7 @@
 #
 # fix_info_plist.py: Support script for IV Swinger 2 Mac executable build
 #
-# Copyright (C) 2017, 2019, 2020  Chris Satterlee
+# Copyright (C) 2017-2021  Chris Satterlee
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -112,19 +112,17 @@ except AttributeError:
 plist['CFBundleShortVersionString'] = version
 
 # Add copyright string
-plist['NSHumanReadableCopyright'] = u"Copyright © 2020  Chris Satterlee"
+plist['NSHumanReadableCopyright'] = u"Copyright © 2021  Chris Satterlee"
 
 # Enable retina display resolution
 plist['NSHighResolutionCapable'] = True
 
-# Enable dark mode
-plist['NSRequiresAquaSystemAppearance'] = False
-
 # Write the modified plist back to the Info.plist file
-try:
+if hasattr(plistlib, 'dump'):
     # Python 3
+    plist['NSRequiresAquaSystemAppearance'] = False  # Enable dark mode
     with open(args.info_plist[0], 'wb') as fp:
         plistlib.dump(plist, fp)
-except AttributeError:
+else:
     # Python 2
     plistlib.writePlist(plist, args.info_plist[0])
