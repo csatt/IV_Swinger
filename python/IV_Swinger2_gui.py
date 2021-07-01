@@ -1799,7 +1799,8 @@ This could be for one of the following reasons:
 
         plot_ref_failed = (self.ivs2.plot_ref and
                            (rc == RC_PV_MODEL_FAILURE or
-                            self.ivs2.pv_model.csv_filename is None))
+                            (rc == RC_SUCCESS and
+                             self.ivs2.pv_model.csv_filename is None)))
         if rc == RC_SUCCESS or plot_ref_failed:
             # Update the image pane with the new curve GIF
             self.display_img(self.ivs2.current_img)
