@@ -1421,9 +1421,12 @@ class IV_Swinger(object):
         # exception message queue
         self.exc_queue = Queue.Queue()
         self.os_version = platform.platform()
-        self.python_version = "{}.{}.{}".format(sys.version_info[0],
-                                                sys.version_info[1],
-                                                sys.version_info[2])
+        self.python_version = "{}.{}.{} ({}-bit)".format(sys.version_info[0],
+                                                         sys.version_info[1],
+                                                         sys.version_info[2],
+                                                         64 if
+                                                         sys.maxsize > 2**32
+                                                         else 32)
         try:
             self.matplotlib_version = matplotlib_version
         except NameError:
