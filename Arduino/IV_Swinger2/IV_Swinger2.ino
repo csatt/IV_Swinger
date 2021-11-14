@@ -164,7 +164,7 @@
  * when the pins controlling them are activated or deactivated since
  * nothing is connected to those pins in the other versions.
  */
-#define VERSION "1.4.3"         // Version of this Arduino sketch
+#define VERSION "1.4.3a"         // Version of this Arduino sketch
 
 // Uncomment one or more of the following to enable the associated
 // feature. Note, however, that enabling these features uses more of the
@@ -245,8 +245,8 @@
 #define IV_POINT_REDUCTION ((DS18B20_SRAM+ADS1115_SRAM+UNFILTERED_SRAM)/4)
 #define MAX_IV_POINTS (FULL_MAX_IV_POINTS - IV_POINT_REDUCTION)
 #define MAX_IV_MEAS 1000000    // Max number of I/V measurements (inc discards)
-#define CH1_1ST_WEIGHT 5       // Amount to weigh 1st CH1 value in avg calc
-#define CH1_2ND_WEIGHT 3       // Amount to weigh 2nd CH1 value in avg calc
+#define I_CH_1ST_WEIGHT 5      // Amount to weigh 1st I ADC value in avg calc
+#define I_CH_2ND_WEIGHT 3      // Amount to weigh 2nd I ADC value in avg calc
 #define MIN_ISC_ADC 100        // Minimum ADC count for Isc
 #define MAX_ISC_POLL 5000      // Max loops to wait for Isc to stabilize
 #define ISC_STABLE_ADC 5       // Stable Isc changes less than this
@@ -254,7 +254,7 @@
 #define MIN_VOC_ADC 10         // Minimum value for Voc ADC value
 #define ASPECT_HEIGHT 2        // Height of graph's aspect ratio (max 8)
 #define ASPECT_WIDTH 3         // Width of graph's aspect ratio (max 8)
-#define TOTAL_WEIGHT (CH1_1ST_WEIGHT + CH1_2ND_WEIGHT)
+#define TOTAL_WEIGHT (I_CH_1ST_WEIGHT + I_CH_2ND_WEIGHT)
 #define AVG_WEIGHT (int) ((TOTAL_WEIGHT + 1) / 2)
 #define EEPROM_VALID_VALUE 123456.7890    // Must match IV_Swinger2.py
 #define EEPROM_RELAY_ACTIVE_HIGH_ADDR 44  // Must match IV_Swinger2.py
@@ -415,7 +415,7 @@ void loop()
 {
   // Arduino: ints are 16 bits
   bool go_msg_received;
-  bool update_prev_ch1 = false;
+  bool update_prev_i = false;
   bool poll_timeout = false;
   bool skip_isc_poll = false;
   bool count_updated = false;
@@ -425,26 +425,26 @@ void loop()
   int ii;
   int index = 0;
   int max_count = 0;
-  int adc_ch0_delta, adc_ch1_delta, adc_ch1_prev_delta;
+  int adc_v_delta, adc_i_delta, adc_i_prev_delta;
   int manhattan_distance, min_manhattan_distance;
   int pt_num = 1;   // counts points actually recorded
   int isc_poll_loops = 0;
   int num_discarded_pts = 0;
   int i_scale, v_scale;
-  int adc_ch0_vals[MAX_IV_POINTS], adc_ch1_vals[MAX_IV_POINTS];
+  int adc_v_vals[MAX_IV_POINTS], adc_i_vals[MAX_IV_POINTS];
   int isc_adc, voc_adc;
   int adc_noise_floor, min_adc_noise_floor, max_adc_noise_floor;
-  int done_ch1_adc;
-  int adc_ch0_val_prev_prev, adc_ch0_val_prev, adc_ch0_val;
-  int adc_ch1_val_prev_prev, adc_ch1_val_prev, adc_ch1_val;
+  int done_i_adc;
+  int adc_v_val_prev_prev, adc_v_val_prev, adc_v_val;
+  int adc_i_val_prev_prev, adc_i_val_prev, adc_i_val;
   unsigned long num_meas = 1; // counts IV measurements taken
   long start_usecs, elapsed_usecs;
   float usecs_per_iv_pair;
 #ifdef CAPTURE_UNFILTERED
   bool capture_unfiltered = false;
   int unfiltered_index = 0;
-  int unfiltered_adc_ch0_vals[MAX_UNFILTERED_POINTS];
-  int unfiltered_adc_ch1_vals[MAX_UNFILTERED_POINTS];
+  int unfiltered_adc_v_vals[MAX_UNFILTERED_POINTS];
+  int unfiltered_adc_i_vals[MAX_UNFILTERED_POINTS];
 #endif
 
   // Wait for go (or config) message from host
@@ -464,53 +464,53 @@ void loop()
   // Measure Vref (indirectly, by measuring bandgap)
   read_bandgap(GO_BDGP_READ_ITER);
 
-  // Get Voc ADC value and CH1 ADC noise floor
+  // Get Voc ADC value and current channel ADC noise floor
   voc_adc = 0;
   adc_noise_floor = ADC_MAX;
   min_adc_noise_floor = ADC_MAX;
   max_adc_noise_floor = 0;
-  memset(adc_ch0_vals, 0, sizeof(adc_ch0_vals));
-  memset(adc_ch1_vals, 0, sizeof(adc_ch1_vals));
+  memset(adc_v_vals, 0, sizeof(adc_v_vals));
+  memset(adc_i_vals, 0, sizeof(adc_i_vals));
   for (ii = 0; ii < VOC_POLLING_LOOPS; ii++) {
-    adc_ch0_val = read_adc(VOLTAGE_CH);  // Read CH0 (voltage)
-    adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
-    // Update frequency count for this CH0 value. We temporarily use the
-    // adc_ch0_vals array for the values and the adc_ch1_vals array for
-    // the counts
+    adc_v_val = read_adc(VOLTAGE_CH);  // Read voltage channel
+    adc_i_val = read_adc(CURRENT_CH);  // Read current channel
+    // Update frequency count for this current channel value. We
+    // temporarily use the adc_v_vals array for the values and the
+    // adc_i_vals array for the counts
     for (index = 0, count_updated = false;
-         (index < (int)sizeof(adc_ch0_vals)) && !count_updated;
+         (index < (int)sizeof(adc_v_vals)) && !count_updated;
          index++) {
-      if (adc_ch1_vals[index] == 0) { // first empty slot
-        adc_ch0_vals[index] = adc_ch0_val;
-        adc_ch1_vals[index] = 1; // count
+      if (adc_i_vals[index] == 0) { // first empty slot
+        adc_v_vals[index] = adc_v_val;
+        adc_i_vals[index] = 1; // count
         count_updated = true;
-      } else if (adc_ch0_vals[index] == adc_ch0_val) {
-        adc_ch1_vals[index]++; // count
+      } else if (adc_v_vals[index] == adc_v_val) {
+        adc_i_vals[index]++; // count
         count_updated = true;
       }
     }
     // The ADC noise floor is the value read from the ADC when it
     // "should" be zero.  At this point, we know that the actual current
     // is zero because the circuit is open, so whatever value is read on
-    // CH1 is the noise floor value.
-    if (adc_ch1_val < min_adc_noise_floor) {
-      min_adc_noise_floor = adc_ch1_val;
+    // the current channel is the noise floor value.
+    if (adc_i_val < min_adc_noise_floor) {
+      min_adc_noise_floor = adc_i_val;
     }
-    if (adc_ch1_val > max_adc_noise_floor) {
-      max_adc_noise_floor = adc_ch1_val;
+    if (adc_i_val > max_adc_noise_floor) {
+      max_adc_noise_floor = adc_i_val;
     }
   }
 
   // The Voc ADC value is the most common value seen during polling
   for (index = 0, voc_adc_found = false, max_count = 0;
-       (index < (int)sizeof(adc_ch0_vals)) && !voc_adc_found;
+       (index < (int)sizeof(adc_v_vals)) && !voc_adc_found;
        index++) {
-    if (adc_ch1_vals[index] == 0) {
+    if (adc_i_vals[index] == 0) {
       // When we see a slot with a zero count, we're done
       voc_adc_found = true;
-    } else if (adc_ch1_vals[index] > max_count) {
-      voc_adc = adc_ch0_vals[index];
-      max_count = adc_ch1_vals[index];
+    } else if (adc_i_vals[index] > max_count) {
+      voc_adc = adc_v_vals[index];
+      max_count = adc_i_vals[index];
     }
   }
   
@@ -518,12 +518,12 @@ void loop()
   // Increase minimum Isc ADC value by noise floor
   min_isc_adc += adc_noise_floor;
 
-  // Determine the CH1 ADC value that indicates the curve has reached
-  // its tail.  This value is twice the noise floor value, or 20;
-  // whichever is greater.
-  done_ch1_adc = adc_noise_floor << 1;
-  if (done_ch1_adc < 20) {
-    done_ch1_adc = 20;
+  // Determine the current channel ADC value that indicates the curve
+  // has reached its tail.  This value is twice the noise floor value,
+  // or 20; whichever is greater.
+  done_i_adc = adc_noise_floor << 1;
+  if (done_i_adc < 20) {
+    done_i_adc = 20;
   }
 
   // Wait until three consecutive measurements:
@@ -531,10 +531,10 @@ void loop()
   //   - have increasing or equal voltage
   //   - have decreasing or equal current
   //   - have a current difference less than or equal to isc_stable_adc
-  adc_ch0_val_prev_prev = ADC_MAX;
-  adc_ch0_val_prev = ADC_MAX;
-  adc_ch1_val_prev_prev = 0;
-  adc_ch1_val_prev = 0;
+  adc_v_val_prev_prev = ADC_MAX;
+  adc_v_val_prev = ADC_MAX;
+  adc_i_val_prev_prev = 0;
+  adc_i_val_prev = 0;
   if (voc_adc < MIN_VOC_ADC) {
     // If the Voc ADC value is lower than MIN_VOC_ADC we assume that it
     // is actually zero (not connected) and we force it to zero and skip
@@ -561,18 +561,18 @@ void loop()
   for (ii = 0; ii < max_isc_poll; ii++) {
     if (skip_isc_poll)
       break;
-    adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
-    adc_ch0_val = read_adc(VOLTAGE_CH);  // Read CH0 (voltage)
+    adc_i_val = read_adc(CURRENT_CH);  // Read current channel
+    adc_v_val = read_adc(VOLTAGE_CH);  // Read voltage channel
 #ifdef CAPTURE_UNFILTERED_ISC_POLL
-    if (((adc_ch1_val > min_isc_adc) || capture_unfiltered) &&
+    if (((adc_i_val > min_isc_adc) || capture_unfiltered) &&
         (unfiltered_index < MAX_UNFILTERED_POINTS)) {
-      unfiltered_adc_ch1_vals[unfiltered_index] = adc_ch1_val;
-      unfiltered_adc_ch0_vals[unfiltered_index++] = adc_ch0_val;
+      unfiltered_adc_i_vals[unfiltered_index] = adc_i_val;
+      unfiltered_adc_v_vals[unfiltered_index++] = adc_v_val;
       capture_unfiltered = true;
     }
 #endif
-    if ((adc_ch0_val == adc_ch0_val_prev) &&
-        (adc_ch0_val_prev == adc_ch0_val_prev_prev) &&
+    if ((adc_v_val == adc_v_val_prev) &&
+        (adc_v_val_prev == adc_v_val_prev_prev) &&
         (ssr3_is_active)) {
       // For the SSR version, we want to turn off SSR3 (SSR4 in cell
       // version) when the voltage has stopped changing, i.e. three of
@@ -589,37 +589,38 @@ void loop()
       ssr3_is_active = false;
       // Wait for the voltage to start increasing
       for (int jj = 0; jj < 100; jj++) {
-        adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
-        adc_ch0_val = read_adc(VOLTAGE_CH);  // Read CH0 (voltage)
+        adc_i_val = read_adc(CURRENT_CH);  // Read current channel
+        adc_v_val = read_adc(VOLTAGE_CH);  // Read voltage channel
 #ifdef CAPTURE_UNFILTERED_ISC_POLL
         if (unfiltered_index < MAX_UNFILTERED_POINTS) {
-          unfiltered_adc_ch1_vals[unfiltered_index] = adc_ch1_val;
-          unfiltered_adc_ch0_vals[unfiltered_index++] = adc_ch0_val;
+          unfiltered_adc_i_vals[unfiltered_index] = adc_i_val;
+          unfiltered_adc_v_vals[unfiltered_index++] = adc_v_val;
         }
 #endif
         // Break out of loop when voltage has increased by at least 10
         // ADC units
-        if ((adc_ch0_val - adc_ch0_val_prev) > 10)
+        if ((adc_v_val - adc_v_val_prev) > 10)
           break;
       }
-      // Reset all of the CH1 values to restart stable Isc search
-      adc_ch1_val_prev_prev = 0;
-      adc_ch1_val_prev = 0;
-      adc_ch1_val = 0;
+      // Reset all of the current channel values to restart stable Isc
+      // search
+      adc_i_val_prev_prev = 0;
+      adc_i_val_prev = 0;
+      adc_i_val = 0;
     }
     isc_poll_loops = ii + 1;
     // Nested ifs should be faster than &&
-    if (adc_ch1_val > min_isc_adc) {
+    if (adc_i_val > min_isc_adc) {
       // Current is greater than min_isc_adc
-      if (adc_ch0_val >= adc_ch0_val_prev) {
-        if (adc_ch0_val_prev >= adc_ch0_val_prev_prev) {
+      if (adc_v_val >= adc_v_val_prev) {
+        if (adc_v_val_prev >= adc_v_val_prev_prev) {
           // Voltage is increasing or equal
-          if (adc_ch1_val <= adc_ch1_val_prev) {
-            if (adc_ch1_val_prev <= adc_ch1_val_prev_prev) {
+          if (adc_i_val <= adc_i_val_prev) {
+            if (adc_i_val_prev <= adc_i_val_prev_prev) {
               // Current is decreasing or equal
-              if (abs(adc_ch1_val_prev - adc_ch1_val) <= isc_stable_adc) {
-                if (abs(adc_ch1_val_prev_prev -
-                        adc_ch1_val_prev) <= isc_stable_adc) {
+              if (abs(adc_i_val_prev - adc_i_val) <= isc_stable_adc) {
+                if (abs(adc_i_val_prev_prev -
+                        adc_i_val_prev) <= isc_stable_adc) {
                   // Current differences are less than or equal to
                   // isc_stable_adc
                   poll_timeout = false;
@@ -630,15 +631,15 @@ void loop()
           }
         }
         // Shift all values
-        adc_ch0_val_prev_prev = adc_ch0_val_prev;
-        adc_ch1_val_prev_prev = adc_ch1_val_prev;
-        adc_ch0_val_prev = adc_ch0_val;
-        adc_ch1_val_prev = adc_ch1_val;
+        adc_v_val_prev_prev = adc_v_val_prev;
+        adc_i_val_prev_prev = adc_i_val_prev;
+        adc_v_val_prev = adc_v_val;
+        adc_i_val_prev = adc_i_val;
       } else {
         // If voltage decreases, discard the previous point but keep the
         // one before that
-        adc_ch0_val_prev = adc_ch0_val;
-        adc_ch1_val_prev = adc_ch1_val;
+        adc_v_val_prev = adc_v_val;
+        adc_i_val_prev = adc_i_val;
       }
     }
   }
@@ -647,11 +648,11 @@ void loop()
     // non-zero current is found
     poll_timeout = true;
     for (ii = 0; ii < MAX_ISC_POLL; ii++) {
-      adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
-      if (adc_ch1_val) {
+      adc_i_val = read_adc(CURRENT_CH);  // Read current channel
+      if (adc_i_val) {
         poll_timeout = false;
-        adc_ch0_val = read_adc(VOLTAGE_CH);  // Read CH0 (voltage)
-        adc_ch1_val_prev_prev = 2048;
+        adc_v_val = read_adc(VOLTAGE_CH);  // Read voltage channel
+        adc_i_val_prev_prev = 2048;
         break;
       }
     }
@@ -661,11 +662,11 @@ void loop()
 
   // Isc is approximately the value of the first of the three points
   // above
-  isc_adc = adc_ch1_val_prev_prev;
+  isc_adc = adc_i_val_prev_prev;
 
   // First IV pair (point number 0) is last point from polling
-  adc_ch0_vals[0] = adc_ch0_val;
-  adc_ch1_vals[0] = adc_ch1_val;
+  adc_v_vals[0] = adc_v_val;
+  adc_i_vals[0] = adc_i_val;
 
   // Get v_scale and i_scale
   compute_v_and_i_scale(isc_adc, voc_adc, &v_scale, &i_scale);
@@ -697,44 +698,45 @@ void loop()
   // fact that time passes between I and V measurements by using a
   // weighted average for I. Discard points that are not a minimum
   // "Manhattan distance" apart (scaled sum of V and I ADC values).
-  adc_ch1_val_prev = adc_ch1_vals[0];
+  adc_i_val_prev = adc_i_vals[0];
   start_usecs = micros();
   while (num_meas < MAX_IV_MEAS) {
     num_meas++;
     //----------------------------------------------------
-    // Read both channels back-to-back. Channel 1 is first since it was
-    // first in the reads for point 0 above.
-    adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
-    adc_ch0_val = read_adc(VOLTAGE_CH);  // Read CH0 (voltage)
+    // Read both channels back-to-back. The current channel is first
+    // since it was first in the reads for point 0 above.
+    adc_i_val = read_adc(CURRENT_CH);  // Read current channel
+    adc_v_val = read_adc(VOLTAGE_CH);  // Read voltage channel
 #ifdef CAPTURE_UNFILTERED_POST_ISC
     //------------------------- Unfiltered ----------------------
     if (unfiltered_index < MAX_UNFILTERED_POINTS) {
-      unfiltered_adc_ch1_vals[unfiltered_index] = adc_ch1_val;
-      unfiltered_adc_ch0_vals[unfiltered_index++] = adc_ch0_val;
+      unfiltered_adc_i_vals[unfiltered_index] = adc_i_val;
+      unfiltered_adc_v_vals[unfiltered_index++] = adc_v_val;
     }
 #endif
-    //--------------------- CH1: current -----------------
-    if (update_prev_ch1) {
-      // Adjust previous CH1 value to weighted average with this value.
-      // 16-bit integer math!! Max ADC value is 4095, so no overflow as
-      // long as sum of CH1_1ST_WEIGHT and CH1_2ND_WEIGHT is 16 or less.
-      adc_ch1_vals[pt_num-1] = (adc_ch1_val_prev * CH1_1ST_WEIGHT +
-                                adc_ch1_val * CH1_2ND_WEIGHT +
-                                AVG_WEIGHT) / TOTAL_WEIGHT;
+    //--------------------- Current channel -----------------
+    if (update_prev_i) {
+      // Adjust previous current value to weighted average with this
+      // value.  16-bit integer math!! Max ADC value is 4095, so no
+      // overflow as long as sum of I_CH_1ST_WEIGHT and I_CH_2ND_WEIGHT
+      // is 16 or less.
+      adc_i_vals[pt_num-1] = (adc_i_val_prev * I_CH_1ST_WEIGHT +
+                              adc_i_val * I_CH_2ND_WEIGHT +
+                              AVG_WEIGHT) / TOTAL_WEIGHT;
     }
-    //--------------------- CH0: voltage -----------------
-    adc_ch0_vals[pt_num] = adc_ch0_val;
+    //--------------------- Voltage channel -----------------
+    adc_v_vals[pt_num] = adc_v_val;
     //------------------------ Deltas  -------------------
-    adc_ch0_delta = adc_ch0_val - adc_ch0_vals[pt_num-1];
-    adc_ch0_val_prev = adc_ch0_val;
-    adc_ch1_delta = adc_ch1_vals[pt_num-1] - adc_ch1_val;
-    adc_ch1_prev_delta = adc_ch1_val_prev - adc_ch1_val;
-    adc_ch1_val_prev = adc_ch1_val;
+    adc_v_delta = adc_v_val - adc_v_vals[pt_num-1];
+    adc_v_val_prev = adc_v_val;
+    adc_i_delta = adc_i_vals[pt_num-1] - adc_i_val;
+    adc_i_prev_delta = adc_i_val_prev - adc_i_val;
+    adc_i_val_prev = adc_i_val;
     //---------------------- Done check  -----------------
     // Check if we've reached the tail of the curve.
-    if (adc_ch1_val < done_ch1_adc) {
+    if (adc_i_val < done_i_adc) {
       // Current is very close to zero so we're PROBABLY done
-      if (adc_ch1_prev_delta < 3) {
+      if (adc_i_prev_delta < 3) {
         // But only if the current delta is very small
         break;
       }
@@ -754,22 +756,22 @@ void loop()
     // pt_num counter. While it is probably not possible for the bounce
     // to span more than two or three points, this covers the general
     // case of it spanning N points (and starting at any point).
-    if (adc_ch0_val < adc_ch0_vals[pt_num-1]) {
+    if (adc_v_val < adc_v_vals[pt_num-1]) {
       while (pt_num > 1) {
-        if (adc_ch0_val < adc_ch0_vals[pt_num-2]) {
+        if (adc_v_val < adc_v_vals[pt_num-2]) {
           pt_num--;
         } else {
           break;
         }
       } 
-      adc_ch0_vals[pt_num-1] = adc_ch0_val;
-      adc_ch1_vals[pt_num-1] = adc_ch1_val;
-      update_prev_ch1 = true; // Adjust this CH1 value on next measurement
+      adc_v_vals[pt_num-1] = adc_v_val;
+      adc_i_vals[pt_num-1] = adc_i_val;
+      update_prev_i = true; // Adjust this I value on next measurement
       continue;
     }
     //------------------- Discard decision ---------------
     // "Manhattan distance" is sum of scaled deltas
-    manhattan_distance = (adc_ch0_delta * v_scale) + (adc_ch1_delta * i_scale);
+    manhattan_distance = (adc_v_delta * v_scale) + (adc_i_delta * i_scale);
     // Keep measurement if Manhattan distance is big enough; otherwise
     // discard.  However, if we've discarded max_discards consecutive
     // measurements, then keep it anyway.
@@ -777,21 +779,21 @@ void loop()
         (num_discarded_pts >= max_discards)) {
       // Keep this one
       pt_num++;
-      update_prev_ch1 = true; // Adjust this CH1 value on next measurement
-      num_discarded_pts = 0;  // Reset discard counter
+      update_prev_i = true;  // Adjust this I value on next measurement
+      num_discarded_pts = 0; // Reset discard counter
       if (pt_num >= max_iv_points) {
         // We're done
         break;
       }
     } else {
       // Don't record this one
-      update_prev_ch1 = false; // And don't adjust prev CH1 val next time
+      update_prev_i = false; // And don't adjust prev I val next time
       num_discarded_pts++;
     }
   }
-  if (update_prev_ch1) {
+  if (update_prev_i) {
     // Last one didn't get adjusted (or even saved), so save it now
-    adc_ch1_vals[pt_num-1] = adc_ch1_val;
+    adc_i_vals[pt_num-1] = adc_i_val;
   }
   elapsed_usecs = micros() - start_usecs;
 
@@ -912,7 +914,7 @@ void loop()
     }
   }
 #endif
-  // CH1 ADC noise floor
+  // CH1 (current channel) ADC noise floor
   Serial.print(F("CH1 ADC noise floor (min):"));
   Serial.println(min_adc_noise_floor);
   Serial.print(F("CH1 ADC noise floor (max):"));
@@ -925,9 +927,9 @@ void loop()
   for (ii = 0; ii < pt_num; ii++) {
     Serial.print(ii);
     Serial.print(F(" CH0:"));
-    Serial.print(adc_ch0_vals[ii]);
+    Serial.print(adc_v_vals[ii]);
     Serial.print(F(" CH1:"));
-    Serial.println(adc_ch1_vals[ii]);
+    Serial.println(adc_i_vals[ii]);
   }
   // Voc point
   Serial.print(F("Voc CH0:"));
@@ -938,9 +940,9 @@ void loop()
   for (ii = 0; ii < unfiltered_index; ii++) {
     Serial.print(ii);
     Serial.print(F(" Unfiltered CH0:"));
-    Serial.print(unfiltered_adc_ch0_vals[ii]);
+    Serial.print(unfiltered_adc_v_vals[ii]);
     Serial.print(F(" Unfiltered CH1:"));
-    Serial.println(unfiltered_adc_ch1_vals[ii]);
+    Serial.println(unfiltered_adc_i_vals[ii]);
   }
 #endif
   Serial.print(F("Isc poll loops: "));
@@ -1248,10 +1250,10 @@ void set_second_relay_state(bool active) {
 
 void do_ssr_curr_cal() {
   bool result_valid = true;
-  int adc_ch1_val;
-  long adc_ch1_val_sum, adc_ch1_val_p1_avg, adc_ch1_val_avg_cnt;
+  int adc_i_val;
+  long adc_i_val_sum, adc_i_val_p1_avg, adc_i_val_avg_cnt;
   long exclude_cnt, delta_from_p1_avg;
-  float adc_ch1_val_p2_avg;
+  float adc_i_val_p2_avg;
   long start_usecs, elapsed_usecs;
 
   // Measure Vref (indirectly, by measuring bandgap)
@@ -1271,7 +1273,7 @@ void do_ssr_curr_cal() {
   // on the DMM display.
   //
   // At the end of the loop, there are two periods of SSR_CAL_RD_USECS:
-  //    - Pass 1: Read read CH1 (current) and calculate the average ADC
+  //    - Pass 1: Read read current channel and calculate the average ADC
   //              value
   //    - Pass 2: Same, but only include values that are +-0.5% from the
   //              Pass 1 average value
@@ -1298,20 +1300,20 @@ void do_ssr_curr_cal() {
   // values and number of reads (for average ADC calculation). Bail out
   // if ADC saturated is seen.
   //
-  adc_ch1_val_sum = 0;
-  adc_ch1_val_avg_cnt = 0;
+  adc_i_val_sum = 0;
+  adc_i_val_avg_cnt = 0;
   while ((elapsed_usecs < (SSR_CAL_USECS - SSR_CAL_RD_USECS)) &&
          result_valid) {
-    adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
-    adc_ch1_val_sum += adc_ch1_val;
-    adc_ch1_val_avg_cnt++;
-    if (adc_ch1_val == ADC_SAT)
+    adc_i_val = read_adc(CURRENT_CH);  // Read current channel
+    adc_i_val_sum += adc_i_val;
+    adc_i_val_avg_cnt++;
+    if (adc_i_val == ADC_SAT)
       result_valid = false;
     elapsed_usecs = micros() - start_usecs;
   }
   // Compute the Pass 1 average
-  adc_ch1_val_p1_avg = adc_ch1_val_avg_cnt ?
-    adc_ch1_val_sum / adc_ch1_val_avg_cnt : 0;
+  adc_i_val_p1_avg = adc_i_val_avg_cnt ?
+    adc_i_val_sum / adc_i_val_avg_cnt : 0;
   //
   // Pass 2
   //
@@ -1320,19 +1322,19 @@ void do_ssr_curr_cal() {
   // average, and the count of such values. Again, bail out if ADC
   // saturated is seen.
   //
-  adc_ch1_val_sum = 0;
-  adc_ch1_val_avg_cnt = 0;
+  adc_i_val_sum = 0;
+  adc_i_val_avg_cnt = 0;
   exclude_cnt = 0;
   while ((elapsed_usecs < SSR_CAL_USECS) && result_valid) {
-    adc_ch1_val = read_adc(CURRENT_CH);  // Read CH1 (current)
-    // Include values within +-0.5% of adc_ch1_val_p1_avg and values
-    // that are within 1 of adc_ch1_val_p1_avg
-    delta_from_p1_avg = abs(adc_ch1_val - adc_ch1_val_p1_avg);
-    if (((delta_from_p1_avg * 200) < adc_ch1_val_p1_avg) ||
+    adc_i_val = read_adc(CURRENT_CH);  // Read current channel
+    // Include values within +-0.5% of adc_i_val_p1_avg and values
+    // that are within 1 of adc_i_val_p1_avg
+    delta_from_p1_avg = abs(adc_i_val - adc_i_val_p1_avg);
+    if (((delta_from_p1_avg * 200) < adc_i_val_p1_avg) ||
         (delta_from_p1_avg <= 1)) {
-      adc_ch1_val_sum += adc_ch1_val;
-      adc_ch1_val_avg_cnt++;
-      if (adc_ch1_val == ADC_SAT)
+      adc_i_val_sum += adc_i_val;
+      adc_i_val_avg_cnt++;
+      if (adc_i_val == ADC_SAT)
         result_valid = false;
     } else {
       exclude_cnt++;
@@ -1348,18 +1350,18 @@ void do_ssr_curr_cal() {
   //
   if (result_valid) {
     // Compute the Pass 2 average
-    adc_ch1_val_p2_avg = adc_ch1_val_avg_cnt ?
-      float(adc_ch1_val_sum) / float(adc_ch1_val_avg_cnt) : 0.0;
-    if (exclude_cnt > adc_ch1_val_avg_cnt) {
+    adc_i_val_p2_avg = adc_i_val_avg_cnt ?
+      float(adc_i_val_sum) / float(adc_i_val_avg_cnt) : 0.0;
+    if (exclude_cnt > adc_i_val_avg_cnt) {
       // Majority of Pass 2 values excluded => unstable
       Serial.print(F("SSR current calibration ADC not stable. Pass 1: "));
       result_valid = false;
     } else {
       Serial.print(F("SSR current calibration ADC stable. Pass 1: "));
     }
-    Serial.print(adc_ch1_val_p1_avg);
+    Serial.print(adc_i_val_p1_avg);
     Serial.print(F("  Pass 2: "));
-    Serial.println(adc_ch1_val_p2_avg);
+    Serial.println(adc_i_val_p2_avg);
   } else {
     Serial.print(F("SSR current calibration: ADC saturated"));
   }
@@ -1376,7 +1378,7 @@ void do_ssr_curr_cal() {
   if (result_valid) {
     Serial.print(F("SSR current calibration ADC value: "));
     // Round Pass 2 average to nearest integer
-    Serial.println(int(adc_ch1_val_p2_avg + 0.5));
+    Serial.println(int(adc_i_val_p2_avg + 0.5));
   }
 }
 
