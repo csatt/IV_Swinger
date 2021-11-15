@@ -177,7 +177,7 @@
  * changed to reflect that they now actually mean "SSR or FET".
  * 
  */
-#define VERSION "1.4.3c"         // Version of this Arduino sketch
+#define VERSION "1.4.3d"         // Version of this Arduino sketch
 
 // Uncomment one or more of the following to enable the associated
 // feature. Note, however, that enabling these features uses more of the
@@ -672,7 +672,7 @@ void loop()
       if (adc_i_val) {
         poll_timeout = false;
         adc_v_val = read_adc(VOLTAGE_CH);  // Read voltage channel
-        adc_i_val_prev_prev = 2048;
+        adc_i_val_prev_prev = adc_i_val;
         break;
       }
     }
