@@ -177,7 +177,7 @@
  * changed to reflect that they now actually mean "SSR or FET".
  * 
  */
-#define VERSION "1.4.3b"         // Version of this Arduino sketch
+#define VERSION "1.4.3c"         // Version of this Arduino sketch
 
 // Uncomment one or more of the following to enable the associated
 // feature. Note, however, that enabling these features uses more of the
@@ -677,6 +677,10 @@ void loop()
       }
     }
   }
+  // In case SSR3 was never turned off, do that now
+  digitalWrite(SSR3_PIN, SSR3_INACTIVE);
+  digitalWrite(FET3_PIN, FET3_INACTIVE);
+
   if (poll_timeout)
     Serial.println(F("Polling for stable Isc timed out"));
 
