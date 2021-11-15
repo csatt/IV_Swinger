@@ -163,8 +163,21 @@
  * the versions that do not have SSR4, SSR5, and SSR6 are not affected
  * when the pins controlling them are activated or deactivated since
  * nothing is connected to those pins in the other versions.
+ *
+ * FET support:
+ *
+ * This code also supports the even newer FET-based design (module
+ * only). In place of SSR1, SSR2, and SSR3 are FET1, FET2, and FET3. The
+ * FETs are activated and deactivated at the same times as their SSR
+ * counterparts. The only difference is that FET3 is active-high,
+ * whereas SSR3 is active-low. To make this work without the code having
+ * to "know" which type the hardware is, FET3 is controlled by a
+ * different Arduino digital output pin from SSR3 (D9 instead of
+ * D7). Note that the "SSR" constant and variable names have not been
+ * changed to reflect that they now actually mean "SSR or FET".
+ * 
  */
-#define VERSION "1.4.3a"         // Version of this Arduino sketch
+#define VERSION "1.4.3b"         // Version of this Arduino sketch
 
 // Uncomment one or more of the following to enable the associated
 // feature. Note, however, that enabling these features uses more of the
@@ -230,6 +243,9 @@
 #define SSR3_PIN 7             // Arduino pin used to activate SSR3 (if exists)
 #define SSR3_ACTIVE LOW        // SSR3 is active low
 #define SSR3_INACTIVE HIGH     // SSR3 is active low
+#define FET3_PIN 9             // Arduino pin used to activate FET3 (if exists)
+#define FET3_ACTIVE HIGH       // FET3 is active high
+#define FET3_INACTIVE LOW      // FET3 is active high
 #define SSR4_PIN 8             // Arduino pin used to activate SSR4 (if exists)
 #define SSR4_ACTIVE LOW        // SSR4 is active low
 #define SSR4_INACTIVE HIGH     // SSR4 is active low
@@ -336,6 +352,8 @@ void setup()
   digitalWrite(SSR2_PIN, SSR2_ACTIVE);
   pinMode(SSR3_PIN, OUTPUT);
   digitalWrite(SSR3_PIN, SSR3_INACTIVE);
+  pinMode(FET3_PIN, OUTPUT);
+  digitalWrite(FET3_PIN, FET3_INACTIVE);
   pinMode(SSR4_PIN, OUTPUT);
   digitalWrite(SSR4_PIN, SSR4_ACTIVE);
   pinMode(SSR6_PIN, OUTPUT);
@@ -548,6 +566,7 @@ void loop()
     // Turn on SSR3 (does nothing if this is not an SSR IVS2 or is a cell
     // version that has no SSR3)
     digitalWrite(SSR3_PIN, SSR3_ACTIVE);
+    digitalWrite(FET3_PIN, FET3_ACTIVE);
     ssr3_is_active = true;
     delay(20);  // Let it turn completely on before any current flows
 
@@ -585,6 +604,7 @@ void loop()
       // so chances are good that this code never will be executed. And
       // even if it is, the effect will be minimal.
       digitalWrite(SSR3_PIN, SSR3_INACTIVE);
+      digitalWrite(FET3_PIN, FET3_INACTIVE);
       digitalWrite(SSR4_PIN, SSR4_INACTIVE);
       ssr3_is_active = false;
       // Wait for the voltage to start increasing
@@ -1261,6 +1281,7 @@ void do_ssr_curr_cal() {
 
   // Activate SSR3/4
   digitalWrite(SSR3_PIN, SSR3_ACTIVE);  // module version
+  digitalWrite(FET3_PIN, FET3_ACTIVE);  // module version
   digitalWrite(SSR4_PIN, SSR4_ACTIVE);  // cell version
   // Deactivate SSR2
   digitalWrite(SSR2_PIN, SSR2_INACTIVE);  // module version
@@ -1372,6 +1393,7 @@ void do_ssr_curr_cal() {
   digitalWrite(SSR2_PIN, SSR2_ACTIVE);
   // Deactivate SSR3/4
   digitalWrite(SSR3_PIN, SSR3_INACTIVE);
+  digitalWrite(FET3_PIN, FET3_INACTIVE);
   digitalWrite(SSR4_PIN, SSR4_INACTIVE);
 
   // If the result is valid, print result (average ADC value)
