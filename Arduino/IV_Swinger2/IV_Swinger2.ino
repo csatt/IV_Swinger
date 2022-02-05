@@ -132,25 +132,24 @@
  * (actually just before). In this state, the PV current flows through
  * SSR1 and SSR3 and through the shunt.  The load capacitors do not
  * start charging yet, and the current has a very near short-circuit
- * path.  The Isc polling is started at this point. When the voltage
- * stops changing, SSR3 is turned off ("opened"), and the load
- * capacitors start to charge. The Isc polling continues as usual until
- * a stable Isc value is found. Then the curve is traced.  When the
- * curve is complete, SSR1 is turned off, and SSR2 is turned on.  In
- * this state, the load capacitors drain through SSR2 and the bleed
- * resistor.  The relays stay in this state until the next curve is
- * swung. Since nothing is connected to Arduino pins D6 and D7 in the
- * EMR design, there is no effect of the code that is controlling SSR2
- * and SSR3. And since SSR1 activated (and SSR2 deactivated) at exactly
- * the same times as the EMR (using the same Arduino pin for SSR1), the
- * code does the right thing. [In a design without SSR3, the load
- * capacitors would start charging up while SSR1 is still turning on.
- * During the turn-on period, SSR1 has a significant resistance. By the
- * time it is fully turned on, the load capacitors have a significant
- * resistance.  There is never a time when the PV "sees" anything close
- * to a short circuit, and the curve is truncated on the Isc end.  SSR3
- * provides a short-circuit path around the load capacitors, keeping
- * them from charging until SSR1 is fully on.]
+ * path.  The Isc polling is started at this point. When the voltage and
+ * current stop changing, SSR3 is turned off ("opened"), the load
+ * capacitors start to charge, and the curve is traced.  When the curve
+ * is complete, SSR1 is turned off, and SSR2 is turned on.  In this
+ * state, the load capacitors drain through SSR2 and the bleed resistor.
+ * The relays stay in this state until the next curve is swung. Since
+ * nothing is connected to Arduino pins D6 and D7 in the EMR design,
+ * there is no effect of the code that is controlling SSR2 and SSR3. And
+ * since SSR1 activated (and SSR2 deactivated) at exactly the same times
+ * as the EMR (using the same Arduino pin for SSR1), the code does the
+ * right thing. [In a design without SSR3, the load capacitors would
+ * start charging up while SSR1 is still turning on.  During the turn-on
+ * period, SSR1 has a significant resistance. By the time it is fully
+ * turned on, the load capacitors have a significant resistance.  There
+ * is never a time when the PV "sees" anything close to a short circuit,
+ * and the curve is truncated on the Isc end.  SSR3 provides a
+ * short-circuit path around the load capacitors, keeping them from
+ * charging until SSR1 is fully on.]
  *
  * The SSR cell version has four SSRs. SSR1 is the same as SSR1 in the
  * module version, connected to Arduino pin D2. There is no SSR2 or SSR3
@@ -177,7 +176,7 @@
  * changed to reflect that they now actually mean "SSR or FET".
  * 
  */
-#define VERSION "1.4.3d"         // Version of this Arduino sketch
+#define VERSION "1.4.4"         // Version of this Arduino sketch
 
 // Uncomment one or more of the following to enable the associated
 // feature. Note, however, that enabling these features uses more of the
@@ -438,7 +437,8 @@ void loop()
   bool skip_isc_poll = false;
   bool count_updated = false;
   bool voc_adc_found = false;
-  bool ssr3_is_active = true;
+  bool emr_isc_stable = false;
+  bool ssr_isc_stable = false;
   char incoming_msg[MAX_MSG_LEN];
   int ii;
   int index = 0;
@@ -455,6 +455,12 @@ void loop()
   int done_i_adc;
   int adc_v_val_prev_prev, adc_v_val_prev, adc_v_val;
   int adc_i_val_prev_prev, adc_i_val_prev, adc_i_val;
+  int isc_stable_adc_v_val = -1;
+  int isc_stable_adc_v_val_prev = -1;
+  int isc_stable_adc_v_val_prev_prev = -1;
+  int isc_stable_adc_i_val = -1;
+  int isc_stable_adc_i_val_prev = -1;
+  int isc_stable_adc_i_val_prev_prev = -1;
   unsigned long num_meas = 1; // counts IV measurements taken
   long start_usecs, elapsed_usecs;
   float usecs_per_iv_pair;
@@ -544,15 +550,8 @@ void loop()
     done_i_adc = 20;
   }
 
-  // Wait until three consecutive measurements:
-  //   - have current greater than min_isc_adc
-  //   - have increasing or equal voltage
-  //   - have decreasing or equal current
-  //   - have a current difference less than or equal to isc_stable_adc
-  adc_v_val_prev_prev = ADC_MAX;
-  adc_v_val_prev = ADC_MAX;
-  adc_i_val_prev_prev = 0;
-  adc_i_val_prev = 0;
+  // If Voc is valid, activate relay/SSRs)
+  //
   if (voc_adc < MIN_VOC_ADC) {
     // If the Voc ADC value is lower than MIN_VOC_ADC we assume that it
     // is actually zero (not connected) and we force it to zero and skip
@@ -567,7 +566,6 @@ void loop()
     // version that has no SSR3)
     digitalWrite(SSR3_PIN, SSR3_ACTIVE);
     digitalWrite(FET3_PIN, FET3_ACTIVE);
-    ssr3_is_active = true;
     delay(20);  // Let it turn completely on before any current flows
 
     // Activate relay (or SSR1)
@@ -577,9 +575,14 @@ void loop()
     // version that has no SSR2)
     digitalWrite(SSR2_PIN, SSR2_INACTIVE);
   }
-  for (ii = 0; ii < max_isc_poll; ii++) {
-    if (skip_isc_poll)
-      break;
+
+  // Poll for stable Isc
+  //
+  adc_v_val_prev_prev = ADC_MAX;
+  adc_v_val_prev = ADC_MAX;
+  adc_i_val_prev_prev = 0;
+  adc_i_val_prev = 0;
+  for (ii = 0; (ii < max_isc_poll) && !skip_isc_poll; ii++) {
     adc_i_val = read_adc(CURRENT_CH);  // Read current channel
     adc_v_val = read_adc(VOLTAGE_CH);  // Read voltage channel
 #ifdef CAPTURE_UNFILTERED_ISC_POLL
@@ -590,80 +593,61 @@ void loop()
       capture_unfiltered = true;
     }
 #endif
-    if ((adc_v_val == adc_v_val_prev) &&
-        (adc_v_val_prev == adc_v_val_prev_prev) &&
-        (ssr3_is_active)) {
-      // For the SSR version, we want to turn off SSR3 (SSR4 in cell
-      // version) when the voltage has stopped changing, i.e. three of
-      // the same values are seen in a row.  At that point we want to
-      // restart searching for three points whose current is varying by
-      // less than or equal to isc_stable_adc.
-      //
-      // For the EMR version, it is very unlikely that we'll ever see
-      // three points in a row with the same voltage during Isc polling,
-      // so chances are good that this code never will be executed. And
-      // even if it is, the effect will be minimal.
-      digitalWrite(SSR3_PIN, SSR3_INACTIVE);
-      digitalWrite(FET3_PIN, FET3_INACTIVE);
-      digitalWrite(SSR4_PIN, SSR4_INACTIVE);
-      ssr3_is_active = false;
-      // Wait for the voltage to start increasing
-      for (int jj = 0; jj < 100; jj++) {
-        adc_i_val = read_adc(CURRENT_CH);  // Read current channel
-        adc_v_val = read_adc(VOLTAGE_CH);  // Read voltage channel
-#ifdef CAPTURE_UNFILTERED_ISC_POLL
-        if (unfiltered_index < MAX_UNFILTERED_POINTS) {
-          unfiltered_adc_i_vals[unfiltered_index] = adc_i_val;
-          unfiltered_adc_v_vals[unfiltered_index++] = adc_v_val;
-        }
-#endif
-        // Break out of loop when voltage has increased by at least 10
-        // ADC units
-        if ((adc_v_val - adc_v_val_prev) > 10)
-          break;
-      }
-      // Reset all of the current channel values to restart stable Isc
-      // search
-      adc_i_val_prev_prev = 0;
-      adc_i_val_prev = 0;
-      adc_i_val = 0;
-    }
     isc_poll_loops = ii + 1;
-    // Nested ifs should be faster than &&
     if (adc_i_val > min_isc_adc) {
-      // Current is greater than min_isc_adc
+      // For the EMR version, Isc is considered stable when three
+      // consecutive measurements:
+      //   - have current greater than min_isc_adc
+      //   - have increasing voltage
+      //   - have decreasing or equal current
+      //   - have a current difference less than or equal to isc_stable_adc
+      //
+      // For the SSR version, Isc is stable when both the voltage and
+      // current have stopped changing, i.e. three of the same values
+      // are seen in a row.
+      //
+      // Although we don't "know" whether the hardware is an EMR or SSR
+      // version, it is very unlikely that the EMR conditions would
+      // match on the SSR hardware or vice versa. But if they do, it
+      // would most likely not matter.
+      if (((adc_v_val > adc_v_val_prev) &&  // EMR conditions
+           (adc_v_val_prev > adc_v_val_prev_prev) &&
+           (adc_i_val <= adc_i_val_prev) &&
+           (adc_i_val_prev <= adc_i_val_prev_prev) &&
+           (abs(adc_i_val_prev - adc_i_val) <= isc_stable_adc) &&
+           (abs(adc_i_val_prev_prev - adc_i_val_prev) <= isc_stable_adc))) {
+        emr_isc_stable = true;
+      }
+      if (((adc_v_val == adc_v_val_prev) &&  // SSR conditions
+           (adc_v_val_prev == adc_v_val_prev_prev) &&
+           (adc_i_val == adc_i_val_prev) &&
+           (adc_i_val_prev == adc_i_val_prev_prev))) {
+        ssr_isc_stable = true;
+      }
+      if (emr_isc_stable || ssr_isc_stable) {
+        isc_stable_adc_v_val = adc_v_val;
+        isc_stable_adc_v_val_prev = adc_v_val_prev;
+        isc_stable_adc_v_val_prev_prev = adc_v_val_prev_prev;
+        isc_stable_adc_i_val = adc_i_val;
+        isc_stable_adc_i_val_prev = adc_i_val_prev;
+        isc_stable_adc_i_val_prev_prev = adc_i_val_prev_prev;
+        poll_timeout = false;
+        break;
+      }
       if (adc_v_val >= adc_v_val_prev) {
-        if (adc_v_val_prev >= adc_v_val_prev_prev) {
-          // Voltage is increasing or equal
-          if (adc_i_val <= adc_i_val_prev) {
-            if (adc_i_val_prev <= adc_i_val_prev_prev) {
-              // Current is decreasing or equal
-              if (abs(adc_i_val_prev - adc_i_val) <= isc_stable_adc) {
-                if (abs(adc_i_val_prev_prev -
-                        adc_i_val_prev) <= isc_stable_adc) {
-                  // Current differences are less than or equal to
-                  // isc_stable_adc
-                  poll_timeout = false;
-                  break;
-                }
-              }
-            }
-          }
-        }
-        // Shift all values
+        // If voltage increases or is equal, shift previous to
+        // previous-previous. But previous-previous keeps its value if
+        // voltage decreases. This has the effect of discarding the
+        // previous value, which handles the EMR "bounce" case.
         adc_v_val_prev_prev = adc_v_val_prev;
         adc_i_val_prev_prev = adc_i_val_prev;
-        adc_v_val_prev = adc_v_val;
-        adc_i_val_prev = adc_i_val;
-      } else {
-        // If voltage decreases, discard the previous point but keep the
-        // one before that
-        adc_v_val_prev = adc_v_val;
-        adc_i_val_prev = adc_i_val;
       }
+      // Shift current to previous
+      adc_v_val_prev = adc_v_val;
+      adc_i_val_prev = adc_i_val;
     }
   }
-  if (max_isc_poll < 0) {
+  if ((max_isc_poll < 0) && !skip_isc_poll) {
     // Special debug case (negative max_isc_poll). Just poll until a
     // non-zero current is found
     poll_timeout = true;
@@ -677,15 +661,16 @@ void loop()
       }
     }
   }
-  // In case SSR3 was never turned off, do that now
+  // Turn off SSR3 (SSR4 in cell version) when polling is complete
   digitalWrite(SSR3_PIN, SSR3_INACTIVE);
   digitalWrite(FET3_PIN, FET3_INACTIVE);
+  digitalWrite(SSR4_PIN, SSR4_INACTIVE);
 
   if (poll_timeout)
     Serial.println(F("Polling for stable Isc timed out"));
 
   // Isc is approximately the value of the first of the three points
-  // above
+  // at the end of Isc polling
   isc_adc = adc_i_val_prev_prev;
 
   // First IV pair (point number 0) is last point from polling
@@ -943,6 +928,25 @@ void loop()
   Serial.println(min_adc_noise_floor);
   Serial.print(F("CH1 ADC noise floor (max):"));
   Serial.println(max_adc_noise_floor);
+  // Isc stable polling
+  Serial.print(F("EMR Isc stable: "));
+  Serial.print(emr_isc_stable);
+  Serial.print(F("  SSR Isc stable: "));
+  Serial.println(ssr_isc_stable);
+  if (emr_isc_stable || ssr_isc_stable) {
+    Serial.print(F("Isc stable point 1: "));
+    Serial.print(isc_stable_adc_v_val_prev_prev);
+    Serial.print(F(","));
+    Serial.println(isc_stable_adc_i_val_prev_prev);
+    Serial.print(F("Isc stable point 2: "));
+    Serial.print(isc_stable_adc_v_val_prev);
+    Serial.print(F(","));
+    Serial.println(isc_stable_adc_i_val_prev);
+    Serial.print(F("Isc stable point 3: "));
+    Serial.print(isc_stable_adc_v_val);
+    Serial.print(F(","));
+    Serial.println(isc_stable_adc_i_val);
+  }
   // Isc point
   Serial.print(F("Isc CH0:0"));
   Serial.print(F(" CH1:"));
