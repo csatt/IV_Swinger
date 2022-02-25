@@ -7,8 +7,8 @@ between the Perma-Proto and the Arduino.
 Now there are printed circuit boards (PCBs) available that provide all
 of these connections, making the construction much simpler, faster, and
 more mistake-proof.  Furthermore, there are versions of the PCBs that
-support on-board solid-state relays (SSRs) instead of the off-board
-electromagnetic relays (EMRs).
+support on-board solid-state relays (SSRs) or field-effect transistors
+(FETs) instead of the off-board electromagnetic relays (EMRs).
 
 It is recommended that, moving forward, all IV Swinger 2 constructions
 use the PCB-based designs.
@@ -18,10 +18,11 @@ Perma-Proto-based designs is contained in the Perma_Proto folder. This
 folder contains the documents that are specific to construction using
 the PCBs.
 
-There are four PCB variants:
+There are five PCB variants:
 
     EMR-based version for PV modules
     SSR-based version for PV modules 
+    FET-based version for PV modules 
     EMR-based version for PV cells 
     SSR-based version for PV cells
 
@@ -32,6 +33,8 @@ variants are contained in the variant-specific documents:
    IV_Swinger2_EMR_mod_PCB_Step_by_Step_v<x>.pdf
    IV_Swinger2_SSR_mod_PCB_Step_by_Step.docx
    IV_Swinger2_SSR_mod_PCB_Step_by_Step_v<x>.pdf
+   IV_Swinger2_FET_mod_PCB_Step_by_Step.docx
+   IV_Swinger2_FET_mod_PCB_Step_by_Step_v<x>.pdf
    IV_Swinger2_EMR_cell_PCB_Step_by_Step.docx
    IV_Swinger2_EMR_cell_PCB_Step_by_Step_v<x>.pdf
    IV_Swinger2_SSR_cell_PCB_Step_by_Step.docx
