@@ -43,16 +43,16 @@ NOTE: 3.x.x below should be replaced with the actual Python version you
 
       % env PYTHON_CONFIGURE_OPTS="--with-tcltk-includes='-I/usr/local/opt/tcl-tk/include' --with-tcltk-libs='-L/usr/local/opt/tcl-tk/lib -ltcl8.6 -ltk8.6' --enable-framework" pyenv install 3.x.x
 
-    - Configure pyenv to use Python 3.x.x in the IV_Swinger/python directory:
+    - Configure pyenv to use Python 3.x.x in the IV_Swinger/python3 directory:
 
-      % cd <your GitHub path>/IV_Swinger/python
+      % cd <your GitHub path>/IV_Swinger/python3
       % pyenv local 3.x.x
       % python -V
       3.x.x
 
     - Install Python packages required by the IV Swinger 3 code:
 
-      % cd <your GitHub path>/IV_Swinger/python
+      % cd <your GitHub path>/IV_Swinger/python3
       % pip install Pillow pyserial numpy scipy Send2Trash
       % pip install matplotlib==3.2.2
 
@@ -65,7 +65,7 @@ NOTE: 3.x.x below should be replaced with the actual Python version you
 
     - Test:
 
-      % cd <your GitHub path>/IV_Swinger/python
+      % cd <your GitHub path>/IV_Swinger/python3
       % python IV_Swinger2_gui.py
 
 
@@ -86,20 +86,20 @@ NOTE: 3.x.x below should be replaced with the actual Python version you
 
       > pyenv install 3.x.x
 
-    - Configure pyenv to use Python 3.x.x in the IV_Swinger/python directory:
+    - Configure pyenv to use Python 3.x.x in the IV_Swinger/python3 directory:
 
-      > cd <your GitHub path>\IV_Swinger\python
+      > cd <your GitHub path>\IV_Swinger\python3
       > pyenv local 3.x.x
       > python -V
       3.x.x
 
     - Install Python packages required by the IV Swinger 2 code:
 
-      > cd <your GitHub path>\IV_Swinger\python
+      > cd <your GitHub path>\IV_Swinger\python3
       > pip install Pillow pyserial numpy matplotlib scipy Send2Trash pywin32
 
     - Test:
 
-      > cd <your GitHub path>\IV_Swinger\python
+      > cd <your GitHub path>\IV_Swinger\python3
       > python IV_Swinger2_gui.py
 
