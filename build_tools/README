@@ -58,6 +58,8 @@ Instructions for Mac build (Python 3):
        i) Go into the pyinstaller hooks directory (change the 3.x.x appropriately):
        
           % cd ~/.pyenv/versions/3.x.x/Python.framework/Versions/3.x/lib/python3.x/site-packages/PyInstaller/hooks
+        or:
+          % cd ~/.pyenv/versions/3.x.x/Library/Frameworks/Python.framework/Versions/3.x/lib/python3.x/site-packages/PyInstaller/hooks
 
           This assumes you are using pyenv.
 
