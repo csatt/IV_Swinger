@@ -176,7 +176,7 @@
  * changed to reflect that they now actually mean "SSR or FET".
  * 
  */
-#define VERSION "1.4.4"         // Version of this Arduino sketch
+#define VERSION "1.4.5"         // Version of this Arduino sketch
 
 // Uncomment one or more of the following to enable the associated
 // feature. Note, however, that enabling these features uses more of the
@@ -1279,8 +1279,8 @@ void set_second_relay_state(bool active) {
 void do_ssr_curr_cal() {
   bool result_valid = true;
   int adc_i_val;
+  bool keep_going;
   long adc_i_val_sum, adc_i_val_p1_avg, adc_i_val_avg_cnt;
-  long exclude_cnt, delta_from_p1_avg;
   float adc_i_val_p2_avg;
   long start_usecs, elapsed_usecs;
 
@@ -1301,14 +1301,10 @@ void do_ssr_curr_cal() {
   // This period is long enough for a human to read the measured value
   // on the DMM display.
   //
-  // At the end of the loop, there are two periods of SSR_CAL_RD_USECS:
-  //    - Pass 1: Read read current channel and calculate the average ADC
-  //              value
-  //    - Pass 2: Same, but only include values that are +-0.5% from the
-  //              Pass 1 average value
-  //
-  // If the difference between the Pass 1 average and Pass 2 average is
-  // more than 1% of the Pass 2 average, the measurment is considered
+  // At the end of the loop, there are two periods of SSR_CAL_RD_USECS
+  // in which the ADC current channel is read in a loop and the average
+  // ADC is calculated. If the difference between the Pass 1 average and
+  // Pass 2 average is more than 1%, the measurement is considered
   // "unstable".
   //
   start_usecs = micros();
@@ -1329,46 +1325,33 @@ void do_ssr_curr_cal() {
   // values and number of reads (for average ADC calculation). Bail out
   // if ADC saturated is seen.
   //
-  adc_i_val_sum = 0;
-  adc_i_val_avg_cnt = 0;
-  while ((elapsed_usecs < (SSR_CAL_USECS - SSR_CAL_RD_USECS)) &&
-         result_valid) {
-    adc_i_val = read_adc(CURRENT_CH);  // Read current channel
-    adc_i_val_sum += adc_i_val;
-    adc_i_val_avg_cnt++;
-    if (adc_i_val == ADC_SAT)
-      result_valid = false;
-    elapsed_usecs = micros() - start_usecs;
-  }
-  // Compute the Pass 1 average
-  adc_i_val_p1_avg = adc_i_val_avg_cnt ?
-    adc_i_val_sum / adc_i_val_avg_cnt : 0;
-  //
   // Pass 2
   //
-  // Loop the rest of the way. Accumulate sum of ADC values that are
-  // within 0.5% (or 1 ADC count, whichever is greater) of the Loop 1
-  // average, and the count of such values. Again, bail out if ADC
-  // saturated is seen.
+  // Loop the rest of the way doing the same.
   //
-  adc_i_val_sum = 0;
-  adc_i_val_avg_cnt = 0;
-  exclude_cnt = 0;
-  while ((elapsed_usecs < SSR_CAL_USECS) && result_valid) {
-    adc_i_val = read_adc(CURRENT_CH);  // Read current channel
-    // Include values within +-0.5% of adc_i_val_p1_avg and values
-    // that are within 1 of adc_i_val_p1_avg
-    delta_from_p1_avg = abs(adc_i_val - adc_i_val_p1_avg);
-    if (((delta_from_p1_avg * 200) < adc_i_val_p1_avg) ||
-        (delta_from_p1_avg <= 1)) {
+  for (int pass = 1; pass <= 2; pass++) {
+    adc_i_val_sum = 0;
+    adc_i_val_avg_cnt = 0;
+    keep_going = true;
+    while (keep_going) {
+      adc_i_val = read_adc(CURRENT_CH);  // Read current channel
       adc_i_val_sum += adc_i_val;
       adc_i_val_avg_cnt++;
-      if (adc_i_val == ADC_SAT)
+      if (adc_i_val > (ADC_SAT - 10))
         result_valid = false;
-    } else {
-      exclude_cnt++;
+      elapsed_usecs = micros() - start_usecs;
+      if (pass == 1) {
+        keep_going = ((elapsed_usecs < (SSR_CAL_USECS - SSR_CAL_RD_USECS)) &&
+                      result_valid);
+      } else {
+        keep_going = ((elapsed_usecs < SSR_CAL_USECS) && result_valid);
+      }
     }
-    elapsed_usecs = micros() - start_usecs;
+    if (pass == 1) {
+      // Compute the Pass 1 average
+      adc_i_val_p1_avg = adc_i_val_avg_cnt ?
+        adc_i_val_sum / adc_i_val_avg_cnt : 0;
+    }
   }
   //
   // If the result is valid so far (ADC not saturated), compute the Pass
@@ -1381,8 +1364,7 @@ void do_ssr_curr_cal() {
     // Compute the Pass 2 average
     adc_i_val_p2_avg = adc_i_val_avg_cnt ?
       float(adc_i_val_sum) / float(adc_i_val_avg_cnt) : 0.0;
-    if (exclude_cnt > adc_i_val_avg_cnt) {
-      // Majority of Pass 2 values excluded => unstable
+    if (abs(adc_i_val_p2_avg - adc_i_val_p1_avg)/adc_i_val_p2_avg > 0.01) {
       Serial.print(F("SSR current calibration ADC not stable. Pass 1: "));
       result_valid = false;
     } else {
@@ -1392,7 +1374,7 @@ void do_ssr_curr_cal() {
     Serial.print(F("  Pass 2: "));
     Serial.println(adc_i_val_p2_avg);
   } else {
-    Serial.print(F("SSR current calibration: ADC saturated"));
+    Serial.println(F("SSR current calibration: ADC saturated"));
   }
 
   // Deactivate SSR1
