@@ -176,7 +176,7 @@
  * changed to reflect that they now actually mean "SSR or FET".
  * 
  */
-#define VERSION "1.4.5"         // Version of this Arduino sketch
+#define VERSION "1.4.6"         // Version of this Arduino sketch
 
 // Uncomment one or more of the following to enable the associated
 // feature. Note, however, that enabling these features uses more of the
@@ -319,6 +319,7 @@ const static char relay_state_str[] PROGMEM = "RELAY_STATE";
 const static char second_relay_state_str[] PROGMEM = "SECOND_RELAY_STATE";
 const static char do_ssr_curr_cal_str[] PROGMEM = "DO_SSR_CURR_CAL";
 const static char read_bandgap_str[] PROGMEM = "READ_BANDGAP";
+const static char read_adc_str[] PROGMEM = "READ_ADC";
 
 #ifdef DS18B20_SUPPORTED
 // Global setup for DS18B20 temperature sensor
@@ -1039,6 +1040,7 @@ void process_config_msg(char * msg) {
   int num_args = 0;
   int exp_args;
   int eeprom_addr;
+  int count, adc_v_val, adc_i_val;
   float eeprom_value;
   bool wrong_arg_cnt = false;
   const char CARRIAGE_RETURN = 0xd;
@@ -1173,7 +1175,22 @@ void process_config_msg(char * msg) {
     } else {
       wrong_arg_cnt = true;
     }
-
+  } else if (strcmp_P(config_type, read_adc_str) == 0) {
+    exp_args = 1;
+    if (num_args == exp_args) {
+      count = atoi(config_val);
+      for (ii = 0; ii < count; ii++) {
+        adc_v_val = read_adc(VOLTAGE_CH);  // Read voltage channel
+        adc_i_val = read_adc(CURRENT_CH);  // Read current channel
+        Serial.print(F("ADC CH0 (voltage): "));
+        Serial.print(adc_v_val);
+        Serial.print(F(" CH1 (current): "));
+        Serial.println(adc_i_val);
+        delay(500);  // 0.5 seconds between reads
+      }
+    } else {
+      wrong_arg_cnt = true;
+    }
   } else {
     Serial.print(F("ERROR: Unknown config type: "));
     Serial.println(config_type);
