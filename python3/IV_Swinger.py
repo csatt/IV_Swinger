@@ -6,7 +6,7 @@
 #
 # IV_Swinger.py: IV Swinger control module
 #
-# Copyright (C) 2016-2021  Chris Satterlee
+# Copyright (C) 2016-2023  Chris Satterlee
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -572,6 +572,56 @@ def read_measured_and_interp_points(f):
 
     return (measured_volts, measured_amps, measured_watts,
             interp_volts, interp_amps, interp_watts)
+
+
+def mantissa_and_exp(value, figs):
+    """Global function to return the scientific notation mantissa and
+       exponent of the provided value
+    """
+    man, exp = ("{:.{}e}".format(value, figs)).split('e')
+    return (float(man), int(exp))
+
+
+def get_tick_step(max_val):
+    """Global function to return the step value for the X and Y axis plot
+       ticks given the maximum value of the axis. The only step values
+       generated are 1, 2, and 5 (times the appropriate power of 10.)
+    """
+    max_steps = 15
+    man, exp = mantissa_and_exp(max_val * 10.0/max_steps, 2)
+    if man <= 2:
+        step = float("{}e{}".format(2, exp - 1))
+    elif man <= 5:
+        step = float("{}e{}".format(5, exp - 1))
+    else:
+        step = float("{}e{}".format(1, exp))
+    return step
+
+
+def sigfigs(number, figs):
+    """Global function to convert a numerical value to a string with the
+       given number of significant figures
+    """
+    # The following one-liner is pretty good. Numerically, the value is
+    # correctly rounded to the requested number of significant
+    # figures. But if the rounding happens to the left of the decimal
+    # point, it still includes the decimal point and a zero after it,
+    # and that implies more precision than it should. And if the
+    # rounding happens to the right of the decimal point, there can be
+    # missing significant trailing zeros.
+    initial_result_str = f"{float(f'{number:.{figs}g}')}"
+
+    # Fix the issues mentioned above
+    if "e" in initial_result_str or initial_result_str == "0.0":
+        return initial_result_str
+    integer_part, decimal_part = initial_result_str.split(".")
+    if integer_part == "0":
+        num_added_zeros = figs - len(decimal_part)
+    else:
+        if len(integer_part) >= figs:
+            return integer_part
+        num_added_zeros = figs - len(integer_part) - len(decimal_part)
+    return initial_result_str + "0" * num_added_zeros
 
 
 #################
@@ -3538,22 +3588,13 @@ class IV_Swinger():
         else:
             max_x = 0
             for volts in voc_volts:
-                # Round volts
-                if volts >= 10.0:
-                    # First divide by two and round to 3 s.f.
-                    volts_div2 = round(volts/2.0, 1)
-                    # Then round that to 2 s.f. and double
-                    volts = round(volts_div2, 0) * 2.0
-                elif volts >= 1.0:
-                    volts_div2 = round(volts/2.0, 2)
-                    volts = round(volts_div2, 1) * 2.0
-                else:
-                    volts_div2 = round(volts/2.0, 3)
-                    volts = round(volts_div2, 2) * 2.0
                 if volts * self.max_v_ratio > max_x:
                     max_x = volts * self.max_v_ratio
+
+        # Round max_x to 2 significant figures
+        max_x = float(sigfigs(max_x, 2))
+
         if max_x > 0:
-            self.plot_max_x = max_x
             if self.use_gnuplot:
                 output_line = "set xrange [0:{}]\n".format(max_x)
                 self.filehandle.write(output_line)
@@ -3573,32 +3614,17 @@ class IV_Swinger():
         else:
             max_y = 0
             for amps in isc_amps + mpp_amps:
-                # Round amps
-                if amps >= 10.0:
-                    # First divide by five and round to 3 s.f.
-                    amps_div5 = round(amps/5.0, 1)
-                    # Then round that to 2 s.f. and multiply by five
-                    amps = round(amps_div5, 0) * 5.0
-                elif amps >= 1.0:
-                    amps_div5 = round(amps/5.0, 2)
-                    amps = round(amps_div5, 1) * 5.0
-                elif amps >= 0.1:
-                    amps_div5 = round(amps/5.0, 3)
-                    amps = round(amps_div5, 2) * 5.0
-                elif amps >= 0.01:
-                    amps_div5 = round(amps/5.0, 4)
-                    amps = round(amps_div5, 3) * 5.0
-                else:
-                    amps_div5 = round(amps/5.0, 5)
-                    amps = round(amps_div5, 4) * 5.0
                 # The isc_amps value is negative when we want to
                 # suppress plotting the Isc point. But we still need its
                 # magnitude to determine the max_y value, so we use
                 # abs().
                 if abs(amps) * self.max_i_ratio > max_y:
                     max_y = abs(amps) * self.max_i_ratio
+
+        # Round max_y to 2 significant figures
+        max_y = float(sigfigs(max_y, 2))
+
         if max_y > 0:
-            self.plot_max_y = max_y
             if self.use_gnuplot:
                 output_line = "set yrange [0:{}]\n".format(max_y)
                 self.filehandle.write(output_line)
@@ -3611,20 +3637,7 @@ class IV_Swinger():
     # -------------------------------------------------------------------------
     def set_x_ticks(self, max_x):
         """Method to set the plotter X-axis ticks"""
-        if max_x < 1:
-            step = 0.05
-        elif max_x < 2:
-            step = 0.1
-        elif max_x < 4.5:
-            step = 0.2
-        elif max_x < 9:
-            step = 0.5
-        elif max_x < 18:
-            step = 1.0
-        elif max_x < 36:
-            step = 2.0
-        else:
-            step = 4.0
+        step = get_tick_step(max_x)
         fontsize = self.ticklabel_fontsize * self.font_scale
         if self.use_gnuplot:
             fontsize *= self.gp_font_scale
@@ -3636,26 +3649,7 @@ class IV_Swinger():
     # -------------------------------------------------------------------------
     def set_y_ticks(self, max_y):
         """Method to set the plotter Y-axis ticks"""
-        if max_y < 0.01:
-            step = 0.001
-        elif max_y < 0.02:
-            step = 0.002
-        elif max_y < 0.05:
-            step = 0.005
-        elif max_y < 0.1:
-            step = 0.01
-        elif max_y < 0.2:
-            step = 0.02
-        elif max_y < 0.5:
-            step = 0.05
-        elif max_y < 1:
-            step = 0.1
-        elif max_y < 2:
-            step = 0.2
-        elif max_y < 5:
-            step = 0.5
-        else:
-            step = 1.0
+        step = get_tick_step(max_y)
         fontsize = self.ticklabel_fontsize * self.font_scale
         if self.use_gnuplot:
             fontsize *= self.gp_font_scale
@@ -3696,12 +3690,8 @@ class IV_Swinger():
         fontsize = self.isclabel_fontsize * self.font_scale
         prev_isc_str_width = 0
         for ii, isc_amp in enumerate(isc_amps):
-            if isc_amp >= 10.0:
-                isc_str = "Isc = {:.1f} A".format(isc_amp)
-            elif isc_amp >= 1.0:
-                isc_str = "Isc = {:.2f} A".format(isc_amp)
-            else:
-                isc_str = "Isc = {:.3f} A".format(isc_amp)
+            # Round isc_amp to 3 significant figures
+            isc_str = "Isc = {} A".format(sigfigs(isc_amp, 3))
             if self.use_gnuplot:
                 gp_isc_str = ' ""'
                 if not ii or self.label_all_iscs or self.plot_ref:
@@ -3734,33 +3724,18 @@ class IV_Swinger():
         fontsize = self.mpplabel_fontsize * self.font_scale
         max_mpp_volts = max(mpp_volts)
         for ii, mpp_amp in enumerate(mpp_amps):
-            if mpp_volts[ii] >= 10.0:
-                mppv_str = "{:.1f}".format(mpp_volts[ii])
-            elif mpp_volts[ii] >= 1.0:
-                mppv_str = "{:.2f}".format(mpp_volts[ii])
-            else:
-                mppv_str = "{:.3f}".format(mpp_volts[ii])
-            if mpp_amp >= 10.0:
-                mppa_str = "{:.1f}".format(mpp_amp)
-            elif mpp_amp >= 1.0:
-                mppa_str = "{:.2f}".format(mpp_amp)
-            else:
-                mppa_str = "{:.3f}".format(mpp_amp)
+            # Round mpp_volts to 3 significant figures
+            mppv_str = "{}".format(sigfigs(mpp_volts[ii], 3))
+            # Round mpp_amp to 3 significant figures
+            mppa_str = "{}".format(sigfigs(mpp_amp, 3))
+            # Create (V * A) string from those
             mpp_volts_x_amps_str = (" ({} * {})"
                                     .format(mppv_str, mppa_str))
             if self.mpp_watts_only:
                 mpp_volts_x_amps_str = ""
             mpp_watts = mpp_volts[ii] * mpp_amp
-            if mpp_watts >= 100.0:
-                mppw_str = "{:.0f}".format(mpp_watts)
-            elif mpp_watts >= 10.0:
-                mppw_str = "{:.1f}".format(mpp_watts)
-            elif mpp_watts >= 1.0:
-                mppw_str = "{:.2f}".format(mpp_watts)
-            elif mpp_watts >= 0.1:
-                mppw_str = "{:.3f}".format(mpp_watts)
-            else:
-                mppw_str = "{:.4f}".format(mpp_watts)
+            # Round mpp_watts to 3 significant figures
+            mppw_str = "{}".format(sigfigs(mpp_watts, 3))
             mpp_str = "MPP = {} W{}".format(mppw_str, mpp_volts_x_amps_str)
             if self.use_gnuplot:
                 gp_mpp_str = ' ""'
@@ -3814,12 +3789,8 @@ class IV_Swinger():
         if self.label_all_vocs:
             nn = len(voc_volts) - 1
         for ii, voc_volt in enumerate(voc_volts):
-            if voc_volt >= 10.0:
-                voc_str = "Voc = {:.1f} V".format(voc_volt)
-            elif voc_volt >= 1.0:
-                voc_str = "Voc = {:.2f} V".format(voc_volt)
-            else:
-                voc_str = "Voc = {:.3f} V".format(voc_volt)
+            # Round voc_volt to 3 significant figures
+            voc_str = "Voc = {} V".format(sigfigs(voc_volt, 3))
             if self.use_gnuplot:
                 gp_voc_str = ' ""'
                 if not ii or self.label_all_vocs or self.plot_ref:
@@ -4111,12 +4082,9 @@ class IV_Swinger():
         xsize = self.plot_x_inches * self.plot_x_scale
         ysize = self.plot_y_inches * self.plot_y_scale
         margin_width = 0.2 + 0.3 * self.font_scale
-        if self.plot_max_y < 0.5:
-            lr_margin_add = 0.2
-        elif self.plot_max_y < 5:
-            lr_margin_add = 0.1
-        else:
-            lr_margin_add = 0.0
+        _, max_y_exp = mantissa_and_exp(self.plot_max_y, 3)
+        label_chars = int(3 - max_y_exp)
+        lr_margin_add = 0.06 * label_chars
         left_adj = (margin_width + lr_margin_add) / xsize
         right_adj = 1.0 - (margin_width + lr_margin_add) / xsize
         top_adj = 1.0 - margin_width / ysize
