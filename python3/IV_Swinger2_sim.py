@@ -117,7 +117,7 @@ LOAD_CAP_HEIGHT_MM_DEFAULT = 36.5
 LOAD_CAP_MFG_PN_DEFAULT = "108CKS100MRY"
 NUM_LOAD_CAPS_DEFAULT = 2
 SHUNT_WATTAGE_DEFAULT = 3.0
-SHUNT_MFG_PN_DEFAULT = "LVR035L000FE70"
+SHUNT_MFG_PN_DEFAULT = "13FR005E"
 RB_OHMS_DEFAULT = 47.0
 RB_WATTAGE_DEFAULT = 5.0
 RB_MFG_PN_DEFAULT = "AC05000004709JAC00"
@@ -146,6 +146,9 @@ TARGET_BLEED_RC_US_DEFAULT = LOAD_CAPS_UF_DEFAULT * RB_OHMS_DEFAULT
 # Other constants (cannot be overridden)
 ZERO_OHMS = 0.0001  # Used to prevent divide-by-zero
 QTR_WATT_RESISTORS = [ZERO_OHMS,
+                      1.0, 2.2, 4.7, 5.6,
+                      7.5, 8.2, 10.0, 15.0,
+                      22.0, 27.0, 33.0, 39.0,
                       47.0, 56.0, 68.0, 75.0,
                       82.0, 100.0, 120.0, 150.0,
                       180.0, 220.0, 270.0, 330.0,
@@ -158,16 +161,22 @@ QTR_WATT_RESISTORS = [ZERO_OHMS,
                       82000.0, 100000.0, 150000.0, 180000.0]
 # Shunt resistors
 #   Resistance (ohms), power (W), Mfg PN
-SHUNT_RESISTORS = [(0.005, 3.0, "LVR035L000FE70"),
-                   (0.010, 3.0, "LVR03R0100FE70"),
-                   (0.020, 3.0, "LVR03R0200FE70"),
-                   (0.040, 3.0, "13FR040E"),
-                   (0.080, 3.0, "LVR03R0800FE70"),
-                   (0.100, 3.0, "LVR03R1000FE70"),
-                   (0.150, 3.0, "LVR03R1500FE70"),
-                   (0.330, 3.0, "UB3C-0R33F1"),
-                   (0.500, 3.0, "UB3C-0R5F1"),
-                   (1.000, 3.0, "UB3C-1RF1")]
+THREE_W_SHUNT_RESISTORS = [(0.005, 3.0, SHUNT_MFG_PN_DEFAULT),
+                           (0.010, 3.0, "13FR010E"),
+                           (0.020, 3.0, "13FR020E"),
+                           (0.040, 3.0, "13FR040E"),
+                           (0.080, 3.0, "13FR080E"),
+                           (0.100, 3.0, "13FR100E"),
+                           (0.150, 3.0, "13FR150E")]
+
+QTR_WATT_SHUNT_RESISTORS = [(0.333, 0.75, "3x 1 ohm Std 1/4w 1%"),
+                            (0.500, 0.5, "2x 1 ohm Std 1/4w 1%"),]
+
+for ohms in QTR_WATT_RESISTORS[1:]:
+    QTR_WATT_SHUNT_RESISTORS.append((ohms, 0.25, "Std 1/4w 1%"))
+
+SHUNT_RESISTORS = THREE_W_SHUNT_RESISTORS + QTR_WATT_SHUNT_RESISTORS
+
 # Load capacitors
 #   Capacitance (uF), voltage, ESR, height (mm), Mfg PN
 #
@@ -180,8 +189,16 @@ LOAD_CAPACITORS = [(22000.0, 10.0, "Unknown", 37.5, "EEU-HD1A223"),
                    (3300.0, 50.0, "Unknown", 37.0, "UVZ1H332MHD"),
                    (2200.0, 63.0, "Unknown", 37.0, "UVZ1J222MHD"),
                    (1500.0, 80.0, "Unknown", 37.0, "EKZN800ELL152MMP1S"),
-                   (1000.0, 100.0, 0.133, 36.5, "108CKS100MRY"),
-                   (680.0, 160.0, "Unknown", 47.5, "UCY2C681MHD")]
+                   (1000.0, 100.0, 0.133, 36.5, LOAD_CAP_MFG_PN_DEFAULT),
+                   (680.0, 160.0, "Unknown", 47.5, "UCY2C681MHD"),
+                   (470.0, 160.0, "Unknown", 35.5, "EKXJ161ELL471MMP1S"),
+                   (330.0, 160.0, "Unknown", 31.5, "ECA-2CHG331"),
+                   (220.0, 200.0, "Unknown", 25.0, "EKXG201ELL221MM25S"),
+                   (150.0, 200.0, "Unknown", 25.0, "EEU-EB2D151S"),
+                   (100.0, 200.0, "Unknown", 25.0, "URZ2D101MHD"),
+                   (68.0, 200.0, "Unknown", 20.0, "URS2D680MHD"),
+                   (33.0, 350.0, "Unknown", 16.0, "350BXW33MEFR18X16"),
+                   (22.0, 400.0, "Unknown", 15.0, "URS2G220MHD1TN")]
 # Bleed resistors
 #   Resistance (ohms), power (W), Mfg PN
 BLEED_RESISTORS = [(2.0, 5.0, "AC05000002008JAC00"),
@@ -191,8 +208,16 @@ BLEED_RESISTORS = [(2.0, 5.0, "AC05000002008JAC00"),
                    (15.0, 5.0, "AC05000001509JAC00"),
                    (22.0, 5.0, "AC05000002209JAC00"),
                    (30.0, 5.0, "AC05000003009JAC00"),
-                   (47.0, 5.0, "AC05000004709JAC00"),
-                   (68.0, 10.0, "SQPW1068RJ")]
+                   (47.0, 5.0, RB_MFG_PN_DEFAULT),
+                   (68.0, 5.0, "AC05AT0006809JAC00"),
+                   (100.0, 3.0, "AC03AT0001000JAC00"),
+                   (150.0, 3.0, "AC03AT0001500JAC00"),
+                   (220.0, 3.0, "AC03AT0002200JAC00"),
+                   (330.0, 3.0, "AC03AT0003300JAC00"),
+                   (470.0, 3.0, "AC03AT0004700JAC00"),
+                   (680.0, 3.0, "AC03AT0006800JAC00"),
+                   (1500.0, 3.0, "AC03AT0003300JAC00"),
+                   (2200.0, 3.0, "AC03AT0002201JAC00")]
 
 # Simulator GUI
 SLIDER_LENGTH = 200
@@ -256,7 +281,7 @@ def shunt_index_from_ohms(lookup_ohms):
 
 
 def load_cap_index_from_uf(lookup_uf):
-    """Function to look up the index of a given resistance in
+    """Function to look up the index of a given capacitance in
        LOAD_CAPACITORS. If the exact capacitance is not found, the
        index of the one that is closest (percentage-wise) is
        returned.
@@ -299,7 +324,7 @@ def sigfigs(number, figs):
     """Function to convert a numerical value to the given number of
        significant figures and return that as a string
     """
-    return "{}".format(float(("{:." + str(figs) + "g}").format(number)))
+    return IV_Swinger2.IV_Swinger.sigfigs(number, figs)
 
 
 def shorten_value(value):
@@ -928,16 +953,6 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
         return round(100.0 *
                      self.vdiv_r2_watts / R1_R2_RF_RG_WATTAGE_DEFAULT, 2)
 
-    # ---------------------------------
-    @property
-    def min_swing_interval(self):
-        """Minimum amount of time (in seconds) between IV curves in order not to
-           exceed bleed resistor power rating
-        """
-        load_caps_farads = self.load_caps_uf / 1000000.0
-        load_cap_joules = 0.5 * load_caps_farads * self.sim_voc ** 2
-        return load_cap_joules / self.rb_wattage
-
     # Methods
     # -------------------------------------------------------------------------
     def amps_from_volts(self, volts, a_coeff, b_coeff):
@@ -963,6 +978,15 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
         """
         a_coeff = self.sim_isc / np.expm1(b_coeff * self.sim_voc)
         return a_coeff
+
+    # ---------------------------------
+    def min_swing_interval(self, rb_wattage):
+        """Minimum amount of time (in seconds) between IV curves in order not to
+           exceed bleed resistor power rating
+        """
+        load_caps_farads = self.load_caps_uf / 1000000.0
+        load_cap_joules = 0.5 * load_caps_farads * self.sim_voc ** 2
+        return load_cap_joules / rb_wattage
 
     # -------------------------------------------------------------------------
     def simulate(self):
@@ -1114,6 +1138,7 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
         time_remaining = 1.0 - (self.swing_time_us / 1000000.0)
         if time_remaining <= 0.0:
             self.bleed_pct = 0.0
+            self.unbled_volts = self.sim_voc
         else:
             load_caps_farads = self.load_caps_uf / 1000000.0
             vt_over_v0 = np.exp(-time_remaining/(self.rb_ohms *
@@ -1257,6 +1282,10 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
                 self.rb_ohms = ohms
                 self.rb_wattage = watts
                 self.rb_mfg_pn = mfg_pn
+        # If standard 1/4 watt resistor will work, substitute it
+        if self.min_swing_interval(0.25) < (1.0 / self.opt_multiplier):
+            self.rb_wattage = 0.25
+            self.rb_mfg_pn = "Std 1/4w"
 
     # -------------------------------------------------------------------------
     def set_plot_title(self):
@@ -1370,8 +1399,11 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
         """
         text = "Simulation data:\n"
         # Swing time
-        text += ("  Swing time: {} microseconds\n"
-                 .format(int(self.swing_time_us)))
+        warning = ""
+        if self.swing_time_us > 1000000:
+            warning = "     <== TOO LONG!!"
+        text += ("  Swing time: {} microseconds {}\n"
+                 .format(int(self.swing_time_us), warning))
         # Points recorded/discarded
         text += ("  Points recorded: {}\n"
                  .format(int(len(self.adc_pairs))))
@@ -1419,10 +1451,11 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
                          int(float(sigfigs(input_x, 4)))))
         # Minimum swing interval
         warning = ""
-        if self.min_swing_interval > 1.0:
+        min_swing_interval = self.min_swing_interval(self.rb_wattage)
+        if min_swing_interval > 1.0:
             warning = "     <== WARNING!!"
         text += ("  Min swing interval (Rb wattage): {} seconds {}\n"
-                 .format(sigfigs(self.min_swing_interval, 2), warning))
+                 .format(sigfigs(min_swing_interval, 2), warning))
         # Resolution
         adc_steps_per_volt = ADC_MAX / self.v_sat
         adc_steps_per_amp = ADC_MAX / self.i_sat
@@ -2599,7 +2632,8 @@ class SimulatorDialog(tk.Toplevel):
         """Callback method to update the Rb wattage when the user changes the
            value in the entry. If the resistance is included in
            BLEED_RESISTORS but the wattage is different, the
-           manufacturer partnumber is set to "Unknown".
+           manufacturer partnumber is set to "Unknown" (unless the
+           wattage is 0.25, in which case it is set to "Std 1/4w".)
         """
         # pylint: disable=unused-argument
         self.validate_rb()
@@ -2609,10 +2643,11 @@ class SimulatorDialog(tk.Toplevel):
         if rb_resistance in [rb[0] for rb in BLEED_RESISTORS]:
             if self.ivs2_sim.rb_wattage == BLEED_RESISTORS[rb_index][1]:
                 self.ivs2_sim.rb_mfg_pn = BLEED_RESISTORS[rb_index][2]
-                self.rb_mfg_pn.set(self.ivs2_sim.rb_mfg_pn)
+            elif self.ivs2_sim.rb_wattage == 0.25:
+                self.ivs2_sim.rb_mfg_pn = "Std 1/4w"
             else:
                 self.ivs2_sim.rb_mfg_pn = "Unknown"
-                self.rb_mfg_pn.set("Unknown")
+            self.rb_mfg_pn.set(self.ivs2_sim.rb_mfg_pn)
 
     # -------------------------------------------------------------------------
     def update_all_widgets(self):
