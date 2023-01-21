@@ -199,7 +199,7 @@ try:
     import Adafruit_ADS1x15
     import Adafruit_CharLCD
     import Adafruit_MCP230xx
-    import RPi.GPIO as GPIO  # pylint: disable=import-error
+    from RPi import GPIO  # pylint: disable=import-error
 except ImportError:
     pass
 if not platform.machine().startswith("armv6"):
@@ -774,13 +774,13 @@ class StoppableThread(threading.Thread):  # IVS1
 
     def start(self):
         """Start the thread"""
-        if not self.isAlive():
+        if not self.is_alive():
             self.stop_event.clear()
             threading.Thread.start(self)
 
     def stop(self):
         """Stop the thread"""
-        if self.isAlive():
+        if self.is_alive():
             # set event to signal thread to terminate
             self.stop_event.set()
             # block calling thread until thread really has terminated
@@ -4134,7 +4134,7 @@ class IV_Swinger():
 
         try:
             if not lock_held:
-                self.lock.acquire()
+                self.lock.acquire()  # pylint: disable=consider-using-with
             msg_text = "Shutting down\nnow!!"
             lcd_msg = ScrollingMessage(msg_text, self.lcd, beep=False,
                                        lock=None, exc_queue=self.exc_queue)
@@ -4230,8 +4230,7 @@ class IV_Swinger():
             while True:
                 wait_time = int(time.time()) - int(start_time)
                 time_left = 30 - wait_time
-                if time_left < 0:
-                    time_left = 0
+                time_left = max(time_left, 0)
                 msg_text = ["No USB drives!!\nInsert one or",
                             ("more USB drives\nin next {} sec"
                              .format(time_left))]
@@ -4521,7 +4520,7 @@ class IV_Swinger():
              voc_watts) = self.measure_voc(adc, msg_text)
 
             # Attempt to acquire lock
-            got_lock = self.lock.acquire(0)  # non-blocking
+            got_lock = self.lock.acquire(0)  # pylint: disable=consider-using-with
 
             # If the lock is busy (i.e. held by the pushbutton
             # callback), go back the beginning of the main loop and wait
@@ -4566,7 +4565,7 @@ class IV_Swinger():
                     self.lock.release()
                     time.sleep(0.01)  # yield to callback thread
                     self.check_for_thread_errors()
-                    self.lock.acquire()
+                    self.lock.acquire() # pylint: disable=consider-using-with
                     voc_volts = self.read_voc(adc)
                 warning_thread.stop()
                 self.lock.release()
