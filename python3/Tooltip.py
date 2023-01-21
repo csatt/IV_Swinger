@@ -1,5 +1,5 @@
 """Module to implement tooltips"""
-import tkinter.ttk as ttk
+from tkinter import ttk
 import tkinter as tk
 
 
@@ -116,11 +116,9 @@ class Tooltip():
             x2, y2 = x1 + width, y1 + height
 
             x_delta = x2 - s_width
-            if x_delta < 0:
-                x_delta = 0
+            x_delta = max(x_delta, 0)
             y_delta = y2 - s_height
-            if y_delta < 0:
-                y_delta = 0
+            y_delta = max(y_delta, 0)
 
             offscreen = (x_delta, y_delta) != (0, 0)
 
