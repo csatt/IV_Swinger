@@ -96,14 +96,14 @@ except ImportError:
 import shutil
 import sys
 import tempfile
-import tkinter.ttk as ttk
+from tkinter import ttk
 import tkinter as tk
 import tkinter.filedialog as tkfiledialog
 import tkinter.font as tkfont
 import tkinter.messagebox as tkmsg
-import traceback
 from tkinter.scrolledtext import ScrolledText
 from tkinter.constants import N, S, E, W, LEFT, RIGHT, HORIZONTAL, Y, BOTH, END
+import traceback
 from inspect import currentframe, getframeinfo
 from configparser import NoOptionError
 from send2trash import send2trash
@@ -278,18 +278,18 @@ def handle_early_exception():
     if not getattr(sys, "frozen", False):
         print(err_msg)
         return
-    tmp_file = tempfile.NamedTemporaryFile(delete=False)
-    err_msg += "\n"
-    err_msg += """
+    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+        err_msg += "\n"
+        err_msg += """
 -----------------------------------------------------------
 Please copy/paste the above and send it to csatt1@gmail.com
 
 Alternately, you may attach this file:
 {}
 """.format(tmp_file.name)
-    with open(tmp_file.name, "a", encoding="utf-8") as f:
-        f.write(err_msg)
-    IV_Swinger2.sys_view_file(tmp_file.name)
+        with open(tmp_file.name, "a", encoding="utf-8") as f:
+            f.write(err_msg)
+            IV_Swinger2.sys_view_file(tmp_file.name)
 
 
 def pdf_permission_denied(e):
@@ -350,13 +350,13 @@ def retry_if_pdf_permission_denied(func, *args):
             tkmsg.showerror(message=err_str)
             try:
                 rc = func(*args)
-            except IOError as e:
+            except IOError as ee:
                 rc = RC_FAILURE
-                if pdf_permission_denied(e):
+                if pdf_permission_denied(ee):
                     err_str = ("({})"
                                "\n\n"
                                "PDF still could not be written. "
-                               "It will not be updated.".format(e))
+                               "It will not be updated.".format(ee))
                     tkmsg.showerror(message=err_str)
     return rc
 
@@ -729,7 +729,8 @@ permission to create directories (folders) in
             sys.exit()
         try:
             dummy_file = os.path.join(self.ivs2.app_data_dir, "DUMMY_FILE")
-            open(dummy_file, "a", encoding="utf-8").close()
+            with open(dummy_file, "a", encoding="utf-8") as f:
+                f.close()
             os.remove(dummy_file)
         except (IOError, OSError):
             err_msg = """
@@ -1865,9 +1866,9 @@ This could be for one of the following reasons:
             # This is necessary due to the "manual" bindings
             return
 
-        if (event.widget == self.img_size_combo or
-                event.widget == self.v_range_entry or
-                event.widget == self.i_range_entry):
+        if (event.widget in (self.img_size_combo,
+                             self.v_range_entry,
+                             self.i_range_entry)):
             # When Return key is hit in any of these widgets, it's to
             # change their value, so bail out without doing anything
             return
@@ -5014,7 +5015,7 @@ class Dialog(tk.Toplevel):
         # override
 
     # -------------------------------------------------------------------------
-    def validate(self):  # pylint: disable=no-self-use
+    def validate(self):
         """Method that checks values entered in the dialog for validity. Should
            be overridden to do what is appropriate for the derived
            class. Returns False if a check fails and True if all pass.
