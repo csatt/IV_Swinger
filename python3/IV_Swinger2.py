@@ -499,8 +499,7 @@ def noise_reduction(adc_pairs, starting_rot_thresh=5.0,
         # the inflection comparison.  It is 1/20 of the total number
         # of points, but always at least 2.
         dist = int(num_points / 20.0)
-        if dist < 2:
-            dist = 2
+        dist = max(dist, 2)
         # Calculate the rotation at each point and then sort the
         # list of (point, rot_degrees) tuples by the absolute value
         # of the rotation angles.
@@ -680,13 +679,15 @@ class Configuration():
         """Method to save the starting config file. Mostly a debug feature,
            but not dependent on DEBUG_CONFIG.
         """
+        print(f"Config file: {self.cfg_filename}")
         if os.path.exists(self.cfg_filename):
             shutil.copyfile(self.cfg_filename, self.starting_cfg_filename)
         else:
             if os.path.exists(self.starting_cfg_filename):
                 os.remove(self.starting_cfg_filename)
             # Create an empty file
-            open(self.starting_cfg_filename, "a", encoding="utf-8").close()
+            with open(self.starting_cfg_filename, "a", encoding="utf-8") as f:
+                f.close()
 
     # -------------------------------------------------------------------------
     def log_cfg_diffs(self):
@@ -694,10 +695,11 @@ class Configuration():
            and the current config file. The diff is also returned to the
            caller.
         """
-        diff = difflib.ndiff(open(self.starting_cfg_filename,
-                                  encoding="utf-8").readlines(),
-                             open(self.cfg_filename,
-                                  encoding="utf-8").readlines())
+        with open(self.starting_cfg_filename, encoding="utf-8") as f:
+            starting_lines = f.readlines()
+        with open(self.cfg_filename, encoding="utf-8") as f:
+            current_lines = f.readlines()
+        diff = difflib.ndiff(starting_lines, current_lines)
         heading_str = "Config file diffs\n                 -----------------\n"
         log_str = "{}{}".format(heading_str, "".join(diff))
         self.ivs2.logger.log(log_str)
@@ -4488,9 +4490,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             deflect_begin += 1
         else:
             deflect_begin = self.find_first_downward_deflection(adc_pairs)
-        if deflect_begin < 2:
-            # Force to minimum of 2 so extrapolation is always possible
-            deflect_begin = 2
+        # Force to minimum of 2 so extrapolation is always possible
+        deflect_begin = max(deflect_begin, 2)
         pt2 = (deflect_begin // 2) + 1
         max_pt1 = (pt2 // 2) + 1
         if max_pt1 == pt2:
@@ -4568,8 +4569,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         # greater than or equal to 1/15 the maximum inflection angle.
         num_points = len(adc_pairs)
         dist = int(num_points / 25.0)
-        if dist < 2:
-            dist = 2
+        dist = max(dist, 2)
         retry = 20
         while retry > 0:
             retry -= 1
