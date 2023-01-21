@@ -371,7 +371,7 @@ class CsvParser():
            and resistance values from each line and builds a data_points
            list with each data point being a (I, V, R, P) tuple.
         """
-        if self._data_points == []:
+        if not self._data_points:
             try:
                 with open(self.csv_filename, "r", encoding="utf-8") as f:
                     for ii, line in enumerate(f.read().splitlines()):
