@@ -94,7 +94,7 @@
 #
 import os
 import re
-import tkinter.ttk as ttk
+from tkinter import ttk
 import tkinter as tk
 import tkinter.messagebox as tkmsg
 from tkinter.scrolledtext import ScrolledText
@@ -172,8 +172,8 @@ THREE_W_SHUNT_RESISTORS = [(0.005, 3.0, SHUNT_MFG_PN_DEFAULT),
 QTR_WATT_SHUNT_RESISTORS = [(0.333, 0.75, "3x 1 ohm Std 1/4w 1%"),
                             (0.500, 0.5, "2x 1 ohm Std 1/4w 1%"),]
 
-for ohms in QTR_WATT_RESISTORS[1:]:
-    QTR_WATT_SHUNT_RESISTORS.append((ohms, 0.25, "Std 1/4w 1%"))
+for qw_ohms in QTR_WATT_RESISTORS[1:]:
+    QTR_WATT_SHUNT_RESISTORS.append((qw_ohms, 0.25, "Std 1/4w 1%"))
 
 SHUNT_RESISTORS = THREE_W_SHUNT_RESISTORS + QTR_WATT_SHUNT_RESISTORS
 
@@ -1005,8 +1005,7 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
         adc_steps_per_amp = ADC_MAX / self.i_sat
 
         voc_adc = int(round(adc_steps_per_volt * self.sim_voc))
-        if voc_adc > ADC_MAX:
-            voc_adc = ADC_MAX
+        voc_adc = min(voc_adc, ADC_MAX)
 
         us_since_prev = 0
         self.swing_time_us = 0
@@ -1046,10 +1045,8 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
                     ch1_adc = int(round(adc_steps_per_amp * i2))
 
                     # Saturate at max
-                    if ch0_adc > ADC_MAX:
-                        ch0_adc = ADC_MAX
-                    if ch1_adc > ADC_MAX:
-                        ch1_adc = ADC_MAX
+                    ch0_adc = min(ch0_adc, ADC_MAX)
+                    ch1_adc = min(ch1_adc, ADC_MAX)
 
                     # If this is the first point, capture the Isc value
                     # as being equal to its current (as the Arduino
@@ -1397,6 +1394,7 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
     def gen_sim_results_text(self):
         """Method to generate the text listing the simulation results
         """
+        # pylint: disable=too-many-locals
         text = "Simulation data:\n"
         # Swing time
         warning = ""
