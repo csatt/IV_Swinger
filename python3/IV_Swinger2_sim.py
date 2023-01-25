@@ -335,11 +335,11 @@ def shorten_value(value):
     if value >= 1000.0:
         k_value = value / 1000.0
         if k_value == int(k_value):
-            return "{}k".format(int(k_value))
-        return "{}k".format(k_value)
+            return f"{int(k_value)}k"
+        return f"{k_value}k"
     if value == int(value):
-        return "{}".format(int(value))
-    return "{}".format(value)
+        return f"{int(value)}"
+    return f"{value}"
 
 
 def selectall(event):
@@ -382,12 +382,11 @@ def set_dialog_geometry(dialog, min_height=None, max_height=None):
             max_height = dialog.winfo_screenheight()
         dialog.minsize(width, min_height)
         dialog.maxsize(width, max_height)
-        dialog.geometry("{}x{}+{}+5".format(width, min_height,
-                                            (dialog.winfo_screenwidth()//2 -
-                                             width//2)))
+        dialog.geometry(f"{width}x"
+                        f"{min_height}+"
+                        f"{dialog.winfo_screenwidth() // 2 - width // 2}+5")
     else:
-        dialog.geometry("+{}+5".format(dialog.winfo_screenwidth()//2 -
-                                       width//2))
+        dialog.geometry(f"+{dialog.winfo_screenwidth() // 2 - width // 2}+5")
     dialog.lift()
     dialog.attributes("-topmost", True)
     dialog.after_idle(dialog.attributes, "-topmost", False)
@@ -981,8 +980,8 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
 
     # ---------------------------------
     def min_swing_interval(self, rb_wattage):
-        """Minimum amount of time (in seconds) between IV curves in order not to
-           exceed bleed resistor power rating
+        """Minimum amount of time (in seconds) between IV curves in order not
+           to exceed bleed resistor power rating
         """
         load_caps_farads = self.load_caps_uf / 1000000.0
         load_cap_joules = 0.5 * load_caps_farads * self.sim_voc ** 2
@@ -1289,8 +1288,8 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
         """Method to set the plot title to indicate that the curve is a
            simulation and to include the component values.
         """
-        title_str = "Simulation: "
-        title_str += "R1={}, R2={}, Rf={}, Rg={}, Shunt={}, C1=C2={}"
+        title_str = (f"Simulation: "
+                     f"R1={}, R2={}, Rf={}, Rg={}, Shunt={}, C1=C2={}")
         self.plot_title = title_str.format(shorten_value(self.vdiv_r1),
                                            shorten_value(self.vdiv_r2),
                                            shorten_value(self.amm_op_amp_rf),
@@ -1309,51 +1308,39 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
     def gen_results_text(self):
         """Method to generate the text summarizing the results of a simulation.
         """
-        self.results_text = "\nSimulation Results\n\n"
-        self.results_text += "{}\n\n".format(self.hdd_output_dir)
-        self.results_text += self.gen_isc_voc_vals_text()
-        self.results_text += "\n"
-        self.results_text += self.gen_component_vals_text()
-        self.results_text += "\n"
-        self.results_text += self.gen_limits_text()
-        self.results_text += "\n"
-        self.results_text += self.gen_sim_results_text()
+        self.results_text = (f"\nSimulation Results\n\n"
+                             f"{self.hdd_output_dir}\n\n"
+                             f"{self.gen_isc_voc_vals_text()}\n"
+                             f"{self.gen_component_vals_text()}\n"
+                             f"{self.gen_limits_text()}\n"
+                             f"{self.gen_sim_results_text()}\n")
         self.logger.log(self.results_text)
 
     # -------------------------------------------------------------------------
     def gen_isc_voc_vals_text(self):
         """Method to generate the text listing the Isc and Voc values
         """
-        text = "Isc: {} A     Voc: {} V\n".format(self.sim_isc, self.sim_voc)
+        text = f"Isc: {self.sim_isc} A     Voc: {self.sim_voc} V\n"
         return text
 
     # -------------------------------------------------------------------------
     def gen_component_vals_text(self):
         """Method to generate the text listing the component values
         """
-        text = "Component values:\n"
-        text += ("  Relay type: {}\n"
-                 .format(self.relay_type))
-        text += ("  R1: {} ohms, 1/4W\n"
-                 .format(shorten_value(self.vdiv_r1)))
-        text += ("  R2: {} ohms, 1/4W\n"
-                 .format(shorten_value(self.vdiv_r2)))
-        text += ("  Rf: {} ohms, 1/4W\n"
-                 .format(shorten_value(self.amm_op_amp_rf)))
-        text += ("  Rg: {} ohms, 1/4W\n"
-                 .format(shorten_value(self.amm_op_amp_rg)))
-        text += ("  Shunt: {} ohms, {}W  PN: {}\n"
-                 .format(self.amm_shunt_resistance,
-                         shorten_value(self.shunt_wattage),
-                         self.shunt_mfg_pn))
-        text += ("  C1,C2: {} uF, {}V  PN: {}\n"
-                 .format(shorten_value(self.load_cap_uf),
-                         shorten_value(self.load_cap_v),
-                         self.load_cap_mfg_pn))
-        text += ("  Rb: {} ohms, {}W  PN: {}\n"
-                 .format(shorten_value(self.rb_ohms),
-                         shorten_value(self.rb_wattage),
-                         self.rb_mfg_pn))
+        text = (f"Component values:\n"
+                f"  Relay type: {self.relay_type}\n"
+                f"  R1: {shorten_value(self.vdiv_r1)} ohms, 1/4W\n"
+                f"  R2: {shorten_value(self.vdiv_r2)} ohms, 1/4W\n"
+                f"  Rf: {shorten_value(self.amm_op_amp_rf)} ohms, 1/4W\n"
+                f"  Rg: {shorten_value(self.amm_op_amp_rg)} ohms, 1/4W\n"
+                f"  Shunt: {self.amm_shunt_resistance} ohms, "
+                f"{shorten_value(self.shunt_wattage)}W  "
+                f"PN: {self.shunt_mfg_pn}\n"
+                f"  C1,C2: {shorten_value(self.load_cap_uf)} uF, "
+                f"{shorten_value(self.load_cap_v)}V  "
+                f"PN: {self.load_cap_mfg_pn}\n"
+                f"  Rb: {shorten_value(self.rb_ohms)} ohms, "
+                f"{shorten_value(self.rb_wattage)}W  PN: {self.rb_mfg_pn}\n")
         return text
 
     # -------------------------------------------------------------------------
@@ -1363,31 +1350,29 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
         text = "Limits:\n"
         v_max = min(self.v_sat, self.relay_max_volts, self.load_cap_max_volts)
         if v_max == self.load_cap_max_volts:
-            v_max_reason = ("({}% of {}V load cap rating)"
-                            .format(shorten_value(self.cap_voltage_derate_pct),
-                                    shorten_value(self.load_cap_v)))
+            v_max_reason = (f"({shorten_value(self.cap_voltage_derate_pct)}% "
+                            f"of {shorten_value(self.load_cap_v)}V "
+                            f"load cap rating)")
         elif v_max == self.relay_max_volts:
-            v_max_reason = "({} max voltage)".format(self.relay_type)
+            v_max_reason = f"({self.relay_type} max voltage)"
         else:
             v_max_reason = "(ADC saturation)"
         max_exceeded = ""
         if self.sim_voc > v_max:
             max_exceeded = "     <== EXCEEDED!!"
-        text += "  Max voltage: {} V {} {}\n".format(sigfigs(v_max, 4),
-                                                     v_max_reason,
-                                                     max_exceeded)
+        text += (f"  Max voltage: {sigfigs(v_max, 4)} V "
+                 f"{v_max_reason} {max_exceeded}\n")
 
         i_max = min(self.i_sat, self.relay_max_amps)
         if i_max == self.relay_max_amps:
-            i_max_reason = "({} max current)".format(self.relay_type)
+            i_max_reason = f"({self.relay_type} max current)"
         else:
             i_max_reason = "(ADC saturation)"
         max_exceeded = ""
         if self.sim_isc > i_max:
             max_exceeded = "     <== EXCEEDED!!"
-        text += "  Max current: {} A {} {}\n".format(sigfigs(i_max, 4),
-                                                     i_max_reason,
-                                                     max_exceeded)
+        text += (f"  Max current: {sigfigs(i_max, 4)} A "
+                 f"{i_max_reason} {max_exceeded}\n")
         return text
 
     # -------------------------------------------------------------------------
@@ -1400,41 +1385,35 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
         warning = ""
         if self.swing_time_us > 1000000:
             warning = "     <== TOO LONG!!"
-        text += ("  Swing time: {} microseconds {}\n"
-                 .format(int(self.swing_time_us), warning))
+        text += (f"  Swing time: {int(self.swing_time_us)} "
+                 f"microseconds {warning}\n")
         # Points recorded/discarded
-        text += ("  Points recorded: {}\n"
-                 .format(int(len(self.adc_pairs))))
-        text += ("  Points discarded: {}\n"
-                 .format(int(self.pts_discarded)))
+        text += (f"  Points recorded: {int(len(self.adc_pairs))}\n"
+                 f"  Points discarded: {int(self.pts_discarded)}\n")
         # Bleed percent
         warning = ""
         if self.bleed_pct < 99.0:
             warning = "     <== INSUFFICIENT!!"
-        text += ("  Bleed %: {} ({} V @ 1 s) {}\n"
-                 .format(sigfigs(self.bleed_pct, 5),
-                         sigfigs(self.unbled_volts, 3), warning))
+        text += (f"  Bleed %: {sigfigs(self.bleed_pct, 5)} "
+                 f"({sigfigs(self.unbled_volts, 3)} V @ 1 s) {warning}\n")
         # Voltage divider power dissipation
         warning = ""
         if self.vdiv_r1_pct_rated > 100.0:
             warning = "     <== TOO MUCH!!"
-        text += ("  R1 power: {} mW ({} % rated) {}\n"
-                 .format(sigfigs(self.vdiv_r1_milliwatts, 3),
-                         sigfigs(self.vdiv_r1_pct_rated, 3), warning))
+        text += (f"  R1 power: {sigfigs(self.vdiv_r1_milliwatts, 3)} mW "
+                 f"({sigfigs(self.vdiv_r1_pct_rated, 3)} % rated) {warning}\n")
         warning = ""
         if self.vdiv_r2_pct_rated > 100.0:
             warning = "     <== TOO MUCH!!"
-        text += ("  R2 power: {} mW ({} % rated) {}\n"
-                 .format(sigfigs(self.vdiv_r2_milliwatts, 3),
-                         sigfigs(self.vdiv_r2_pct_rated, 3), warning))
+        text += (f"  R2 power: {sigfigs(self.vdiv_r2_milliwatts, 3)} mW "
+                 f"({sigfigs(self.vdiv_r2_pct_rated, 3)} % rated) {warning}\n")
         warning = ""
         if self.shunt_pct_rated > 300.0:
             warning = "     <== TOO MUCH!!"
         elif self.shunt_pct_rated > 100.0:
             warning = "     <== OK (low duty cycle)"
-        text += ("  Shunt power: {} mW ({} % rated) {}\n"
-                 .format(sigfigs(self.shunt_milliwatts, 3),
-                         sigfigs(self.shunt_pct_rated, 3), warning))
+        text += (f"  Shunt power: {sigfigs(self.shunt_milliwatts, 3)} mW "
+                 f"({sigfigs(self.shunt_pct_rated, 3)} % rated) {warning}\n")
         # Rf/Rg current
         v_shunt_isc = self.sim_isc * self.amm_shunt_resistance
         v_op_amp_out = v_shunt_isc * self.amm_op_amp_gain
@@ -1442,18 +1421,17 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
         rf_rg_microamps = rf_rg_amps * 1000000.0
         drive_1_over_x = self.op_amp_max_drive_current / rf_rg_amps
         input_x = rf_rg_amps / self.op_amp_max_input_current
-        text += "  Rf,Rg current @ Isc: "
-        text += ("{} uA (1/{} op amp drive, {}x op amp input)\n"
-                 .format(sigfigs(rf_rg_microamps, 4),
-                         int(float(sigfigs(drive_1_over_x, 4))),
-                         int(float(sigfigs(input_x, 4)))))
+        text += (f"  Rf,Rg current @ Isc: "
+                 f"{sigfigs(rf_rg_microamps, 4)} uA "
+                 f"(1/{int(float(sigfigs(drive_1_over_x, 4)))} op amp drive, "
+                 f"{int(float(sigfigs(input_x, 4)))}x op amp input)\n")
         # Minimum swing interval
         warning = ""
         min_swing_interval = self.min_swing_interval(self.rb_wattage)
         if min_swing_interval > 1.0:
             warning = "     <== WARNING!!"
-        text += ("  Min swing interval (Rb wattage): {} seconds {}\n"
-                 .format(sigfigs(min_swing_interval, 2), warning))
+        text += (f"  Min swing interval (Rb wattage): "
+                 f"{sigfigs(min_swing_interval, 2)} seconds {warning}\n")
         # Resolution
         adc_steps_per_volt = ADC_MAX / self.v_sat
         adc_steps_per_amp = ADC_MAX / self.i_sat
@@ -1463,11 +1441,11 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
                                                 ADC_MAX))
         current_adc_pct_utilization = int(round(100.0 * current_adc_steps /
                                                 ADC_MAX))
-        text += "  Resolution:\n"
-        text += ("    ADC steps from 0V to Voc: {} ({}% utilization)\n"
-                 .format(voltage_adc_steps, voltage_adc_pct_utilization))
-        text += ("    ADC steps from 0A to Isc: {} ({}% utilization)\n"
-                 .format(current_adc_steps, current_adc_pct_utilization))
+        text += (f"  Resolution:\n"
+                 f"    ADC steps from 0V to Voc: {voltage_adc_steps} "
+                 f"({voltage_adc_pct_utilization}% utilization)\n"
+                 f"    ADC steps from 0A to Isc: {current_adc_steps} "
+                 f"({current_adc_pct_utilization}% utilization)\n")
         return text
 
     # -------------------------------------------------------------------------
@@ -2693,8 +2671,8 @@ class SimulatorDialog(tk.Toplevel):
         # Call simulator method
         rc = self.ivs2_sim.choose_optimal_components()
         if rc != RC_SUCCESS:
-            err_msg = "Oops. Something went wrong\n"
-            err_msg += "See log file for details."
+            err_msg = (f"Oops. Something went wrong\n"
+                       f"See log file for details.")
             tkmsg.showerror(message=err_msg)
             IV_Swinger2.sys_view_file(self.ivs2_sim.logger.log_file_name)
             return
@@ -2836,10 +2814,9 @@ class SimulatorDialog(tk.Toplevel):
             self.isc_amps.set(isc_amps)
         except ValueError:
             self.isc_amps.set(self.ivs2_sim.sim_isc)
-            err_msg = "Invalid value for Isc amps.\n"
-            err_msg += "Must be positive number, no greater\n"
-            err_msg += ("than relay limit of {}"
-                        .format(self.ivs2_sim.relay_max_amps))
+            err_msg = (f"Invalid value for Isc amps.\n"
+                       f"Must be positive number, no greater\n"
+                       f"than relay limit of {self.ivs2_sim.relay_max_amps}")
             tkmsg.showerror(message=err_msg)
         # Voc
         try:
@@ -2849,10 +2826,9 @@ class SimulatorDialog(tk.Toplevel):
             self.voc_volts.set(voc_volts)
         except ValueError:
             self.voc_volts.set(self.ivs2_sim.sim_voc)
-            err_msg = "Invalid value for Voc volts.\n"
-            err_msg += "Must be positive number, no greater\n"
-            err_msg += ("than relay limit of {}"
-                        .format(self.ivs2_sim.relay_max_volts))
+            err_msg = (f"Invalid value for Voc volts.\n"
+                       f"Must be positive number, no greater\n"
+                       f"than relay limit of {self.ivs2_sim.relay_max_volts}")
             tkmsg.showerror(message=err_msg)
 
     # -------------------------------------------------------------------------
@@ -2868,8 +2844,8 @@ class SimulatorDialog(tk.Toplevel):
             self.r1_ohms.set(r1_ohms)
         except ValueError:
             self.r1_ohms.set(self.ivs2_sim.vdiv_r1)
-            err_msg = "Invalid value for R1 ohms.\n"
-            err_msg += "Must be number, zero or larger."
+            err_msg = ("Invalid value for R1 ohms.\n"
+                       "Must be number, zero or larger.")
             tkmsg.showerror(message=err_msg)
         # R2
         try:
@@ -2879,8 +2855,8 @@ class SimulatorDialog(tk.Toplevel):
             self.r2_ohms.set(r2_ohms)
         except ValueError:
             self.r2_ohms.set(self.ivs2_sim.vdiv_r2)
-            err_msg = "Invalid value for R2 ohms.\n"
-            err_msg += "Must be positive number."
+            err_msg = ("Invalid value for R2 ohms.\n"
+                       "Must be positive number.")
             tkmsg.showerror(message=err_msg)
         # RF
         try:
@@ -2890,8 +2866,8 @@ class SimulatorDialog(tk.Toplevel):
             self.rf_ohms.set(rf_ohms)
         except ValueError:
             self.rf_ohms.set(self.ivs2_sim.amm_op_amp_rf)
-            err_msg = "Invalid value for Rf ohms.\n"
-            err_msg += "Must be number, zero or larger."
+            err_msg = ("Invalid value for Rf ohms.\n"
+                       "Must be number, zero or larger.")
             tkmsg.showerror(message=err_msg)
         # RG
         try:
@@ -2901,8 +2877,8 @@ class SimulatorDialog(tk.Toplevel):
             self.rg_ohms.set(rg_ohms)
         except ValueError:
             self.rg_ohms.set(self.ivs2_sim.amm_op_amp_rg)
-            err_msg = "Invalid value for Rg ohms.\n"
-            err_msg += "Must be positive number."
+            err_msg = ("Invalid value for Rg ohms.\n"
+                       "Must be positive number.")
             tkmsg.showerror(message=err_msg)
 
     # -------------------------------------------------------------------------
@@ -2917,8 +2893,8 @@ class SimulatorDialog(tk.Toplevel):
             self.shunt_ohms.set(shunt_ohms)
         except ValueError:
             self.shunt_ohms.set(self.ivs2_sim.amm_shunt_resistance)
-            err_msg = "Invalid value for shunt ohms.\n"
-            err_msg += "Must be number, zero or larger."
+            err_msg = ("Invalid value for shunt ohms.\n"
+                       "Must be number, zero or larger.")
             tkmsg.showerror(message=err_msg)
         try:
             shunt_wattage = float(self.shunt_wattage.get())
@@ -2927,8 +2903,8 @@ class SimulatorDialog(tk.Toplevel):
             self.shunt_wattage.set(shunt_wattage)
         except ValueError:
             self.shunt_wattage.set(self.ivs2_sim.shunt_wattage)
-            err_msg = "Invalid value for shunt wattage.\n"
-            err_msg += "Must be number, zero or larger."
+            err_msg = ("Invalid value for shunt wattage.\n"
+                       "Must be number, zero or larger.")
             tkmsg.showerror(message=err_msg)
 
     # -------------------------------------------------------------------------
@@ -2943,8 +2919,8 @@ class SimulatorDialog(tk.Toplevel):
             self.load_cap_uf.set(load_cap_uf)
         except ValueError:
             self.load_cap_uf.set(self.ivs2_sim.load_cap_uf)
-            err_msg = "Invalid value for load capacitance.\n"
-            err_msg += "Must be number, zero or larger."
+            err_msg = ("Invalid value for load capacitance.\n"
+                       "Must be number, zero or larger.")
             tkmsg.showerror(message=err_msg)
         try:
             load_cap_v = float(self.load_cap_v.get())
@@ -2953,8 +2929,8 @@ class SimulatorDialog(tk.Toplevel):
             self.load_cap_v.set(load_cap_v)
         except ValueError:
             self.load_cap_v.set(self.ivs2_sim.load_cap_v)
-            err_msg = "Invalid value for load cap voltage.\n"
-            err_msg += "Must be number, zero or larger."
+            err_msg = ("Invalid value for load cap voltage.\n"
+                       "Must be number, zero or larger.")
             tkmsg.showerror(message=err_msg)
 
     # -------------------------------------------------------------------------
@@ -2969,8 +2945,8 @@ class SimulatorDialog(tk.Toplevel):
             self.rb_ohms.set(rb_ohms)
         except ValueError:
             self.rb_ohms.set(self.ivs2_sim.rb_ohms)
-            err_msg = "Invalid value for Rb ohms.\n"
-            err_msg += "Must be number, zero or larger."
+            err_msg = ("Invalid value for Rb ohms.\n"
+                       "Must be number, zero or larger.")
             tkmsg.showerror(message=err_msg)
         try:
             rb_wattage = float(self.rb_wattage.get())
@@ -2979,8 +2955,8 @@ class SimulatorDialog(tk.Toplevel):
             self.rb_wattage.set(rb_wattage)
         except ValueError:
             self.rb_wattage.set(self.ivs2_sim.rb_wattage)
-            err_msg = "Invalid value for Rb wattage.\n"
-            err_msg += "Must be number, zero or larger."
+            err_msg = ("Invalid value for Rb wattage.\n"
+                       "Must be number, zero or larger.")
             tkmsg.showerror(message=err_msg)
 
     # -------------------------------------------------------------------------
@@ -3111,8 +3087,8 @@ class SimulatorDialog(tk.Toplevel):
         # Run the simulation
         rc = self.ivs2_sim.run()
         if rc != RC_SUCCESS:
-            err_msg = "Oops. Something went wrong\n"
-            err_msg += "See log file for details."
+            err_msg = ("Oops. Something went wrong\n"
+                       "See log file for details.")
             tkmsg.showerror(message=err_msg)
             IV_Swinger2.sys_view_file(self.ivs2_sim.logger.log_file_name)
             if self.results_tab is not None:

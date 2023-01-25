@@ -173,7 +173,7 @@ class Tooltip():
 
         x, y = tip_pos_calculator(widget, label)
 
-        self.tw.wm_geometry("+{}+{}".format(x, y))
+        self.tw.wm_geometry(f"+{x}+{y}")
 
     def hide(self):
         """Method to remove the tooltip"""
@@ -299,7 +299,7 @@ if __name__ == '__main__':
         root.rowconfigure(0, weight=1)
         root.columnconfigure(0, weight=1)
 
-        root.title('Tooltip wraplength = {}'.format(wraplength))
+        root.title(f'Tooltip wraplength = {wraplength}')
         root.mainloop()
 
     def main():

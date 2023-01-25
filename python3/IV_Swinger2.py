@@ -289,9 +289,7 @@ def gen_dbg_str(msg_str):
     """
     cf = currentframe()
     fi = getframeinfo(cf)
-    dbg_str = "DEBUG({}, line {}): {}".format(fi.filename,
-                                              cf.f_back.f_lineno,
-                                              msg_str)
+    dbg_str = f"DEBUG({fi.filename}, line {cf.f_back.f_lineno}): {msg_str}"
     return dbg_str
 
 
@@ -572,15 +570,13 @@ def get_run_info_filename(run_dir):
     """
     dts = extract_date_time_str(run_dir)
     sensor_info_filename = os.path.join(run_dir,
-                                        ("sensor_info_{}.txt"
-                                         .format(dts)))
+                                        f"sensor_info_{dts}.txt")
     if os.path.exists(sensor_info_filename):
         # Backward compatibility
         run_info_filename = sensor_info_filename
     else:
         run_info_filename = os.path.join(run_dir,
-                                         ("run_info_{}.txt"
-                                          .format(dts)))
+                                         f"run_info_{dts}.txt")
     return run_info_filename
 
 
@@ -647,7 +643,7 @@ class Configuration():
         """
         if self._cfg_filename is None:
             self._cfg_filename = os.path.join(self.ivs2.app_data_dir,
-                                              "{}.cfg".format(APP_NAME))
+                                              f"{APP_NAME}.cfg")
         return self._cfg_filename
 
     @cfg_filename.setter
@@ -663,9 +659,8 @@ class Configuration():
            configuration options
         """
         if self._starting_cfg_filename is None:
-            self._starting_cfg_filename = os.path.join(self.ivs2.app_data_dir,
-                                                       "{}_starting.cfg"
-                                                       .format(APP_NAME))
+            self._starting_cfg_filename = os.path.join(
+                self.ivs2.app_data_dir, f"{APP_NAME}_starting.cfg")
         return self._starting_cfg_filename
 
     @starting_cfg_filename.setter
@@ -701,7 +696,7 @@ class Configuration():
             current_lines = f.readlines()
         diff = difflib.ndiff(starting_lines, current_lines)
         heading_str = "Config file diffs\n                 -----------------\n"
-        log_str = "{}{}".format(heading_str, "".join(diff))
+        log_str = f"{heading_str}{''.join(diff)}"
         self.ivs2.logger.log(log_str)
         return log_str
 
@@ -722,12 +717,11 @@ class Configuration():
            log file. Used for debugging configuration problems.
         """
         if dump_header is not None:
-            self.ivs2.logger.print_and_log("DUMP: {}".format(dump_header))
+            self.ivs2.logger.print_and_log(f"DUMP: {dump_header}")
         for section in self.cfg.sections():
             self.ivs2.logger.print_and_log(section)
             for option in self.cfg.options(section):
-                dump_str = " {}={}".format(option,
-                                           self.cfg.get(section, option))
+                dump_str = f" {option}={self.cfg.get(section, option)}"
                 self.ivs2.logger.print_and_log(dump_str)
 
     # -------------------------------------------------------------------------
@@ -737,7 +731,7 @@ class Configuration():
            associated properties
         """
         if DEBUG_CONFIG:
-            dbg_str = "get: Reading config from {}".format(self.cfg_filename)
+            dbg_str = f"get: Reading config from {self.cfg_filename}"
             self.ivs2.logger.print_and_log(dbg_str)
         # Blow away old config and create new one
         self.cfg = configparser.ConfigParser()
@@ -760,8 +754,7 @@ class Configuration():
            from the .cfg file and store them in the snapshot config
         """
         if DEBUG_CONFIG:
-            dbg_str = ("get_snapshot: Reading config "
-                       "from {}".format(self.cfg_filename))
+            dbg_str = f"get_snapshot: Reading config from {self.cfg_filename}"
             self.ivs2.logger.print_and_log(dbg_str)
         self.cfg_snapshot = configparser.ConfigParser()
         self.cfg_snapshot.read(self.cfg_filename, encoding="utf-8")
@@ -775,8 +768,7 @@ class Configuration():
            and Arduino configurations.
         """
         if DEBUG_CONFIG:
-            dbg_str = ("get_old_result: Reading config "
-                       "from {}".format(cfg_file))
+            dbg_str = f"get_old_result: Reading config from {cfg_file}"
             self.ivs2.logger.print_and_log(dbg_str)
         # Blow away old config and create new one
         self.cfg = configparser.ConfigParser()
@@ -895,7 +887,7 @@ class Configuration():
            found in the .cfg file, but it is not of the correct type,
            then the old value is added to the config.
         """
-        full_name = "{} {}".format(section, option)
+        full_name = f"{section} {option}"
         try:
             # First check for a value of "None" and return None in that case
             if self.cfg.get(section, option) == "None":
@@ -913,11 +905,11 @@ class Configuration():
                 cfg_value = self.cfg.get(section, option)
                 return cfg_value
         except configparser.NoOptionError:
-            err_str = "{} not found in cfg file".format(full_name)
+            err_str = f"{full_name} not found in cfg file"
             self.ivs2.logger.print_and_log(err_str)
             self.cfg_set(section, option, old_prop_val)
         except ValueError:
-            err_str = "{} invalid in cfg file".format(full_name)
+            err_str = f"{full_name} invalid in cfg file"
             self.ivs2.logger.print_and_log(err_str)
             self.cfg_set(section, option, old_prop_val)
         return old_prop_val
@@ -965,11 +957,11 @@ class Configuration():
 
         # Port
         option = "port"
-        full_name = "{} {}".format(section, option)
+        full_name = f"{section} {option}"
         try:
             cfg_value = self.cfg.get(section, option)
         except configparser.NoOptionError:
-            err_str = "{} not found in cfg file".format(full_name)
+            err_str = f"{full_name} not found in cfg file"
             self.ivs2.logger.print_and_log(err_str)
             self.ivs2.find_arduino_port()
             self.cfg_set(section, option, self.ivs2.usb_port)
@@ -983,7 +975,7 @@ class Configuration():
                 self.ivs2.usb_port = cfg_value
             else:
                 if cfg_value != "None":
-                    err_str = "{} in cfg file not attached".format(full_name)
+                    err_str = f"{full_name} in cfg file not attached"
                     self.ivs2.logger.print_and_log(err_str)
                 self.ivs2.find_arduino_port()
                 self.cfg_set(section, option, self.ivs2.usb_port)
@@ -1300,7 +1292,7 @@ class Configuration():
            .cfg file
         """
         if DEBUG_CONFIG:
-            dbg_str = "save: Writing config to {}".format(self.cfg_filename)
+            dbg_str = f"save: Writing config to {self.cfg_filename}"
             self.ivs2.logger.print_and_log(dbg_str)
             self.cfg_dump()
         # Attempt to open the file for writing
@@ -1329,8 +1321,8 @@ class Configuration():
            .cfg file from the snapshot copy
         """
         if DEBUG_CONFIG:
-            dbg_str = ("save_snapshot: Writing snapshot config "
-                       "to {}".format(self.cfg_filename))
+            dbg_str = (f"save_snapshot: Writing snapshot "
+                       f"config to {self.cfg_filename}")
             self.ivs2.logger.print_and_log(dbg_str)
         # Attempt to open the file for writing
         try:
@@ -1350,14 +1342,13 @@ class Configuration():
             # pointing to the specified directory
             return
         if DEBUG_CONFIG:
-            dbg_str = ("copy_file: Copying config from {}"
-                       " to {}".format(self.cfg_filename, dest_dir))
+            dbg_str = (f"copy_file: Copying config from "
+                       f"{self.cfg_filename} to {dest_dir}")
             self.ivs2.logger.print_and_log(dbg_str)
         try:
             shutil.copy(self.cfg_filename, dest_dir)
         except shutil.Error as e:
-            err_str = ("Couldn't copy config file to {} ({})"
-                       .format(dest_dir, e))
+            err_str = f"Couldn't copy config file to {dest_dir} ({e})"
             self.ivs2.logger.print_and_log(err_str)
 
     # -------------------------------------------------------------------------
@@ -1458,8 +1449,8 @@ class Configuration():
 
     # -------------------------------------------------------------------------
     def add_axes_and_title(self):
-        """Method to add the plot_max_x, plot_max_y and plot_title values to the
-           configuration
+        """Method to add the plot_max_x, plot_max_y and plot_title values to
+           the configuration
         """
         self.cfg_set("Plotting", "plot max x", self.ivs2.plot_max_x)
         self.cfg_set("Plotting", "plot max y", self.ivs2.plot_max_y)
@@ -1853,8 +1844,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         """Method to set argparse args to default values"""
 
         self.args.name = self.curve_names
-        self.args.overlay_name = ("overlaid_{}"
-                                  .format(os.path.basename(self.plot_dir)))
+        self.args.overlay_name = f"overlaid_{os.path.basename(self.plot_dir)}"
         self.args.title = self.title
         self.args.fancy_labels = self.fancy_labels
         self.args.interactive = False
@@ -1909,7 +1899,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         ivs.plot_graphs(self.args, csvp)
         png_file = ivs.plt_img_filename
         (filename, _) = os.path.splitext(png_file)
-        gif_file = "{}.gif".format(filename)
+        gif_file = f"{filename}.gif"
         im = Image.open(png_file)
         im.save(gif_file)
         self.current_img = gif_file
@@ -1927,16 +1917,14 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
                 (irrad,
                  temps_dict) = get_sensor_values_from_file(run_info_filename)
             except (IOError, OSError) as e:
-                self.logger.print_and_log("({})".format(e))
+                self.logger.print_and_log(f"({e})")
             if self.plot_ref and curve_num == 0:
                 irrad = None
                 temps_dict = {}
             if irrad is not None:
                 self.curve_names[curve_num] += " ["
                 sqd = '\xb2'
-                self.curve_names[curve_num] += ("{} W/m{}"
-                                                .format(irrad,
-                                                        sqd))
+                self.curve_names[curve_num] += f"{irrad} W/m{sqd}"
                 info_added = True
             if temps_dict:
                 for sensor_num in sorted(temps_dict):
@@ -1946,9 +1934,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
                     else:
                         self.curve_names[curve_num] += ", "
                     dgs = '\N{DEGREE SIGN}'
-                    self.curve_names[curve_num] += ("{:4.2f}{}C"
-                                                    .format(temp,
-                                                            dgs))
+                    self.curve_names[curve_num] += f"{temp:4.2f}{dgs}C"
                     info_added = True
             if info_added:
                 self.curve_names[curve_num] += "]"
@@ -1980,7 +1966,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
 
         # Make sure CSV files exist
         for csv_file in self.csv_files:
-            assert_str = "ERROR: CSV file {} doesn't exist".format(csv_file)
+            assert_str = f"ERROR: CSV file {csv_file} doesn't exist"
             assert os.path.exists(csv_file), assert_str
 
         # Process all CSV files
@@ -2009,11 +1995,9 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
             else:
                 mpp_ohms = INFINITE_VAL
             mpp_watts = mpp_volts * mpp_amps
-            print_str = ("Maximum power point (MPP): "
-                         "Amps: {:.6f}   Volts: {:.6f}   "
-                         "Ohms: {:.6f}   Watts: {:.6f}"
-                         .format(mpp_amps, mpp_volts,
-                                 mpp_ohms, mpp_watts))
+            print_str = (f"Maximum power point (MPP): "
+                         f"Amps: {mpp_amps:.6f}   Volts: {mpp_volts:.6f}   "
+                         f"Ohms: {mpp_ohms:.6f}   Watts: {mpp_watts:.6f}")
             self.logger.log(print_str)
 
 
@@ -2470,7 +2454,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 self._app_data_dir = os.path.join(os.environ["APPDATA"],
                                                   APP_NAME)
             else:  # Linux
-                leaf_dir = ".{}".format(APP_NAME)
+                leaf_dir = f".{APP_NAME}"
                 self._app_data_dir = os.path.expanduser(os.path.join("~",
                                                                      leaf_dir))
         return self._app_data_dir
@@ -2837,8 +2821,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # ---------------------------------
     @property
     def series_res_comp(self):
-        """Value of the series resistance compensation (in ohms).  If this value
-           is positive, the voltage at each point will be increased by
+        """Value of the series resistance compensation (in ohms).  If this
+           value is positive, the voltage at each point will be increased by
            an amount equal to I * series_res_comp. This could be used,
            for example, to factor out the effect of a long cable with
            known resistance.  The resulting curve will have a steeper
@@ -3164,8 +3148,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     @second_relay_state.setter
     def second_relay_state(self, value):
         if value not in set([SECOND_RELAY_OFF, SECOND_RELAY_ON]):
-            raise ValueError("second_relay_state must be either {} or {}"
-                             .format(SECOND_RELAY_OFF, SECOND_RELAY_ON))
+            raise ValueError(f"second_relay_state must be either "
+                             f"{SECOND_RELAY_OFF} or {SECOND_RELAY_ON}")
         if self._second_relay_state != value:
             self._second_relay_state = value
             self.arduino_has_config["SECOND_RELAY_STATE"] = False
@@ -3234,10 +3218,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def arduino_sketch_ver(self):
         """Arduino sketch version"""
         if self._arduino_ver_major > -1:
-            ver_str = "{}.{}.{}{}".format(self._arduino_ver_major,
-                                          self._arduino_ver_minor,
-                                          self._arduino_ver_patch,
-                                          self._arduino_ver_opt_suffix)
+            ver_str = (
+                f"{self._arduino_ver_major}.{self._arduino_ver_minor}."
+                f"{self._arduino_ver_patch}{self._arduino_ver_opt_suffix}")
             return ver_str
         return "Unknown"
 
@@ -3296,7 +3279,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """PDF file name"""
         dts = extract_date_time_str(self.hdd_output_dir)
         pdf_filename = os.path.join(self.hdd_output_dir,
-                                    "{}{}.pdf".format(self.file_prefix, dts))
+                                    f"{self.file_prefix}{dts}.pdf")
         return pdf_filename
 
     # ---------------------------------
@@ -3307,8 +3290,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if self.hdd_output_dir is not None:
             dts = extract_date_time_str(self.hdd_output_dir)
             sensor_info_filename = os.path.join(self.hdd_output_dir,
-                                                ("sensor_info_{}.txt"
-                                                 .format(dts)))
+                                                f"sensor_info_{dts}.txt")
         else:
             sensor_info_filename = None
 
@@ -3321,8 +3303,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if self.hdd_output_dir is not None:
             dts = extract_date_time_str(self.hdd_output_dir)
             run_info_filename = os.path.join(self.hdd_output_dir,
-                                             ("run_info_{}.txt"
-                                              .format(dts)))
+                                             f"run_info_{dts}.txt")
         else:
             run_info_filename = None
 
@@ -3374,7 +3355,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             device = serial_port.device
             if device == self.usb_port:
                 return False
-        warn_str = ("WARNING: USB port {} disconnected".format(self.usb_port))
+        warn_str = f"WARNING: USB port {self.usb_port} disconnected"
         self.logger.print_and_log(warn_str)
         return True
 
@@ -3414,7 +3395,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             self._ser.close()
             self._ser.open()
         except serial.SerialException as e:
-            self.logger.print_and_log("ERROR: reset_arduino: ({})".format(e))
+            self.logger.print_and_log(f"ERROR: reset_arduino: ({e})")
             return RC_SERIAL_EXCEPTION
 
         # Create buffered text stream
@@ -3451,8 +3432,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         elif rc != RC_SUCCESS:
             return rc
         else:
-            err_str = ("ERROR: Malformed Arduino ready message: {}"
-                       .format(self.msg_from_arduino))
+            err_str = (f"ERROR: Malformed Arduino ready message: "
+                       f"{self.msg_from_arduino}")
             self.logger.print_and_log(err_str)
             return RC_FAILURE
 
@@ -3529,37 +3510,36 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                     self.arduino_has_config[config_type] = True
 
         if write_eeprom and self.arduino_sketch_supports_eeprom_config:
-            config_values = [("{} {}".format(EEPROM_VALID_ADDR,
-                                             EEPROM_VALID_VALUE)),
-                             ("{} {}".format(EEPROM_VALID_COUNT_ADDR,
-                                             EEPROM_VALID_COUNT)),
-                             ("{} {}".format(EEPROM_R1_OHMS_ADDR,
-                                             int(self.vdiv_r1))),
-                             ("{} {}".format(EEPROM_R2_OHMS_ADDR,
-                                             int(self.vdiv_r2))),
-                             ("{} {}".format(EEPROM_RF_OHMS_ADDR,
-                                             int(self.amm_op_amp_rf))),
-                             ("{} {}".format(EEPROM_RG_OHMS_ADDR,
-                                             int(self.amm_op_amp_rg))),
-                             ("{} {}".format(EEPROM_SHUNT_UOHMS_ADDR,
-                                             int(self.amm_shunt_resistance *
-                                                 1000000.0))),
-                             ("{} {}".format(EEPROM_V_CAL_X1M_ADDR,
-                                             int(self.v_cal * 1000000.0))),
-                             ("{} {}".format(EEPROM_I_CAL_X1M_ADDR,
-                                             int(self.i_cal * 1000000.0))),
-                             ("{} {}".format(EEPROM_V_BATT_X1M_ADDR,
-                                             0)),  # obsolete
-                             ("{} {}".format(EEPROM_R_BATT_X1M_ADDR,
-                                             0)),  # obsolete
-                             ("{} {}".format(EEPROM_RELAY_ACTIVE_HIGH_ADDR,
-                                             int(self.relay_active_high))),
-                             ("{} {}".format(EEPROM_V_CAL_B_X1M_ADDR,
-                                             int(self.v_cal_b * 1000000.0))),
-                             ("{} {}".format(EEPROM_I_CAL_B_X1M_ADDR,
-                                             int(self.i_cal_b * 1000000.0))),
-                             ("{} {}".format(EEPROM_BANDGAP_UVOLTS_ADDR,
-                                             int(self.bandgap_microvolts)))]
+            config_values = [(f"{EEPROM_VALID_ADDR} "
+                              f"{EEPROM_VALID_VALUE}"),
+                             (f"{EEPROM_VALID_COUNT_ADDR} "
+                              f"{EEPROM_VALID_COUNT}"),
+                             (f"{EEPROM_R1_OHMS_ADDR} "
+                              f"{int(self.vdiv_r1)}"),
+                             (f"{EEPROM_R2_OHMS_ADDR} "
+                              f"{int(self.vdiv_r2)}"),
+                             (f"{EEPROM_RF_OHMS_ADDR} "
+                              f"{int(self.amm_op_amp_rf)}"),
+                             (f"{EEPROM_RG_OHMS_ADDR} "
+                              f"{int(self.amm_op_amp_rg)}"),
+                             (f"{EEPROM_SHUNT_UOHMS_ADDR} "
+                              f"{int(self.amm_shunt_resistance * 1000000.0)}"),
+                             (f"{EEPROM_V_CAL_X1M_ADDR} "
+                              f"{int(self.v_cal * 1000000.0)}"),
+                             (f"{EEPROM_I_CAL_X1M_ADDR} "
+                              f"{int(self.i_cal * 1000000.0)}"),
+                             (f"{EEPROM_V_BATT_X1M_ADDR} "
+                              f"{0}"),  # obsolete
+                             (f"{EEPROM_R_BATT_X1M_ADDR} "
+                              f"{0}"),  # obsolete
+                             (f"{EEPROM_RELAY_ACTIVE_HIGH_ADDR} "
+                              f"{int(self.relay_active_high)}"),
+                             (f"{EEPROM_V_CAL_B_X1M_ADDR} "
+                              f"{int(self.v_cal_b * 1000000.0)}"),
+                             (f"{EEPROM_I_CAL_B_X1M_ADDR} "
+                              f"{int(self.i_cal_b * 1000000.0)}"),
+                             (f"{EEPROM_BANDGAP_UVOLTS_ADDR} "
+                              f"{int(self.bandgap_microvolts)}")]
             for config_value in config_values:
                 rc = self.send_one_config_msg_to_arduino("WRITE_EEPROM",
                                                          config_value)
@@ -3572,7 +3552,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def send_one_config_msg_to_arduino(self, config_type, config_value):
         """Method to send one config message to the Arduino, waiting for the
         reply"""
-        msg_str = "Config: {} {}".format(config_type, config_value)
+        msg_str = f"Config: {config_type} {config_value}"
         rc = self.send_msg_to_arduino(msg_str)
         if rc != RC_SUCCESS:
             return rc
@@ -3590,15 +3570,15 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def send_msg_to_arduino(self, msg):
         """Method to send a message to the Arduino"""
 
-        if len("{}\n".format(msg)) > self.arduino_max_incoming_msg_len:
-            err_str = "ERROR: Message to Arduino is too long: {}".format(msg)
+        if len(f"{msg}\n") > self.arduino_max_incoming_msg_len:
+            err_str = f"ERROR: Message to Arduino is too long: {msg}"
             self.logger.print_and_log(err_str)
             return RC_FAILURE
 
         try:
-            self._sio.write("{}\n".format(msg))
+            self._sio.write(f"{msg}\n")
         except serial.SerialException as e:
-            err_str = "ERROR: send_msg_to_arduino: ({})".format(e)
+            err_str = f"ERROR: send_msg_to_arduino: ({e})"
             self.logger.print_and_log(err_str)
             return RC_SERIAL_EXCEPTION
 
@@ -3613,7 +3593,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             try:
                 self.msg_from_arduino = self._sio.readline()
             except serial.SerialException as e:
-                err_str = "ERROR: receive_msg_from_arduino: ({})".format(e)
+                err_str = f"ERROR: receive_msg_from_arduino: ({e})"
                 self.logger.print_and_log(err_str)
                 return RC_SERIAL_EXCEPTION
             except UnicodeDecodeError:
@@ -3694,8 +3674,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if not os.path.exists(self.run_info_filename):
             dts = extract_date_time_str(self.run_info_filename)
             (xlated_date, xlated_time) = xlate_date_time_str(dts)
-            run_date_time = "# Run date and time: {} at {}".format(xlated_date,
-                                                                   xlated_time)
+            run_date_time = (f"# Run date and time: "
+                             f"{xlated_date} at {xlated_time}")
             boilerplate = """
 #
 # This file may contain:
@@ -3708,13 +3688,13 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             try:
                 with open(self.run_info_filename, "w", encoding="utf-8") as f:
                     f.write("#\n")
-                    f.write("{}".format(run_date_time))
-                    f.write("{}".format(boilerplate))
+                    f.write(f"{run_date_time}")
+                    f.write(f"{boilerplate}")
                     if self._ds18b20_rom_codes:
                         for msg in self._ds18b20_rom_codes:
-                            f.write("{}".format(msg))
+                            f.write(f"{msg}")
             except (IOError, OSError) as e:
-                self.logger.print_and_log("({})".format(e))
+                self.logger.print_and_log(f"({e})")
 
     # -------------------------------------------------------------------------
     def convert_sensor_to_run_info_file(self):
@@ -3731,10 +3711,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                     sensor_lines = f.read().splitlines()
                 with open(self.run_info_filename, "a", encoding="utf-8") as f:
                     for line in sensor_lines:
-                        f.write("{}\n".format(line))
+                        f.write(f"{line}\n")
                 os.remove(self.sensor_info_filename)
             except (IOError, OSError) as e:
-                self.logger.print_and_log("({})".format(e))
+                self.logger.print_and_log(f"({e})")
 
     # -------------------------------------------------------------------------
     def write_sensor_info_to_file(self, msg):
@@ -3748,9 +3728,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             info_str = msg
         try:
             with open(self.run_info_filename, "a", encoding="utf-8") as f:
-                f.write("{}".format(info_str))
+                f.write(f"{info_str}")
         except (IOError, OSError) as e:
-            self.logger.print_and_log("({})".format(e))
+            self.logger.print_and_log(f"({e})")
 
     # -------------------------------------------------------------------------
     def translate_ads1115_msg_to_photodiode_temp_scaling(self, msg):
@@ -3771,10 +3751,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             multiplier = self.photodiode_pct_per_deg_c / 100
             self.photodiode_temp_scaling_factor = temp_diff * multiplier + 1.0
             self.photodiode_deg_c = deg_c
-            log_str = ("TMP36: pct_per_deg_c = {}  temp_diff = {}  "
-                       .format(self.photodiode_pct_per_deg_c, temp_diff))
-            log_str += ("scaling_factor = {}"
-                        .format(self.photodiode_temp_scaling_factor))
+            log_str = (f"TMP36: pct_per_deg_c = "
+                       f"{self.photodiode_pct_per_deg_c}  "
+                       f"temp_diff = {temp_diff}  ")
+            log_str += (f"scaling_factor = "
+                        f"{self.photodiode_temp_scaling_factor}")
             self.logger.log(log_str)
 
     # -------------------------------------------------------------------------
@@ -3793,8 +3774,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                  tmp36_mv_per_deg_c)
 
         # Log
-        log_str = ("TMP36: raw_val = {} = {} mV = {} deg C"
-                   .format(raw_val, tmp36_millivolts, deg_c))
+        log_str = (f"TMP36: raw_val = {raw_val} = {tmp36_millivolts} "
+                   f"mV = {deg_c} deg C")
         self.logger.log(log_str)
 
         # Return value
@@ -3817,14 +3798,13 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             raw_val = int(match.group(1))
             mv, irr = self.convert_ads1115_val_to_w_per_m_squared(raw_val,
                                                                   True)
-            info_str = "Irradiance: {} W/m^2".format(irr)
+            info_str = f"Irradiance: {irr} W/m^2"
             self.scaled_photodiode_millivolts = mv
             self.irradiance = irr
             if self.photodiode_temp_scaling_factor != 1.0:
                 mv, irr = self.convert_ads1115_val_to_w_per_m_squared(raw_val,
                                                                       False)
-                info_str += (" ({} @ {} deg C)"
-                             .format(irr, self.photodiode_deg_c))
+                info_str += f" ({irr} @ {self.photodiode_deg_c} deg C)"
             info_str += "\n"
         return info_str
 
@@ -3868,17 +3848,16 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                             scaled_photodiode_millivolts))
 
         # Log
-        log_str = ("Photodiode: raw_val = {} = {} mV"
-                   .format(raw_val, photodiode_millivolts))
+        log_str = (f"Photodiode: raw_val = {raw_val} = "
+                   f"{photodiode_millivolts} mV")
         self.logger.log(log_str)
-        log_str = ("Photodiode: temp_scaling = {}, scaled mV = {}"
-                   .format(temp_scaling, scaled_photodiode_millivolts))
+        log_str = (f"Photodiode: temp_scaling = {temp_scaling}, "
+                   f"scaled mV = {scaled_photodiode_millivolts}")
         self.logger.log(log_str)
-        log_str = ("Photodiode: pyrano_cal = {}, pyrano_cal_a = {}"
-                   .format(self.pyrano_cal, self.pyrano_cal_a))
+        log_str = (f"Photodiode: pyrano_cal = {self.pyrano_cal}, "
+                   f"pyrano_cal_a = {self.pyrano_cal_a}")
         self.logger.log(log_str)
-        log_str = ("Photodiode: w_per_m_squared = {}"
-                   .format(w_per_m_squared))
+        log_str = f"Photodiode: w_per_m_squared = {w_per_m_squared}"
         self.logger.log(log_str)
 
         # Return value rounded to nearest integer W/m^2
@@ -3904,27 +3883,25 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                             temp = float(ext_match.group(2))
                             new_uncomp_irrad = int(round(old_uncomp_irrad *
                                                          ratio))
-                            ext_str = (" ({} @ {} deg C)"
-                                       .format(new_uncomp_irrad, temp))
+                            ext_str = f" ({new_uncomp_irrad} @ {temp} deg C)"
                         else:
                             ext_str = ""
                         round_new_irradiance = int(round(new_irradiance))
-                        new_lines.append("Irradiance: {} W/m^2{}"
-                                         .format(round_new_irradiance,
-                                                 ext_str))
+                        new_lines.append(f"Irradiance: {round_new_irradiance} "
+                                         f"W/m^2{ext_str}")
                         self.irradiance = round_new_irradiance
                     else:
                         new_lines.append(line)
             with open(self.run_info_filename, "w", encoding="utf-8") as f:
                 for line in new_lines:
-                    f.write("{}\n".format(line))
+                    f.write(f"{line}\n")
         except (IOError, OSError) as e:
-            self.logger.print_and_log("({})".format(e))
+            self.logger.print_and_log(f"({e})")
 
     # -------------------------------------------------------------------------
     def log_msg_from_arduino(self, msg):
         """Method to log a message from the Arduino"""
-        log_msg = "Arduino: {}".format(msg.rstrip())
+        log_msg = f"Arduino: {msg.rstrip()}"
         self.logger.log(log_msg)
 
     # -------------------------------------------------------------------------
@@ -3971,7 +3948,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """
         if not self.arduino_sketch_supports_eeprom_config:
             return RC_FAILURE
-        config_value = "{} {}".format(EEPROM_VALID_ADDR, EEPROM_VALID_VALUE)
+        config_value = f"{EEPROM_VALID_ADDR} {EEPROM_VALID_VALUE}"
         rc = self.send_one_config_msg_to_arduino("WRITE_EEPROM", config_value)
         return rc
 
@@ -3989,7 +3966,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         data_val = 0
         if self.relay_active_high:
             data_val = 1
-        config_value = "{} {}".format(EEPROM_RELAY_ACTIVE_HIGH_ADDR, data_val)
+        config_value = f"{EEPROM_RELAY_ACTIVE_HIGH_ADDR} {data_val}"
         rc = self.send_one_config_msg_to_arduino("WRITE_EEPROM", config_value)
         return rc
 
@@ -4206,8 +4183,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             vref_millivolts = round(vref_microvolts / 1000.0)
             old_vref = self.adc_vref
             self.adc_vref = vref_millivolts / 1000.0
-            self.logger.log("Vref = {} V (prev: {})".format(self.adc_vref,
-                                                            old_vref))
+            self.logger.log(f"Vref = {self.adc_vref} V (prev: {old_vref})")
 
     # -------------------------------------------------------------------------
     def get_arduino_sketch_ver(self, msg):
@@ -4222,7 +4198,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             self._arduino_ver_patch = int(match.group(3))
             self._arduino_ver_opt_suffix = match.group(4)
         else:
-            err_str = "ERROR: Bad Arduino version message: {}".format(msg)
+            err_str = f"ERROR: Bad Arduino version message: {msg}"
             self.logger.print_and_log(err_str)
             return RC_FAILURE
 
@@ -4257,7 +4233,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 return SKETCH_VER_EQ
             return SKETCH_VER_GT
         # else, no match
-        err_str = "ERROR: Bad test version: {}".format(test_version)
+        err_str = f"ERROR: Bad test version: {test_version}"
         self.logger.print_and_log(err_str)
         return SKETCH_VER_ERR
 
@@ -4319,22 +4295,22 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             eeprom_addr = int(match.group(1))
             eeprom_value = match.group(2)
         else:
-            err_str = ("ERROR: Bad EEPROM value message: {}"
-                       .format(self.msg_from_arduino))
+            err_str = (f"ERROR: Bad EEPROM value message: "
+                       f"{self.msg_from_arduino}")
             self.logger.print_and_log(err_str)
             return RC_FAILURE
 
         if eeprom_addr == EEPROM_VALID_ADDR:
             if eeprom_value != EEPROM_VALID_VALUE:
-                err_str = ("ERROR: Bad EEPROM valid value: {}"
-                           .format(self.msg_from_arduino))
+                err_str = (f"ERROR: Bad EEPROM valid value: "
+                           f"{self.msg_from_arduino}")
                 self.logger.print_and_log(err_str)
                 return RC_FAILURE
         elif eeprom_addr == EEPROM_VALID_COUNT_ADDR:
             if int(float(eeprom_value)) > EEPROM_VALID_COUNT:
-                warn_str = ("WARNING: EEPROM contains more values than "
-                            "supported by this version of the application: {}"
-                            .format(self.msg_from_arduino))
+                warn_str = (f"WARNING: EEPROM contains more values than "
+                            f"supported by this version of the application: "
+                            f"{self.msg_from_arduino}")
                 self.logger.print_and_log(warn_str)
             elif int(float(eeprom_value)) < EEPROM_VALID_COUNT:
                 self.eeprom_rewrite_needed = True
@@ -4369,9 +4345,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         elif eeprom_addr == EEPROM_BANDGAP_UVOLTS_ADDR:
             self.bandgap_microvolts = float(eeprom_value)
         else:
-            warn_str = ("WARNING: EEPROM value not "
-                        "supported by this version of the application: {}"
-                        .format(self.msg_from_arduino))
+            warn_str = (f"WARNING: EEPROM value not supported by this version "
+                        f"of the application: {self.msg_from_arduino}")
             self.logger.print_and_log(warn_str)
 
         return RC_SUCCESS
@@ -4453,7 +4428,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         # Adjust voltages to compensate for overshoot
         if fix_overshoot:
             v_adj_val = calc_v_adj(adc_pairs_corrected)
-            log_msg = "  v_adj = {}".format(v_adj_val)
+            log_msg = f"  v_adj = {v_adj_val}"
             self.logger.log(log_msg)
             adc_pairs_wo_overshoot = []
             voc_pair_num = len(adc_pairs_corrected) - 1  # last one is Voc
@@ -4617,8 +4592,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             if not deflect_begin_found:
                 dist -= 1
         if retry == 0:
-            err_str = ("{} find_first_downward_deflection retried too many "
-                       "times".format(os.path.basename(self.hdd_output_dir)))
+            err_str = (f"{os.path.basename(self.hdd_output_dir)} "
+                       f"find_first_downward_deflection retried too "
+                       f"many times")
             self.logger.print_and_log(err_str)
 
         return deflect_begin
@@ -4649,8 +4625,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             else:
                 ohms = INFINITE_VAL
             self.data_points.append((amps, volts, ohms, watts))
-            output_line = ("V={:.6f}, I={:.6f}, P={:.6f}, R={:.6f}"
-                           .format(volts, amps, watts, ohms))
+            output_line = (f"V={volts:.6f}, I={amps:.6f}, "
+                           f"P={watts:.6f}, R={ohms:.6f}")
             self.logger.log(output_line)
 
     # -------------------------------------------------------------------------
@@ -4856,8 +4832,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             bias_battery_csv = f
             bb_file_count += 1
         if bb_file_count > 1:
-            err_str = ("ERROR: There are multiple "
-                       "bias_batt_adc_pairs*.csv files in {}".format(run_dir))
+            err_str = (f"ERROR: There are multiple bias_batt_adc_pairs*.csv "
+                       f"files in {run_dir}")
             self.logger.print_and_log(err_str)
         elif bb_file_count == 0:
             batt_dir = os.path.join(os.path.dirname(run_dir),
@@ -4867,14 +4843,12 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 bias_battery_csv = f
                 bb_file_count += 1
             if bb_file_count > 1:
-                err_str = ("ERROR: There are multiple "
-                           "bias_batt_adc_pairs*.csv files in {}"
-                           .format(batt_dir))
+                err_str = (f"ERROR: There are multiple "
+                           f"bias_batt_adc_pairs*.csv files in {batt_dir}")
                 self.logger.print_and_log(err_str)
             elif bb_file_count == 0:
-                err_str = ("ERROR: There is no "
-                           "bias_batt_adc_pairs*.csv file in {}"
-                           .format(batt_dir))
+                err_str = (f"ERROR: There is no bias_batt_adc_pairs*.csv "
+                           f"file in {batt_dir}")
                 self.logger.print_and_log(err_str)
             else:
                 # Copy to run directory
@@ -4900,28 +4874,27 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            properties to the log file
         """
         self.logger.log("---------------------------------------")
-        self.logger.log("adc_inc = {}".format(self.adc_inc))
-        self.logger.log("vdiv_ratio = {}".format(self.vdiv_ratio))
-        self.logger.log("v_mult = {}".format(self.v_mult))
-        self.logger.log("v_sat = {}".format(self.v_sat))
-        self.logger.log("amm_op_amp_gain = {}".format(self.amm_op_amp_gain))
-        self.logger.log("i_mult = {}".format(self.i_mult))
-        self.logger.log("i_sat = {}".format(self.i_sat))
+        self.logger.log(f"adc_inc = {self.adc_inc}")
+        self.logger.log(f"vdiv_ratio = {self.vdiv_ratio}")
+        self.logger.log(f"v_mult = {self.v_mult}")
+        self.logger.log(f"v_sat = {self.v_sat}")
+        self.logger.log(f"amm_op_amp_gain = {self.amm_op_amp_gain}")
+        self.logger.log(f"i_mult = {self.i_mult}")
+        self.logger.log(f"i_sat = {self.i_sat}")
         self.logger.log("---------------------------------------")
 
     # -------------------------------------------------------------------------
     def log_initial_debug_info(self):
         """Method to write pre-run debug info to the log file"""
-        self.logger.log("app_data_dir = {}".format(self.app_data_dir))
-        self.logger.log("log_file_name = {}".format(self.logger.log_file_name))
-        self.logger.log("Running on: {}".format(self.os_version))
-        self.logger.log("Python version: {}".format(self.python_version))
-        self.logger.log("Matplotlib version: {}"
-                        .format(self.matplotlib_version))
-        self.logger.log("NumPy version: {}".format(self.numpy_version))
-        self.logger.log("SciPy version: {}".format(scipy_version))
-        self.logger.log("PySerial version: {}".format(self.pyserial_version))
-        self.logger.log("Pillow version: {}".format(self.pillow_version))
+        self.logger.log(f"app_data_dir = {self.app_data_dir}")
+        self.logger.log(f"log_file_name = {self.logger.log_file_name}")
+        self.logger.log(f"Running on: {self.os_version}")
+        self.logger.log(f"Python version: {self.python_version}")
+        self.logger.log(f"Matplotlib version: {self.matplotlib_version}")
+        self.logger.log(f"NumPy version: {self.numpy_version}")
+        self.logger.log(f"SciPy version: {scipy_version}")
+        self.logger.log(f"PySerial version: {self.pyserial_version}")
+        self.logger.log(f"Pillow version: {self.pillow_version}")
 
     # -------------------------------------------------------------------------
     def create_hdd_output_dir(self, date_time_str, subdir=""):
@@ -4941,8 +4914,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         try:
             shutil.copy(filename, run_dir)
         except shutil.Error as e:
-            err_str = ("Couldn't copy {} to {} ({})"
-                       .format(filename, run_dir, e))
+            err_str = f"Couldn't copy {filename} to {run_dir} ({e})"
             self.logger.print_and_log(err_str)
 
     # -------------------------------------------------------------------------
@@ -4958,10 +4930,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             f.write("CH0 (voltage), CH1 (current)\n")
             # Write ADC pairs
             for adc_pair in adc_pairs:
-                csv_str = "{},{}\n".format(adc_pair[0], adc_pair[1])
+                csv_str = f"{adc_pair[0]},{adc_pair[1]}\n"
                 f.write(csv_str)
 
-        self.logger.log("Raw ADC values written to {}".format(filename))
+        self.logger.log(f"Raw ADC values written to {filename}")
 
     # -------------------------------------------------------------------------
     def read_adc_pairs_from_csv_file(self, filename):
@@ -4975,22 +4947,21 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                     if ii == 0:
                         expected_first_line = "CH0 (voltage), CH1 (current)"
                         if line != expected_first_line:
-                            err_str = ("ERROR: first line of ADC CSV is not {}"
-                                       .format(expected_first_line))
+                            err_str = (f"ERROR: first line of ADC CSV is not "
+                                       f"{expected_first_line}")
                             self.logger.print_and_log(err_str)
                             return []
                     else:
                         adc_pair = list(map(float, line.split(",")))
                         if len(adc_pair) != 2:
-                            err_str = ("ERROR: CSV line {} is not in "
-                                       "expected CH0, CH1 format"
-                                       .format(ii + 1))
+                            err_str = (f"ERROR: CSV line {ii + 1} is not in "
+                                       f"expected CH0, CH1 format")
                             self.logger.print_and_log(err_str)
                             return []
                         adc_tuple = (adc_pair[0], adc_pair[1])
                         adc_pairs.append(adc_tuple)
         except IOError:
-            self.logger.print_and_log("ERROR: Cannot open {}".format(filename))
+            self.logger.print_and_log(f"ERROR: Cannot open {filename}")
             return []
 
         return adc_pairs
@@ -5072,8 +5043,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
         # Write info to the log file
         self.logger.log("================== Swing! ==========================")
-        self.logger.log("Loop mode: {}".format(loop_mode))
-        self.logger.log("Output directory: {}".format(self.hdd_output_dir))
+        self.logger.log(f"Loop mode: {loop_mode}")
+        self.logger.log(f"Output directory: {self.hdd_output_dir}")
 
         # Get the name of the CSV files
         self.get_csv_filenames(self.hdd_output_dir, date_time_str)
@@ -5174,8 +5145,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         restore_second_relay_state = [self.second_relay_state]
 
         def restore_all_and_return(rc):
-            """Local function to restore all of the relevant properties to their
-               starting values when the method was called
+            """Local function to restore all of the relevant properties to
+               their starting values when the method was called
             """
             self.max_iv_points = restore_max_iv_points[0]
             self.isc_stable_adc = restore_isc_stable_adc[0]
@@ -5231,11 +5202,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            points) and set the corresponding instance variables.
         """
         # Create the leaf file names
-        adc_pairs_csv_leaf_name = "adc_pairs_{}.csv".format(date_time_str)
-        unfiltered_adc_pairs_csv_leaf_name = ("unfiltered_adc_pairs_{}.csv"
-                                              .format(date_time_str))
-        csv_data_pt_leaf_name = ("{}{}.csv".format(self.file_prefix,
-                                                   date_time_str))
+        adc_pairs_csv_leaf_name = f"adc_pairs_{date_time_str}.csv"
+        unfiltered_adc_pairs_csv_leaf_name = (f"unfiltered_adc_pairs_"
+                                              f"{date_time_str}.csv")
+        csv_data_pt_leaf_name = f"{self.file_prefix}{date_time_str}.csv"
 
         # Get the full-path names of the HDD output files
         unfiltered_adc_csv = os.path.join(csv_dir,
@@ -5379,13 +5349,13 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             dgs = '\N{DEGREE SIGN}'
             i_est = " (estimate)" if self.irrad_estimated else " (sensor)"
             t_est = (" (estimate)" if self.cell_temp_estimated else
-                     " (sensor + {}{})".format(self.cell_temp_adjust, dgs))
-            ref_curve_name = "{} modeled at:\n".format(self.pv_model.pv_name)
-            ref_curve_name += ("   {:.2f} W/m{}{}\n"
-                               .format(self.pv_model.irradiance, sqd, i_est))
-            ref_curve_name += ("   {:.2f} {}C cell temp{}"
-                               .format(self.pv_model.cell_temp_c, dgs, t_est))
-            self.ivp.curve_names = ["{}".format(ref_curve_name),
+                     f" (sensor + {self.cell_temp_adjust}{dgs})")
+            ref_curve_name = (f"{self.pv_model.pv_name} modeled at:\n"
+                              f"   {self.pv_model.irradiance:.2f} "
+                              f"W/m{sqd}{i_est}\n"
+                              f"   {self.pv_model.cell_temp_c:.2f} "
+                              f"{dgs}C cell temp{t_est}")
+            self.ivp.curve_names = [f"{ref_curve_name}",
                                     "Measured IV Curve"]
             self.ivp.plot_ref = True
 
@@ -5458,12 +5428,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         else:
             dts = extract_date_time_str(self.hdd_output_dir)
             if pv.cell_temp_c is None:
-                log_str = ("Could not determine cell temperature for {}"
-                           .format(dts))
+                log_str = f"Could not determine cell temperature for {dts}"
                 self.logger.print_and_log(log_str)
             if pv.irradiance is None:
-                log_str = ("Could not determine irradiance for {}"
-                           .format(dts))
+                log_str = f"Could not determine irradiance for {dts}"
                 self.logger.print_and_log(log_str)
 
         self.irrad_estimated = estimate_irrad
@@ -5531,38 +5499,37 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
         # Write info to the log file
         self.logger.log("================== PV Test =========================")
-        self.logger.log("Output directory: {}".format(self.hdd_output_dir))
-        self.logger.log("PV name: {}".format(self.pv_model.pv_name))
-        self.logger.log("Voc (STC): {}".format(self.pv_model.voc_stc))
-        self.logger.log("Isc (STC): {}".format(self.pv_model.isc_stc))
-        self.logger.log("Vmp (STC): {}".format(self.pv_model.vmp_stc))
-        self.logger.log("Imp (STC): {}".format(self.pv_model.imp_stc))
-        self.logger.log("# cells: {}".format(self.pv_model.num_cells))
-        self.logger.log("Voc temp coeff (%/C): {}"
-                        .format(self.pv_model.voc_temp_coeff_pct_per_deg))
-        self.logger.log("Isc temp coeff (%/C): {}"
-                        .format(self.pv_model.isc_temp_coeff_pct_per_deg))
-        self.logger.log("MPP temp coeff (%/C): {}"
-                        .format(self.pv_model.mpp_temp_coeff_pct_per_deg))
-        self.logger.log("NOCT: {}".format(self.pv_model.noct))
-        self.logger.log("Irradiance: {}".format(self.pv_model.irradiance))
-        self.logger.log("Cell temp (C): {}".format(self.pv_model.cell_temp_c))
-        self.logger.log("IL: {}".format(self.pv_model.il))
-        self.logger.log("I0: {}".format(self.pv_model.i0))
-        self.logger.log("A: {}  (n = {})"
-                        .format(self.pv_model.a,
-                                self.pv_model.ideality_factor))
-        self.logger.log("Rs: {}".format(self.pv_model.rs))
-        self.logger.log("Rsh: {}".format(self.pv_model.rsh))
-        self.logger.log("Voc: {}".format(self.pv_model.voc))
-        self.logger.log("Isc: {}".format(self.pv_model.isc))
-        self.logger.log("Vmp: {}".format(self.pv_model.vmp))
-        self.logger.log("Imp: {}".format(self.pv_model.imp))
-        self.logger.log("Eq #1: {}".format(self.pv_model.eq1_result))
-        self.logger.log("Eq #2: {}".format(self.pv_model.eq2_result))
-        self.logger.log("Eq #3: {}".format(self.pv_model.eq3_result))
-        self.logger.log("Eq #4: {}".format(self.pv_model.eq4_result))
-        self.logger.log("Eq #5: {}".format(self.pv_model.eq5_result))
+        self.logger.log(f"Output directory: {self.hdd_output_dir}")
+        self.logger.log(f"PV name: {self.pv_model.pv_name}")
+        self.logger.log(f"Voc (STC): {self.pv_model.voc_stc}")
+        self.logger.log(f"Isc (STC): {self.pv_model.isc_stc}")
+        self.logger.log(f"Vmp (STC): {self.pv_model.vmp_stc}")
+        self.logger.log(f"Imp (STC): {self.pv_model.imp_stc}")
+        self.logger.log(f"# cells: {self.pv_model.num_cells}")
+        self.logger.log(f"Voc temp coeff (%/C): "
+                        f"{self.pv_model.voc_temp_coeff_pct_per_deg}")
+        self.logger.log(f"Isc temp coeff (%/C): "
+                        f"{self.pv_model.isc_temp_coeff_pct_per_deg}")
+        self.logger.log(f"MPP temp coeff (%/C): "
+                        f"{self.pv_model.mpp_temp_coeff_pct_per_deg}")
+        self.logger.log(f"NOCT: {self.pv_model.noct}")
+        self.logger.log(f"Irradiance: {self.pv_model.irradiance}")
+        self.logger.log(f"Cell temp (C): {self.pv_model.cell_temp_c}")
+        self.logger.log(f"IL: {self.pv_model.il}")
+        self.logger.log(f"I0: {self.pv_model.i0}")
+        self.logger.log(f"A: {self.pv_model.a}  "
+                        f"(n = {self.pv_model.ideality_factor})")
+        self.logger.log(f"Rs: {self.pv_model.rs}")
+        self.logger.log(f"Rsh: {self.pv_model.rsh}")
+        self.logger.log(f"Voc: {self.pv_model.voc}")
+        self.logger.log(f"Isc: {self.pv_model.isc}")
+        self.logger.log(f"Vmp: {self.pv_model.vmp}")
+        self.logger.log(f"Imp: {self.pv_model.imp}")
+        self.logger.log(f"Eq #1: {self.pv_model.eq1_result}")
+        self.logger.log(f"Eq #2: {self.pv_model.eq2_result}")
+        self.logger.log(f"Eq #3: {self.pv_model.eq3_result}")
+        self.logger.log(f"Eq #4: {self.pv_model.eq4_result}")
+        self.logger.log(f"Eq #5: {self.pv_model.eq5_result}")
         self.logger.log("====================================================")
 
         # Get the name of the CSV files
@@ -5582,9 +5549,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self.ivp.title = self.pv_model.title_string
         self.ivp.logger = self.logger
         self.ivp.csv_files = [self.hdd_csv_data_point_filename]
-        legend_str = ("{}\nModel time: {} ms"
-                      .format(self.pv_model.parms_string_w_newlines,
-                              self.pv_model.run_ms))
+        legend_str = (f"{self.pv_model.parms_string_w_newlines}\n"
+                      f"Model time: {self.pv_model.run_ms} ms")
         self.ivp.curve_names = [legend_str]
         self.ivp.plot_dir = self.hdd_output_dir
         self.ivp.x_pixels = self.x_pixels
@@ -5618,11 +5584,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             try:
                 os.makedirs(self.logs_dir)
             except OSError:
-                print("ERROR: could not create {}".format(self.logs_dir))
+                print(f"ERROR: could not create {self.logs_dir}")
                 return
 
         # Create the logger
-        leaf_name = "log_{}.txt".format(date_time_str)
+        leaf_name = f"log_{date_time_str}.txt"
         IV_Swinger.PrintAndLog.log_file_name = os.path.join(self.logs_dir,
                                                             leaf_name)
         self.logger = IV_Swinger.PrintAndLog()
@@ -5632,7 +5598,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """Method to remove the run directory after a failed run if it does not
            contain both the ADC CSV file and the data points CSV file.
         """
-        files = glob.glob("{}/*".format(run_dir))
+        files = glob.glob(f"{run_dir}/*")
         do_cleanup = (self.hdd_adc_pairs_csv_filename not in files or
                       self.hdd_csv_data_point_filename not in files)
         if do_cleanup:
@@ -5641,7 +5607,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             if run_dir == os.getcwd():
                 os.chdir("..")
             os.rmdir(run_dir)
-            msg_str = "Removed {}".format(run_dir)
+            msg_str = f"Removed {run_dir}"
             self.logger.log(msg_str)
 
     # -------------------------------------------------------------------------
@@ -5654,12 +5620,12 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             return
 
         # Always remove the plt_ file(s)
-        plt_files = glob.glob("{}/plt_*".format(run_dir))
+        plt_files = glob.glob(f"{run_dir}/plt_*")
         for f in plt_files:
             self.clean_up_file(f)
 
         # Always remove the PNG file(s)
-        png_files = glob.glob("{}/*.png".format(run_dir))
+        png_files = glob.glob(f"{run_dir}/*.png")
         for f in png_files:
             self.clean_up_file(f)
 
@@ -5667,7 +5633,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if loop_mode:
             if not loop_save_results:
                 # Remove all files in loop directory
-                loop_files = glob.glob("{}/*".format(run_dir))
+                loop_files = glob.glob(f"{run_dir}/*")
                 for f in loop_files:
                     self.clean_up_file(f)
                 # Remove the (now empty) directory
@@ -5685,7 +5651,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def clean_up_file(self, f):
         """Method to remove one file and log its removal"""
         os.remove(f)
-        msg_str = "Removed {}".format(f)
+        msg_str = f"Removed {f}"
         self.logger.log(msg_str)
 
     # -------------------------------------------------------------------------
@@ -5743,7 +5709,7 @@ def main():
         config.save_snapshot()  # restore original
 
         # Print message and close the log file
-        msg_str = "  Results in: {}".format(ivs2.hdd_output_dir)
+        msg_str = f"  Results in: {ivs2.hdd_output_dir}"
         ivs2.logger.print_and_log(msg_str)
         terminate_log()
 
@@ -5757,26 +5723,19 @@ def main():
         # Log error
         fail_str = "swing_curve() FAILED: "
         if rc == RC_BAUD_MISMATCH:
-            ivs2.logger.print_and_log("{}{}".format(fail_str,
-                                                    "baud mismatch"))
+            ivs2.logger.print_and_log(f"{fail_str}baud mismatch")
         if rc == RC_TIMEOUT:
-            ivs2.logger.print_and_log("{}{}".format(fail_str,
-                                                    "message timeout"))
+            ivs2.logger.print_and_log(f"{fail_str}message timeout")
         if rc == RC_SERIAL_EXCEPTION:
-            ivs2.logger.print_and_log("{}{}".format(fail_str,
-                                                    "serial exception"))
+            ivs2.logger.print_and_log(f"{fail_str}serial exception")
         if rc == RC_ZERO_VOC:
-            ivs2.logger.print_and_log("{}{}".format(fail_str,
-                                                    "Voc is 0 volts"))
+            ivs2.logger.print_and_log(f"{fail_str}Voc is 0 volts")
         if rc == RC_ZERO_ISC:
-            ivs2.logger.print_and_log("{}{}".format(fail_str,
-                                                    "Isc is 0 amps"))
+            ivs2.logger.print_and_log(f"{fail_str}Isc is 0 amps")
         if rc == RC_ISC_TIMEOUT:
-            ivs2.logger.print_and_log("{}{}".format(fail_str,
-                                                    "Isc stable timeout"))
+            ivs2.logger.print_and_log(f"{fail_str}Isc stable timeout")
         if rc == RC_NO_POINTS:
-            ivs2.logger.print_and_log("{}{}".format(fail_str,
-                                                    "no points"))
+            ivs2.logger.print_and_log(f"{fail_str}no points")
         # Clean up
         ivs2.clean_up_after_failure(ivs2.hdd_output_dir)
 

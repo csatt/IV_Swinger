@@ -197,13 +197,13 @@ def check_names_and_ref(ivs_extended, csv_files):
     """
     if ivs_extended.names is not None:
         assert len(ivs_extended.names) == len(csv_files), \
-            ("ERROR: {} names specified for {} curves"
-             .format(len(ivs_extended.names), len(csv_files)))
+            (f"ERROR: {len(ivs_extended.names)} names specified for "
+             f"{len(csv_files)} curves")
 
     if ivs_extended.plot_ref:
         assert len(csv_files) == 2, \
-            ("ERROR: Exactly two CSV files needed for plot_ref ({} provided)"
-             .format(len(csv_files)))
+            (f"ERROR: Exactly two CSV files needed for plot_ref "
+             f"({len(csv_files)} provided)")
 
 
 #################
@@ -378,17 +378,16 @@ class CsvParser():
                         if ii == 0:
                             expected_first_line = "Volts, Amps, Watts, Ohms"
                             if line != expected_first_line:
-                                err_str = ("ERROR: first line of CSV is not {}"
-                                           .format(expected_first_line))
+                                err_str = (f"ERROR: first line of CSV is not "
+                                           f"{expected_first_line}")
                                 PrintAndOrLog.print_and_log_msg(self.logger,
                                                                 err_str)
                                 return []
                         else:
                             vipr_list = list(map(float, line.split(",")))
                             if len(vipr_list) != 4:
-                                err_str = ("ERROR: CSV line {} is not in "
-                                           "expected V,I,P,R "
-                                           "format".format(ii + 1))
+                                err_str = (f"ERROR: CSV line {ii + 1} is not "
+                                           f"in expected V,I,P,R format")
                                 PrintAndOrLog.print_and_log_msg(self.logger,
                                                                 err_str)
                                 return []
@@ -397,8 +396,9 @@ class CsvParser():
                                           vipr_list[3], vipr_list[2])
                             self._data_points.append(ivrp_tuple)
             except IOError:
-                PrintAndOrLog.print_and_log_msg(self.logger, "Cannot open {}"
-                                                .format(self.csv_filename))
+                PrintAndOrLog.print_and_log_msg(self.logger,
+                                                f"Cannot open "
+                                                f"{self.csv_filename}")
                 return []
 
         return self._data_points
@@ -485,7 +485,7 @@ class IV_Swinger_extended(IV_Swinger.IV_Swinger):
                                    csv_proc.plt_voc_volts,
                                    csv_proc.plt_mpp_amps,
                                    csv_proc.plt_mpp_volts)
-            msg_str = "Generated: {}".format(self.plt_img_filename)
+            msg_str = f"Generated: {self.plt_img_filename}"
             PrintAndOrLog.print_or_log_msg(self.logger, msg_str)
 
         else:
@@ -506,7 +506,7 @@ class IV_Swinger_extended(IV_Swinger.IV_Swinger):
                                        [voc_volts],
                                        [mpp_amps],
                                        [mpp_volts])
-                msg_str = "Generated: {}".format(self.plt_img_filename)
+                msg_str = f"Generated: {self.plt_img_filename}"
                 PrintAndOrLog.print_or_log_msg(self.logger, msg_str)
 
 
@@ -543,7 +543,7 @@ class CsvFileProcessor():
         """Method to process a single CSV file"""
         # pylint: disable=too-many-locals
 
-        msg_str = "Processing: {}".format(csv_filename)
+        msg_str = f"Processing: {csv_filename}"
         PrintAndOrLog.print_or_log_msg(self.logger, msg_str)
 
         # Create a CSV parser object and get the data points
@@ -595,7 +595,7 @@ class CsvFileProcessor():
         # Write the original and interpolated data points to the plotter
         # data file
         fn_wo_suffix = os.path.splitext(os.path.basename(csv_filename))[0]
-        plt_data_point_filename = ("plt_{}".format(fn_wo_suffix))
+        plt_data_point_filename = f"plt_{fn_wo_suffix}"
         if os.path.isfile(plt_data_point_filename):
             os.remove(plt_data_point_filename)
         IV_Swinger.write_plt_data_points_to_file(plt_data_point_filename,

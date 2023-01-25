@@ -466,8 +466,7 @@ def write_csv_data_to_file(open_filehandle, volts,
        ohms values to an output file which the caller has opened and has
        passed the filehandle.
     """
-    output_line = ("{:.6f},{:.6f},{:.6f},{:.6f}\n"
-                   .format(volts, amps, watts, ohms))
+    output_line = f"{volts:.6f},{amps:.6f},{watts:.6f},{ohms:.6f}\n"
     open_filehandle.write(output_line)
 
 
@@ -495,7 +494,7 @@ def write_plt_data_to_file(open_filehandle, volts, amps,
        then the other values are ignored and two blank lines are
        appended to the file.
     """
-    output_line = "{:.6f} {:.6f} {:.6f}\n".format(volts, amps, watts)
+    output_line = f"{volts:.6f} {amps:.6f} {watts:.6f}\n"
     if new_data_set:
         # two blank lines signify a new data set to plotter
         open_filehandle.write("\n")
@@ -516,10 +515,9 @@ def write_plt_data_points_to_file(filename, data_points,
 
         prev_vals = ""
         for data_point in data_points:
-            curr_vals = ("{:.6f} {:.6f} {:.6f}\n"
-                         .format(data_point[VOLTS_INDEX],
-                                 data_point[AMPS_INDEX],
-                                 data_point[WATTS_INDEX]))
+            curr_vals = (f"{data_point[VOLTS_INDEX]:.6f} "
+                         f"{data_point[AMPS_INDEX]:.6f} "
+                         f"{data_point[WATTS_INDEX]:.6f}\n")
             if curr_vals != prev_vals:
                 write_plt_data_to_file(f,
                                        data_point[VOLTS_INDEX],
@@ -578,7 +576,7 @@ def mantissa_and_exp(value, figs):
     """Global function to return the scientific notation mantissa and
        exponent of the provided value
     """
-    man, exp = ("{:.{}e}".format(value, figs)).split('e')
+    man, exp = f"{value:.{figs}e}".split('e')
     return (float(man), int(exp))
 
 
@@ -590,11 +588,11 @@ def get_tick_step(max_val):
     max_steps = 15
     man, exp = mantissa_and_exp(max_val * 10.0/max_steps, 2)
     if man <= 2:
-        step = float("{}e{}".format(2, exp - 1))
+        step = float(f"2e{exp - 1}")
     elif man <= 5:
-        step = float("{}e{}".format(5, exp - 1))
+        step = float(f"5e{exp - 1}")
     else:
-        step = float("{}e{}".format(1, exp))
+        step = float(f"1e{exp}")
     return step
 
 
@@ -672,8 +670,8 @@ class DateTimeStr():
            format to a more readable format
         """
         yymmdd, hh, mm, ss = date_time_str.split("_")
-        date_str = "{}/{}/{}".format(yymmdd[2:4], yymmdd[4:6], yymmdd[0:2])
-        time_str = "{}:{}:{}".format(hh, mm, ss)
+        date_str = f"{yymmdd[2:4]}/{yymmdd[4:6]}/{yymmdd[0:2]}"
+        time_str = f"{hh}:{mm}:{ss}"
         return (date_str, time_str)
 
 
@@ -695,7 +693,7 @@ class PrintAndLog():
         # Print to log file with timestamp
         date_time_str = DateTimeStr.get_date_time_str()
         with open(self.log_file_name, "a", encoding="utf-8") as f:
-            f.write("\n{}: {}".format(date_time_str, print_str))
+            f.write(f"\n{date_time_str}: {print_str}")
 
     def print_and_log(self, print_str):
         """Print to the screen (if there is one) and also to a log file
@@ -831,8 +829,7 @@ class ScrollingMessage(StoppableThread):  # IVS1
         elif ScrollingMessage.lcd_scroll_delay is None:
             err_var = "lcd_scroll_delay"
         if err_var is not None:
-            err_msg = ("ERROR: {} class variable is not initialized!! "
-                       .format(err_var))
+            err_msg = f"ERROR: {err_var} class variable is not initialized!! "
             self.logger.print_and_log(err_msg)
             self.exc_queue.put(err_msg)
             sys.exit(-1)
@@ -873,9 +870,8 @@ class ScrollingMessage(StoppableThread):  # IVS1
                 line = 1
                 newline_count += 1
                 if newline_count > 1:
-                    err_msg = ("ERROR (scrolling_message): "
-                               "More than two lines in text:\n{}"
-                               .format(text))
+                    err_msg = (f"ERROR (scrolling_message): "
+                               f"More than two lines in text:\n{text}")
                     self.logger.print_and_log(err_msg)
                     self.exc_queue.put(err_msg)
                     sys.exit(-1)
@@ -885,22 +881,21 @@ class ScrollingMessage(StoppableThread):  # IVS1
         # Check character limits (40 per line or 80 total)
         if char_count[1] > 0:
             if char_count[0] > ScrollingMessage.lcd_mem_chars_per_line:
-                err_msg = ("ERROR (scrolling_message): >40 characters "
-                           "before newline in text:\n{}".format(text))
+                err_msg = (f"ERROR (scrolling_message): >40 characters "
+                           f"before newline in text:\n{text}")
                 self.logger.print_and_log(err_msg)
                 self.exc_queue.put(err_msg)
                 sys.exit(-1)
             elif char_count[1] > ScrollingMessage.lcd_mem_chars_per_line:
-                err_msg = ("ERROR (scrolling_message): "
-                           ">40 characters after newline in text:\n{}"
-                           .format(text))
+                err_msg = (f"ERROR (scrolling_message): >40 characters "
+                           f"after newline in text:\n{text}")
                 self.logger.print_and_log(err_msg)
                 self.exc_queue.put(err_msg)
                 sys.exit(-1)
         elif char_count[0] > (ScrollingMessage.lcd_lines *
                               ScrollingMessage.lcd_mem_chars_per_line):
-            err_msg = ("ERROR (scrolling_message): "
-                       ">80 characters in text:\n{}".format(text))
+            err_msg = (f"ERROR (scrolling_message): >80 characters "
+                       f"in text:\n{text}")
             self.logger.print_and_log(err_msg)
             self.exc_queue.put(err_msg)
             sys.exit(-1)
@@ -984,8 +979,8 @@ class ScrollingMessage(StoppableThread):  # IVS1
                 try:
                     self.scrolling_message(text, repeat_count=0)
                 except:  # pylint: disable=bare-except
-                    self.logger.print_and_log("Unexpected error: {}"
-                                              .format(sys.exc_info()[0]))
+                    self.logger.print_and_log(f"Unexpected error: "
+                                              f"{sys.exc_info()[0]}")
                     self.logger.print_and_log(traceback.format_exc())
                     self.exc_queue.put("Exception in scrolling_message")
                     sys.exit(-1)
@@ -1467,12 +1462,10 @@ class IV_Swinger():
         # exception message queue
         self.exc_queue = queue.Queue()
         self.os_version = platform.platform()
-        self.python_version = "{}.{}.{} ({}-bit)".format(sys.version_info[0],
-                                                         sys.version_info[1],
-                                                         sys.version_info[2],
-                                                         64 if
-                                                         sys.maxsize > 2**32
-                                                         else 32)
+        arch_word_size = 64 if sys.maxsize > 2 ** 32 else 32
+        self.python_version = (
+            f"{sys.version_info[0]}.{sys.version_info[1]}."
+            f"{sys.version_info[2]} ({arch_word_size}-bit)")
         try:
             self.matplotlib_version = matplotlib_version
         except NameError:
@@ -2452,8 +2445,8 @@ class IV_Swinger():
 
         # Create the ScrollingMessage object with lock=None so we don't
         # deadlock
-        msg_text = ("Hold button {} s\nto shut down"
-                    .format(self.button_time_for_shutdown))
+        msg_text = (f"Hold button {self.button_time_for_shutdown} s\n"
+                    f"to shut down")
         lcd_msg = ScrollingMessage(msg_text, self.lcd, beep=False, lock=None,
                                    exc_queue=self.exc_queue)
         lcd_msg.start()
@@ -2477,8 +2470,8 @@ class IV_Swinger():
         if pressed_time >= self.button_time_for_shutdown:
             self.shut_down(lock_held=True)
         else:
-            msg_text = ["Button released\nbefore {} seconds"
-                        .format(self.button_time_for_shutdown)]
+            msg_text = [f"Button released\n"
+                        f"before {self.button_time_for_shutdown} seconds"]
             if self.fine_mode_toggle:
                 if self.fine_mode:
                     self.fine_mode = False
@@ -2679,9 +2672,8 @@ class IV_Swinger():
             elif seconds_in_loop >= (self.idle_timeout_seconds -
                                      self.idle_timeout_warning_seconds):
                 lcd_msg.stop()
-                msg_text = ("Auto shutdown\nin {} seconds!!"
-                            .format(self.idle_timeout_seconds -
-                                    seconds_in_loop))
+                seconds_remaining = self.idle_timeout_seconds - seconds_in_loop
+                msg_text = f"Auto shutdown\nin {seconds_remaining} seconds!!"
                 lcd_msg = ScrollingMessage(msg_text, self.lcd, beep=True,
                                            lock=self.lock,
                                            exc_queue=self.exc_queue)
@@ -2692,8 +2684,8 @@ class IV_Swinger():
             curr_voc_amps = ((amm_volts / self.amm_op_amp_gain) /
                              self.amm_shunt_resistance)
             curr_voc_volts = self.read_voc(adc)
-            self.logger.log("Voc Amps: {:.6f}  Voc Volts: {:.6f}"
-                            .format(curr_voc_amps, curr_voc_volts))
+            self.logger.log(f"Voc Amps: {curr_voc_amps:.6f}  "
+                            f"Voc Volts: {curr_voc_volts:.6f}")
 
             # Return to caller now if voltage is negative
             if curr_voc_volts < 0.0:
@@ -2733,7 +2725,7 @@ class IV_Swinger():
                         lcd_msg.stop()
                         return (voc_amps, voc_volts, voc_ohms, voc_watts)
                     self.lcd.clear()
-                    self.lcd.message("Voc: {:.2f} V".format(voc_volts))
+                    self.lcd.message(f"Voc: {voc_volts:.2f} V")
                     time.sleep(1)
                     self.logger.print_and_log("*" * 58)
                     print_str = ("Please turn the toggle switch ON "
@@ -2749,8 +2741,9 @@ class IV_Swinger():
                 time.sleep(0.1 - elapsed_time)
 
         self.logger.print_and_log(
-            "Voc Volts: {:.6f} (std deviation = {:.6f} over {} measurements)"
-            .format(voc_volts, voc_volts_history_std, self.voc_settle_count))
+            f"Voc Volts: {voc_volts:.6f} "
+            f"(std deviation = {voc_volts_history_std:.6f} "
+            f"over {self.voc_settle_count} measurements)")
 
         if not voc_settled:
             print_str = ("   ===> WARNING: High Voc standard deviation; "
@@ -2791,14 +2784,14 @@ class IV_Swinger():
         # be made after the toggle (but probably hastening the demise of
         # the relays in the process).
         amm_volts = self.read_adc(adc, self.amm_chp, self.amm_chn, 6144)
-        self.logger.log("AMM Volts: {:.6f}".format(amm_volts))
+        self.logger.log(f"AMM Volts: {amm_volts:.6f}")
         amps = (amm_volts / self.amm_op_amp_gain) / self.amm_shunt_resistance
         retry_count = 0
         while retry_count < self.max_retries:
             if amps == 0:
                 retry_count += 1
-                print_str = ("RETRY #{} for load_pattern {:#x}"
-                             .format(retry_count, load_pattern))
+                print_str = (f"RETRY #{retry_count} for "
+                             f"load_pattern {load_pattern:#x}")
                 self.logger.print_and_log(print_str)
                 time.sleep(self.time_between_measurements)
                 set_relays_to_pattern(load_pattern, io_extender)
@@ -2807,7 +2800,7 @@ class IV_Swinger():
                 time.sleep(self.time_between_measurements)
                 amm_volts = self.read_adc(adc, self.amm_chp,
                                           self.amm_chn, 6144)
-                self.logger.log("AMM Volts: {:.6f}".format(amm_volts))
+                self.logger.log(f"AMM Volts: {amm_volts:.6f}")
                 amps = ((amm_volts / self.amm_op_amp_gain) /
                         self.amm_shunt_resistance)
             else:
@@ -2834,18 +2827,16 @@ class IV_Swinger():
         self.reset_lcd()
 
         # Print current values formatted nicely
-        print_amps = ("{:.2f}".format(amps)).rjust(5)
-        print_volts = ("{:.2f}".format(volts)).rjust(5)
-        print_ohms = ("{:.2f}".format(ohms)).rjust(5)
-        print_watts = ("{:.2f}".format(watts)).rjust(6)
-        print_str = ("Amps: {}  Volts: {}  Ohms: {}  Watts: {}  "
-                     "Load pattern: {}".format(print_amps, print_volts,
-                                               print_ohms, print_watts,
-                                               format(load_pattern, "#018b")))
+        print_amps = f"{amps:.2f}".rjust(5)
+        print_volts = f"{volts:.2f}".rjust(5)
+        print_ohms = f"{ohms:.2f}".rjust(5)
+        print_watts = f"{watts:.2f}".rjust(6)
+        print_str = (f"Amps: {print_amps}  Volts: {print_volts}  "
+                     f"Ohms: {print_ohms}  Watts: {print_watts}  "
+                     f"Load pattern: {format(load_pattern, '#018b')}")
         self.logger.print_and_log(print_str)
-        lcd_str = ("{} A  {} V\n"
-                   "{} R {} W".format(print_amps, print_volts,
-                                      print_ohms, print_watts))
+        lcd_str = (f"{print_amps} A  {print_volts} V\n"
+                   f"{print_ohms} R {print_watts} W")
         self.lcd.message(lcd_str)
 
         return (amps, volts, ohms, watts)
@@ -3058,10 +3049,9 @@ class IV_Swinger():
                 rot_degrees = (math.degrees(math.atan(m12)) -
                                math.degrees(math.atan(m23)))
                 weight = abs(rot_degrees) * d23
-                print_str = ("m12: {} m23: {} d23: {} Rot degrees: {} "
-                             "Weight: {} Load pattern: {}"
-                             .format(m12, m23, d23, rot_degrees, weight,
-                                     format(load_pattern, "#018b")))
+                print_str = (f"m12: {m12} m23: {m23} d23: {d23} "
+                             f"Rot degrees: {rot_degrees} Weight: {weight} "
+                             f"Load pattern: {format(load_pattern, '#018b')}")
                 self.logger.log(print_str)
                 if weight < 50:
                     skip_this_one = True
@@ -3197,7 +3187,7 @@ class IV_Swinger():
         isc_volts = 0
         isc_ohms = 0
         isc_watts = 0
-        self.logger.log("Isc Amps: {:.6f}".format(isc_amps))
+        self.logger.log(f"Isc Amps: {isc_amps:.6f}")
 
         return (isc_amps, isc_volts, isc_ohms, isc_watts)
 
@@ -3215,7 +3205,7 @@ class IV_Swinger():
             self.set_figure_size()
 
             # Set output to the plot image filename
-            output_line = 'set output "{}"\n'.format(img_filename)
+            output_line = f'set output "{img_filename}\"\n'
             self.filehandle.write(output_line)
 
             # Set the key font
@@ -3322,8 +3312,8 @@ class IV_Swinger():
         fonts = {f.name for f in matplotlib.font_manager.fontManager.ttflist}
         font_names_str = ""
         for font_name in sorted(fonts):
-            font_names_str += "{}\n".format(font_name)
-        self.logger.log("Plotting fonts:\n{}".format(font_names_str))
+            font_names_str += f"{font_name}\n"
+        self.logger.log(f"Plotting fonts:\n{font_names_str}")
         return font_names_str
 
     # -------------------------------------------------------------------------
@@ -3498,7 +3488,7 @@ class IV_Swinger():
 
         max_len = len(self.plot_colors)
         assert len(sd_data_point_filenames) <= max_len, \
-            "Max of {} curves supported".format(max_len)
+            f"Max of {max_len} curves supported"
         assert len(isc_amps) == len(sd_data_point_filenames), \
             "isc_amps list must be same size as sd_data_point_filenames list"
         assert len(voc_volts) == len(sd_data_point_filenames), \
@@ -3516,8 +3506,8 @@ class IV_Swinger():
         scaled_x_inches = self.plot_x_inches * self.plot_x_scale
         scaled_y_inches = self.plot_y_inches * self.plot_y_scale
         if self.use_gnuplot:
-            self.filehandle.write("set terminal pdf size {},{}\n"
-                                  .format(scaled_x_inches, scaled_y_inches))
+            self.filehandle.write(f"set terminal pdf size "
+                                  f"{scaled_x_inches},{scaled_y_inches}\n")
         else:
             plt.gcf().set_size_inches(scaled_x_inches, scaled_y_inches)
 
@@ -3525,7 +3515,7 @@ class IV_Swinger():
     def set_figure_title(self, sd_data_point_filenames):
         """Method to set the plotter figure title"""
         if len(sd_data_point_filenames) > 1 and not self.plot_ref:
-            run_str = "{} Runs".format(len(sd_data_point_filenames))
+            run_str = f"{len(sd_data_point_filenames)} Runs"
         else:
             run_str = (sd_data_point_filenames[0] if not self.plot_ref else
                        sd_data_point_filenames[1])
@@ -3535,9 +3525,9 @@ class IV_Swinger():
             else:
                 (date_str,
                  time_str) = DateTimeStr.xlate_date_time_str(date_time_str)
-                run_str = "{}@{}".format(date_str, time_str)
+                run_str = f"{date_str}@{time_str}"
         if self.plot_title is None:
-            title_str = "IV Swinger Plot for {}".format(run_str)
+            title_str = f"IV Swinger Plot for {run_str}"
         else:
             title_str = self.plot_title
         fontsize = self.title_fontsize * self.font_scale
@@ -3547,8 +3537,8 @@ class IV_Swinger():
                 title_str = title_str.replace("@", " at ")
             fontsize *= self.gp_font_scale
             y_offset = self.font_scale - 0.5
-            self.filehandle.write('set title "{}" offset 0,{} font ",{}"\n'
-                                  .format(title_str, y_offset, fontsize))
+            self.filehandle.write(f'set title "{title_str}" '
+                                  f'offset 0,{y_offset} font ",{fontsize}\"\n')
         else:
             plt.title(title_str, fontsize=fontsize, y=1.02)
 
@@ -3560,8 +3550,8 @@ class IV_Swinger():
         if self.use_gnuplot:
             fontsize *= self.gp_font_scale
             y_offset = 1.0 - self.font_scale
-            self.filehandle.write('set xlabel "{}" offset 0,{} font ",{}"\n'
-                                  .format(x_label, y_offset, fontsize))
+            self.filehandle.write(f'set xlabel "{x_label}" '
+                                  f'offset 0,{y_offset} font ",{fontsize}\"\n')
         else:
             plt.xlabel(x_label, fontsize=fontsize)
 
@@ -3573,8 +3563,8 @@ class IV_Swinger():
         if self.use_gnuplot:
             fontsize *= self.gp_font_scale
             x_offset = 3.0 * (1.0 - self.font_scale)
-            self.filehandle.write('set ylabel "{}" offset 0,{} font ",{}"\n'
-                                  .format(y_label, x_offset, fontsize))
+            self.filehandle.write(f'set ylabel "{y_label}" '
+                                  f'offset 0,{x_offset} font ",{fontsize}\"\n')
         else:
             plt.ylabel(y_label, fontsize=fontsize)
 
@@ -3596,7 +3586,7 @@ class IV_Swinger():
 
         if max_x > 0:
             if self.use_gnuplot:
-                output_line = "set xrange [0:{}]\n".format(max_x)
+                output_line = f"set xrange [0:{max_x}]\n"
                 self.filehandle.write(output_line)
             else:
                 plt.xlim(0, max_x)
@@ -3626,7 +3616,7 @@ class IV_Swinger():
 
         if max_y > 0:
             if self.use_gnuplot:
-                output_line = "set yrange [0:{}]\n".format(max_y)
+                output_line = f"set yrange [0:{max_y}]\n"
                 self.filehandle.write(output_line)
             else:
                 plt.ylim(0, max_y)
@@ -3641,7 +3631,7 @@ class IV_Swinger():
         fontsize = self.ticklabel_fontsize * self.font_scale
         if self.use_gnuplot:
             fontsize *= self.gp_font_scale
-            output_line = 'set xtics {} font ",{}"\n'.format(step, fontsize)
+            output_line = f'set xtics {step} font ",{fontsize}\"\n'
             self.filehandle.write(output_line)
         else:
             plt.xticks(numpy.arange(0, max_x, step), fontsize=fontsize)
@@ -3653,7 +3643,7 @@ class IV_Swinger():
         fontsize = self.ticklabel_fontsize * self.font_scale
         if self.use_gnuplot:
             fontsize *= self.gp_font_scale
-            output_line = 'set ytics {} font ",{}"\n'.format(step, fontsize)
+            output_line = f'set ytics {step} font ",{fontsize}\"\n'
             self.filehandle.write(output_line)
         else:
             plt.yticks(numpy.arange(0, max_y, step), fontsize=fontsize)
@@ -3691,11 +3681,11 @@ class IV_Swinger():
         prev_isc_str_width = 0
         for ii, isc_amp in enumerate(isc_amps):
             # Round isc_amp to 3 significant figures
-            isc_str = "Isc = {} A".format(sigfigs(isc_amp, 3))
+            isc_str = f"Isc = {sigfigs(isc_amp, 3)} A"
             if self.use_gnuplot:
                 gp_isc_str = ' ""'
                 if not ii or self.label_all_iscs or self.plot_ref:
-                    gp_isc_str = ' "{}"'.format(isc_str)
+                    gp_isc_str = f' "{isc_str}"'
                 self.gnuplot_label_point(gp_isc_str,
                                          0, isc_amp,
                                          1 + ii * 15 * self.font_scale, 1,
@@ -3725,22 +3715,21 @@ class IV_Swinger():
         max_mpp_volts = max(mpp_volts)
         for ii, mpp_amp in enumerate(mpp_amps):
             # Round mpp_volts to 3 significant figures
-            mppv_str = "{}".format(sigfigs(mpp_volts[ii], 3))
+            mppv_str = f"{sigfigs(mpp_volts[ii], 3)}"
             # Round mpp_amp to 3 significant figures
-            mppa_str = "{}".format(sigfigs(mpp_amp, 3))
+            mppa_str = f"{sigfigs(mpp_amp, 3)}"
             # Create (V * A) string from those
-            mpp_volts_x_amps_str = (" ({} * {})"
-                                    .format(mppv_str, mppa_str))
+            mpp_volts_x_amps_str = f" ({mppv_str} * {mppa_str})"
             if self.mpp_watts_only:
                 mpp_volts_x_amps_str = ""
             mpp_watts = mpp_volts[ii] * mpp_amp
             # Round mpp_watts to 3 significant figures
-            mppw_str = "{}".format(sigfigs(mpp_watts, 3))
-            mpp_str = "MPP = {} W{}".format(mppw_str, mpp_volts_x_amps_str)
+            mppw_str = f"{sigfigs(mpp_watts, 3)}"
+            mpp_str = f"MPP = {mppw_str} W{mpp_volts_x_amps_str}"
             if self.use_gnuplot:
                 gp_mpp_str = ' ""'
                 if not ii or self.label_all_mpps or self.plot_ref:
-                    gp_mpp_str = ' "{}"'.format(mpp_str)
+                    gp_mpp_str = f' "{mpp_str}"'
                 self.gnuplot_label_point(gp_mpp_str,
                                          mpp_volts[ii], mpp_amp,
                                          1, 1,
@@ -3790,11 +3779,11 @@ class IV_Swinger():
             nn = len(voc_volts) - 1
         for ii, voc_volt in enumerate(voc_volts):
             # Round voc_volt to 3 significant figures
-            voc_str = "Voc = {} V".format(sigfigs(voc_volt, 3))
+            voc_str = f"Voc = {sigfigs(voc_volt, 3)} V"
             if self.use_gnuplot:
                 gp_voc_str = ' ""'
                 if not ii or self.label_all_vocs or self.plot_ref:
-                    gp_voc_str = ' "{}"'.format(voc_str)
+                    gp_voc_str = f' "{voc_str}"'
                     self.gnuplot_label_point(gp_voc_str,
                                              voc_volt, 0,
                                              1, 1 + ii * 1 * self.font_scale,
@@ -3831,10 +3820,9 @@ class IV_Swinger():
         # pylint: disable=too-many-arguments
 
         fontsize *= self.gp_font_scale
-        output_line = ('set label at {},{}{} point pointtype {} font ",{}" '
-                       'offset {},{} front\n'
-                       .format(x, y, label_str, self.gp_isc_voc_mpp_pointtype,
-                               fontsize, xtext, ytext))
+        output_line = (f'set label at {x},{y}{label_str} point pointtype '
+                       f'{self.gp_isc_voc_mpp_pointtype} font ",{fontsize}" '
+                       f'offset {xtext},{ytext} front\n')
         self.filehandle.write(output_line)
 
     # -------------------------------------------------------------------------
@@ -3934,16 +3922,15 @@ class IV_Swinger():
             # Skip plotting points altogether if scale is zero
             return
         measured_name = "Measured Points"
-        title_str = 'title "{}" '.format(measured_name)
+        title_str = f'title "{measured_name}" '
         if self.use_gnuplot:
             if curve_num:
                 title_str = "notitle "
-            self.output_line += ('"{}" index 0 {}linecolor rgb "{}" '
-                                 'pointtype {} linewidth {}'
-                                 .format(df, title_str,
-                                         self.gp_measured_point_color,
-                                         self.gp_measured_pointtype,
-                                         self.gp_measured_point_linewidth))
+            self.output_line += (
+                f'"{df}" index 0 {title_str}linecolor '
+                f'rgb "{self.gp_measured_point_color}" '
+                f'pointtype {self.gp_measured_pointtype} '
+                f'linewidth {self.gp_measured_point_linewidth}')
         else:
             # Plot without label, which was added by
             # add_measured_points_label()
@@ -3966,7 +3953,7 @@ class IV_Swinger():
                 if date_time_str != "No match":
                     (date_str,
                      time_str) = DateTimeStr.xlate_date_time_str(date_time_str)
-                    interp_label = "{}@{}".format(date_str, time_str)
+                    interp_label = f"{date_str}@{time_str}"
             else:
                 interp_label = "Interpolated IV Curve"
         else:
@@ -3987,13 +3974,11 @@ class IV_Swinger():
             if sys.platform == "darwin":
                 # On Mac @ sign is lost
                 interp_label = interp_label.replace("@", " at ")
-            self.output_line += ('"{}" index 1 with lines title "{}" '
-                                 'linecolor rgb "{}" linewidth {} linetype {},'
-                                 .format(df, interp_label,
-                                         color,
-                                         (self.gp_interp_linewidth *
-                                          self.line_scale),
-                                         self.gp_interp_linetype))
+            self.output_line += (
+                f'"{df}" index 1 with lines title '
+                f'"{interp_label}" linecolor rgb "{color}" '
+                f'linewidth {self.gp_interp_linewidth * self.line_scale} '
+                f'linetype {self.gp_interp_linetype},')
         else:
             plt.plot(interp_volts, interp_amps,
                      color=color,
@@ -4056,7 +4041,7 @@ class IV_Swinger():
     def set_key_font(self):
         """Method to set the font of the gnuplot key (legend)"""
         fontsize = self.legend_fontsize * self.font_scale * self.gp_font_scale
-        output_line = ('set key font ",{}"\n'.format(fontsize))
+        output_line = f'set key font ",{fontsize}\"\n'
         self.filehandle.write(output_line)
 
     # -------------------------------------------------------------------------
@@ -4090,13 +4075,13 @@ class IV_Swinger():
         top_adj = 1.0 - margin_width / ysize
         bottom_adj = margin_width / ysize
         if self.use_gnuplot:
-            output_line = "set lmargin at screen {}\n".format(left_adj)
+            output_line = f"set lmargin at screen {left_adj}\n"
             self.filehandle.write(output_line)
-            output_line = "set rmargin at screen {}\n".format(right_adj)
+            output_line = f"set rmargin at screen {right_adj}\n"
             self.filehandle.write(output_line)
-            output_line = "set tmargin at screen {}\n".format(top_adj)
+            output_line = f"set tmargin at screen {top_adj}\n"
             self.filehandle.write(output_line)
-            output_line = "set bmargin at screen {}\n".format(bottom_adj)
+            output_line = f"set bmargin at screen {bottom_adj}\n"
             self.filehandle.write(output_line)
         else:
             plt.subplots_adjust(left=left_adj, right=right_adj,
@@ -4150,8 +4135,7 @@ class IV_Swinger():
     def clean_up(self, io_extender, reason_text):  # IVS1
         """Method to clean up on exit, then shut down"""
 
-        self.logger.print_and_log("Cleaning up on exit: {}\n"
-                                  .format(reason_text))
+        self.logger.print_and_log(f"Cleaning up on exit: {reason_text}\n")
 
         # Turn off all relays
         turn_off_all_relays(io_extender)
@@ -4161,7 +4145,7 @@ class IV_Swinger():
 
         # Display exit message on LCD
         self.lcd.clear()
-        self.lcd.message("IV_Swinger exit:\n{}".format(reason_text))
+        self.lcd.message(f"IV_Swinger exit:\n{reason_text}")
 
         # Shut down after 10 seconds if the shutdown_on_exit property is
         # True and the exit is not due to a keyboard interrupt.
@@ -4232,8 +4216,7 @@ class IV_Swinger():
                 time_left = 30 - wait_time
                 time_left = max(time_left, 0)
                 msg_text = ["No USB drives!!\nInsert one or",
-                            ("more USB drives\nin next {} sec"
-                             .format(time_left))]
+                            f"more USB drives\nin next {time_left} sec"]
                 lcd_msg = ScrollingMessage(msg_text, self.lcd, beep=True,
                                            lock=self.lock,
                                            exc_queue=self.exc_queue)
@@ -4275,11 +4258,10 @@ class IV_Swinger():
         if display:
             usb_drives_str = ""
             for usb_drive in usb_drives:
-                usb_drives_str += "{} ".format(usb_drive)
+                usb_drives_str += f"{usb_drive} "
 
-            msg_text = ["Found USB drive(s):\n{}".format(usb_drives_str)]
-            self.logger.print_and_log("Found USB drive(s): {}"
-                                      .format(usb_drives_str))
+            msg_text = [f"Found USB drive(s):\n{usb_drives_str}"]
+            self.logger.print_and_log(f"Found USB drive(s): {usb_drives_str}")
             lcd_msg = ScrollingMessage(msg_text, self.lcd, beep=False,
                                        lock=self.lock,
                                        exc_queue=self.exc_queue)
@@ -4316,10 +4298,9 @@ class IV_Swinger():
                         os.makedirs(sub_dir)
                     except OSError:
                         msg_text = ["Failed to make\ndirectory:",
-                                    "{}".format(sub_dir)]
-                        self.logger.print_and_log("Failed to make "
-                                                  "directory: {}"
-                                                  .format(sub_dir))
+                                    f"{sub_dir}"]
+                        self.logger.print_and_log(
+                            f"Failed to make directory: {sub_dir}")
                         if self.lcd is not None:
                             lcd_msg = ScrollingMessage(
                                 msg_text,
@@ -4364,7 +4345,7 @@ class IV_Swinger():
             if free_bytes > 1000000:
                 usb_drives.append(usb_drive)
             else:
-                msg_text = ["{}\nis NEARLY FULL!!".format(usb_drive),
+                msg_text = [f"{usb_drive}\nis NEARLY FULL!!",
                             "Results will not\nbe written to it"]
                 lcd_msg = ScrollingMessage(msg_text, self.lcd,
                                            beep=True, lock=self.lock,
@@ -4372,8 +4353,8 @@ class IV_Swinger():
                 lcd_msg.start()
                 time.sleep(7)
                 lcd_msg.stop()
-            self.logger.print_and_log("{} has {} bytes of free space"
-                                      .format(usb_drive, free_bytes))
+            self.logger.print_and_log(
+                f"{usb_drive} has {free_bytes} bytes of free space")
 
         usb_drive_successfully_written = False
 
@@ -4387,16 +4368,15 @@ class IV_Swinger():
                 try:
                     # Copy the log file
                     usb_logs_dir = os.path.join(usb_iv_swinger_dir, "logs")
-                    self.logger.log("copy: {} to {}"
-                                    .format(PrintAndLog.log_file_name,
-                                            usb_logs_dir))
+                    self.logger.log(
+                        f"copy: {PrintAndLog.log_file_name} to {usb_logs_dir}")
                     shutil.copy(PrintAndLog.log_file_name, usb_logs_dir)
 
                     # Copy the output files
                     usb_output_dir = os.path.join(usb_iv_swinger_dir,
                                                   date_time_str)
-                    self.logger.log("copytree: {} to {}"
-                                    .format(sd_output_dir, usb_output_dir))
+                    self.logger.log(
+                        f"copytree: {sd_output_dir} to {usb_output_dir}")
                     shutil.copytree(sd_output_dir, usb_output_dir)
 
                     # Copy the CSV and PDF files to the /csv and /pdf
@@ -4408,8 +4388,7 @@ class IV_Swinger():
                         for f in files:
                             usb_file = os.path.join(usb_iv_swinger_dir,
                                                     file_type)
-                            self.logger.log("copy: {} to {}"
-                                            .format(f, usb_file))
+                            self.logger.log(f"copy: {f} to {usb_file}")
                             shutil.copy(f, usb_file)
 
                     # Set success flag if we got this far without an
@@ -4417,7 +4396,7 @@ class IV_Swinger():
                     usb_drive_successfully_written = True
 
                 except (IOError, OSError, shutil.Error) as e:
-                    self.logger.print_and_log("({})".format(e))
+                    self.logger.print_and_log(f"({e})")
 
             # If pending_usb_copy file exists, open it for reading and
             # step through the date_time_str values and use copytree to
@@ -4433,8 +4412,8 @@ class IV_Swinger():
                                 usb_output_dir = os.path.join(usb_ivs_dir,
                                                               my_date_time_str)
                                 self.logger.print_and_log(
-                                    "copytree: {} to {}"
-                                    .format(sd_output_dir, usb_output_dir))
+                                    f"copytree: {sd_output_dir} "
+                                    f"to {usb_output_dir}")
                                 shutil.copytree(sd_output_dir, usb_output_dir)
                                 for file_type in ["csv", "pdf"]:
                                     file_glob = os.path.join(sd_output_dir,
@@ -4443,12 +4422,12 @@ class IV_Swinger():
                                     for f in files:
                                         usb_file = os.path.join(usb_ivs_dir,
                                                                 file_type)
-                                        self.logger.log("copy: {} to {}"
-                                                        .format(f, usb_file))
+                                        self.logger.log(
+                                            f"copy: {f} to {usb_file}")
                                         shutil.copy(f, usb_file)
                     os.remove(filename)
                 except (IOError, OSError, shutil.Error) as e:
-                    self.logger.print_and_log("({})".format(e))
+                    self.logger.print_and_log(f"({e})")
 
         if not usb_drive_successfully_written:
             # If no USB drives, append date_time_str to pending_usb_copy
@@ -4456,9 +4435,9 @@ class IV_Swinger():
             filename = os.path.join(sd_iv_swinger_dir, "pending_usb_copy")
             try:
                 with open(filename, "a", encoding="utf-8") as f:
-                    f.write("{}\n".format(date_time_str))
+                    f.write(f"{date_time_str}\n")
             except (IOError, OSError) as e:
-                self.logger.print_and_log("({})".format(e))
+                self.logger.print_and_log(f"({e})")
 
     # -------------------------------------------------------------------------
     def check_for_thread_errors(self):  # IVS1
@@ -4470,7 +4449,7 @@ class IV_Swinger():
         except queue.Empty:
             pass
         else:
-            self.logger.print_and_log("THREAD error: {}".format(thread_exc))
+            self.logger.print_and_log(f"THREAD error: {thread_exc}")
             sys.exit(-1)
 
     # -------------------------------------------------------------------------
@@ -4520,16 +4499,16 @@ class IV_Swinger():
              voc_watts) = self.measure_voc(adc, msg_text)
 
             # Attempt to acquire lock
-            got_lock = self.lock.acquire(0)  # pylint: disable=consider-using-with
+            free = self.lock.acquire(0)  # pylint: disable=consider-using-with
 
             # If the lock is busy (i.e. held by the pushbutton
             # callback), go back the beginning of the main loop and wait
             # until it is free
-            if not got_lock:
+            if not free:
                 continue
 
             self.lcd.clear()
-            self.lcd.message("Voc: {:.2f} V".format(voc_volts))
+            self.lcd.message(f"Voc: {voc_volts:.2f} V")
             time.sleep(0.5)
 
             if voc_volts < 0.0:
@@ -4565,7 +4544,7 @@ class IV_Swinger():
                     self.lock.release()
                     time.sleep(0.01)  # yield to callback thread
                     self.check_for_thread_errors()
-                    self.lock.acquire() # pylint: disable=consider-using-with
+                    self.lock.acquire()  # pylint: disable=consider-using-with
                     voc_volts = self.read_voc(adc)
                 warning_thread.stop()
                 self.lock.release()
@@ -4636,14 +4615,10 @@ class IV_Swinger():
             os.makedirs(sd_output_dir)
 
             # Create the leaf file names
-            csv_dp_leaf_name = ("data_points_{}.csv"
-                                .format(date_time_str))
-            gp_command_leaf_name = ("gp_command_file_{}"
-                                    .format(date_time_str))
-            plt_dp_leaf_name = ("plt_data_points_{}"
-                                .format(date_time_str))
-            plt_img_leaf_name = ("plt_data_points_{}.pdf"
-                                 .format(date_time_str))
+            csv_dp_leaf_name = f"data_points_{date_time_str}.csv"
+            gp_command_leaf_name = f"gp_command_file_{date_time_str}"
+            plt_dp_leaf_name = f"plt_data_points_{date_time_str}"
+            plt_img_leaf_name = f"plt_data_points_{date_time_str}.pdf"
 
             # Get the full-path names of the SD card output files
             sd_csv_data_point_filename = os.path.join(sd_output_dir,
@@ -4689,19 +4664,17 @@ class IV_Swinger():
 
             # Print MPP info
             self.logger.print_and_log("==========================")
-            print_str = ("Maximum power point (MPP): "
-                         "Amps: {:.6f}   Volts: {:.6f}   "
-                         "Ohms: {:.6f}   Watts: {:.6f}"
-                         .format(mpp_amps, mpp_volts,
-                                 mpp_ohms, mpp_watts))
+            print_str = (
+                f"Maximum power point (MPP): Amps: {mpp_amps:.6f}   "
+                f"Volts: {mpp_volts:.6f}   Ohms: {mpp_ohms:.6f}   "
+                f"Watts: {mpp_watts:.6f}")
             self.logger.print_and_log(print_str)
 
             # Display max power on LCD
             self.check_for_thread_errors()
             with self.lock:
                 self.lcd.clear()
-                self.lcd.message(" Max Power:\n     {:.2f} W"
-                                 .format(mpp_watts))
+                self.lcd.message(f" Max Power:\n     {mpp_watts:.2f} W")
                 time.sleep(2)
 
             if voc_volts != 0.0:
@@ -4729,7 +4702,7 @@ class IV_Swinger():
                                    sd_iv_swinger_dir)
 
             # Display message
-            outdir_msg = "Output folder:\n{}".format(date_time_str)
+            outdir_msg = f"Output folder:\n{date_time_str}"
             self.logger.print_and_log(outdir_msg)
             self.logger.print_and_log("")
             lcd_msg = ScrollingMessage(outdir_msg, self.lcd, beep=False,
@@ -4751,8 +4724,7 @@ class IV_Swinger():
         # Init PrintAndLog class variable(s) from properties
         date_time_str = DateTimeStr.get_date_time_str()
         PrintAndLog.log_file_name = os.path.join(self.logs_dir,
-                                                 "log_{}"
-                                                 .format(date_time_str))
+                                                 f"log_{date_time_str}")
 
         # Init ScrollingMessage class variable(s) from properties
         ScrollingMessage.lcd_lines = self.lcd_lines
@@ -4813,8 +4785,7 @@ class IV_Swinger():
             self.clean_up(io_extender, "kbd interrupt")
         except:
             # Everything else
-            self.logger.print_and_log("Unexpected error: {}"
-                                      .format(sys.exc_info()[0]))
+            self.logger.print_and_log(f"Unexpected error: {sys.exc_info()[0]}")
             self.logger.print_and_log(traceback.format_exc())
             self.clean_up(io_extender, str(sys.exc_info()[0]))
             raise

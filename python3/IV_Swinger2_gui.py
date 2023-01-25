@@ -239,8 +239,7 @@ def debug_memleak(msg_str):
     if DEBUG_MEMLEAK:
         date_time_str = IV_Swinger2.get_date_time_str()
         mem_usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        print("{}: Memory usage ({}): {}".format(date_time_str, msg_str,
-                                                 mem_usage))
+        print(f"{date_time_str}: Memory usage ({msg_str}): {mem_usage}")
 
 
 def gen_dbg_str(msg_str):
@@ -250,9 +249,7 @@ def gen_dbg_str(msg_str):
     """
     cf = currentframe()
     fi = getframeinfo(cf)
-    dbg_str = "DEBUG({}, line {}): {}".format(fi.filename,
-                                              cf.f_back.f_lineno,
-                                              msg_str)
+    dbg_str = f"DEBUG({fi.filename}, line {cf.f_back.f_lineno}): {msg_str}"
     return dbg_str
 
 
@@ -273,20 +270,20 @@ def handle_early_exception():
        only for a frozen executable (e.g. built with pyinstaller);
        otherwise the exception info is just printed to the console.
     """
-    err_msg = "Unexpected error: {}\n".format(sys.exc_info()[0])
+    err_msg = f"Unexpected error: {sys.exc_info()[0]}\n"
     err_msg += traceback.format_exc()
     if not getattr(sys, "frozen", False):
         print(err_msg)
         return
     with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
         err_msg += "\n"
-        err_msg += """
+        err_msg += f"""
 -----------------------------------------------------------
 Please copy/paste the above and send it to csatt1@gmail.com
 
 Alternately, you may attach this file:
-{}
-""".format(tmp_file.name)
+{tmp_file.name}
+"""
         with open(tmp_file.name, "a", encoding="utf-8") as f:
             f.write(err_msg)
             IV_Swinger2.sys_view_file(tmp_file.name)
@@ -297,7 +294,7 @@ def pdf_permission_denied(e):
        indicates that the problem is that permission to write a PDF was
        denied.
     """
-    exception_str = "({})".format(e)
+    exception_str = f"({e})"
     pdf_permission_denied_re = re.compile(r"Permission denied:.*\.pdf'")
     return pdf_permission_denied_re.search(exception_str)
 
@@ -307,7 +304,7 @@ def date_at_time_from_dts(dts):
        170110_190017 to 01/10/17@19:00:17
     """
     (date, time_of_day) = IV_Swinger2.xlate_date_time_str(dts)
-    return "{}@{}".format(date, time_of_day)
+    return f"{date}@{time_of_day}"
 
 
 def grab_overlay_curve(event=None):
@@ -328,7 +325,7 @@ def selectall(event):
 
 def log_user_action(logger, msg):
     """Global function to log a GUI action by the user"""
-    user_action_msg = "User: {}".format(msg)
+    user_action_msg = f"User: {msg}"
     logger.log(user_action_msg)
 
 
@@ -343,20 +340,16 @@ def retry_if_pdf_permission_denied(func, *args):
         rc = func(*args)
     except IOError as e:
         if pdf_permission_denied(e):
-            err_str = ("({})"
-                       "\n\n"
-                       "PDF could not be written. If you have it open in "
-                       "a viewer, close it BEFORE clicking OK.".format(e))
+            err_str = (f"({e})\n\nPDF could not be written. If you have it "
+                       f"open in a viewer, close it BEFORE clicking OK.")
             tkmsg.showerror(message=err_str)
             try:
                 rc = func(*args)
             except IOError as ee:
                 rc = RC_FAILURE
                 if pdf_permission_denied(ee):
-                    err_str = ("({})"
-                               "\n\n"
-                               "PDF still could not be written. "
-                               "It will not be updated.".format(ee))
+                    err_str = (f"({ee})\n\nPDF still could not be written. "
+                               f"It will not be updated.")
                     tkmsg.showerror(message=err_str)
     return rc
 
@@ -431,7 +424,7 @@ def show_process_adc_values_err_dialog(rc):
     elif rc == RC_ZERO_ISC:
         err_str = "ERROR: Isc is zero amps"
     else:
-        err_str = "ERROR: process_adc_values returned {}".format(rc)
+        err_str = f"ERROR: process_adc_values returned {rc}"
     tkmsg.showerror(message=err_str)
 
 
@@ -441,11 +434,9 @@ def ok_to_trash(num_selected_runs, num_selected_overlays):
     """
     msg_str = ""
     if num_selected_runs:
-        msg_str += ("Send {} runs to the trash?\n"
-                    .format(num_selected_runs))
+        msg_str += f"Send {num_selected_runs} runs to the trash?\n"
     if num_selected_overlays:
-        msg_str += ("Send {} overlays to the trash?\n"
-                    .format(num_selected_overlays))
+        msg_str += f"Send {num_selected_overlays} overlays to the trash?\n"
     granted = tkmsg.askyesno("OK to send to trash?", msg_str,
                              default=tkmsg.NO)
     return granted
@@ -456,15 +447,15 @@ def adj_ratio_is_too_extreme(adj_ratio):
        display error dialog and return True. Otherwise return False.
     """
     if adj_ratio < 0.85 or adj_ratio > 1.15:
-        err_msg = """
+        err_msg = f"""
 ERROR: Calibration ratio
-({})
+({adj_ratio})
 must be between 0.85 and 1.15.
 More extreme ratios indicate
 something is wrong with the
 hardware and calibration is
 not the solution
-""".format(adj_ratio)
+"""
         tkmsg.showerror(message=err_msg)
         return True
     return False
@@ -721,10 +712,10 @@ class GraphicalUserInterface(ttk.Frame):
             os.makedirs(dummy_dir)
             os.rmdir(dummy_dir)
         except (IOError, OSError):
-            err_msg = """
+            err_msg = f"""
 FATAL ERROR: This user does not have
 permission to create directories (folders) in
-{}""".format(app_data_parent)
+{app_data_parent}"""
             tkmsg.showerror(message=err_msg)
             sys.exit()
         try:
@@ -733,10 +724,10 @@ permission to create directories (folders) in
                 f.close()
             os.remove(dummy_file)
         except (IOError, OSError):
-            err_msg = """
+            err_msg = f"""
 FATAL ERROR: This user does not have
 permission to create files in
-{}""".format(self.ivs2.app_data_dir)
+{self.ivs2.app_data_dir}"""
             tkmsg.showerror(message=err_msg)
             sys.exit()
 
@@ -752,17 +743,17 @@ permission to create files in
            the user.
         """
         # pylint: disable=unused-argument
-        self.ivs2.logger.print_and_log("Unexpected error: {}"
-                                       .format(sys.exc_info()[0]))
+        self.ivs2.logger.print_and_log(f"Unexpected error: "
+                                       f"{sys.exc_info()[0]}")
         self.ivs2.logger.print_and_log(traceback.format_exc())
-        exception_msg = """
+        exception_msg = f"""
 An internal error has occurred.  Please send
 the log file to csatt1@gmail.com.
 
-Log file: {}
+Log file: {os.path.normpath(self.ivs2.logger.log_file_name)}
 
 Or use "View Log File" on the "File" menu.
-""".format(os.path.normpath(self.ivs2.logger.log_file_name))
+"""
         tkmsg.showerror(message=exception_msg)
 
     # -------------------------------------------------------------------------
@@ -782,21 +773,20 @@ Or use "View Log File" on the "File" menu.
             with open(version_file, "r", encoding="utf-8") as f:
                 lines = f.read().splitlines()
                 if len(lines) != 1:
-                    err_str = ("ERROR: {} has {} lines"
-                               .format(VERSION_FILE, len(lines)))
+                    err_str = f"ERROR: {VERSION_FILE} has {len(lines)} lines"
                     self.ivs2.logger.print_and_log(err_str)
                     return
                 version = lines[0]
                 if not version or version[0] != "v":
-                    err_str = ("ERROR: {} has invalid version: {}"
-                               .format(VERSION_FILE, version))
+                    err_str = (f"ERROR: {VERSION_FILE} has invalid version: "
+                               f"{version}")
                     self.ivs2.logger.print_and_log(err_str)
                     return
                 self.version = version
-                log_msg = "Application version: {}".format(version)
+                log_msg = f"Application version: {version}"
                 self.ivs2.logger.log(log_msg)
         except IOError:
-            err_str = "ERROR: {} doesn't exist".format(VERSION_FILE)
+            err_str = f"ERROR: {VERSION_FILE} doesn't exist"
             self.ivs2.logger.print_and_log(err_str)
 
     # -------------------------------------------------------------------------
@@ -896,8 +886,9 @@ This could be for one of the following reasons:
     def set_style(self):
         """Method to configure a custom ttk style for certain widgets"""
         self.style = ttk.Style()
-        font = ("TkDefaultFont {} bold italic"
-                .format(max(int(round(self.ivs2.x_pixels / 43.0)), 19)))
+        font = (f"TkDefaultFont "
+                f"{max(int(round(self.ivs2.x_pixels / 43.0)), 19)} "
+                f"bold italic")
         self.style.configure("go_stop_button.TButton",
                              foreground="red",
                              padding=4,
@@ -998,15 +989,14 @@ This could be for one of the following reasons:
         if min_height is None:
             # Set the geometry to the offset from main window
             # determined above
-            dialog.geometry("+{}+{}".format(self.winfo_rootx()-left_offset,
-                                            self.winfo_rooty()+10))
+            dialog.geometry(f"+{self.winfo_rootx() - left_offset}"
+                            f"+{self.winfo_rooty() + 10}")
         else:
             # Set the geometry to the initial (fixed) width, minimum
             # height, and offset from main window determined above
-            dialog.geometry("{}x{}+{}+{}"
-                            .format(width, min_height,
-                                    self.winfo_rootx()-left_offset,
-                                    self.winfo_rooty()+10))
+            dialog.geometry(f"{width}x{min_height}+"
+                            f"{self.winfo_rootx() - left_offset}+"
+                            f"{self.winfo_rooty() + 10}")
 
         # Run update_idletasks to prevent momentary appearance of pre-resized
         # window
@@ -1067,7 +1057,7 @@ This could be for one of the following reasons:
     def log_tcl_tk_version(self):
         """Method to log the Tcl/Tk version
         """
-        self.ivs2.logger.log("Tcl/Tk version: {}".format(self.tcl_tk_version))
+        self.ivs2.logger.log(f"Tcl/Tk version: {self.tcl_tk_version}")
 
     # -------------------------------------------------------------------------
     def create_img_size_combo(self):
@@ -1075,12 +1065,10 @@ This could be for one of the following reasons:
         """
         self.img_size_combo = ImgSizeCombo(master=self,
                                            textvariable=self.resolution_str)
-        aspect = "{}x{}".format(self.ivs2.plot_x_inches,
-                                self.ivs2.plot_y_inches)
-        tt_text = ("Pull down to select desired display size or type in "
-                   "desired size and hit Enter/Return. Must be an aspect "
-                   "ratio of {} (height will be modified if not)"
-                   .format(aspect))
+        aspect = f"{self.ivs2.plot_x_inches}x{self.ivs2.plot_y_inches}"
+        tt_text = (f"Pull down to select desired display size or type in "
+                   f"desired size and hit Enter/Return. Must be an aspect "
+                   f"ratio of {aspect} (height will be modified if not)")
         Tooltip(self.img_size_combo, text=tt_text, **TOP_TT_KWARGS)
         self.img_size_combo.bind("<<ComboboxSelected>>", self.update_img_size)
         self.img_size_combo.bind("<Return>", self.update_img_size)
@@ -1091,7 +1079,7 @@ This could be for one of the following reasons:
     def create_version_label(self):
         """Method to create the version label
         """
-        version_text = "         Version: {}".format(self.version)
+        version_text = f"         Version: {self.version}"
         self.version_label = ttk.Label(master=self, text=version_text)
         self.version_label.grid(**self.grid_args["version_label"])
 
@@ -1419,7 +1407,7 @@ This could be for one of the following reasons:
         cfg_file = None
         original_cfg_file = None
         if run_dir is not None and run_dir != config_dir:
-            cfg_file = os.path.join(run_dir, "{}.cfg".format(APP_NAME))
+            cfg_file = os.path.join(run_dir, f"{APP_NAME}.cfg")
             if os.path.exists(cfg_file):
                 # Snapshot current config
                 original_cfg_file = self.config.cfg_filename
@@ -1499,8 +1487,8 @@ This could be for one of the following reasons:
         """Method to apply a new voltage or current range (max value
            on axis) when entered by the user
         """
-        msg = ("(Main) hit Enter/Return in Max V ({}) or Max I ({}) entry"
-               .format(self.v_range.get(), self.i_range.get()))
+        msg = (f"(Main) hit Enter/Return in Max V ({self.v_range.get()}) "
+               f"or Max I ({self.i_range.get()}) entry")
         log_user_action(self.ivs2.logger, msg)
 
         if self.current_run_displayed or self.results_wiz:
@@ -1664,7 +1652,7 @@ This could be for one of the following reasons:
         """
         res_str = self.resolution_str.get()
 
-        msg = "(Main) attempted resolution change to {}".format(res_str)
+        msg = f"(Main) attempted resolution change to {res_str}"
         log_user_action(self.ivs2.logger, msg)
 
         # The first number in the input is x_pixels
@@ -1676,8 +1664,8 @@ This could be for one of the following reasons:
             y_pixels = int(round(x_pixels *
                                  self.ivs2.plot_y_inches /
                                  self.ivs2.plot_x_inches))
-            new_res_str = "{}x{}".format(x_pixels, y_pixels)
-            self.ivs2.logger.log("New resolution: {}".format(new_res_str))
+            new_res_str = f"{x_pixels}x{y_pixels}"
+            self.ivs2.logger.log(f"New resolution: {new_res_str}")
             # Set the resolution string to the new value
             self.resolution_str.set(new_res_str)
             # Set the x_pixels property of the IVS2 object to the new value
@@ -1698,9 +1686,8 @@ This could be for one of the following reasons:
             y_pixels = int(round(x_pixels *
                                  self.ivs2.plot_y_inches /
                                  self.ivs2.plot_x_inches))
-            new_res_str = "{}x{}".format(x_pixels, y_pixels)
-            self.ivs2.logger.log("Keeping old resolution: {}"
-                                 .format(new_res_str))
+            new_res_str = f"{x_pixels}x{y_pixels}"
+            self.ivs2.logger.log(f"Keeping old resolution: {new_res_str}")
             self.resolution_str.set(new_res_str)
         event.widget.selection_clear()  # remove annoying highlight
         event.widget.tk_focusNext().focus()  # move focus out so Return works
@@ -2057,7 +2044,7 @@ This could be for one of the following reasons:
         dts = IV_Swinger2.extract_date_time_str(self.ivs2.hdd_output_dir)
         xlated = IV_Swinger2.xlate_date_time_str(dts)
         (xlated_date, xlated_time) = xlated
-        screen_msg = "{}@{}".format(xlated_date, xlated_time)
+        screen_msg = f"{xlated_date}@{xlated_time}"
         screen_msg += "\n\n"
         screen_msg += "** Curve trace FAILED **"
         screen_msg += "\n\n"
@@ -2177,16 +2164,18 @@ This could be for one of the following reasons:
         """Method to cause app to open centered (side-to-side) on screen,
            aligned to top (5 pixel overscan compensation)
         """
-        self.root.geometry("+{}+5".format((self.root.winfo_screenwidth()//2) -
-                                          (self.ivs2.x_pixels//2)))
+        x_offset = (self.root.winfo_screenwidth()//2 -
+                    self.ivs2.x_pixels//2)
+        self.root.geometry(f"+{x_offset}+5")
 
     # -------------------------------------------------------------------------
     def start_to_right(self):
         """Method to cause app to open to the right of the screen (with 20
            pixels left), aligned to top (5 pixel overscan compensation)
         """
-        self.root.geometry("+{}+5".format(self.root.winfo_screenwidth() -
-                                          self.ivs2.x_pixels - 20))
+        x_offset = (self.root.winfo_screenwidth() -
+                    self.ivs2.x_pixels - 20)
+        self.root.geometry(f"+{x_offset}+5")
 
     # -------------------------------------------------------------------------
     def start_to_left(self):
@@ -2218,7 +2207,7 @@ This could be for one of the following reasons:
                     section = line
                 if (line.startswith("?") or line.startswith("+") or
                         line.startswith("-")):
-                    msg_str += "{} {}\n".format(section, line)
+                    msg_str += f"{section} {line}\n"
             msg_str += "\nREVERT TO PREVIOUS?"
             revert_config = tkmsg.askyesno("Revert config?", msg_str,
                                            default=tkmsg.NO)
@@ -2361,7 +2350,7 @@ class ImgSizeCombo(ttk.Combobox):
         y_pixels = int(round(master.ivs2.x_pixels *
                              master.ivs2.plot_y_inches /
                              master.ivs2.plot_x_inches))
-        curr_size = "{}x{}".format(master.ivs2.x_pixels, y_pixels)
+        curr_size = f"{master.ivs2.x_pixels}x{y_pixels}"
         textvariable.set(curr_size)
         self["values"] = ("550x425",
                           "660x510",
@@ -2662,8 +2651,8 @@ class ResultsWizard(tk.Toplevel):
                 (xlated_date, xlated_time) = xlated
 
                 # Add to tree
-                iid = "overlay_{}".format(overlay)
-                text = "Created on {} at {}".format(xlated_date, xlated_time)
+                iid = f"overlay_{overlay}"
+                text = f"Created on {xlated_date} at {xlated_time}"
                 self.tree.insert(subdir, "end", iid, text=text)
 
     # -------------------------------------------------------------------------
@@ -2686,7 +2675,7 @@ class ResultsWizard(tk.Toplevel):
         # Get the title from the saved config
         title = None
         run_dir = self.get_run_dir(subdir)
-        cfg_file = os.path.join(run_dir, "{}.cfg".format(APP_NAME))
+        cfg_file = os.path.join(run_dir, f"{APP_NAME}.cfg")
         if os.path.exists(cfg_file):
             title = IV_Swinger2.get_saved_title(cfg_file)
         else:
@@ -2694,7 +2683,7 @@ class ResultsWizard(tk.Toplevel):
         if title == "None" or title is None:
             title_str = ""
         else:
-            title_str = "   {}".format(title)
+            title_str = f"   {title}"
             self.master.overlay_names[subdir] = title
 
         # Add child time item (iid is full date_time_str)
@@ -2778,7 +2767,7 @@ class ResultsWizard(tk.Toplevel):
         selections = self.tree.selection()
         if not selections:
             return
-        msg = "(Wizard) selected {}".format(selections)
+        msg = f"(Wizard) selected {selections}"
         log_user_action(self.master.ivs2.logger, msg)
         # If multiple items are selected, last one (oldest) is
         # displayed
@@ -2804,7 +2793,7 @@ class ResultsWizard(tk.Toplevel):
         """
         dts = IV_Swinger2.extract_date_time_str(selection)
         overlay_dir = os.path.join(self.results_dir, "overlays", dts)
-        gif_leaf_name = "overlaid_{}.gif".format(dts)
+        gif_leaf_name = f"overlaid_{dts}.gif"
         gif_full_path = os.path.join(overlay_dir, gif_leaf_name)
         if os.path.exists(gif_full_path):
             self.master.display_img(gif_full_path)
@@ -2860,7 +2849,7 @@ class ResultsWizard(tk.Toplevel):
         """
         run_dir = os.path.join(self.results_dir, selection)
         if not os.path.isdir(run_dir):
-            err_str = "ERROR: directory {} does not exist".format(run_dir)
+            err_str = f"ERROR: directory {run_dir} does not exist"
             self.master.ivs2.logger.print_and_log(err_str)
             tkmsg.showerror(message=err_str)
             return None
@@ -2875,16 +2864,14 @@ class ResultsWizard(tk.Toplevel):
         self.master.ivs2.get_csv_filenames(run_dir, selection)
         csv_data_point_file = self.master.ivs2.hdd_csv_data_point_filename
         adc_csv_file = self.master.ivs2.hdd_adc_pairs_csv_filename
-        gif_leaf_name = "{}{}.gif".format(self.master.ivs2.file_prefix,
-                                          selection)
+        gif_leaf_name = f"{self.master.ivs2.file_prefix}{selection}.gif"
         gif_file = os.path.join(run_dir, gif_leaf_name)
 
         # Check that data point CSV file exists
         if not os.path.exists(csv_data_point_file):
             # Check for IVS1 CSV file
             ivs1_csv_file = os.path.join(self.results_dir, selection,
-                                         "data_points_{}.csv"
-                                         .format(selection))
+                                         f"data_points_{selection}.csv")
             if os.path.exists(ivs1_csv_file):
                 csv_data_point_file = ivs1_csv_file
                 self.master.ivs2.hdd_csv_data_point_filename = ivs1_csv_file
@@ -2917,7 +2904,7 @@ class ResultsWizard(tk.Toplevel):
         """Method to read config file, if it exists, and update the config
         """
         self.master.suppress_cfg_file_copy = False
-        cfg_file = os.path.join(run_dir, "{}.cfg".format(APP_NAME))
+        cfg_file = os.path.join(run_dir, f"{APP_NAME}.cfg")
         if cfg_file == self.master.config.cfg_filename:
             return
         if os.path.exists(cfg_file):
@@ -2967,7 +2954,7 @@ class ResultsWizard(tk.Toplevel):
                 elif os.path.basename(parent_dir) == APP_NAME:
                     self.results_dir = parent_dir
                     self.populate_tree()
-            msg = "(Wizard) changed folder to {}".format(self.results_dir)
+            msg = f"(Wizard) changed folder to {self.results_dir}"
             log_user_action(self.master.ivs2.logger, msg)
             self.config_import_button()
         else:
@@ -2987,8 +2974,8 @@ class ResultsWizard(tk.Toplevel):
         """Method to configure the shortcut button as the import button"""
         self.shortcut_button["text"] = "Import"
         self.shortcut_button["command"] = self.import_results
-        tt_text = ("Import results to {} from {}"
-                   .format(self.master.ivs2.app_data_dir, self.results_dir))
+        tt_text = (f"Import results to {self.master.ivs2.app_data_dir} from "
+                   f"{self.results_dir}")
         Tooltip(self.shortcut_button, text=tt_text, **TOP_TT_KWARGS)
 
     # -------------------------------------------------------------------------
@@ -3004,7 +2991,7 @@ class ResultsWizard(tk.Toplevel):
         # Find path to Desktop
         desktop_path = os.path.expanduser(os.path.join("~", "Desktop"))
         if not os.path.exists(desktop_path):
-            err_str = "ERROR: {} does not exist".format(desktop_path)
+            err_str = f"ERROR: {desktop_path} does not exist"
             tkmsg.showerror(message=err_str)
 
         # Define shortcut name
@@ -3048,22 +3035,19 @@ class ResultsWizard(tk.Toplevel):
                     result = "FAILED"
 
         if result == "CREATED":
-            msg_str = "Shortcut created:\n  {}".format(desktop_shortcut_path)
+            msg_str = f"Shortcut created:\n  {desktop_shortcut_path}"
         elif result == "EXISTS_SAME":
             msg_str = "Shortcut already exists"
         elif result == "EXISTS_DIFFERENT":
-            msg_str = ("ERROR: Shortcut\n  {}"
-                       "\nalready exists, but its target is:\n  {}"
-                       "\ninstead of:\n  {}"
-                       .format(desktop_shortcut_path,
-                               curr_value,
-                               self.results_dir))
+            msg_str = (f"ERROR: Shortcut\n  {desktop_shortcut_path}\n"
+                       f"already exists, but its target is:\n"
+                       f"  {curr_value}\ninstead of:\n  {self.results_dir}")
         elif result == "FAILED":
             msg_str = "ERROR: could not create shortcut"
         else:
             msg_str = "ERROR: Programming bug"
         tkmsg.showerror(message=msg_str)
-        msg = "Result of Make desktop shortcut: {}".format(msg_str)
+        msg = f"Result of Make desktop shortcut: {msg_str}"
         self.master.ivs2.logger.log(msg)
 
     # -------------------------------------------------------------------------
@@ -3165,7 +3149,7 @@ class ResultsWizard(tk.Toplevel):
 
         # Check that it is writeable
         if not os.access(self.copy_dest, os.W_OK | os.X_OK):
-            err_str = "ERROR: {} is not writeable".format(self.copy_dest)
+            err_str = f"ERROR: {self.copy_dest} is not writeable"
             tkmsg.showerror(message=err_str)
             return RC_FAILURE
 
@@ -3205,8 +3189,7 @@ class ResultsWizard(tk.Toplevel):
                 try:
                     send2trash(selected)
                 except OSError:
-                    err_str = ("WARNING: Couldn't send {} to trash"
-                               .format(selected))
+                    err_str = f"WARNING: Couldn't send {selected} to trash"
                     tkmsg.showerror(message=err_msg)
                     self.master.ivs2.logger.print_and_log(err_str)
 
@@ -3330,8 +3313,8 @@ class ResultsWizard(tk.Toplevel):
         for src_dir in selected_src_dirs:
             dest_dir = self.get_dest_dir(src_dir)
             if dest_dir == src_dir:
-                err_str = ("ERROR: source and destination are the same: {}"
-                           .format(os.path.dirname(dest_dir)))
+                err_str = (f"ERROR: source and destination are the same: "
+                           f"{os.path.dirname(dest_dir)}")
                 tkmsg.showerror(message=err_str)
                 return False
             if os.path.exists(dest_dir):
@@ -3340,14 +3323,14 @@ class ResultsWizard(tk.Toplevel):
         if existing_dest_dirs:
             if len(existing_dest_dirs) > 10:
                 # If more than 10 found, just prompt with the count found
-                msg_str = ("{} folders to be copied exist in {}\n"
-                           .format(len(existing_dest_dirs),
-                                   os.path.join(self.copy_dest, APP_NAME)))
+                msg_str = (f"{len(existing_dest_dirs)} folders to be copied "
+                           f"exist in "
+                           f"{os.path.join(self.copy_dest, APP_NAME)}\n")
             else:
                 # If 1-10 found, prompt with the list of names
                 msg_str = "The following destination folder(s) exist(s):\n"
                 for dest_dir in existing_dest_dirs:
-                    msg_str += "  {}\n".format(dest_dir)
+                    msg_str += f"  {dest_dir}\n"
             msg_str += "\nOverwrite all?"
             overwrite = tkmsg.askyesno("Overwrite all?", msg_str,
                                        default=tkmsg.NO)
@@ -3367,8 +3350,7 @@ class ResultsWizard(tk.Toplevel):
                     try:
                         shutil.rmtree(dest_dir)
                     except (IOError, OSError, shutil.Error) as e:
-                        err_str = ("ERROR: removing {} ({})"
-                                   .format(dest_dir, e))
+                        err_str = f"ERROR: removing {dest_dir} ({e})"
                         tkmsg.showerror(message=err_str)
                         continue
                 else:
@@ -3379,11 +3361,10 @@ class ResultsWizard(tk.Toplevel):
                     num_copied["overlays"] += 1
                 else:
                     num_copied["runs"] += 1
-                self.master.ivs2.logger.log("Copied {} to {}"
-                                            .format(src_dir, dest_dir))
+                self.master.ivs2.logger.log(f"Copied {src_dir} to {dest_dir}")
             except (IOError, OSError, shutil.Error) as e:
-                err_str = ("ERROR: error copying {} to {}\n({})"
-                           .format(src_dir, dest_dir, e))
+                err_str = (f"ERROR: error copying {src_dir} to "
+                           f"{dest_dir}\n({e})")
                 tkmsg.showerror(message=err_str)
 
         return num_copied
@@ -3406,13 +3387,9 @@ class ResultsWizard(tk.Toplevel):
         """Method to display a message dialog with a count of how many runs
            were copied
         """
-        msg_str = ("Copied:\n"
-                   "   {} overlays\n"
-                   "   {} runs\n"
-                   "to {}\n"
-                   .format(num_copied["overlays"],
-                           num_copied["runs"],
-                           os.path.join(self.copy_dest, APP_NAME)))
+        msg_str = (f"Copied:\n   {num_copied['overlays']} overlays\n"
+                   f"   {num_copied['runs']} runs\n"
+                   f"to {os.path.join(self.copy_dest, APP_NAME)}\n")
         tkmsg.showinfo(message=msg_str)
 
     # -------------------------------------------------------------------------
@@ -3428,8 +3405,7 @@ class ResultsWizard(tk.Toplevel):
         if self.master.overlay_mode:
             prompt_title_str = "Change overlay title"
             prompt_str = "Enter new overlay title"
-            init_val = ("IV Swinger Plot for {} Runs"
-                        .format(len(self.overlaid_runs)))
+            init_val = f"IV Swinger Plot for {len(self.overlaid_runs)} Runs"
         else:
             prompt_title_str = "Change run title"
             prompt_str = "Enter new run title"
@@ -3444,7 +3420,7 @@ class ResultsWizard(tk.Toplevel):
                 dts = IV_Swinger2.extract_date_time_str(sel_runs[0])
                 date_time = date_at_time_from_dts(dts)
                 if self.master.ivs2.plot_title is None:
-                    init_val = "IV Swinger Plot for {}".format(date_time)
+                    init_val = f"IV Swinger Plot for {date_time}"
                 else:
                     init_val = self.master.ivs2.plot_title
             elif len(sel_runs) > 1:
@@ -3473,7 +3449,7 @@ class ResultsWizard(tk.Toplevel):
                     if dts in self.master.overlay_names:
                         del self.master.overlay_names[dts]
                 else:
-                    text = "{}   {}".format(time_of_day, new_title)
+                    text = f"{time_of_day}   {new_title}"
                     self.tree.item(dts, text=text)
                     self.master.ivs2.plot_title = new_title
                     self.master.overlay_names[dts] = new_title
@@ -3494,7 +3470,7 @@ class ResultsWizard(tk.Toplevel):
         img = self.master.img_file
         if img is not None and os.path.exists(img):
             (basename, _) = os.path.splitext(img)
-            pdf = "{}.pdf".format(basename)
+            pdf = f"{basename}.pdf"
             if self.master.overlay_mode:
                 # In overlay mode, the PDF is only generated when the Finished
                 # button is pressed, so we have to generate it "on demand" when
@@ -3570,7 +3546,7 @@ class ResultsWizard(tk.Toplevel):
             # but that is outweighed by the danger of unintentionally
             # losing the calibration values at the time of the run. This
             # is particularly true for the battery bias calibration.
-            cfg_file = os.path.join(run_dir, "{}.cfg".format(APP_NAME))
+            cfg_file = os.path.join(run_dir, f"{APP_NAME}.cfg")
             if os.path.exists(cfg_file):
                 self.master.config.cfg_filename = cfg_file
                 self.master.config.merge_old_with_current_plotting(cfg_file)
@@ -3617,8 +3593,8 @@ class ResultsWizard(tk.Toplevel):
         # Check for too many selected
         max_overlays = len(IV_Swinger2.PLOT_COLORS)
         if len(self.overlaid_runs) > max_overlays:
-            err_str = ("ERROR: Maximum of {} overlays supported ({} requested)"
-                       .format(max_overlays, len(self.overlaid_runs)))
+            err_str = (f"ERROR: Maximum of {max_overlays} overlays supported "
+                       f"({len(self.overlaid_runs)} requested)")
             tkmsg.showerror(message=err_str)
             return RC_FAILURE
 
@@ -3705,7 +3681,7 @@ class ResultsWizard(tk.Toplevel):
         """
         overlay_dir = self.master.overlay_dir
         overlay = IV_Swinger2.extract_date_time_str(overlay_dir)
-        self.overlay_iid = "overlay_{}".format(overlay)
+        self.overlay_iid = f"overlay_{overlay}"
         parent = "overlays"
 
         # If the iid already exists in the tree, nothing to do
@@ -3722,7 +3698,7 @@ class ResultsWizard(tk.Toplevel):
 
         # Add to tree at the beginning of the parent (since order is
         # newest first)
-        text = "Created on {} at {}".format(xlated_date, xlated_time)
+        text = f"Created on {xlated_date} at {xlated_time}"
         self.tree.insert(parent, 0, self.overlay_iid, text=text)
 
     # -------------------------------------------------------------------------
@@ -3784,8 +3760,8 @@ class ResultsWizard(tk.Toplevel):
                checkbutton is changed
             """
             checked = (self.master.label_all_iscs.get() == onvalue)
-            msg = ("(Wizard) {} overlay Label all Isc points button"
-                   .format("checked" if checked else "unchecked"))
+            msg = (f"(Wizard) {'checked' if checked else 'unchecked'} "
+                   f"overlay Label all Isc points button")
             log_user_action(self.master.ivs2.logger, msg)
             self.plot_overlay_and_display()
 
@@ -3793,8 +3769,8 @@ class ResultsWizard(tk.Toplevel):
             """Local function to perform actions when the label all MPP
                checkbutton is changed"""
             checked = (self.master.label_all_mpps.get() == onvalue)
-            msg = ("(Wizard) {} overlay Label all MPPs button"
-                   .format("checked" if checked else "unchecked"))
+            msg = (f"(Wizard) {'checked' if checked else 'unchecked'} "
+                   f"overlay Label all MPPs button")
             log_user_action(self.master.ivs2.logger, msg)
             self.plot_overlay_and_display()
 
@@ -3802,8 +3778,8 @@ class ResultsWizard(tk.Toplevel):
             """Local function to perform actions when the label all Voc
                checkbutton is changed"""
             checked = (self.master.label_all_vocs.get() == onvalue)
-            msg = ("(Wizard) {} overlay Label all Voc points button"
-                   .format("checked" if checked else "unchecked"))
+            msg = (f"(Wizard) {'checked' if checked else 'unchecked'} "
+                   f"overlay Label all Voc points button")
             log_user_action(self.master.ivs2.logger, msg)
             self.plot_overlay_and_display()
 
@@ -3811,8 +3787,8 @@ class ResultsWizard(tk.Toplevel):
             """Local function to perform actions when the MPP watts only
                checkbutton is changed"""
             checked = (self.master.mpp_watts_only.get() == onvalue)
-            msg = ("(Wizard) {} overlay Watts-only MPPs button"
-                   .format("checked" if checked else "unchecked"))
+            msg = (f"(Wizard) {'checked' if checked else 'unchecked'} "
+                   f"overlay Watts-only MPPs button")
             log_user_action(self.master.ivs2.logger, msg)
             self.plot_overlay_and_display()
 
@@ -4007,7 +3983,7 @@ class ResultsWizard(tk.Toplevel):
             return
 
         # Open dialog to add or change name
-        prompt_str = "Enter name for {} curve".format(date_time)
+        prompt_str = f"Enter name for {date_time} curve"
         if dts in self.master.overlay_names:
             init_val = self.master.overlay_names[dts]
         else:
@@ -4016,8 +3992,8 @@ class ResultsWizard(tk.Toplevel):
                                   prompt=prompt_str,
                                   initialvalue=init_val)
         if new_name:
-            msg = ("""(Wizard) renamed overlay curve from "{}" to "{}" """
-                   .format(init_val, new_name))
+            msg = (f"(Wizard) renamed overlay curve "
+                   f"from \"{init_val}\" to \"{new_name}\" ")
             log_user_action(self.master.ivs2.logger, msg)
             self.master.overlay_names[dts] = new_name
             self.populate_overlay_treeview(self.overlaid_runs)
@@ -4137,7 +4113,7 @@ class ResultsWizard(tk.Toplevel):
                 return True
             # Remove directory if it doesn't contain overlaid PDF
             dts = os.path.basename(self.master.overlay_dir)
-            overlay_pdf = "overlaid_{}.pdf".format(dts)
+            overlay_pdf = f"overlaid_{dts}.pdf"
             if overlay_pdf not in os.listdir(self.master.overlay_dir):
                 if self.master.overlay_dir == os.getcwd():
                     os.chdir("..")
@@ -4157,19 +4133,18 @@ class ResultsWizard(tk.Toplevel):
             dts = IV_Swinger2.extract_date_time_str(csv_dir)
             csv_files_found = 0
             for filename in os.listdir(csv_dir):
-                if (filename.endswith("{}.csv".format(dts)) and
+                if (filename.endswith(f"{dts}.csv") and
                         "adc_pairs" not in filename):
                     csv_file_full_path = os.path.join(csv_dir, filename)
                     self.selected_csv_files.append(csv_file_full_path)
                     csv_files_found += 1
             if not csv_files_found:
-                err_str = ("ERROR: no data point CSV file found in {}"
-                           .format(csv_dir))
+                err_str = f"ERROR: no data point CSV file found in {csv_dir}"
                 tkmsg.showerror(message=err_str)
                 return RC_FAILURE
             if csv_files_found > 1:
-                err_str = ("ERROR: multiple data point CSV files found in {}"
-                           .format(csv_dir))
+                err_str = (f"ERROR: multiple data point CSV files found "
+                           f"in {csv_dir}")
                 tkmsg.showerror(message=err_str)
                 return RC_FAILURE
 
@@ -4469,7 +4444,7 @@ class MenuBar(tk.Menu):
         """Method to show the "About" dialog"""
         msg = """(MenuBar, About) selected "About IV Swinger 2" entry"""
         log_user_action(self.master.ivs2.logger, msg)
-        version_str = "Version: {}\n\n".format(self.master.version)
+        version_str = f"Version: {self.master.version}\n\n"
         about_str = """
 IV Swinger and IV Swinger 2 are open
 source hardware and software projects
@@ -4494,8 +4469,7 @@ Copyright (C) 2017-2021  Chris Satterlee
         sketch_ver = self.master.ivs2.arduino_sketch_ver
         sketch_ver_str = ""
         if sketch_ver != "Unknown":
-            sketch_ver_str = ("Arduino sketch version: {}\n\n"
-                              .format(sketch_ver))
+            sketch_ver_str = f"Arduino sketch version: {sketch_ver}\n\n"
         tkmsg.showinfo(message=version_str+sketch_ver_str+about_str)
 
     # -------------------------------------------------------------------------
@@ -4521,8 +4495,8 @@ Copyright (C) 2017-2021  Chris Satterlee
         options[title_opt] = "Choose Log File"
         log_file = tkfiledialog.askopenfilename(**options)
         if log_file:
-            msg = ("(MenuBar, File, View Log File) selected log file {}"
-                   .format(os.path.normpath(log_file)))
+            msg = (f"(MenuBar, File, View Log File) selected log file "
+                   f"{os.path.normpath(log_file)}")
             log_user_action(self.master.ivs2.logger, msg)
             IV_Swinger2.sys_view_file(os.path.normpath(log_file))
 
@@ -4589,7 +4563,7 @@ Copyright (C) 2017-2021  Chris Satterlee
            the configuration is updated with the new port.
         """
         usb_port = self.selected_port.get()
-        msg = "(MenuBar, USB Port) selected {}".format(usb_port)
+        msg = f"(MenuBar, USB Port) selected {usb_port}"
         log_user_action(self.master.ivs2.logger, msg)
         self.master.ivs2.usb_port = usb_port
         self.master.ivs2.arduino_ready = False
@@ -4660,10 +4634,10 @@ may degrade results.
         data_points = self.master.ivs2.data_points
         curr_voc = round(data_points[-1][IV_Swinger2.VOLTS_INDEX], 5)
         if curr_voc <= v_cal_b:
-            err_msg = """
+            err_msg = f"""
 ERROR: Voc must be larger than
-{} to perform voltage calibration.
-""".format(v_cal_b)
+{v_cal_b} to perform voltage calibration.
+"""
             tkmsg.showerror(message=err_msg)
             return
         prompt_str = "Enter measured Voc value:"
@@ -4718,10 +4692,10 @@ may degrade results.
         data_points = self.master.ivs2.data_points
         curr_isc = round(data_points[0][IV_Swinger2.AMPS_INDEX], 5)
         if curr_isc <= i_cal_b:
-            err_msg = """
+            err_msg = f"""
 ERROR: Isc must be larger than
-{} to perform current calibration.
-""".format(i_cal_b)
+{i_cal_b} to perform current calibration.
+"""
             tkmsg.showerror(message=err_msg)
             return
         prompt_str = "Enter measured Isc value:"
@@ -4988,7 +4962,7 @@ class Dialog(tk.Toplevel):
         """Method that runs when the OK button is pressed"""
         # pylint: disable=unused-argument
         if self.logger is not None:
-            msg = "({}) clicked OK button".format(self.title())
+            msg = f"({self.title()}) clicked OK button"
             log_user_action(self.master.ivs2.logger, msg)
         if not self.validate():
             return
@@ -5002,7 +4976,7 @@ class Dialog(tk.Toplevel):
         """Method that runs when the Cancel button is pressed"""
         # pylint: disable=unused-argument
         if self.logger is not None:
-            msg = "({}) clicked Cancel button".format(self.title())
+            msg = f"({self.title()}) clicked Cancel button"
             log_user_action(self.master.ivs2.logger, msg)
         self.revert()
         self.close()
@@ -5695,10 +5669,9 @@ class DownlevelArduinoSketchDialog(Dialog):
 The Arduino software ("sketch") on the IV Swinger 2 hardware that is currently
 connected is not the most current version.
 """
-        text_2 = ("\n    Version detected: {}"
-                  .format(self.master.ivs2.arduino_sketch_ver))
-        text_3 = ("\n     Current version: {}\n"
-                  .format(LATEST_SKETCH_VER))
+        text_2 = (f"\n    Version detected: "
+                  f"{self.master.ivs2.arduino_sketch_ver}")
+        text_3 = f"\n     Current version: {LATEST_SKETCH_VER}\n"
         text_4 = """
 You may continue with the older version, but it is recommended that you update
 at your earliest convenience.
@@ -5764,7 +5737,7 @@ class AdvCalDialog(Dialog):
     def __init__(self, master=None, cal_type="None"):
         self.master = master
         self.cal_type = cal_type
-        title = "{} Calibration - advanced".format(self.cal_type)
+        title = f"{self.cal_type} Calibration - advanced"
         self.relay_type = tk.StringVar()
         self.pt_1_uncal_value = tk.StringVar()
         self.pt_1_dmm_value = tk.StringVar()
@@ -5872,7 +5845,7 @@ calibration values before committing them."""
                                    textvariable=self.pt_1_dmm_value)
         pt_1_dmm_entry.bind("<Return>", self.apply_pt_1_dmm_value)
         pt_1_dmm_label2 = ttk.Label(master=pt_1_dmm_entry_box,
-                                    text="{}  ".format(self.unit_abbrev))
+                                    text=f"{self.unit_abbrev}  ")
 
         ################
         #  Point 2
@@ -5895,7 +5868,7 @@ calibration values before committing them."""
                                    textvariable=self.pt_2_dmm_value)
         pt_2_dmm_entry.bind("<Return>", self.apply_pt_2_dmm_value)
         pt_2_dmm_label2 = ttk.Label(master=pt_2_dmm_entry_box,
-                                    text="{}  ".format(self.unit_abbrev))
+                                    text=f"{self.unit_abbrev}  ")
 
         ################
         #  Calibrate
@@ -5953,7 +5926,7 @@ calibration values before committing them."""
                                textvariable=self.test_dmm_value)
         test_entry.bind("<Return>", self.apply_test_dmm_value)
         test_label2 = ttk.Label(master=test_entry_box,
-                                text="{}  ".format(self.unit_abbrev))
+                                text=f"{self.unit_abbrev}  ")
 
         # Add test error label in its own container box
         test_err_label = ttk.Label(master=frame,
@@ -6054,9 +6027,9 @@ calibration values before committing them."""
     # ------------------------------------------------------------------------
     def show_adv_cal_help(self):
         """Display advanced current/voltage calibration help"""
-        msg = ("({}) clicked Help button"
-               .format("AdvCurrentCalDialog" if self.type_is_current()
-                       else "AdvVoltageCalDialog"))
+        dialog_type = ("AdvCurrentCalDialog" if self.type_is_current()
+                       else "AdvVoltageCalDialog")
+        msg = (f"({dialog_type}) clicked Help button")
         log_user_action(self.master.ivs2.logger, msg)
         if self.type_is_current():
             if not self.relay_type_is_valid():
@@ -6109,9 +6082,9 @@ to use this feature"""
         else:
             self.pt_2_dmm_value.set("")
             point_str = "2"
-        msg = ("({}) clicked Get Point {} button"
-               .format("AdvCurrentCalDialog" if self.type_is_current()
-                       else "AdvVoltageCalDialog", point_str))
+        dialog_type = ("AdvCurrentCalDialog" if self.type_is_current()
+                       else "AdvVoltageCalDialog")
+        msg = f"({dialog_type}) clicked Get Point {point_str} button"
         log_user_action(self.master.ivs2.logger, msg)
         rc = self.get_uncal_value()
         if rc == RC_SUCCESS:
@@ -6132,9 +6105,9 @@ to use this feature"""
 ERROR: Hardware measured value must be greater than zero"""
                     tkmsg.showerror(message=error_msg)
             except ValueError:
-                error_msg = """
-ERROR: Hardware returned invalid measured value ("{}")
-""".format(uncal_value_str)
+                error_msg = f"""
+ERROR: Hardware returned invalid measured value ("{uncal_value_str}")
+"""
                 tkmsg.showerror(message=error_msg)
 
     # -------------------------------------------------------------------------
@@ -6152,20 +6125,20 @@ to cool down - try again"""
                 tkmsg.showerror(message=error_msg)
                 return rc
             if rc != RC_SUCCESS:
-                error_msg = """
+                error_msg = f"""
 ERROR: Failed to send advanced SSR current
 calibration request to Arduino
-(rc = {})""".format(rc)
+(rc = {rc})"""
                 tkmsg.showerror(message=error_msg)
                 return rc
         else:
             rc = self.master.ivs2.request_adv_calibration_vals()
             if rc != RC_SUCCESS:
                 if self.type_is_current() or rc != RC_ISC_TIMEOUT:
-                    error_msg = """
+                    error_msg = f"""
 ERROR: Failed to send advanced
 calibration request to Arduino
-(rc = {})""".format(rc)
+(rc = {rc})"""
                     tkmsg.showerror(message=error_msg)
                     return rc
             if self.type_is_current():
@@ -6186,15 +6159,13 @@ calibration request to Arduino
                 units = float(self.master.ivs2.get_adv_current_cal_amps())
             else:
                 units = float(self.master.ivs2.get_adv_voltage_cal_volts())
-            val_str = "{:0.3f} {}  (ADC={})".format(units,
-                                                    self.unit_abbrev,
-                                                    adc)
+            val_str = f"{units:0.3f} {self.unit_abbrev}  (ADC={adc})"
         except ValueError:
             if self.type_is_current():
                 val_str = self.master.ivs2.get_adv_current_cal_amps()
             else:
                 val_str = self.master.ivs2.get_adv_voltage_cal_volts()
-        label_str = "Uncalibrated value:  {}".format(val_str)
+        label_str = f"Uncalibrated value:  {val_str}"
         if pt_1:
             self.pt_1_uncal_value.set(label_str)
         else:
@@ -6215,8 +6186,8 @@ for the DMM measured Point 1 value"""
                 tkmsg.showerror(message=error_msg)
                 return RC_FAILURE
             if event is None:
-                log_str = ("{} cal point 1 (uncal, dmm): {}, {:.6f}"
-                           .format(self.cal_type, self.x1, self.y1))
+                log_str = (f"{self.cal_type} cal point 1 (uncal, dmm): "
+                           f"{self.x1}, {self.y1:.6f}")
                 self.master.ivs2.logger.log(log_str)
         except ValueError:
             error_msg = """
@@ -6241,8 +6212,8 @@ for the DMM measured Point 2 value"""
                 tkmsg.showerror(message=error_msg)
                 return RC_FAILURE
             if event is None:
-                log_str = ("{} cal point 2 (uncal, dmm): {}, {:.6f}"
-                           .format(self.cal_type, self.x2, self.y2))
+                log_str = (f"{self.cal_type} cal point 2 (uncal, dmm): "
+                           f"{self.x2}, {self.y2:.6f}")
                 self.master.ivs2.logger.log(log_str)
         except ValueError:
             error_msg = """
@@ -6259,9 +6230,9 @@ for the DMM measured Point 2 value"""
            to update their values in the entry boxes.
         """
         # pylint: disable=unused-argument
-        msg = ("({}) clicked Calibrate button"
-               .format("AdvCurrentCalDialog" if self.type_is_current()
-                       else "AdvVoltageCalDialog"))
+        dialog_type = ("AdvCurrentCalDialog" if self.type_is_current()
+                       else "AdvVoltageCalDialog")
+        msg = f"({dialog_type}) clicked Calibrate button"
         log_user_action(self.master.ivs2.logger, msg)
 
         # Check that both points have been measured by the hardware
@@ -6323,9 +6294,9 @@ good results"""
            entry box
         """
         # pylint: disable=unused-argument
-        msg = ("({}) hit Enter/Return in slope entry"
-               .format("AdvCurrentCalDialog" if self.type_is_current()
-                       else "AdvVoltageCalDialog"))
+        dialog_type = ("AdvCurrentCalDialog" if self.type_is_current()
+                       else "AdvVoltageCalDialog")
+        msg = f"({dialog_type}) hit Enter/Return in slope entry"
         log_user_action(self.master.ivs2.logger, msg)
         try:
             m = float(self.slope.get())
@@ -6350,14 +6321,14 @@ for the slope"""
     def update_slope(self):
         """Method to update the value in the slope entry box
         """
-        self.slope.set("{}".format(round(self.m, 6)))
+        self.slope.set(f"{round(self.m, 6)}")
         # Check that slope is between 0.85 and 1.15
         if self.m < 0.85 or self.m > 1.15:
             self.slope_warning["text"] = "  ** WARNING **"
-            warning_msg = """
-WARNING: Slope {}
+            warning_msg = f"""
+WARNING: Slope {round(self.m, 6)}
 doesn't look right. It should be between
-0.85 and 1.15 (and that is being generous)""".format(round(self.m, 6))
+0.85 and 1.15 (and that is being generous)"""
             tkmsg.showwarning(message=warning_msg)
         else:
             self.slope_warning["text"] = ""
@@ -6368,9 +6339,9 @@ doesn't look right. It should be between
            intercept entry box
         """
         # pylint: disable=unused-argument
-        msg = ("({}) hit Enter/Return in intercept entry"
-               .format("AdvCurrentCalDialog" if self.type_is_current()
-                       else "AdvVoltageCalDialog"))
+        dialog_type = ("AdvCurrentCalDialog" if self.type_is_current()
+                       else "AdvVoltageCalDialog")
+        msg = f"({dialog_type}) hit Enter/Return in intercept entry"
         log_user_action(self.master.ivs2.logger, msg)
         try:
             b = float(self.intercept.get())
@@ -6395,14 +6366,14 @@ for the intercept"""
     def update_intercept(self):
         """Method to update the value in the intercept entry box
         """
-        self.intercept.set("{}".format(round(self.b, 6)))
+        self.intercept.set(f"{round(self.b, 6)}")
         # Check that intercept is between -0.5 and 0.5
         if self.b < -0.5 or self.b > 0.5:
             self.intercept_warning["text"] = "  ** WARNING **"
-            warning_msg = """
-WARNING: Intercept {}
+            warning_msg = f"""
+WARNING: Intercept {round(self.b, 6)}
 doesn't look right. It should be between
--0.5 and +0.5""".format(round(self.b, 6))
+-0.5 and +0.5"""
             tkmsg.showwarning(message=warning_msg)
         else:
             self.intercept_warning["text"] = ""
@@ -6412,9 +6383,9 @@ doesn't look right. It should be between
         """Method to get the uncalibrated test value from the hardware and
            update the label.
         """
-        msg = ("({}) clicked Test button"
-               .format("AdvCurrentCalDialog" if self.type_is_current()
-                       else "AdvVoltageCalDialog"))
+        dialog_type = ("AdvCurrentCalDialog" if self.type_is_current()
+                       else "AdvVoltageCalDialog")
+        msg = f"({dialog_type}) clicked Test button"
         log_user_action(self.master.ivs2.logger, msg)
         self.test_dmm_value.set("")
         rc = self.get_uncal_value()
@@ -6432,11 +6403,10 @@ doesn't look right. It should be between
         try:
             uncal_units = float(uncal_units_str)
             self.test_cal_units = self.m * uncal_units + self.b
-            val_str = "{:0.3f} {}".format(self.test_cal_units,
-                                          self.unit_abbrev)
+            val_str = f"{self.test_cal_units:0.3f} {self.unit_abbrev}"
         except ValueError:
             val_str = uncal_units_str
-        label_str = "Calibrated value:  {}".format(val_str)
+        label_str = f"Calibrated value:  {val_str}"
         self.test_cal_value.set(label_str)
 
     # -------------------------------------------------------------------------
@@ -6447,9 +6417,9 @@ doesn't look right. It should be between
            point number
         """
         # pylint: disable=unused-argument
-        msg = ("({}) hit Enter/Return in DMM measured value entry"
-               .format("AdvCurrentCalDialog" if self.type_is_current()
-                       else "AdvVoltageCalDialog"))
+        dialog_type = ("AdvCurrentCalDialog" if self.type_is_current()
+                       else "AdvVoltageCalDialog")
+        msg = f"({dialog_type}) hit Enter/Return in DMM measured value entry"
         log_user_action(self.master.ivs2.logger, msg)
         if self.test_cal_units == "Unknown":
             error_msg = """
@@ -6465,9 +6435,9 @@ entering a DMM measured value"""
             self.test_dmm_units = float(self.test_dmm_value.get())
             self.update_test_err_val()
             uncal_units = float(uncal_units_str)
-            log_str = ("{} cal test (uncal, cal, dmm): {}, {}, {}"
-                       .format(self.cal_type, uncal_units, self.test_cal_units,
-                               self.test_dmm_units))
+            log_str = (f"{self.cal_type} cal test (uncal, cal, dmm): "
+                       f"{uncal_units}, {self.test_cal_units}, "
+                       f"{self.test_dmm_units}")
             self.master.ivs2.logger.log(log_str)
         except ValueError:
             error_msg = """
@@ -6491,14 +6461,13 @@ for the DMM measured test value"""
             if test_dmm_milliunits != 0:
                 test_err_pct = ((test_cal_milliunits /
                                  test_dmm_milliunits) - 1) * 100
-                label_str = ("Error:  {sign}{} m{}  ({sign}{} %)"
-                             .format(int(test_err_milliunits),
-                                     self.unit_abbrev, round(test_err_pct, 3),
-                                     sign=err_sign))
+                label_str = (f"Error:  {err_sign}{int(test_err_milliunits)} "
+                             f"m{self.unit_abbrev}  "
+                             f"({err_sign}{round(test_err_pct, 3)} %)")
             else:
-                label_str = ("Error:  {}{} m{}  (infinite %)"
-                             .format(err_sign, int(test_err_milliunits),
-                                     self.unit_abbrev))
+                label_str = (f"Error:  {err_sign}{int(test_err_milliunits)} "
+                             f"m{self.unit_abbrev}  "
+                             f"(infinite %)")
         except TypeError:
             label_str = "Error:  Unknown"
         self.test_err.set(label_str)
@@ -6509,15 +6478,15 @@ for the DMM measured test value"""
            calibration values.
         """
         if self.m < 0.85 or self.m > 1.15:
-            error_msg = """
-ERROR: Slope {} is not between
-0.85 and 1.15. Cannot commit.""".format(round(self.m, 6))
+            error_msg = f"""
+ERROR: Slope {round(self.m, 6)} is not between
+0.85 and 1.15. Cannot commit."""
             tkmsg.showerror(message=error_msg)
             return False
         if self.b < -0.5 or self.b > 0.5:
-            error_msg = """
-ERROR: Intercept {} is not between
--0.5 and +0.5. Cannot commit.""".format(round(self.b, 6))
+            error_msg = f"""
+ERROR: Intercept {round(self.b, 6)} is not between
+-0.5 and +0.5. Cannot commit."""
             tkmsg.showerror(message=error_msg)
             return False
         return True
@@ -6580,7 +6549,7 @@ class ResistorValuesDialog(Dialog):
         self.rf_str = tk.StringVar()
         self.rg_str = tk.StringVar()
         self.shunt_str = tk.StringVar()
-        title = "{} Resistor Values".format(APP_NAME)
+        title = f"{APP_NAME} Resistor Values"
         Dialog.__init__(self, master=master, title=title)
 
     # -------------------------------------------------------------------------
@@ -6803,7 +6772,7 @@ class BiasBatteryDialog(Dialog):
     # Initializer
     def __init__(self, master=None):
         self.master = master
-        title = "{} Bias Battery".format(APP_NAME)
+        title = f"{APP_NAME} Bias Battery"
         self.ready_to_calibrate = False
         self.curve_looks_ok = False
         self.reestablish_arduino_comm_reqd = False
@@ -6851,7 +6820,7 @@ performed immediately before EVERY curve is swung."""
         pad = " " * 25
         title = "Dynamic calibration"
         dyn_cal_enable_label = ttk.Label(master=calibrate_button_box,
-                                         text="{}{}".format(pad, title))
+                                         text=f"{pad}{title}")
         dyn_cal_enable_off_rb = ttk.Radiobutton(master=calibrate_button_box,
                                                 text="Off",
                                                 variable=self.dyn_cal_enable,
@@ -7067,7 +7036,7 @@ class PreferencesDialog(Dialog):
         self.pv_model_vars = None
         self.curr_pv_model_var_vals = None
         self.prev_pv_model_var_vals = None
-        title = "{} Preferences".format(APP_NAME)
+        title = f"{APP_NAME} Preferences"
         Dialog.__init__(self, master=master, title=title,
                         logger=self.master.ivs2.logger)
 
@@ -7550,8 +7519,8 @@ class PreferencesDialog(Dialog):
             prev = self.prev_plotting_var_vals[name]
             curr = self.curr_plotting_var_vals[name]
             if prev != curr:
-                msg = ("(Preferences, Plotting) changed {} from {} to {}"
-                       .format(name, prev, curr))
+                msg = (f"(Preferences, Plotting) changed {name} "
+                       f"from {prev} to {curr}")
                 log_user_action(self.master.ivs2.logger, msg)
 
     # -------------------------------------------------------------------------
@@ -7560,15 +7529,17 @@ class PreferencesDialog(Dialog):
         def log_restore_looping():
             """Local function to log changes to the restore looping cb"""
             checked = (self.restore_looping.get() == "Enabled")
-            msg = ("(Preferences, Looping) {} Restore looping button"
-                   .format("checked" if checked else "unchecked"))
+            msg = (f"(Preferences, Looping) "
+                   f"{'checked' if checked else 'unchecked'} "
+                   f"Restore looping button")
             log_user_action(self.master.ivs2.logger, msg)
 
         def log_stop_on_err():
             """Local function to log changes to the stop on error cb"""
             checked = (self.loop_stop_on_err.get() == "Enabled")
-            msg = ("(Preferences, Looping) {} Stop on non-fatal error button"
-                   .format("checked" if checked else "unchecked"))
+            msg = (f"(Preferences, Looping) "
+                   f"{'checked' if checked else 'unchecked'} "
+                   f"Stop on non-fatal error button")
             log_user_action(self.master.ivs2.logger, msg)
 
         # Add container box for widgets
@@ -7653,7 +7624,7 @@ class PreferencesDialog(Dialog):
         max_iv_entry = ttk.Entry(master=arduino_widget_box,
                                  width=8,
                                  textvariable=self.max_iv_points_str)
-        label_txt = "(< {})".format(MAX_IV_POINTS_MAX + 1)
+        label_txt = f"(< {MAX_IV_POINTS_MAX + 1})"
         max_iv_constraint_label = ttk.Label(master=arduino_widget_box,
                                             text=label_txt)
         max_iv_points = self.master.config.cfg.getint("Arduino",
@@ -7666,7 +7637,7 @@ class PreferencesDialog(Dialog):
         min_isc_adc_entry = ttk.Entry(master=arduino_widget_box,
                                       width=8,
                                       textvariable=self.min_isc_adc_str)
-        label_txt = "(< {})".format(ADC_MAX + 1)
+        label_txt = f"(< {ADC_MAX + 1})"
         min_isc_adc_constraint_label = ttk.Label(master=arduino_widget_box,
                                                  text=label_txt)
         min_isc_adc = self.master.config.cfg.getint("Arduino", "min isc adc")
@@ -7678,7 +7649,7 @@ class PreferencesDialog(Dialog):
         max_isc_poll_entry = ttk.Entry(master=arduino_widget_box,
                                        width=8,
                                        textvariable=self.max_isc_poll_str)
-        label_txt = "(< {})".format(ARDUINO_MAX_INT + 1)
+        label_txt = f"(< {ARDUINO_MAX_INT + 1})"
         max_isc_poll_constraint_label = ttk.Label(master=arduino_widget_box,
                                                   text=label_txt)
         max_isc_poll = self.master.config.cfg.getint("Arduino", "max isc poll")
@@ -7690,7 +7661,7 @@ class PreferencesDialog(Dialog):
         isc_stable_adc_entry = ttk.Entry(master=arduino_widget_box,
                                          width=8,
                                          textvariable=self.isc_stable_adc_str)
-        label_txt = "(< {})".format(ADC_MAX + 1)
+        label_txt = f"(< {ADC_MAX + 1})"
         isc_stable_constraint_label = ttk.Label(master=arduino_widget_box,
                                                 text=label_txt)
         isc_stable_adc = self.master.config.cfg.getint("Arduino",
@@ -7703,7 +7674,7 @@ class PreferencesDialog(Dialog):
         max_discards_entry = ttk.Entry(master=arduino_widget_box,
                                        width=8,
                                        textvariable=self.max_discards_str)
-        label_txt = "(< {})".format(ARDUINO_MAX_INT + 1)
+        label_txt = f"(< {ARDUINO_MAX_INT + 1})"
         max_discards_constraint_label = ttk.Label(master=arduino_widget_box,
                                                   text=label_txt)
         max_discards = self.master.config.cfg.getint("Arduino", "max discards")
@@ -7715,7 +7686,7 @@ class PreferencesDialog(Dialog):
         aspect_height_entry = ttk.Entry(master=arduino_widget_box,
                                         width=8,
                                         textvariable=self.aspect_height_str)
-        label_txt = "(< {})".format(MAX_ASPECT + 1)
+        label_txt = f"(< {MAX_ASPECT + 1})"
         aspect_height_constraint_label = ttk.Label(master=arduino_widget_box,
                                                    text=label_txt)
         aspect_height = self.master.config.cfg.getint("Arduino",
@@ -7728,7 +7699,7 @@ class PreferencesDialog(Dialog):
         aspect_width_entry = ttk.Entry(master=arduino_widget_box,
                                        width=8,
                                        textvariable=self.aspect_width_str)
-        label_txt = "(< {})".format(MAX_ASPECT + 1)
+        label_txt = f"(< {MAX_ASPECT + 1})"
         aspect_width_constraint_label = ttk.Label(master=arduino_widget_box,
                                                   text=label_txt)
         aspect_width = self.master.config.cfg.getint("Arduino", "aspect width")
@@ -7908,8 +7879,8 @@ effect. Please upgrade.
             prev = self.prev_arduino_var_vals[name]
             curr = self.curr_arduino_var_vals[name]
             if prev != curr:
-                msg = ("(Preferences, Arduino) changed {} from {} to {}"
-                       .format(name, prev, curr))
+                msg = (f"(Preferences, Arduino) changed {name} "
+                       f"from {prev} to {curr}")
                 log_user_action(self.master.ivs2.logger, msg)
 
     # -------------------------------------------------------------------------
@@ -7979,10 +7950,10 @@ effect. Please upgrade.
         self.pv_imp.set(pv_spec_dict["Imp"])
         self.pv_cells.set(pv_spec_dict["Cells"])
         self.pv_voc_coeff.set(pv_spec_dict["Voc temp coeff"])
-        units_str = "{}/{}C".format(pv_spec_dict["Voc temp coeff units"], DGS)
+        units_str = f"{pv_spec_dict['Voc temp coeff units']}/{DGS}C"
         self.pv_voc_coeff_units.set(units_str)
         self.pv_isc_coeff.set(pv_spec_dict["Isc temp coeff"])
-        units_str = "{}/{}C".format(pv_spec_dict["Isc temp coeff units"], DGS)
+        units_str = f"{pv_spec_dict['Isc temp coeff units']}/{DGS}C"
         self.pv_isc_coeff_units.set(units_str)
         self.pv_mpp_coeff.set(pv_spec_dict["MPP temp coeff"])
         self.pv_noct.set(pv_spec_dict["NOCT"])
@@ -7998,9 +7969,9 @@ effect. Please upgrade.
         self.pv_imp.set("")
         self.pv_cells.set("")
         self.pv_voc_coeff.set("")
-        self.pv_voc_coeff_units.set("%/{}C".format(DGS))
+        self.pv_voc_coeff_units.set(f"%/{DGS}C")
         self.pv_isc_coeff.set("")
-        self.pv_isc_coeff_units.set("%/{}C".format(DGS))
+        self.pv_isc_coeff_units.set(f"%/{DGS}C")
         self.pv_mpp_coeff.set("")
         self.pv_noct.set("")
 
@@ -8042,8 +8013,8 @@ effect. Please upgrade.
             prev = self.prev_pv_model_var_vals[name]
             curr = self.curr_pv_model_var_vals[name]
             if prev != curr:
-                msg = ("(Preferences, Pv Model) changed {} from {} to {}"
-                       .format(name, prev, curr))
+                msg = (f"(Preferences, Pv Model) changed {name} "
+                       f"from {prev} to {curr}")
                 log_user_action(self.master.ivs2.logger, msg)
 
     # -------------------------------------------------------------------------
@@ -8073,8 +8044,8 @@ effect. Please upgrade.
         else:
             select_val = "NONE"
         self.select_in_listbox(select_val)
-        self.master.ivs2.logger.log("PV Model initial selection: {}"
-                                    .format(select_val))
+        self.master.ivs2.logger.log(f"PV Model initial selection: "
+                                    f"{select_val}")
 
         # Add tooltip
         tt_text = ("Select NONE if the PV under test is has unknown "
@@ -8156,8 +8127,8 @@ effect. Please upgrade.
         voc_coeff_combo = ttk.Combobox(master=voc_coeff_entry_and_units_box,
                                        width=6,
                                        textvariable=self.pv_voc_coeff_units)
-        voc_coeff_combo["values"] = ("%/{}C".format(DGS),
-                                     "mV/{}C".format(DGS))
+        voc_coeff_combo["values"] = (f"%/{DGS}C",
+                                     f"mV/{DGS}C")
         voc_coeff_combo.state(["readonly"])
 
         # Isc temp coeff
@@ -8170,8 +8141,8 @@ effect. Please upgrade.
         isc_coeff_combo = ttk.Combobox(master=isc_coeff_entry_and_units_box,
                                        width=6,
                                        textvariable=self.pv_isc_coeff_units)
-        isc_coeff_combo["values"] = ("%/{}C".format(DGS),
-                                     "mA/{}C".format(DGS))
+        isc_coeff_combo["values"] = (f"%/{DGS}C",
+                                     f"mA/{DGS}C")
         isc_coeff_combo.state(["readonly"])
 
         # MPP temp coeff
@@ -8182,7 +8153,7 @@ effect. Please upgrade.
                                     width=8,
                                     textvariable=self.pv_mpp_coeff)
         mpp_coeff_units_label = ttk.Label(master=mpp_coeff_entry_and_units_box,
-                                          text="%/{}C".format(DGS))
+                                          text=f"%/{DGS}C")
 
         # NOCT
         noct_label = ttk.Label(master=labels_entries_box, text="NOCT:")
@@ -8190,7 +8161,7 @@ effect. Please upgrade.
         noct_entry = ttk.Entry(master=noct_entry_and_units_box, width=8,
                                textvariable=self.pv_noct)
         noct_units_label = ttk.Label(master=noct_entry_and_units_box,
-                                     text="{}C".format(DGS))
+                                     text=f"{DGS}C")
 
         # Test button and entries
         test_button_and_entries_box = ttk.Frame(master=labels_entries_box)
@@ -8203,12 +8174,12 @@ effect. Please upgrade.
                                      width=8,
                                      textvariable=self.pv_test_irrad)
         test_irrad_units_label = ttk.Label(master=test_button_and_entries_box,
-                                           text="W/m{}".format(SQD))
+                                           text=f"W/m{SQD}")
         test_temp_entry = ttk.Entry(master=test_button_and_entries_box,
                                     width=6,
                                     textvariable=self.pv_test_cell_temp)
         test_temp_units_label = ttk.Label(master=test_button_and_entries_box,
-                                          text="{}C".format(DGS))
+                                          text=f"{DGS}C")
         test_or_at_label = ttk.Label(master=test_button_and_entries_box,
                                      text="     or @ ")
         self.test_stc_button = ttk.Button(master=test_button_and_entries_box,
@@ -8217,8 +8188,8 @@ effect. Please upgrade.
         self.test_noc_button = ttk.Button(master=test_button_and_entries_box,
                                           command=self.set_to_noc_and_run,
                                           text="NOC")
-        self.pv_test_irrad.set("{}".format(STC_IRRAD))
-        self.pv_test_cell_temp.set("{}".format(STC_T_C))
+        self.pv_test_irrad.set(f"{STC_IRRAD}")
+        self.pv_test_cell_temp.set(f"{STC_T_C}")
 
         # Bind Return key events for all entries
         widgets = [pv_name_entry, voc_entry, isc_entry, vmp_entry, imp_entry,
@@ -8357,22 +8328,25 @@ effect. Please upgrade.
         def log_use_avg_temp():
             """Local function to log changes to the Use avg sensor temp cb"""
             checked = (self.use_avg_temp.get() == "Enabled")
-            msg = ("(Preferences, PV Model) {} Use avg sensor temp button"
-                   .format("checked" if checked else "unchecked"))
+            msg = (f"(Preferences, PV Model) "
+                   f"{'checked' if checked else 'unchecked'} "
+                   f"Use avg sensor temp button")
             log_user_action(self.master.ivs2.logger, msg)
 
         def log_use_est_irrad():
             """Local function to log changes to the Use est irradiance cb"""
             checked = (self.use_est_irrad.get() == "Enabled")
-            msg = ("(Preferences, PV Model) {} Use estimated irradiance button"
-                   .format("checked" if checked else "unchecked"))
+            msg = (f"(Preferences, PV Model) "
+                   f"{'checked' if checked else 'unchecked'} "
+                   f"Use estimated irradiance button")
             log_user_action(self.master.ivs2.logger, msg)
 
         def log_use_est_cell_temp():
             """Local function to log changes to the Use est cell temp cb"""
             checked = (self.use_est_temp.get() == "Enabled")
-            msg = ("(Preferences, PV Model) {} Use estimated cell temp button"
-                   .format("checked" if checked else "unchecked"))
+            msg = (f"(Preferences, PV Model) "
+                   f"{'checked' if checked else 'unchecked'} "
+                   f"Use estimated cell temp button")
             log_user_action(self.master.ivs2.logger, msg)
 
         # Add box around all widgets
@@ -8390,7 +8364,7 @@ effect. Please upgrade.
                                    textvariable=self.cell_temp_adj)
         self.cell_temp_adj.set(self.master.ivs2.cell_temp_adjust)
         temp_adj_units_label = ttk.Label(master=temp_adj_box,
-                                         text="{}C".format(DGS))
+                                         text=f"{DGS}C")
 
         # Add three checkbuttons and set to values of associated
         # properties
@@ -8501,7 +8475,7 @@ effect. Please upgrade.
         _, curr_name = self.get_curr_pv_model_listbox_index_and_name()
         self.selected_pv = curr_name if curr_name != "NONE" else "NONE"
 
-        msg = "(Preferences, PV Model) selected {}".format(curr_name)
+        msg = f"(Preferences, PV Model) selected {curr_name}"
         log_user_action(self.master.ivs2.logger, msg)
 
         # Search pv_specs for that name and set the entry variables to
@@ -8603,12 +8577,12 @@ effect. Please upgrade.
         # unmodified name.
         if (pv_name != self.selected_pv and
                 pv_name in self.pv_model_listbox.get(0, END)):
-            err_msg = """
+            err_msg = f"""
 ERROR: PV Name
-{}
+{pv_name}
 already exists. To modify it, select
 it and then edit the parameter values.
-""".format(pv_name)
+"""
             tkmsg.showerror(message=err_msg)
             self.pv_name.set(self.selected_pv)
             return RC_FAILURE
@@ -8787,8 +8761,8 @@ it and then edit the parameter values.
         """
         # pylint: disable=unused-argument
         msg1 = "(Preferences, PV Model) pressed Test button "
-        msg2 = ("({} W/m^2, {} deg C)".format(self.pv_test_irrad.get(),
-                                              self.pv_test_cell_temp.get()))
+        msg2 = (f"({self.pv_test_irrad.get()} W/m^2, "
+                f"{self.pv_test_cell_temp.get()} deg C)")
         msg = msg1 + msg2
         log_user_action(self.master.ivs2.logger, msg)
         self.run_pv_model_test()
@@ -8802,8 +8776,8 @@ it and then edit the parameter values.
         # pylint: disable=unused-argument
         msg = "(Preferences, PV Model) pressed STC button"
         log_user_action(self.master.ivs2.logger, msg)
-        self.pv_test_irrad.set("{}".format(STC_IRRAD))
-        self.pv_test_cell_temp.set("{}".format(STC_T_C))
+        self.pv_test_irrad.set(f"{STC_IRRAD}")
+        self.pv_test_cell_temp.set(f"{STC_T_C}")
         self.run_pv_model_test()
 
     # -------------------------------------------------------------------------
@@ -8815,8 +8789,8 @@ it and then edit the parameter values.
         # pylint: disable=unused-argument
         msg = "(Preferences, PV Model) pressed NOC button"
         log_user_action(self.master.ivs2.logger, msg)
-        self.pv_test_irrad.set("{}".format(NOC_IRRAD))
-        self.pv_test_cell_temp.set("{}".format(self.pv_noct.get()))
+        self.pv_test_irrad.set(f"{NOC_IRRAD}")
+        self.pv_test_cell_temp.set(f"{self.pv_noct.get()}")
         self.run_pv_model_test()
 
     # -------------------------------------------------------------------------
@@ -9042,28 +9016,26 @@ it and then edit the parameter values.
             err_str += "\n  All fields must be integers"
         else:
             if max_iv_points > MAX_IV_POINTS_MAX:
-                err_str += ("\n  Max IV points must be no more than {}"
-                            .format(MAX_IV_POINTS_MAX))
+                err_str += (f"\n  Max IV points must be no more than "
+                            f"{MAX_IV_POINTS_MAX}")
             if max_iv_points < 1:
                 err_str += "\n  Max IV points must greater than 0"
             if min_isc_adc > ADC_MAX:
-                err_str += ("\n  Min Isc ADC must be no more than {}"
-                            .format(ADC_MAX))
+                err_str += f"\n  Min Isc ADC must be no more than {ADC_MAX}"
             if max_isc_poll > ARDUINO_MAX_INT:
-                err_str += ("\n  Max Isc poll must be no more than {}"
-                            .format(ARDUINO_MAX_INT))
+                err_str += (f"\n  Max Isc poll must be no more than "
+                            f"{ARDUINO_MAX_INT}")
             if isc_stable_adc > ADC_MAX:
-                err_str += ("\n  Isc stable ADC must be no more than {}"
-                            .format(ADC_MAX))
+                err_str += f"\n  Isc stable ADC must be no more than {ADC_MAX}"
             if max_discards > ARDUINO_MAX_INT:
-                err_str += ("\n  Max discards must be no more than {}"
-                            .format(ARDUINO_MAX_INT))
+                err_str += (f"\n  Max discards must be no more than "
+                            f"{ARDUINO_MAX_INT}")
             if aspect_height > MAX_ASPECT:
-                err_str += ("\n  Aspect height must be no more than {}"
-                            .format(MAX_ASPECT))
+                err_str += (f"\n  Aspect height must be no more than "
+                            f"{MAX_ASPECT}")
             if aspect_width > MAX_ASPECT:
-                err_str += ("\n  Aspect width must be no more than {}"
-                            .format(MAX_ASPECT))
+                err_str += (f"\n  Aspect width must be no more than "
+                            f"{MAX_ASPECT}")
         if len(err_str) > len("ERROR:"):
             tkmsg.showerror(message=err_str)
             return False
@@ -9377,7 +9349,7 @@ written to Arduino EEPROM.
                                            cell_temp_adjust)
                 self.master.ivs2.cell_temp_adjust = cell_temp_adjust
                 msg1 = "(Preferences, PV Model) changed cell temp adjust "
-                msg2 = ("from {} to {}".format(config_val, cell_temp_adjust))
+                msg2 = f"from {config_val} to {cell_temp_adjust}"
                 msg = msg1 + msg2
                 log_user_action(self.master.ivs2.logger, msg)
                 pv_model_opt_changed = True
@@ -9999,15 +9971,15 @@ class ImagePane(ttk.Label):
         """Method to display the splash image"""
         self.img_file = os.path.join(self.master.app_dir, SPLASH_IMG)
         if not os.path.exists(self.img_file):
-            err_msg = """
-FATAL ERROR: file {} does not exist
+            err_msg = f"""
+FATAL ERROR: file {self.img_file} does not exist
 
 This is most likely a problem with the
 installation. Please make sure that you
 have write permission to the application
 folder. An Administrator account should
 be used for the install.
-""".format(self.img_file)
+"""
             tkmsg.showerror(message=err_msg)
             sys.exit()
         else:
@@ -10065,8 +10037,8 @@ class PlotPower(ttk.Checkbutton):
         """Method to update and apply the plot power option"""
         # pylint: disable=unused-argument
         checked = (self.plot_power.get() == "Plot")
-        msg = ("(Main) {} Plot Power button"
-               .format("checked" if checked else "unchecked"))
+        msg = (f"(Main) {'checked' if checked else 'unchecked'} "
+               f"Plot Power button")
         log_user_action(self.mm.ivs2.logger, msg)
         self.mm.handle_plot_power_or_ref_event(button="power", plot=checked)
 
@@ -10096,8 +10068,8 @@ class PlotRef(ttk.Checkbutton):
         """Method to update and apply the plot ref option"""
         # pylint: disable=unused-argument
         checked = (self.plot_ref.get() == "Plot")
-        msg = ("(Main) {} Plot Reference button"
-               .format("checked" if checked else "unchecked"))
+        msg = (f"(Main) {'checked' if checked else 'unchecked'} "
+               f"Plot Reference button")
         log_user_action(self.mm.ivs2.logger, msg)
         self.mm.handle_plot_power_or_ref_event(button="ref", plot=checked)
 
@@ -10123,8 +10095,8 @@ class LockAxes(ttk.Checkbutton):
     def update_axis_lock(self, event=None):
         """Method to update and apply the axis lock"""
         checked = (self.axes_locked.get() == "Lock")
-        msg = ("(Main) {} Axis Ranges Lock button"
-               .format("checked" if checked else "unchecked"))
+        msg = (f"(Main) {'checked' if checked else 'unchecked'} "
+               f"Axis Ranges Lock button")
         if event is None:
             log_user_action(self.gui.ivs2.logger, msg)
         # Update IVS2 property
@@ -10167,9 +10139,9 @@ class LoopMode(ttk.Checkbutton):
     def update_loop_mode(self, event=None):
         """Method to update and apply the loop mode option"""
         # pylint: disable=unused-argument
-        msg = ("(Main) {} Loop Mode button"
-               .format("checked" if self.loop_mode.get() == "On"
-                       else "unchecked"))
+        msg = (f"(Main) "
+               f"{'checked' if self.loop_mode.get() == 'On' else 'unchecked'} "
+               f"Loop Mode button")
         log_user_action(self.gui.ivs2.logger, msg)
         if self.loop_mode.get() == "On":
             self.gui.loop_mode.set("On")
@@ -10229,9 +10201,9 @@ class LoopRateLimit(ttk.Checkbutton):
     def update_loop_rate_limit(self, event=None):
         """Method to update and apply the loop rate limit option"""
         # pylint: disable=unused-argument
-        msg = ("(Main) {} Loop Mode Rate Limit button"
-               .format("checked" if self.loop_rate_limit.get() == "On"
-                       else "unchecked"))
+        checked_unchecked = ('checked' if self.loop_rate_limit.get() == 'On'
+                             else 'unchecked')
+        msg = (f"(Main) {checked_unchecked} Loop Mode Rate Limit button")
         log_user_action(self.gui.ivs2.logger, msg)
         if self.loop_rate_limit.get() == "On":
             curr_loop_delay = self.gui.loop_delay
@@ -10240,7 +10212,7 @@ class LoopRateLimit(ttk.Checkbutton):
                                            prompt=prompt_str,
                                            initialvalue=curr_loop_delay)
             if new_loop_delay:
-                msg = "Set loop delay to {}".format(new_loop_delay)
+                msg = f"Set loop delay to {new_loop_delay}"
                 log_user_action(self.gui.ivs2.logger, msg)
                 self.gui.loop_rate_limit = True
                 self.gui.loop_delay = new_loop_delay
@@ -10269,7 +10241,7 @@ class LoopRateLimit(ttk.Checkbutton):
         """Method to update the rate limit label"""
         text_str = "Rate Limit"
         if self.gui.loop_delay and self.loop_rate_limit.get() == "On":
-            text_str += " = {}s".format(self.gui.loop_delay)
+            text_str += f" = {self.gui.loop_delay}s"
         self.configure(text=text_str)
 
 
@@ -10296,9 +10268,9 @@ class LoopSaveResults(ttk.Checkbutton):
     def update_loop_save_results(self, event=None):
         """Method to update and apply the loop save results options"""
         # pylint: disable=unused-argument
-        msg = ("(Main) {} Loop Mode Save Results button"
-               .format("checked" if self.loop_save_results.get() == "On"
-                       else "unchecked"))
+        checked_unchecked = ('checked' if self.loop_save_results.get() == 'On'
+                             else 'unchecked')
+        msg = f"(Main) {checked_unchecked} Loop Mode Save Results button"
         log_user_action(self.gui.ivs2.logger, msg)
         if self.loop_save_results.get() == "On":
             self.gui.loop_save_results = True
@@ -10307,9 +10279,9 @@ class LoopSaveResults(ttk.Checkbutton):
                                             "only. Do you want to save PDFs"
                                             " and GIFs too?",
                                             default=tkmsg.NO)
-            msg = ("(Main) chose to save {} loop mode"
-                   .format("CSV results only in"
-                           if not include_graphs else "all results in"))
+            save_choice = ("CSV results only" if not include_graphs
+                           else "all results")
+            msg = f"(Main) chose to save {save_choice} in loop mode"
             log_user_action(self.gui.ivs2.logger, msg)
             self.gui.loop_save_graphs = include_graphs
         else:
