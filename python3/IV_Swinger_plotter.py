@@ -348,8 +348,7 @@ class CommandLineProcessor():
                             self._csv_files.append(full_path_filename)
                         break
                 else:
-                    err_str = "ERROR: {} is neither a file nor a directory"
-                    print(err_str.format(arg))
+                    print(f"ERROR: {arg} is neither a file nor a directory")
                     return []
 
         return self._csv_files

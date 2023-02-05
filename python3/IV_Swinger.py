@@ -3412,9 +3412,9 @@ class IV_Swinger():
         except RuntimeError as e:
             if str(e) == "TrueType font is missing table":
                 plt.clf()
-                log_str = "Couldn't create {} with font {}; using default font"
-                self.logger.print_and_log(log_str.format(sd_img_filename,
-                                                         self.font_name))
+                self.logger.print_and_log(f"Couldn't create {sd_img_filename} "
+                                          f"with font {self.font_name}; using "
+                                          f"default font")
                 self.font_name = DEFAULT_FONT
                 self.plot_with_pyplot(sd_data_point_filenames, sd_img_filename,
                                       isc_amps, voc_volts, mpp_amps, mpp_volts)

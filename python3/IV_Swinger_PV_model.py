@@ -625,10 +625,9 @@ def read_pv_specs(pv_spec_csv_file):
     """
     with open(pv_spec_csv_file, encoding="utf-8") as csvfile:
         reader = csv.DictReader(csvfile)
-        assert_str = "ERROR: first row of {} does not contain "
-        assert_str += "the expected values: {}"
         assert sorted(reader.fieldnames) == sorted(SPEC_FIELDS), \
-            assert_str.format(pv_spec_csv_file, SPEC_FIELDS)
+            (f"ERROR: first row of {pv_spec_csv_file} does not contain "
+             f"the expected values: {SPEC_FIELDS}")
         for pv_spec_dict in reader:
             pv_spec = pv_spec_from_dict(pv_spec_dict)
             check_pv_spec(pv_spec)
@@ -676,55 +675,53 @@ def check_pv_spec(pv_spec):
                   SPEC_FIELDS.index("Imp"),
                   SPEC_FIELDS.index("Isc temp coeff")]:
         assert isinstance(pv_spec[field], (int, float)), \
-            ("{} Invalid {} value ({}). Must be floating point or integer."
-             .format(assert_lead, SPEC_FIELDS[field], pv_spec[field]))
+            (f"{assert_lead} Invalid {SPEC_FIELDS[field]} value "
+             f"({pv_spec[field]}). Must be floating point or integer.")
         assert pv_spec[field] > 0, \
-            ("{} Invalid {} value ({}). Must be positive."
-             .format(assert_lead, SPEC_FIELDS[field], pv_spec[field]))
+            (f"{assert_lead} Invalid {SPEC_FIELDS[field]} value "
+             f"({pv_spec[field]}). Must be positive.")
 
     # Cells and NOCT must be positive floating point or integer values
     # OR and empty string
     for field in [SPEC_FIELDS.index("Cells"),
                   SPEC_FIELDS.index("NOCT")]:
         if pv_spec[field] != "":
-            assert_str = "{} Invalid {} value ({})."
-            assert_str += " Must be floating point, integer or"
-            assert_str += " empty string (if unknown)."
             assert isinstance(pv_spec[field], (int, float)), \
-                (assert_str.format(assert_lead, SPEC_FIELDS[field],
-                                   pv_spec[field]))
+                (f"{assert_lead} Invalid {SPEC_FIELDS[field]} value "
+                 f"({pv_spec[field]}). Must be floating point, integer or "
+                 f"empty string (if unknown).")
             assert pv_spec[field] > 0, \
-                ("{} Invalid {} value ({}). Must be positive."
-                 .format(assert_lead, SPEC_FIELDS[field], pv_spec[field]))
+                (f"{assert_lead} Invalid {SPEC_FIELDS[field]} value "
+                 f"({pv_spec[field]}). Must be positive.")
 
     # Voc and MPP temp coeff must be negative floating point or integer
     # values
     for field in [SPEC_FIELDS.index("Voc temp coeff"),
                   SPEC_FIELDS.index("MPP temp coeff")]:
         assert isinstance(pv_spec[field], (int, float)), \
-            ("{} Invalid {} value ({}). Must be floating point or integer."
-             .format(assert_lead, SPEC_FIELDS[field], pv_spec[field]))
+            (f"{assert_lead} Invalid {SPEC_FIELDS[field]} value "
+             f"({pv_spec[field]}). Must be floating point or integer.")
         assert pv_spec[field] < 0, \
-            ("{} Invalid {} value ({}). Must be negative."
-             .format(assert_lead, SPEC_FIELDS[field], pv_spec[field]))
+            (f"{assert_lead} Invalid {SPEC_FIELDS[field]} value "
+             f"({pv_spec[field]}). Must be negative.")
 
     # Voc temp coeff units must be "%" or "mV"
     field = SPEC_FIELDS.index("Voc temp coeff units")
     assert pv_spec[field] in ["%", "mV"], \
-        ("{} Invalid {} value ({}). Must be % or mV."
-         .format(assert_lead, SPEC_FIELDS[field], pv_spec[field]))
+        (f"{assert_lead} Invalid {SPEC_FIELDS[field]} "
+         f"value ({pv_spec[field]}). Must be % or mV.")
 
     # Isc temp coeff units must be "%" or "mA"
     field = SPEC_FIELDS.index("Isc temp coeff units")
     assert pv_spec[field] in ["%", "mA"], \
-        ("{} Invalid {} value ({}). Must be % or mA."
-         .format(assert_lead, SPEC_FIELDS[field], pv_spec[field]))
+        (f"{assert_lead} Invalid {SPEC_FIELDS[field]} value "
+         f"({pv_spec[field]}). Must be % or mA.")
 
     # MPP temp coeff units must be "%"
     field = SPEC_FIELDS.index("MPP temp coeff units")
     assert pv_spec[field] in ["%"], \
-        ("{} Invalid {} value ({}). Must be %."
-         .format(assert_lead, SPEC_FIELDS[field], pv_spec[field]))
+        (f"{assert_lead} Invalid {SPEC_FIELDS[field]} value "
+         f"({pv_spec[field]}). Must be %.")
 
 
 def create_pv_spec_file(pv_spec_csv_file):
@@ -980,9 +977,9 @@ class PV_model():
     # ---------------------------------
     @property
     def err_thresh(self):
-        """Error threshold for the SciPy root solver results. A perfect solution
-           returns 0. This threshold is the maximum absolute value that
-           will be considered "good enough" for each of the results of
+        """Error threshold for the SciPy root solver results. A perfect
+           solution returns 0. This threshold is the maximum absolute value
+           that will be considered "good enough" for each of the results of
            the four equations in order to consider the solution a match.
         """
         return self._err_thresh
@@ -1270,22 +1267,16 @@ class PV_model():
     def parms_string(self):
         """String with the single-diode equations parameter values
         """
-        return "IL: {}  I0: {}  A: {}  Rs: {}  Rsh: {}".format(self.il,
-                                                               self.i0,
-                                                               self.a,
-                                                               self.rs,
-                                                               self.rsh)
+        return (f"IL: {self.il}  I0: {self.i0}  A: {self.a}  "
+                f"Rs: {self.rs}  Rsh: {self.rsh}")
 
     # ---------------------------------
     @property
     def parms_string_w_newlines(self):
         """String with the single-diode equations parameter values
         """
-        return "IL: {}\nI0: {}\nA: {}\nRs: {}\nRsh: {}".format(self.il,
-                                                               self.i0,
-                                                               self.a,
-                                                               self.rs,
-                                                               self.rsh)
+        return (f"IL: {self.il}\nI0: {self.i0}\nA: {self.a}\n"
+                f"Rs: {self.rs}\nRsh: {self.rsh}")
 
     # ---------------------------------
     @property
@@ -1294,9 +1285,8 @@ class PV_model():
         """
         sqd = '\xb2'
         dgs = '\N{DEGREE SIGN}'
-        return ("{} modeled @ {} W/m{}, {} {}C cell temp"
-                .format(self.pv_name, self.irradiance, sqd,
-                        self.cell_temp_c, dgs))
+        return (f"{self.pv_name} modeled @ {self.irradiance} W/m{sqd}, "
+                f"{self.cell_temp_c} {dgs}C cell temp")
 
     # ---------------------------------
     @property
@@ -1305,9 +1295,9 @@ class PV_model():
            Voc, Isc, Vmp, Imp and max power.
         """
         max_power = self.vmp * self.imp if self.vmp is not None else None
-        str1 = "Voc: {} V  Isc: {} A   ".format(self.voc, self.isc)
-        str2 = "MPP: {} V  {} A  {} W".format(self.vmp, self.imp, max_power)
-        return "{}\n{}\n{}".format(self.title_string, str1, str2)
+        return (f"{self.title_string}\n"
+                f"Voc: {self.voc} V  Isc: {self.isc} A   \n"
+                f"MPP: {self.vmp} V  {self.imp} A  {max_power} W")
 
     # Methods
     # -------------------------------------------------------------------------
@@ -1320,8 +1310,7 @@ class PV_model():
                 self.apply_pv_spec_dict(pv_spec_dict)
                 return
 
-        assert False, "{} does not have specs for {}".format(pv_spec_csv_file,
-                                                             pv_name)
+        assert False, f"{pv_spec_csv_file} does not have specs for {pv_name}"
 
     # -------------------------------------------------------------------------
     def apply_pv_spec_dict(self, pv_spec_dict):
@@ -1398,18 +1387,17 @@ class PV_model():
             eq4_ignored = eq4_res != 0.0
         if self.debug:
             print("Best solution (Step 1):")
-            print("  IL: {}".format(il))
-            print("  I0: {}".format(i0))
-            print("   A: {}".format(a))
-            print("  Rs: {}".format(rs))
-            print(" Rsh: {}".format(rsh))
+            print(f"  IL: {il}")
+            print(f"  I0: {i0}")
+            print(f"   A: {a}")
+            print(f"  Rs: {rs}")
+            print(f" Rsh: {rsh}")
             print("\nResults:")
-            print("  Eq1: {}".format(eq1_res))
-            print("  Eq2: {}".format(eq2_res))
-            print("  Eq3: {}".format(eq3_res))
-            print("  Eq4: {}{}".format(eq4_res, " (Ignored)"
-                                       if eq4_ignored else ""))
-            print("  Eq5: {}".format(eq5_res))
+            print(f"  Eq1: {eq1_res}")
+            print(f"  Eq2: {eq2_res}")
+            print(f"  Eq3: {eq3_res}")
+            print(f"  Eq4: {eq4_res}{' (Ignored)' if eq4_ignored else ''}")
+            print(f"  Eq5: {eq5_res}")
         self.eq1_result = eq1_res
         self.eq2_result = eq2_res
         self.eq3_result = eq3_res
@@ -1418,11 +1406,10 @@ class PV_model():
         abs_results = [abs(res) for res in results]
         if max(abs_results) > self.err_thresh:
             if self.debug:
-                print("  *** FAILED *** ({} is > {})".format(max(abs_results),
-                                                             self.err_thresh))
-            assert_str = "ERROR: PV modeling for {} failed to find "
-            assert_str += "a solution"
-            assert False, assert_str.format(self.pv_name)
+                print(f"  *** FAILED *** ({max(abs_results)} "
+                      f"is > {self.err_thresh})")
+            assert False, (f"ERROR: PV modeling for {self.pv_name} "
+                           f"failed to find a solution")
 
         # Step 2: Adjust for irradiance. For this model, this is
         # nothing more than scaling the IL parameter.
@@ -1504,7 +1491,7 @@ class PV_model():
                 if amps > 0.0:
                     yield volts, amps
             else:
-                warnings.warn("FAIL: v = {}".format(volts), UserWarning)
+                warnings.warn(f"FAIL: v = {volts}", UserWarning)
         # Add the Voc
         yield voc, 0.0
 
@@ -1525,7 +1512,7 @@ class PV_model():
             self.add_vi_points(num_points)
         for point in self.vi_points:
             volts, amps = point
-            print("{}, {}".format(volts, amps))
+            print(f"{volts}, {amps}")
 
     # -------------------------------------------------------------------------
     def estimate_irrad(self, measured_isc):
@@ -1625,16 +1612,15 @@ def main():
     pv.run()
     pv.print_vi_points(100)
     print(pv.parms_string)
-    print("Ideality factor: {}".format(pv.ideality_factor))
+    print(f"Ideality factor: {pv.ideality_factor}")
     print(pv.summary_string)
-    print("PV model time: {} ms".format(pv.run_ms))
+    print(f"PV model time: {pv.run_ms} ms")
 
     # Now try reverse: estimate irradiance and temp from datasheet NOC
     # Voc and Isc values. They should be close to NOC irradiance and
     # temp.
     pv.estimate_irrad_and_temp(64.9, 5.16, 0.1)
-    print("est_irrad = {}  est_temp = {}".format(pv.irradiance,
-                                                 pv.cell_temp_c))
+    print(f"est_irrad = {pv.irradiance}  est_temp = {pv.cell_temp_c}")
 
 
 # Boilerplate main() call

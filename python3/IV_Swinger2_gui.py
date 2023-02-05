@@ -8224,13 +8224,13 @@ effect. Please upgrade.
         Tooltip(cells_entry, text=tt_text, **TOP_TT_KWARGS)
         tt_text = "Open-circuit voltage temperature coefficient"
         Tooltip(voc_coeff_entry, text=tt_text, **TOP_TT_KWARGS)
-        tt_text = ("Units for Voc temperature coefficient. Most datasheets "
-                   "use %/{dgs}C but some use mV/{dgs}C ".format(dgs=DGS))
+        tt_text = (f"Units for Voc temperature coefficient. Most datasheets "
+                   f"use %/{DGS}C but some use mV/{DGS}C ")
         Tooltip(voc_coeff_combo, text=tt_text, **TOP_TT_KWARGS)
         tt_text = "Short-circuit current temperature coefficient"
         Tooltip(isc_coeff_entry, text=tt_text, **TOP_TT_KWARGS)
-        tt_text = ("Units for Isc temperature coefficient. Most datasheets "
-                   "use %/{dgs}C but some use mA/{dgs}C ".format(dgs=DGS))
+        tt_text = (f"Units for Isc temperature coefficient. Most datasheets "
+                   f"use %/{DGS}C but some use mA/{DGS}C ")
         Tooltip(isc_coeff_combo, text=tt_text, **TOP_TT_KWARGS)
         tt_text = "Maximum power point temperature coefficient"
         Tooltip(mpp_coeff_entry, text=tt_text, **TOP_TT_KWARGS)
