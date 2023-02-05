@@ -1288,14 +1288,13 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
         """Method to set the plot title to indicate that the curve is a
            simulation and to include the component values.
         """
-        title_str = (f"Simulation: "
-                     f"R1={}, R2={}, Rf={}, Rg={}, Shunt={}, C1=C2={}")
-        self.plot_title = title_str.format(shorten_value(self.vdiv_r1),
-                                           shorten_value(self.vdiv_r2),
-                                           shorten_value(self.amm_op_amp_rf),
-                                           shorten_value(self.amm_op_amp_rg),
-                                           self.amm_shunt_resistance,
-                                           shorten_value(self.load_cap_uf))
+        self.plot_title = (f"Simulation: "
+                           f"R1={shorten_value(self.vdiv_r1)}, "
+                           f"R2={shorten_value(self.vdiv_r2)}, "
+                           f"Rf={shorten_value(self.amm_op_amp_rf)}, "
+                           f"Rg={shorten_value(self.amm_op_amp_rg)}, "
+                           f"Shunt={self.amm_shunt_resistance}, "
+                           f"C1=C2={shorten_value(self.load_cap_uf)}")
 
     # -------------------------------------------------------------------------
     def display_pdf(self):
@@ -2671,8 +2670,8 @@ class SimulatorDialog(tk.Toplevel):
         # Call simulator method
         rc = self.ivs2_sim.choose_optimal_components()
         if rc != RC_SUCCESS:
-            err_msg = (f"Oops. Something went wrong\n"
-                       f"See log file for details.")
+            err_msg = ("Oops. Something went wrong\n"
+                       "See log file for details.")
             tkmsg.showerror(message=err_msg)
             IV_Swinger2.sys_view_file(self.ivs2_sim.logger.log_file_name)
             return
