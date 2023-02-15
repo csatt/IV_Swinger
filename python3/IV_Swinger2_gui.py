@@ -484,6 +484,7 @@ class GraphicalUserInterface(ttk.Frame):
         self.win_sys = self.root.tk.call("tk", "windowingsystem")
         self.memory_monitor()
         self.ivs2 = IV_Swinger2.IV_Swinger2(app_data_dir)
+        print(f"app_data_dir = {app_data_dir}")
         self.check_app_data_dir()
         self.init_instance_vars()
         self.app_dir = get_app_dir()
@@ -2201,14 +2202,16 @@ This could be for one of the following reasons:
         # revert to the previous config.
         num_subs = log_str.count('\n- ')
         if num_subs > 5:
-            msg_str = "WARNING: More than 5 changes to config file\n"
+            msg_str = "WARNING: More than 5 changes to config file\n\n"
+            msg_str += "--------------------------\n"
+            msg_str += "REVERT TO PREVIOUS CONFIG?\n"
+            msg_str += "--------------------------\n\n"
             for line in log_str.split("\n"):
                 if "[" in line and "]" in line:
                     section = line
                 if (line.startswith("?") or line.startswith("+") or
                         line.startswith("-")):
                     msg_str += f"{section} {line}\n"
-            msg_str += "\nREVERT TO PREVIOUS?"
             revert_config = tkmsg.askyesno("Revert config?", msg_str,
                                            default=tkmsg.NO)
             if revert_config:
