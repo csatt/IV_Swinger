@@ -674,7 +674,6 @@ class Configuration():
         """Method to save the starting config file. Mostly a debug feature,
            but not dependent on DEBUG_CONFIG.
         """
-        print(f"Config file: {self.cfg_filename}")
         if os.path.exists(self.cfg_filename):
             shutil.copyfile(self.cfg_filename, self.starting_cfg_filename)
         else:

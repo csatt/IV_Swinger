@@ -484,7 +484,6 @@ class GraphicalUserInterface(ttk.Frame):
         self.win_sys = self.root.tk.call("tk", "windowingsystem")
         self.memory_monitor()
         self.ivs2 = IV_Swinger2.IV_Swinger2(app_data_dir)
-        print(f"app_data_dir = {app_data_dir}")
         self.check_app_data_dir()
         self.init_instance_vars()
         self.app_dir = get_app_dir()
