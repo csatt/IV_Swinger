@@ -62,7 +62,7 @@ class IV_Swinger2_PV_model(IV_Swinger_PV_model.PV_model):
     """
     # pylint: disable=too-many-instance-attributes
     def __init__(self):
-        IV_Swinger_PV_model.PV_model.__init__(self)
+        super().__init__()
         self.data_points = []
         # Property variables
         self._csv_filename = None

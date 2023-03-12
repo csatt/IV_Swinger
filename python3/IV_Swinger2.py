@@ -1499,7 +1499,7 @@ class PrintAndLog(IV_Swinger.PrintAndLog):
     """Provides printing and logging methods (extended from IV_Swinger)"""
 
     def __init__(self):
-        IV_Swinger.PrintAndLog.__init__(self)
+        super().__init__()
         # Set instance variable to class variable value
         self.log_file_name = self.log_file_name
 
@@ -1518,7 +1518,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
 
     def __init__(self):
         self.csv_proc = None
-        IV_Swinger_plotter.IV_Swinger_plotter.__init__(self)
+        super().__init__()
         self._csv_files = None
         self._plot_dir = None
         self._args = None
@@ -2042,7 +2042,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # Initializer
     def __init__(self, app_data_dir=None, logger=None, usb_ports_in_use=None):
         # pylint: disable=too-many-statements
-        IV_Swinger.IV_Swinger.__init__(self)
+        super().__init__()
         self.lcd = None
         self.ivp = None
         self.pv_model = IV_Swinger2_PV_model()

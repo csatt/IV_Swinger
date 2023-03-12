@@ -45,7 +45,7 @@ class Dialog(Toplevel):
 
             title -- the dialog title
         '''
-        Toplevel.__init__(self, parent)
+        super().__init__(parent)
 
         self.withdraw() # remain invisible for now
         # If the master is not viewable, don't
@@ -192,7 +192,7 @@ class _QueryDialog(Dialog):
 
         self.initialvalue = initialvalue
 
-        Dialog.__init__(self, parent, title)
+        super().__init__(parent, title)
 
     def destroy(self):
         self.entry = None
@@ -294,7 +294,7 @@ class _QueryString(_QueryDialog):
             del kw["show"]
         else:
             self.__show = None
-        _QueryDialog.__init__(self, *args, **kw)
+        super().__init__(*args, **kw)
 
     def body(self, master):
         entry = _QueryDialog.body(self, master)

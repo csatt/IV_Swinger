@@ -411,7 +411,7 @@ class IV_Swinger_extended(IV_Swinger.IV_Swinger):
     """
     # pylint: disable=too-many-instance-attributes
     def __init__(self):
-        IV_Swinger.IV_Swinger.__init__(self)
+        super().__init__()
         self._plt_img_filename = ""
         self._logger = None
 

@@ -766,7 +766,7 @@ class StoppableThread(threading.Thread):  # IVS1
     """Adds Event for stopping the execution loop and exiting cleanly.
     """
     def __init__(self):
-        threading.Thread.__init__(self)
+        super().__init__()
         self.stop_event = threading.Event()
         self.daemon = True
 
@@ -808,7 +808,7 @@ class ScrollingMessage(StoppableThread):  # IVS1
 
     def __init__(self, text, lcd, beep, lock, exc_queue):
         # pylint: disable=too-many-arguments
-        StoppableThread.__init__(self)
+        super().__init__()
         self.text = text
         self.lcd = lcd
         self.beep = beep
@@ -993,7 +993,7 @@ class ScrollingMessage(StoppableThread):  # IVS1
 class SoundWarning(StoppableThread):  # IVS1
     """Class to continuously sound a warning until signalled to stop"""
     def __init__(self, on_time, off_time):
-        StoppableThread.__init__(self)
+        super().__init__()
         self.on_time = on_time
         self.off_time = off_time
         self.off_time = off_time

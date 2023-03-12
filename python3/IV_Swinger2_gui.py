@@ -487,7 +487,7 @@ class GraphicalUserInterface(ttk.Frame):
             self.main_gui = main_gui
         self.root = tk.Toplevel() if instance else tk.Tk()
         self.set_root_options(instance)
-        ttk.Frame.__init__(self, self.root)
+        super().__init__(self.root)
         self.win_sys = self.root.tk.call("tk", "windowingsystem")
         self.memory_monitor()
         self.app_data_dir = app_data_dir if app_data_dir else \
@@ -2353,7 +2353,7 @@ class Configuration(IV_Swinger2.Configuration):
     def __init__(self, gui=None):
         self.gui = gui
         self.ivs2 = gui.ivs2
-        IV_Swinger2.Configuration.__init__(self, self.ivs2)
+        super().__init__(self.ivs2)
 
     # -------------------------------------------------------------------------
     def apply_all(self):
@@ -2446,7 +2446,7 @@ class ImgSizeCombo(ttk.Combobox):
 
     # Initializer
     def __init__(self, master=None, textvariable=None):
-        ttk.Combobox.__init__(self, master=master, textvariable=textvariable)
+        super().__init__(master=master, textvariable=textvariable)
         y_pixels = int(round(master.ivs2.x_pixels *
                              master.ivs2.plot_y_inches /
                              master.ivs2.plot_x_inches))
@@ -2479,7 +2479,7 @@ class ResultsWizard(tk.Toplevel):
 
     # Initializer
     def __init__(self, master=None):
-        tk.Toplevel.__init__(self, master=master)
+        super().__init__(master=master)
         self.master = master
         self.title("Results Wizard")
         self.results_dir = self.master.ivs2.app_data_dir
@@ -4351,7 +4351,7 @@ class MenuBar(tk.Menu):
 
     # Initializer
     def __init__(self, master=None):
-        tk.Menu.__init__(self, master=master)
+        super().__init__(master=master)
         self.master = master
         self.menubar = tk.Menu(self.master)
         self.selected_port = tk.StringVar()
@@ -5087,7 +5087,7 @@ class Dialog(tk.Toplevel):
                  resizable=False, parent_is_modal=False,
                  min_height=None, max_height=None, logger=None):
         # pylint: disable=too-many-arguments
-        tk.Toplevel.__init__(self, master=master)
+        super().__init__(master=master)
         self.master = master
         self.win_sys = self.master.tk.call("tk", "windowingsystem")
         self.has_ok_button = has_ok_button
@@ -5247,11 +5247,11 @@ class GlobalHelpDialog(Dialog):
     # Initializer
     def __init__(self, master=None):
         title = "IV Swinger 2 Help"
-        Dialog.__init__(self, master=master, title=title,
-                        has_cancel_button=False, return_ok=True,
-                        resizable=True,
-                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
-                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
+        super().__init__(master=master, title=title,
+                         has_cancel_button=False, return_ok=True,
+                         resizable=True,
+                         min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                         max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -5339,11 +5339,11 @@ class CalibrationHelpDialog(Dialog):
     # Initializer
     def __init__(self, master=None):
         title = "Calibration Help"
-        Dialog.__init__(self, master=master, title=title,
-                        has_cancel_button=False, return_ok=True,
-                        resizable=True,
-                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
-                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
+        super().__init__(master=master, title=title,
+                         has_cancel_button=False, return_ok=True,
+                         resizable=True,
+                         min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                         max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
 
     def body(self, master):
         """Method to create the dialog body, which is just a Text widget"""
@@ -5511,11 +5511,11 @@ class InstancesHelpDialog(Dialog):
     # Initializer
     def __init__(self, master=None):
         title = "Instances Help"
-        Dialog.__init__(self, master=master, title=title,
-                        has_cancel_button=False, return_ok=True,
-                        resizable=True,
-                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
-                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
+        super().__init__(master=master, title=title,
+                         has_cancel_button=False, return_ok=True,
+                         resizable=True,
+                         min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                         max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
 
     def body(self, master):
         """Method to create the dialog body, which is just a Text widget"""
@@ -5574,12 +5574,12 @@ class AdvSsrCurrentCalHelpDialog(Dialog):
     # Initializer
     def __init__(self, master=None):
         title = "Advanced Current Calibration Help (SSR)"
-        Dialog.__init__(self, master=master, title=title,
-                        has_cancel_button=False, return_ok=True,
-                        parent_is_modal=True,
-                        resizable=True,
-                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
-                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
+        super().__init__(master=master, title=title,
+                         has_cancel_button=False, return_ok=True,
+                         parent_is_modal=True,
+                         resizable=True,
+                         min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                         max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -5684,12 +5684,12 @@ class AdvEmrCurrentCalHelpDialog(Dialog):
     # Initializer
     def __init__(self, master=None):
         title = "Advanced Current Calibration Help (EMR)"
-        Dialog.__init__(self, master=master, title=title,
-                        has_cancel_button=False, return_ok=True,
-                        parent_is_modal=True,
-                        resizable=True,
-                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
-                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
+        super().__init__(master=master, title=title,
+                         has_cancel_button=False, return_ok=True,
+                         parent_is_modal=True,
+                         resizable=True,
+                         min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                         max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -5826,12 +5826,12 @@ class AdvVoltageCalHelpDialog(Dialog):
     # Initializer
     def __init__(self, master=None):
         title = "Advanced Voltage Calibration Help (EMR)"
-        Dialog.__init__(self, master=master, title=title,
-                        has_cancel_button=False, return_ok=True,
-                        parent_is_modal=True,
-                        resizable=True,
-                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
-                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
+        super().__init__(master=master, title=title,
+                         has_cancel_button=False, return_ok=True,
+                         parent_is_modal=True,
+                         resizable=True,
+                         min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                         max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -5929,11 +5929,11 @@ class DownlevelArduinoSketchDialog(Dialog):
     # Initializer
     def __init__(self, master=None):
         title = "Downlevel Arduino Code"
-        Dialog.__init__(self, master=master, title=title,
-                        has_cancel_button=False, return_ok=True,
-                        resizable=True,
-                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
-                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
+        super().__init__(master=master, title=title,
+                         has_cancel_button=False, return_ok=True,
+                         resizable=True,
+                         min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                         max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
         self.master = master
 
     def body(self, master):
@@ -6045,7 +6045,7 @@ class AdvCalDialog(Dialog):
         self.test_cal_units = "Unknown"     # Test: Calibrated amps/volts
         # Clear out old ADC value from IVS2
         self.master.ivs2.reset_adv_cal_adc_val()
-        Dialog.__init__(self, master=master, title=title)
+        super().__init__(master=master, title=title)
 
     # -------------------------------------------------------------------------
     def type_is_current(self):
@@ -6801,7 +6801,7 @@ class AdvCurrentCalDialog(AdvCalDialog):
     """
     # Initializer
     def __init__(self, master=None):
-        AdvCalDialog.__init__(self, master=master, cal_type="Current")
+        super().__init__(master=master, cal_type="Current")
 
 
 # Advanced voltage calibration dialog
@@ -6812,7 +6812,7 @@ class AdvVoltageCalDialog(AdvCalDialog):
     """
     # Initializer
     def __init__(self, master=None):
-        AdvCalDialog.__init__(self, master=master, cal_type="Voltage")
+        super().__init__(master=master, cal_type="Voltage")
 
 
 # Resistor values dialog class
@@ -6830,7 +6830,7 @@ class ResistorValuesDialog(Dialog):
         self.rg_str = tk.StringVar()
         self.shunt_str = tk.StringVar()
         title = f"{APP_NAME} Resistor Values"
-        Dialog.__init__(self, master=master, title=title)
+        super().__init__(master=master, title=title)
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -7058,7 +7058,7 @@ class BiasBatteryDialog(Dialog):
         self.reestablish_arduino_comm_reqd = False
         self.bias_batt_csv_file = None
         self.dyn_cal_enable = tk.StringVar()
-        Dialog.__init__(self, master=master, title=title)
+        super().__init__(master=master, title=title)
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -7317,8 +7317,8 @@ class PreferencesDialog(Dialog):
         self.curr_pv_model_var_vals = None
         self.prev_pv_model_var_vals = None
         title = f"{APP_NAME} Preferences"
-        Dialog.__init__(self, master=master, title=title,
-                        logger=self.master.ivs2.logger)
+        super().__init__(master=master, title=title,
+                         logger=self.master.ivs2.logger)
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -9752,12 +9752,12 @@ class FontListDialog(Dialog):
     # Initializer
     def __init__(self, master=None):
         title = "Font list"
-        Dialog.__init__(self, master=master, title=title,
-                        has_cancel_button=False, return_ok=True,
-                        parent_is_modal=True,
-                        resizable=True,
-                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
-                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
+        super().__init__(master=master, title=title,
+                         has_cancel_button=False, return_ok=True,
+                         parent_is_modal=True,
+                         resizable=True,
+                         min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                         max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -9784,12 +9784,12 @@ class PlottingHelpDialog(Dialog):
     # Initializer
     def __init__(self, master=None):
         title = "Plotting Help"
-        Dialog.__init__(self, master=master, title=title,
-                        has_cancel_button=False, return_ok=True,
-                        parent_is_modal=True,
-                        resizable=True,
-                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
-                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
+        super().__init__(master=master, title=title,
+                         has_cancel_button=False, return_ok=True,
+                         parent_is_modal=True,
+                         resizable=True,
+                         min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                         max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -9920,7 +9920,7 @@ class SpiClkCombo(ttk.Combobox):
 
     # Initializer
     def __init__(self, master=None, gui=None, textvariable=None):
-        ttk.Combobox.__init__(self, master=master, textvariable=textvariable)
+        super().__init__(master=master, textvariable=textvariable)
         self.gui = gui
         spi_clk_div = self.gui.config.cfg.getint("Arduino", "spi clock div")
         textvariable.set(SPI_COMBO_VALS[spi_clk_div])
@@ -9944,12 +9944,12 @@ class LoopingHelpDialog(Dialog):
     # Initializer
     def __init__(self, master=None):
         title = "Looping Help"
-        Dialog.__init__(self, master=master, title=title,
-                        has_cancel_button=False, return_ok=True,
-                        parent_is_modal=True,
-                        resizable=True,
-                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
-                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
+        super().__init__(master=master, title=title,
+                         has_cancel_button=False, return_ok=True,
+                         parent_is_modal=True,
+                         resizable=True,
+                         min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                         max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -9979,12 +9979,12 @@ class ArduinoHelpDialog(Dialog):
     # Initializer
     def __init__(self, master=None):
         title = "Arduino Help"
-        Dialog.__init__(self, master=master, title=title,
-                        has_cancel_button=False, return_ok=True,
-                        parent_is_modal=True,
-                        resizable=True,
-                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
-                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
+        super().__init__(master=master, title=title,
+                         has_cancel_button=False, return_ok=True,
+                         parent_is_modal=True,
+                         resizable=True,
+                         min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                         max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -10054,12 +10054,12 @@ class PvModelHelpDialog(Dialog):
     # Initializer
     def __init__(self, master=None):
         title = "PV Model Help"
-        Dialog.__init__(self, master=master, title=title,
-                        has_cancel_button=False, return_ok=True,
-                        parent_is_modal=True,
-                        resizable=True,
-                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
-                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
+        super().__init__(master=master, title=title,
+                         has_cancel_button=False, return_ok=True,
+                         parent_is_modal=True,
+                         resizable=True,
+                         min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                         max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -10127,11 +10127,11 @@ class OverlayHelpDialog(Dialog):
     # Initializer
     def __init__(self, master=None):
         title = "Overlay Help"
-        Dialog.__init__(self, master=master, title=title,
-                        has_cancel_button=False, return_ok=True,
-                        resizable=True,
-                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
-                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
+        super().__init__(master=master, title=title,
+                         has_cancel_button=False, return_ok=True,
+                         resizable=True,
+                         min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                         max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
 
     # -------------------------------------------------------------------------
     def body(self, master):
@@ -10218,7 +10218,7 @@ class ImagePane(ttk.Label):
 
     # Initializer
     def __init__(self, master=None):
-        ttk.Label.__init__(self, master=master, compound="center")
+        super().__init__(master=master, compound="center")
         self.master = master
         self.font = tkfont.Font(family='TkDefaultFont')
         self.img_file = None
@@ -10285,7 +10285,7 @@ class GoStopButton(ttk.Button):
 
     # Initializer
     def __init__(self, master=None, text=None):
-        ttk.Button.__init__(self, master=master)
+        super().__init__(master=master)
         self["text"] = "Swing!"
         if text is not None:
             self["text"] = text
@@ -10302,10 +10302,10 @@ class PlotPower(ttk.Checkbutton):
 
     # Initializer
     def __init__(self, master=None, master_master=None, variable=None):
-        ttk.Checkbutton.__init__(self, master=master, text="Plot Power",
-                                 command=self.update_plot_power,
-                                 variable=variable,
-                                 onvalue="Plot", offvalue="DontPlot")
+        super().__init__(master=master, text="Plot Power",
+                         command=self.update_plot_power,
+                         variable=variable,
+                         onvalue="Plot", offvalue="DontPlot")
         self.master = master
         self.mm = master_master
         self.plot_power = variable
@@ -10333,10 +10333,10 @@ class PlotRef(ttk.Checkbutton):
 
     # Initializer
     def __init__(self, master=None, master_master=None, variable=None):
-        ttk.Checkbutton.__init__(self, master=master, text="Plot Reference",
-                                 command=self.update_plot_ref,
-                                 variable=variable,
-                                 onvalue="Plot", offvalue="DontPlot")
+        super().__init__(master=master, text="Plot Reference",
+                         command=self.update_plot_ref,
+                         variable=variable,
+                         onvalue="Plot", offvalue="DontPlot")
         self.master = master
         self.mm = master_master
         self.plot_ref = variable
@@ -10364,10 +10364,10 @@ class LockAxes(ttk.Checkbutton):
 
     # Initializer
     def __init__(self, master=None, gui=None, variable=None):
-        ttk.Checkbutton.__init__(self, master=master, text="Lock",
-                                 command=self.update_axis_lock,
-                                 variable=variable,
-                                 onvalue="Lock", offvalue="Unlock")
+        super().__init__(master=master, text="Lock",
+                         command=self.update_axis_lock,
+                         variable=variable,
+                         onvalue="Lock", offvalue="Unlock")
         self.gui = gui
         self.axes_locked = variable
 
@@ -10401,10 +10401,10 @@ class LoopMode(ttk.Checkbutton):
     def __init__(self, master=None, gui=None, variable=None,
                  rate_limit=None, save_results=None, lock_axes=None):
         # pylint: disable=too-many-arguments
-        ttk.Checkbutton.__init__(self, master=master, text="Loop Mode",
-                                 command=self.update_loop_mode,
-                                 variable=variable,
-                                 onvalue="On", offvalue="Off")
+        super().__init__(master=master, text="Loop Mode",
+                         command=self.update_loop_mode,
+                         variable=variable,
+                         onvalue="On", offvalue="Off")
         self.gui = gui
         self.loop_mode = variable
         self.rate_limit = rate_limit
@@ -10468,10 +10468,10 @@ class LoopRateLimit(ttk.Checkbutton):
 
     # Initializer
     def __init__(self, master=None, gui=None, variable=None):
-        ttk.Checkbutton.__init__(self, master=master, text="Rate Limit",
-                                 command=self.update_loop_rate_limit,
-                                 variable=variable,
-                                 onvalue="On", offvalue="Off")
+        super().__init__(master=master, text="Rate Limit",
+                         command=self.update_loop_rate_limit,
+                         variable=variable,
+                         onvalue="On", offvalue="Off")
         self.master = master
         self.gui = gui
         self.loop_rate_limit = variable
@@ -10535,10 +10535,10 @@ class LoopSaveResults(ttk.Checkbutton):
 
     # Initializer
     def __init__(self, master=None, gui=None, variable=None):
-        ttk.Checkbutton.__init__(self, master=master, text="Save Results",
-                                 command=self.update_loop_save_results,
-                                 variable=variable,
-                                 onvalue="On", offvalue="Off")
+        super().__init__(master=master, text="Save Results",
+                         command=self.update_loop_save_results,
+                         variable=variable,
+                         onvalue="On", offvalue="Off")
         self.master = master
         self.gui = gui
         self.loop_save_results = variable

@@ -404,8 +404,7 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
     # pylint: disable=too-many-public-methods
 
     def __init__(self, app_data_dir=None, logger=None):
-        IV_Swinger2.IV_Swinger2.__init__(self, app_data_dir=app_data_dir,
-                                         logger=logger)
+        super().__init__(app_data_dir=app_data_dir, logger=logger)
         # Property variables
         self._sim_isc = SIM_ISC_DEFAULT
         self._sim_voc = SIM_VOC_DEFAULT
@@ -1526,7 +1525,7 @@ class SimulatorDialog(tk.Toplevel):
 
     # Initializer
     def __init__(self, master=None, logger=None, app_data_dir=None):
-        tk.Toplevel.__init__(self, master=master)
+        super().__init__(master=master)
         self.master = master
         # Hack: determine if we're running under the IVS2 GUI or
         # standalone
@@ -3126,7 +3125,7 @@ class SimulatorHelpDialog(tk.Toplevel):
     """
     # Initializer
     def __init__(self, master=None):
-        tk.Toplevel.__init__(self, master=master)
+        super().__init__(master=master)
         self.master = master
         self.win_sys = self.master.tk.call("tk", "windowingsystem")
         self.transient(self.master)  # tie this window to master
