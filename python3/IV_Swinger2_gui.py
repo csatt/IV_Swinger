@@ -477,16 +477,33 @@ class GraphicalUserInterface(ttk.Frame):
     # pylint: disable=too-many-public-methods
 
     # Initializer
-    def __init__(self, app_data_dir=None):
-        self.root = tk.Tk()
-        self.set_root_options()
+    def __init__(self, app_data_dir=None, instance=None, main_gui=None):
+        # pylint: disable=too-many-statements
+        self.instance = instance
+        if main_gui is None:
+            self.main_gui = self
+            self.instance_gui = {}
+        else:
+            self.main_gui = main_gui
+        self.root = tk.Toplevel() if instance else tk.Tk()
+        self.set_root_options(instance)
         ttk.Frame.__init__(self, self.root)
         self.win_sys = self.root.tk.call("tk", "windowingsystem")
         self.memory_monitor()
-        self.ivs2 = IV_Swinger2.IV_Swinger2(app_data_dir)
-        self.check_app_data_dir()
-        self.init_instance_vars()
+        self.app_data_dir = app_data_dir if app_data_dir else \
+            IV_Swinger2.get_default_app_data_dir()
+        self.check_app_data_dir(self.app_data_dir)
         self.app_dir = get_app_dir()
+        if self.instance:
+            self.app_data_dir = os.path.join(self.app_data_dir,
+                                             "inst", self.instance)
+            self.ivs2 = IV_Swinger2.IV_Swinger2(self.app_data_dir, None,
+                                                self.usb_ports_in_use)
+            self.ivs2.usb_port = "DISCONNECTED"
+            self.app_dir = self.main_gui.app_dir
+        else:
+            self.ivs2 = IV_Swinger2.IV_Swinger2(self.app_data_dir)
+        self.init_instance_vars()
         self.go_button = None
         self.go_button_box = None
         self.go_button_status_label = None
@@ -700,14 +717,48 @@ class GraphicalUserInterface(ttk.Frame):
         """
         return self.stop_button is not None and self.stop_button.winfo_exists()
 
+    # ---------------------------------
+    @property
+    def instances(self):
+        """Sorted list of instances that have already been created, i.e. they
+           have a directory under the "inst" folder in the app data
+           directory, and that directory has a logs directory.  This
+           property does not imply that the instances have an active
+           GUI.
+        """
+        inst_dir = os.path.join(self.main_gui.app_data_dir, "inst")
+        if not os.path.isdir(inst_dir):
+            return []
+        instances = []
+        for instance in [d for d in os.listdir(inst_dir)
+                         if os.path.isdir(os.path.join(inst_dir, d, "logs"))]:
+            instances.append(instance)
+        return sorted(instances)
+
+    # ---------------------------------
+    @property
+    def usb_ports_in_use(self):
+        """List of USB ports that are in use by the main GUI and all instance
+           GUIs.
+        """
+        usb_ports = []
+        usb_ports_in_use = []
+        usb_ports.append(self.main_gui.ivs2.usb_port)
+        for _, gui in self.main_gui.instance_gui.items():
+            usb_ports.append(gui.ivs2.usb_port)
+        for usb_port in usb_ports:
+            if usb_port not in [None, "DISCONNECTED"]:
+                usb_ports_in_use.append(usb_port)
+        return usb_ports_in_use
+
     # -------------------------------------------------------------------------
-    def check_app_data_dir(self):
+    def check_app_data_dir(self, app_data_dir):
         """Method to check that directories can be created in the the parent of
            app_data_dir and that files can be created in app_data_dir.
            If not, display an error dialog and exit.
         """
         try:
-            app_data_parent = os.path.dirname(self.ivs2.app_data_dir)
+            app_data_parent = os.path.dirname(app_data_dir)
             dummy_dir = os.path.join(app_data_parent, "DUMMY_DIR")
             os.makedirs(dummy_dir)
             os.rmdir(dummy_dir)
@@ -719,7 +770,7 @@ permission to create directories (folders) in
             tkmsg.showerror(message=err_msg)
             sys.exit()
         try:
-            dummy_file = os.path.join(self.ivs2.app_data_dir, "DUMMY_FILE")
+            dummy_file = os.path.join(app_data_dir, "DUMMY_FILE")
             with open(dummy_file, "a", encoding="utf-8") as f:
                 f.close()
             os.remove(dummy_file)
@@ -727,7 +778,7 @@ permission to create directories (folders) in
             err_msg = f"""
 FATAL ERROR: This user does not have
 permission to create files in
-{self.ivs2.app_data_dir}"""
+{app_data_dir}"""
             tkmsg.showerror(message=err_msg)
             sys.exit()
 
@@ -867,7 +918,7 @@ This could be for one of the following reasons:
         return self.ivs2.read_adc_pairs_from_csv_file(adc_csv_file)
 
     # -------------------------------------------------------------------------
-    def set_root_options(self):
+    def set_root_options(self, instance):
         """Method to set options for the root Tk object"""
         # Override tkinter's report_callback_exception method
         self.root.report_callback_exception = self.report_callback_exception
@@ -876,7 +927,8 @@ This could be for one of the following reasons:
         # No dotted line in menus
         self.root.option_add("*tearOff", False)
         # Add title and titlebar icon (Windows)
-        self.root.title("IV Swinger 2")
+        title_ext = f"  [{instance}]" if instance else ""
+        self.root.title(f"IV Swinger 2{title_ext}")
         if sys.platform == "win32" and os.path.exists(TITLEBAR_ICON):
             self.root.tk.call("wm", "iconbitmap",
                               self.root._w,  # pylint: disable=protected-access
@@ -2002,7 +2054,7 @@ This could be for one of the following reasons:
             elapsed_ms = int(round(elapsed_time.total_seconds() * 1000))
             delay_ms = self.loop_delay * 1000 - elapsed_ms
             if not self.loop_rate_limit or delay_ms <= 0:
-                delay_ms = 1
+                delay_ms = 10
             thread_id = self.after(int(delay_ms),
                                    lambda: self.swing_loop(loop_mode=True,
                                                            first_loop=False))
@@ -2166,27 +2218,64 @@ This could be for one of the following reasons:
         """
         x_offset = (self.root.winfo_screenwidth()//2 -
                     self.ivs2.x_pixels//2)
-        self.root.geometry(f"+{x_offset}+5")
+        y_offset = 5
+        if self.instance:
+            # Tile instance GUIs to the right and down
+            tile_offset = 50 * (len(self.main_gui.instance_gui) + 1)
+            x_offset += tile_offset
+            y_offset += tile_offset
+        self.root.geometry(f"+{x_offset}+{y_offset}")
 
     # -------------------------------------------------------------------------
     def start_to_right(self):
         """Method to cause app to open to the right of the screen (with 20
            pixels left), aligned to top (5 pixel overscan compensation)
         """
+        pixels_to_right = 20
+        y_offset = 5
+        if self.instance:
+            # Tile instance GUIs to the left and down
+            tile_offset = 50 * (len(self.main_gui.instance_gui) + 1)
+            pixels_to_right += tile_offset
+            y_offset += tile_offset
         x_offset = (self.root.winfo_screenwidth() -
-                    self.ivs2.x_pixels - 20)
-        self.root.geometry(f"+{x_offset}+5")
+                    self.ivs2.x_pixels - pixels_to_right)
+        self.root.geometry(f"+{x_offset}+{y_offset}")
 
     # -------------------------------------------------------------------------
     def start_to_left(self):
         """Method to cause app to open to the left of the screen, aligned to
            top (5 pixel overscan compensation)
         """
-        self.root.geometry("+20+5")
+        x_offset = 20
+        y_offset = 5
+        if self.instance:
+            # Tile instance GUIs to the right and down
+            tile_offset = 50 * (len(self.main_gui.instance_gui) + 1)
+            x_offset += tile_offset
+            y_offset += tile_offset
+        self.root.geometry(f"+{x_offset}+{y_offset}")
 
     # -------------------------------------------------------------------------
     def close_gui(self):
         """Method to perform actions needed when the GUI is closed"""
+        # pylint: disable=too-many-branches
+        if self.main_gui is self:
+            # First close and remove instance GUIs
+            instance_guis = []
+            for _, gui in self.instance_gui.items():
+                instance_guis.append(gui)
+            if instance_guis:
+                msg_str = "This will close ALL instances too\n\n"
+                msg_str += "--------------------------\n"
+                msg_str += "PROCEED?\n"
+                msg_str += "--------------------------\n\n"
+                proceed = tkmsg.askyesno("Proceed?", msg_str,
+                                         default=tkmsg.YES)
+                if not proceed:
+                    return
+            for gui in instance_guis:
+                gui.close_gui()
         # Clean up before closing
         if self.overlay_dir is not None:
             self.results_wiz.rm_overlay_if_unfinished()
@@ -2201,7 +2290,10 @@ This could be for one of the following reasons:
         # revert to the previous config.
         num_subs = log_str.count('\n- ')
         if num_subs > 5:
-            msg_str = "WARNING: More than 5 changes to config file\n\n"
+            msg_str = ""
+            if self.instance:
+                msg_str += f"Instance {self.instance}\n\n"
+            msg_str += "WARNING: More than 5 changes to config file\n\n"
             msg_str += "--------------------------\n"
             msg_str += "REVERT TO PREVIOUS CONFIG?\n"
             msg_str += "--------------------------\n\n"
@@ -2218,9 +2310,13 @@ This could be for one of the following reasons:
                             self.config.cfg_filename)
 
         # Add newline to end of log file
-        IV_Swinger2.terminate_log()
-        # Close the app
+        self.ivs2.logger.terminate_log()
+        # Close the app (or instance window)
         self.root.destroy()
+        # Close the instance USB port and remove the instance GUI
+        if self.instance:
+            self.main_gui.instance_gui[self.instance].ivs2.close_usb()
+            del self.main_gui.instance_gui[self.instance]
 
     # -------------------------------------------------------------------------
     def unlock_axes(self):
@@ -2238,10 +2334,12 @@ This could be for one of the following reasons:
            as early as possible if the hardware is connected when the
            app is started. This method blocks until the GUI is closed.
         """
-        self.after(100, self.attempt_arduino_handshake)
+        if not self.ivs2.usb_port == "DISCONNECTED":
+            self.after(100, self.attempt_arduino_handshake)
         self.start_on_top()
         self.root.protocol("WM_DELETE_WINDOW", self.close_gui)
-        self.root.mainloop()
+        if not self.instance:
+            self.root.mainloop()
 
 
 # GUI Configuration class
@@ -4261,6 +4359,7 @@ class MenuBar(tk.Menu):
         self.create_file_menu()
         self.create_usb_port_menu()
         self.create_calibrate_menu()
+        self.create_instances_menu()
         self.create_window_menu()
         self.create_help_menu()
         self.master.root["menu"] = self.menubar
@@ -4271,8 +4370,9 @@ class MenuBar(tk.Menu):
         if self.master.win_sys == "aqua":  # Mac
             self.about_menu = tk.Menu(self.menubar, name="apple")
             self.menubar.add_cascade(menu=self.about_menu)
-            self.master.root.createcommand("tk::mac::ShowPreferences",
-                                           self.master.show_preferences)
+            if not self.master.instance:
+                self.master.root.createcommand("tk::mac::ShowPreferences",
+                                               self.master.show_preferences)
         else:  # Windows / Linux
             self.about_menu = tk.Menu(self.menubar)
             self.menubar.add_cascade(menu=self.about_menu, label="About")
@@ -4321,6 +4421,7 @@ class MenuBar(tk.Menu):
             self.usb_port_menu.delete(0, index2)
         # Populate
         self.selected_port.set(self.master.ivs2.usb_port)
+        self.master.ivs2.find_serial_ports()
         for serial_port in self.master.ivs2.serial_ports:
             device = serial_port.device
             label_part2 = ''
@@ -4333,6 +4434,14 @@ class MenuBar(tk.Menu):
                                                variable=self.selected_port,
                                                value=device,
                                                command=self.select_serial)
+            # Disable entry if the port is in use by another GUI
+            if (device in self.master.usb_ports_in_use and
+                    device != self.master.ivs2.usb_port):
+                self.usb_port_menu.entryconfig(label, state="disabled")
+        self.usb_port_menu.add_radiobutton(label="DISCONNECTED",
+                                           variable=self.selected_port,
+                                           value="DISCONNECTED",
+                                           command=self.select_serial)
 
     # -------------------------------------------------------------------------
     def create_calibrate_menu(self):
@@ -4416,6 +4525,96 @@ class MenuBar(tk.Menu):
         self.calibrate_menu.entryconfig("Pyranometer", **kwargs)
 
     # -------------------------------------------------------------------------
+    def create_instances_menu(self):
+        """Method to create the "Instances" menu"""
+        self.instances_menu = tk.Menu(self.menubar,
+                                      postcommand=self.update_instances_menu)
+        self.menubar.add_cascade(menu=self.instances_menu, label="Instances")
+        self.populate_instances_menu()
+
+    # -------------------------------------------------------------------------
+    def populate_instances_menu(self):
+        """Method to populate the "Instances" menu"""
+        for instance in self.master.main_gui.instances:  # already created
+            # Instance launching entries
+            self.instances_menu.add_command(label=instance,
+                                            command=lambda instance=instance:
+                                            self.launch_entry_action(instance))
+        self.instances_menu.add_command(label="Add New Instance",
+                                        command=self.add_new_instance)
+        self.instances_menu.add_command(label="Instances Help",
+                                        command=self.show_instances_help)
+
+    # -------------------------------------------------------------------------
+    def depopulate_instances_menu(self):
+        """Method to de-populate the "Instances" menu"""
+        self.instances_menu.delete(0, self.instances_menu.index("end"))
+
+    # -------------------------------------------------------------------------
+    def update_instances_menu(self):
+        """Method to update the "Instances" menu to enable/disable entries"""
+        # First depopulate and re-populate the menu to update the launching
+        # entries in case a new entry has been added
+        self.depopulate_instances_menu()
+        self.populate_instances_menu()
+        for instance in self.master.main_gui.instances:
+            # Launching entries are enabled if not in use, disabled if in use
+            if instance not in self.master.main_gui.instance_gui:
+                kwargs = {"state": "normal"}
+            else:
+                kwargs = {"state": "disabled"}
+            self.instances_menu.entryconfig(instance, **kwargs)
+
+    # -------------------------------------------------------------------------
+    def launch_entry_action(self, instance):
+        """Method called when user selects a launch entry"""
+        msg = f"""(MenuBar, Instances) selected "{instance}" entry"""
+        log_user_action(self.master.ivs2.logger, msg)
+        self.launch_instance(instance)
+
+    # -------------------------------------------------------------------------
+    def launch_instance(self, instance):
+        """Method to launch a GUI instance from the Instances menu"""
+        self.master.main_gui.root.title("IV Swinger 2  [Main]")
+        self.master.main_gui.instance_gui[instance] = \
+            GraphicalUserInterface(instance=instance,
+                                   main_gui=self.master.main_gui)
+        self.master.main_gui.instance_gui[instance].run()
+
+    # -------------------------------------------------------------------------
+    def add_new_instance(self):
+        """Method to add a new instance from the Instances menu"""
+        msg = """(MenuBar, Instances) selected "Add New Instance" entry"""
+        log_user_action(self.master.ivs2.logger, msg)
+        # Generate dialog to get new instance name
+        prompt_str = "Enter name of new instance"
+        inst_valid = False
+        while not inst_valid:
+            instance = tksd.askstring(title="New instance name",
+                                      prompt=prompt_str)
+            if instance is None:
+                msg = """(MenuBar, Instances) canceled adding new instance"""
+                log_user_action(self.master.ivs2.logger, msg)
+                return
+            msg = f"""(MenuBar, Instances) named new instance "{instance}" """
+            log_user_action(self.master.ivs2.logger, msg)
+            inst_valid = True
+            if not re.match(r"[a-zA-Z].*$", instance):
+                tkmsg.showerror(message=("Try again. Name must start with a "
+                                         "letter."))
+                inst_valid = False
+            elif not re.match(r"[a-zA-Z0-9_]+$", instance):
+                tkmsg.showerror(message=("Try again. Name must contain only "
+                                         "letters, numbers, and the "
+                                         "underscore character."))
+                inst_valid = False
+            if instance in self.master.main_gui.instances:
+                tkmsg.showerror(message=("Instance exists. Try again."))
+                inst_valid = False
+        # Launch the new instance (which will create it)
+        self.launch_instance(instance)
+
+    # -------------------------------------------------------------------------
     def create_window_menu(self):
         """Method to create the "Window" menu"""
         if self.master.win_sys == "aqua":  # Mac
@@ -4430,8 +4629,9 @@ class MenuBar(tk.Menu):
         if self.master.win_sys == "aqua":  # Mac
             self.help_menu = tk.Menu(self.menubar, name="help")
             self.menubar.add_cascade(menu=self.help_menu, label="Help")
-            self.master.root.createcommand("tk::mac::ShowHelp",
-                                           self.show_help)
+            if not self.master.instance:
+                self.master.root.createcommand("tk::mac::ShowHelp",
+                                               self.show_help)
         else:  # Windows / Linux
             self.help_menu = tk.Menu(self.menubar)
             self.menubar.add_cascade(menu=self.help_menu, label="Help")
@@ -4569,6 +4769,12 @@ Copyright (C) 2017-2021  Chris Satterlee
         log_user_action(self.master.ivs2.logger, msg)
         self.master.ivs2.usb_port = usb_port
         self.master.ivs2.arduino_ready = False
+        if usb_port == "DISCONNECTED":
+            self.master.ivs2.close_usb()
+            self.master.disable_go_button()
+            self.master.config.cfg_set("USB", "port", "DISCONNECTED")
+            self.master.save_config()
+            return
         self.master.attempt_arduino_handshake()
         if self.master.ivs2.arduino_ready:
             self.master.config.cfg_set("USB", "port",
@@ -4826,14 +5032,21 @@ will exit.
 
     # -------------------------------------------------------------------------
     def show_calibration_help(self):
-        """Method the open the calibration help dialog"""
+        """Method to open the calibration help dialog"""
         msg = """(MenuBar, Calibrate) selected "Calibration Help" entry"""
         log_user_action(self.master.ivs2.logger, msg)
         CalibrationHelpDialog(self.master)
 
     # -------------------------------------------------------------------------
+    def show_instances_help(self):
+        """Method to open the instances help dialog"""
+        msg = """(MenuBar, Instances) selected "Instances Help" entry"""
+        log_user_action(self.master.ivs2.logger, msg)
+        InstancesHelpDialog(self.master)
+
+    # -------------------------------------------------------------------------
     def show_help(self):
-        """Method the open the global help dialog"""
+        """Method to open the global help dialog"""
         msg = """(MenuBar, Help) selected "IV Swinger 2 Help" entry"""
         log_user_action(self.master.ivs2.logger, msg)
         GlobalHelpDialog(self.master)
@@ -4844,10 +5057,12 @@ will exit.
         """
         msg = """(MenuBar, Help) selected "Run Simulator" entry"""
         log_user_action(self.master.ivs2.logger, msg)
-        IV_Swinger2_sim.SimulatorDialog(self.master, self.master.ivs2.logger)
+        IV_Swinger2_sim.SimulatorDialog(self.master, self.master.ivs2.logger,
+                                        self.master.app_data_dir)
 
 
 # Generic dialog class (based on
+# https://web.archive.org/web/20200229033614/
 # http://effbot.org/tkinterbook/tkinter-dialog-windows.htm)
 #
 class Dialog(tk.Toplevel):
@@ -5284,6 +5499,69 @@ Invalidate Arduino EEPROM:"""
         self.text.insert("end", bias_battery_help_text, ("body_tag"))
         self.text.insert("end", invalidate_eeprom_heading, ("heading_tag"))
         self.text.insert("end", invalidate_eeprom_help_text, ("body_tag"))
+        self.text.pack(fill=BOTH, expand=True)
+
+
+# Instances help dialog class
+#
+class InstancesHelpDialog(Dialog):
+    """Class that is extended from the generic Dialog class and is used for
+       the Instances Help dialog
+    """
+    # Initializer
+    def __init__(self, master=None):
+        title = "Instances Help"
+        Dialog.__init__(self, master=master, title=title,
+                        has_cancel_button=False, return_ok=True,
+                        resizable=True,
+                        min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                        max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
+
+    def body(self, master):
+        """Method to create the dialog body, which is just a Text widget"""
+        # pylint: disable=too-many-locals
+        help_text_1 = """
+The "instances" feature provides the ability to concurrently control
+more than one IV Swinger 2 from a single laptop. Previously this
+required running the application from multiple user accounts.
+
+When an instance is created, a dedicated subdirectory (folder) is
+created for its configuration and data. This prevents runtime collisions
+and conflicts and also makes it much easier for the user to identify
+which results are for which PV module or cell under test.
+
+To create a new instance, select "Add New Instance" in the menu. This
+will prompt you to enter a name for the instance and then will launch a
+new GUI to control that instance. The USB port for a new instance must
+be assigned manually from the USB port menu.
+
+Instances that have been previously created will be listed in the menu
+and can be launched by selecting those menu entries.
+
+The main GUI remains active even when one or more instance GUIs are
+active. Killing an instance GUI doesn't affect the other GUIs, but
+killing the main GUI kills all GUIs. If the main GUI is not going to be
+used to control an IV Swinger 2, its USB port should be set to
+DISCONNECTED in the USB Port menu.
+
+Each GUI must have a different USB port selected in order to prevent
+contention issues. The ports that are already in use will be disabled
+(grayed out) in the USB Port menu. If a previously created instance
+which uses a USB port that is already in use is launched, it will come
+up with its USB port set to DISCONNECTED.
+
+Each instance has its own configuration (Preferences) that are initially
+the defaults.
+
+The Results Wizard for each instance will default to that instance's runs.
+
+Each instance GUI creates its own log file.
+"""
+        font = HELP_DIALOG_FONT
+        self.text = ScrolledText(master, height=1, borderwidth=10)
+        self.text.tag_configure("body_tag", font=font)
+        self.text.tag_configure("heading_tag", font=font, underline=True)
+        self.text.insert("end", help_text_1, ("body_tag"))
         self.text.pack(fill=BOTH, expand=True)
 
 

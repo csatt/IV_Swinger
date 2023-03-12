@@ -253,6 +253,20 @@ def xlate_date_time_str(date_time_str):
     return IV_Swinger.DateTimeStr.xlate_date_time_str(date_time_str)
 
 
+def get_default_app_data_dir():
+    """Global function to return the default platform-dependent application
+       data directory
+    """
+    if sys.platform == "darwin":  # Mac
+        home_dir = os.path.expanduser("~")
+        return os.path.join(home_dir, "Library", "Application Support",
+                            APP_NAME)
+    if sys.platform == "win32":  # Windows
+        return os.path.join(os.environ["APPDATA"], APP_NAME)
+    # Linux
+    return os.path.expanduser(os.path.join("~", f".{APP_NAME}"))
+
+
 def close_plots():
     """Global function to close all plots using the static method of the
        same name from the IV_Swinger class of the IV_Swinger module.
@@ -312,13 +326,6 @@ def get_saved_title(cfg_file):
     except configparser.NoOptionError:
         title = None
     return title
-
-
-def terminate_log():
-    """Global function to add newline to end of log file"""
-    with open(IV_Swinger.PrintAndLog.log_file_name, "a",
-              encoding="utf-8") as f:
-        f.write("\n")
 
 
 def combine_dup_voltages(adc_pairs):
@@ -965,19 +972,27 @@ class Configuration():
             self.ivs2.find_arduino_port()
             self.cfg_set(section, option, self.ivs2.usb_port)
         else:
-            port_attached = False
-            for serial_port in self.ivs2.serial_ports:
-                if cfg_value in serial_port.device:
-                    port_attached = True
-                    break
-            if port_attached:
-                self.ivs2.usb_port = cfg_value
-            else:
-                if cfg_value != "None":
-                    err_str = f"{full_name} in cfg file not attached"
-                    self.ivs2.logger.print_and_log(err_str)
-                self.ivs2.find_arduino_port()
+            if (cfg_value in self.ivs2.usb_ports_in_use and
+                    cfg_value != self.ivs2.usb_port):
+                err_str = f"{full_name} in cfg file ({cfg_value}) is in use"
+                self.ivs2.logger.print_and_log(err_str)
+                self.ivs2.usb_port = "DISCONNECTED"
                 self.cfg_set(section, option, self.ivs2.usb_port)
+            else:
+                port_attached = False
+                for serial_port in self.ivs2.serial_ports:
+                    if cfg_value in serial_port.device:
+                        port_attached = True
+                        break
+                if port_attached or cfg_value == "DISCONNECTED":
+                    self.ivs2.usb_port = cfg_value
+                else:
+                    if cfg_value != "None":
+                        err_str = (f"{full_name} in cfg ({cfg_value}) file "
+                                   "not attached")
+                        self.ivs2.logger.print_and_log(err_str)
+                    self.ivs2.find_arduino_port()
+                    self.cfg_set(section, option, self.ivs2.usb_port)
         # Baud
         args = (section, "baud", CFG_INT, self.ivs2.usb_baud)
         self.ivs2.usb_baud = self.apply_one(*args)
@@ -1476,6 +1491,22 @@ class Configuration():
         if self.cfg.has_option("Plotting", "title"):
             self.cfg.remove_option("Plotting", "title")
             self.ivs2.plot_title = None
+
+
+# The (extended) PrintAndLog class
+#
+class PrintAndLog(IV_Swinger.PrintAndLog):
+    """Provides printing and logging methods (extended from IV_Swinger)"""
+
+    def __init__(self):
+        IV_Swinger.PrintAndLog.__init__(self)
+        # Set instance variable to class variable value
+        self.log_file_name = self.log_file_name
+
+    def terminate_log(self):
+        """Add newline to end of log file"""
+        with open(self.log_file_name, "a", encoding="utf-8") as f:
+            f.write("\n")
 
 
 # IV Swinger2 plotter class
@@ -2009,7 +2040,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # pylint: disable=too-many-public-methods
 
     # Initializer
-    def __init__(self, app_data_dir=None, logger=None):
+    def __init__(self, app_data_dir=None, logger=None, usb_ports_in_use=None):
         # pylint: disable=too-many-statements
         IV_Swinger.IV_Swinger.__init__(self)
         self.lcd = None
@@ -2018,6 +2049,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self.pv_model.debug = False
         self.prev_swing_time = time.time()
         self.eeprom_rewrite_needed = False
+        self.usb_ports_in_use = []
+        if usb_ports_in_use is not None:
+            self.usb_ports_in_use = usb_ports_in_use
         # Property variables
         self._app_data_dir = app_data_dir
         self._hdd_output_dir = None
@@ -2444,18 +2478,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            instantiation.
         """
         if self._app_data_dir is None:
-            if sys.platform == "darwin":  # Mac
-                home_dir = os.path.expanduser("~")
-                self._app_data_dir = os.path.join(home_dir, "Library",
-                                                  "Application Support",
-                                                  APP_NAME)
-            elif sys.platform == "win32":  # Windows
-                self._app_data_dir = os.path.join(os.environ["APPDATA"],
-                                                  APP_NAME)
-            else:  # Linux
-                leaf_dir = f".{APP_NAME}"
-                self._app_data_dir = os.path.expanduser(os.path.join("~",
-                                                                     leaf_dir))
+            self._app_data_dir = get_default_app_data_dir()
         return self._app_data_dir
 
     @app_data_dir.setter
@@ -3373,6 +3396,13 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                                    "SECOND_RELAY_STATE": True}
 
     # -------------------------------------------------------------------------
+    def close_usb(self):
+        """Method to close the serial port if it is open
+        """
+        if self._ser is not None and self._ser.is_open:
+            self._ser.close()
+
+    # -------------------------------------------------------------------------
     def reset_arduino(self):
         """Method to reset the Arduino and establish communication to it
            over USB
@@ -3381,10 +3411,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if self.usb_port_disconnected():
             return RC_FAILURE
 
-        # Set up to talk to Arduino via USB (this resets the Arduino)
-        if self._ser is not None and self._ser.is_open:
-            # First close port if it is already open
-            self._ser.close()
+        self.close_usb()  # First close port if it is already open
+        self.logger.log(f"Resetting Arduino on port {self.usb_port}")
         try:
             self._ser = serial.Serial(self.usb_port, self.usb_baud,
                                       timeout=self.serial_timeout)
@@ -5588,9 +5616,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
         # Create the logger
         leaf_name = f"log_{date_time_str}.txt"
-        IV_Swinger.PrintAndLog.log_file_name = os.path.join(self.logs_dir,
-                                                            leaf_name)
-        self.logger = IV_Swinger.PrintAndLog()
+        PrintAndLog.log_file_name = os.path.join(self.logs_dir, leaf_name)
+        self.logger = PrintAndLog()
 
     # -------------------------------------------------------------------------
     def clean_up_after_failure(self, run_dir):
@@ -5710,7 +5737,7 @@ def main():
         # Print message and close the log file
         msg_str = f"  Results in: {ivs2.hdd_output_dir}"
         ivs2.logger.print_and_log(msg_str)
-        terminate_log()
+        ivs2.logger.terminate_log()
 
         # Open the PDF
         if os.path.exists(ivs2.pdf_filename):
