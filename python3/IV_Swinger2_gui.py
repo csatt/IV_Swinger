@@ -109,7 +109,6 @@ from configparser import NoOptionError
 from send2trash import send2trash
 from PIL import Image, ImageTk
 from Tooltip import Tooltip
-import myTkSimpleDialog as tksd
 import IV_Swinger2
 import IV_Swinger2_sim
 from IV_Swinger_PV_model import (read_pv_specs, create_pv_spec_file,
@@ -459,6 +458,20 @@ not the solution
         tkmsg.showerror(message=err_msg)
         return True
     return False
+
+
+def askfloat(master, title, prompt, **kw):
+    """Get a float from the user
+    """
+    dialog = QueryFloat(master, title, prompt, **kw)
+    return dialog.result
+
+
+def askstring(master, title, prompt, **kw):
+    """Get a string from the user
+    """
+    dialog = QueryString(master, title, prompt, **kw)
+    return dialog.result
 
 
 #################
@@ -3532,9 +3545,10 @@ class ResultsWizard(tk.Toplevel):
                 err_str = ("ERROR: No run selected")
                 tkmsg.showerror(message=err_str)
                 return
-        new_title = tksd.askstring(title=prompt_title_str,
-                                   prompt=prompt_str,
-                                   initialvalue=init_val)
+        new_title = askstring(master=self.master,
+                              title=prompt_title_str,
+                              prompt=prompt_str,
+                              initialvalue=init_val)
         if new_title:
             if self.master.overlay_mode:
                 self.overlay_title = new_title
@@ -4088,9 +4102,10 @@ class ResultsWizard(tk.Toplevel):
             init_val = self.master.overlay_names[dts]
         else:
             init_val = date_time
-        new_name = tksd.askstring(title="Change name",
-                                  prompt=prompt_str,
-                                  initialvalue=init_val)
+        new_name = askstring(master=self.master,
+                             title="Change name",
+                             prompt=prompt_str,
+                             initialvalue=init_val)
         if new_name:
             msg = (f"(Wizard) renamed overlay curve "
                    f"from \"{init_val}\" to \"{new_name}\" ")
@@ -4590,8 +4605,9 @@ class MenuBar(tk.Menu):
         prompt_str = "Enter name of new instance"
         inst_valid = False
         while not inst_valid:
-            instance = tksd.askstring(title="New instance name",
-                                      prompt=prompt_str)
+            instance = askstring(master=self.master,
+                                 title="New instance name",
+                                 prompt=prompt_str)
             if instance is None:
                 msg = """(MenuBar, Instances) canceled adding new instance"""
                 log_user_action(self.master.ivs2.logger, msg)
@@ -4796,9 +4812,10 @@ Copyright (C) 2017-2021  Chris Satterlee
             self.master.ivs2.set_vref_from_bandgap()
         curr_vref = self.master.ivs2.adc_vref
         prompt_str = "Enter measured voltage of +5V reference:"
-        new_vref = tksd.askfloat(title="+5V (Vref) Calibration",
-                                 prompt=prompt_str,
-                                 initialvalue=curr_vref)
+        new_vref = askfloat(master=self.master,
+                            title="+5V (Vref) Calibration",
+                            prompt=prompt_str,
+                            initialvalue=curr_vref)
         if new_vref:
             self.master.ivs2.adc_vref = new_vref
             self.master.config.cfg_set("Calibration", "vref", new_vref)
@@ -4849,9 +4866,10 @@ ERROR: Voc must be larger than
             tkmsg.showerror(message=err_msg)
             return
         prompt_str = "Enter measured Voc value:"
-        new_voc = tksd.askfloat(title="Voltage Calibration - basic",
-                                prompt=prompt_str,
-                                initialvalue=curr_voc)
+        new_voc = askfloat(master=self.master,
+                           title="Voltage Calibration - basic",
+                           prompt=prompt_str,
+                           initialvalue=curr_voc)
         if new_voc:
             if not self.master.ivs2.battery_bias:
                 # Normal case: just scale v_cal proportionally
@@ -4907,9 +4925,10 @@ ERROR: Isc must be larger than
             tkmsg.showerror(message=err_msg)
             return
         prompt_str = "Enter measured Isc value:"
-        new_isc = tksd.askfloat(title="Current Calibration - basic",
-                                prompt=prompt_str,
-                                initialvalue=curr_isc)
+        new_isc = askfloat(master=self.master,
+                           title="Current Calibration - basic",
+                           prompt=prompt_str,
+                           initialvalue=curr_isc)
         if new_isc:
             adj_ratio = (new_isc - i_cal_b) / (curr_isc - i_cal_b)
             if adj_ratio_is_too_extreme(adj_ratio):
@@ -4949,9 +4968,10 @@ ERROR: Isc must be larger than
         log_user_action(self.master.ivs2.logger, msg)
         curr_irradiance = self.master.ivs2.irradiance
         prompt_str = "Enter measured W/m^2 value:"
-        new_irradiance = tksd.askfloat(title="Pyranometer Calibration",
-                                       prompt=prompt_str,
-                                       initialvalue=curr_irradiance)
+        new_irradiance = askfloat(master=self.master,
+                                  title="Pyranometer Calibration",
+                                  prompt=prompt_str,
+                                  initialvalue=curr_irradiance)
         if new_irradiance:
             pyrano_cal = self.master.ivs2.pyrano_cal
             pyrano_cal_a = self.master.ivs2.pyrano_cal_a
@@ -5236,6 +5256,82 @@ class Dialog(tk.Toplevel):
         # put focus back to the master window
         self.master.focus_set()
         self.destroy()
+
+
+# Query dialog class
+#
+class QueryDialog(Dialog):
+    """Class that is extended from the generic Dialog class as a replacement
+       for the tkSimpleDialog class of a similar name. This class is
+       extended by the QueryFloat and QueryString classes (no
+       QueryInteger is needed yet.) Unlike the tkSimpleDialog class,
+       there is no minimum and/or maximum value checking. Another
+       difference from the tkSimpleDialog class is that the master must
+       be specified.
+    """
+    errormessage = "TBD"
+
+    # Initializer
+    def __init__(self, master, title=None, prompt=None,
+                 initialvalue=None):
+        self.prompt = prompt
+        self.initialvalue = initialvalue
+        self.result = None
+        super().__init__(master=master, title=title, return_ok=True)
+
+    # -------------------------------------------------------------------------
+    def body(self, master):
+
+        label = ttk.Label(master, text=self.prompt, justify=LEFT)
+        label.pack()
+
+        self.entry = ttk.Entry(master)
+        self.entry.pack()
+        self.entry.focus_set()
+
+        if self.initialvalue is not None:
+            self.entry.insert(0, self.initialvalue)
+            self.entry.select_range(0, END)
+
+        return self.entry
+
+    # -------------------------------------------------------------------------
+    def validate(self):
+        try:
+            self.result = self.getresult()
+            return True
+        except ValueError:
+            tkmsg.showwarning("Illegal value",
+                              f"{self.errormessage}\nPlease try again")
+            return False
+
+    # -------------------------------------------------------------------------
+    def getresult(self):
+        """Method to return the result
+        """
+        return "TBD"
+
+
+# Query float class
+#
+class QueryFloat(QueryDialog):
+    """Class that is extended from the QueryDialog class to get a floating
+       point value
+    """
+    errormessage = "Not a floating point value."
+
+    def getresult(self):
+        return float(self.entry.get())
+
+
+# Query string class
+#
+class QueryString(QueryDialog):
+    """Class that is extended from the QueryDialog class to get a floating
+       point value
+    """
+    def getresult(self):
+        return self.entry.get()
 
 
 # Global help dialog class
@@ -10488,9 +10584,10 @@ class LoopRateLimit(ttk.Checkbutton):
         if self.loop_rate_limit.get() == "On":
             curr_loop_delay = self.gui.loop_delay
             prompt_str = "Enter seconds to delay between loops:"
-            new_loop_delay = tksd.askfloat(title="Loop delay",
-                                           prompt=prompt_str,
-                                           initialvalue=curr_loop_delay)
+            new_loop_delay = askfloat(master=self.master.master.master,
+                                      title="Loop delay",
+                                      prompt=prompt_str,
+                                      initialvalue=curr_loop_delay)
             if new_loop_delay:
                 msg = f"Set loop delay to {new_loop_delay}"
                 log_user_action(self.gui.ivs2.logger, msg)
