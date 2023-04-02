@@ -5063,7 +5063,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
         # Generate the date/time string from the current time, delaying
         # if necessary to ensure a minimum one-second interval
-        date_time_str = self.get_dts_with_spin()
+        date_time_str = self.get_dts_with_sleep()
 
         # Create the HDD output directory
         self.create_hdd_output_dir(date_time_str, subdir=subdir)
@@ -5140,24 +5140,22 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         return RC_SUCCESS
 
     # -------------------------------------------------------------------------
-    def get_dts_with_spin(self):
+    def get_dts_with_sleep(self):
         """Method to get the date/time string from the current time, but
            enforce a minimum interval of one second since the previous
-           one by spinning in a loop.
+           one by sleeping if necessary
         """
-        while True:
-            date_time_str = IV_Swinger.DateTimeStr.get_date_time_str()
-            # Spin until one second has passed since the previous
+        seconds_since_prev = time.time() - self.prev_swing_time
+        if seconds_since_prev < 1.0:
+            # Sleep until one second has passed since the previous
             # swing. This not only assures that the date_time_str will
             # be advanced, but a 1-second minimum interval is also
             # assumed by the hardware design (namely the power
             # dissipation of the bleed resistor, Rb.)
-            seconds_since_prev = time.time() - self.prev_swing_time
-            if seconds_since_prev >= 1.0:
-                self.prev_swing_time = time.time()
-                break
+            time.sleep(1.0 - seconds_since_prev)
+        self.prev_swing_time = time.time()
 
-        return date_time_str
+        return IV_Swinger.DateTimeStr.get_date_time_str()
 
     # -------------------------------------------------------------------------
     def swing_battery_calibration_curve(self, gen_graphs=True):
@@ -5519,7 +5517,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """
         # Generate the date/time string from the current time, delaying
         # if necessary to ensure a minimum one-second interval
-        date_time_str = self.get_dts_with_spin()
+        date_time_str = self.get_dts_with_sleep()
 
         # Create the HDD output directory
         self.create_hdd_output_dir(date_time_str)
