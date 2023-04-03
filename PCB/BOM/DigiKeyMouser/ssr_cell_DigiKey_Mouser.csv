@@ -8,7 +8,7 @@ Quantity,Mfg,Mfg Part Number,Digi-Key Part Number,Mouser Part Number,Customer Re
 1,Vishay,AC05000004709JAC00,PPC5W47.0CT-ND,594-AC05W47R00J,RB,Bleed resistor
 1,Ohmite,13FR005E,13FR005E-ND,588-13FR005E,SHUNT,
 1,SMC Diode Solutions,15SQ100TR,1655-1354-1-ND,N/A,45V_DIODE,Bypass diode
-2,Preci-dip,110-87-308-41-001101,1212-1003-ND,437-1108730841001101,DIP_SOCKET,Also available on Amazon list (qty 60)
+2,Preci-dip,110-87-304-41-001101,1212-1003-ND,437-1108730441001101,DIP_SOCKET,Also available on Amazon list (qty 60)
 1,SparkFun Electronics,PRT-11417,1568-1413-ND,474-PRT-11417,A1_A2_A3_A4,Stacking headers
 2,Pomona Electronics,6884,501-1713-ND,565-6884,BINDING POSTS,
 1,Sullins Connector Solutions,PPPC041LFBN-RC,S7037-ND,N/A,FH,Alt: can cut A4 and trim pins
