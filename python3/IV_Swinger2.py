@@ -110,6 +110,20 @@ RC_ISC_TIMEOUT = -7
 RC_NO_POINTS = -8
 RC_SSR_HOT = -9
 RC_PV_MODEL_FAILURE = -10
+RC_USB_DISCONNECTED = -11
+RC_NAMES = {}
+RC_NAMES[RC_SUCCESS] = "RC_SUCCESS"
+RC_NAMES[RC_FAILURE] = "RC_FAILURE"
+RC_NAMES[RC_BAUD_MISMATCH] = "RC_BAUD_MISMATCH"
+RC_NAMES[RC_TIMEOUT] = "RC_TIMEOUT"
+RC_NAMES[RC_SERIAL_EXCEPTION] = "RC_SERIAL_EXCEPTION"
+RC_NAMES[RC_ZERO_VOC] = "RC_ZERO_VOC"
+RC_NAMES[RC_ZERO_ISC] = "RC_ZERO_ISC"
+RC_NAMES[RC_ISC_TIMEOUT] = "RC_ISC_TIMEOUT"
+RC_NAMES[RC_NO_POINTS] = "RC_NO_POINTS"
+RC_NAMES[RC_SSR_HOT] = "RC_SSR_HOT"
+RC_NAMES[RC_PV_MODEL_FAILURE] = "RC_PV_MODEL_FAILURE"
+RC_NAMES[RC_USB_DISCONNECTED] = "RC_USB_DISCONNECTED"
 CFG_STRING = 0
 CFG_FLOAT = 1
 CFG_INT = 2
@@ -3339,6 +3353,33 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """
         return self.bandgap_total_adc / self.bandgap_iterations
 
+    # ---------------------------------
+    @property
+    def mpp_amps(self):
+        """MPP current in amps
+        """
+        if self.ivp is not None:
+            return self.ivp.csv_proc.plt_mpp_amps[0]
+        return "Unknown"
+
+    # ---------------------------------
+    @property
+    def mpp_volts(self):
+        """MPP voltage in volts
+        """
+        if self.ivp is not None:
+            return self.ivp.csv_proc.plt_mpp_volts[0]
+        return "Unknown"
+
+    # ---------------------------------
+    @property
+    def mpp_watts(self):
+        """MPP power in watts
+        """
+        if self.ivp is not None:
+            return self.mpp_amps * self.mpp_volts
+        return "Unknown"
+
     # -------------------------------------------------------------------------
     def find_serial_ports(self):
         """Method to find the serial ports on this computer
@@ -3409,7 +3450,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """
         # Return failure if the USB port is disconnected
         if self.usb_port_disconnected():
-            return RC_FAILURE
+            return RC_USB_DISCONNECTED
 
         self.close_usb()  # First close port if it is already open
         self.logger.log(f"Resetting Arduino on port {self.usb_port}")

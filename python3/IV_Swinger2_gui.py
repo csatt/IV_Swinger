@@ -6,7 +6,7 @@
 #
 # IV_Swinger2_gui.py: IV Swinger 2 GUI application module
 #
-# Copyright (C) 2017-2021  Chris Satterlee
+# Copyright (C) 2017-2023  Chris Satterlee
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -106,6 +106,8 @@ from tkinter.constants import N, S, E, W, LEFT, RIGHT, HORIZONTAL, Y, BOTH, END
 import traceback
 from inspect import currentframe, getframeinfo
 from configparser import NoOptionError
+import random
+import zmq
 from send2trash import send2trash
 from PIL import Image, ImageTk
 from Tooltip import Tooltip
@@ -135,6 +137,8 @@ RC_ISC_TIMEOUT = IV_Swinger2.RC_ISC_TIMEOUT
 RC_NO_POINTS = IV_Swinger2.RC_NO_POINTS
 RC_SSR_HOT = IV_Swinger2.RC_SSR_HOT
 RC_PV_MODEL_FAILURE = IV_Swinger2.RC_PV_MODEL_FAILURE
+RC_USB_DISCONNECTED = IV_Swinger2.RC_USB_DISCONNECTED
+RC_NAMES = IV_Swinger2.RC_NAMES
 CFG_STRING = IV_Swinger2.CFG_STRING
 CFG_FLOAT = IV_Swinger2.CFG_FLOAT
 CFG_INT = IV_Swinger2.CFG_INT
@@ -213,6 +217,8 @@ SPI_COMBO_VALS = {SPI_CLOCK_DIV2: "DIV2 (8 MHz)",
 SPI_COMBO_VALS_INV = {v: k for k, v in list(SPI_COMBO_VALS.items())}
 DGS = '\N{DEGREE SIGN}'
 SQD = '\xb2'
+BASE_DEFAULT_RCMD_PORT = 5100
+DEFAULT_RCMD_POLL_MS = 100
 
 # Default plotting config
 FANCY_LABELS_DEFAULT = "Fancy"
@@ -224,6 +230,7 @@ COMB_DUPV_PTS_DEFAULT = "On"
 REDUCE_NOISE_DEFAULT = "On"
 FIX_OVERSHOOT_DEFAULT = "On"
 BATTERY_BIAS_DEFAULT = "Off"
+
 # Debug constants
 DEBUG_MEMLEAK = False
 
@@ -499,7 +506,7 @@ class GraphicalUserInterface(ttk.Frame):
         else:
             self.main_gui = main_gui
         self.root = tk.Toplevel() if instance else tk.Tk()
-        self.set_root_options(instance)
+        self.set_root_options()
         super().__init__(self.root)
         self.win_sys = self.root.tk.call("tk", "windowingsystem")
         self.memory_monitor()
@@ -507,7 +514,7 @@ class GraphicalUserInterface(ttk.Frame):
             IV_Swinger2.get_default_app_data_dir()
         self.check_app_data_dir(self.app_data_dir)
         self.app_dir = get_app_dir()
-        if self.instance:
+        if self.instance is not None:
             self.app_data_dir = os.path.join(self.app_data_dir,
                                              "inst", self.instance)
             self.ivs2 = IV_Swinger2.IV_Swinger2(self.app_data_dir, None,
@@ -540,7 +547,11 @@ class GraphicalUserInterface(ttk.Frame):
         self.stop_button = None
         self.swing_loop_id = None
         self.v_range_entry = None
+        self.rcmd_port_label = None
         self.version_label = None
+        self.zmq_context = None
+        self.zmq_socket = None
+        self.rcmd_monitor_id = None
         self.get_version()
         self.set_grid()
         self.config = Configuration(gui=self)
@@ -552,6 +563,8 @@ class GraphicalUserInterface(ttk.Frame):
         self.ivs2.log_initial_debug_info()
         self.log_tcl_tk_version()
         self.usb_monitor()
+        if self.rcmd_enabled:
+            self.rcmd_monitor()
 
     # Properties
     # ---------------------------------
@@ -644,6 +657,47 @@ class GraphicalUserInterface(ttk.Frame):
         if value not in set([True, False]):
             raise ValueError("loop_save_graphs must be boolean")
         self._loop_save_graphs = value
+
+    # ---------------------------------
+    @property
+    def rcmd_enabled(self):
+        """True if remote commands should be enabled, false otherwise
+        """
+        return self._rcmd_enabled
+
+    @rcmd_enabled.setter
+    def rcmd_enabled(self, value):
+        if value not in set([True, False]):
+            raise ValueError("rcmd_enabled must be boolean")
+        self._rcmd_enabled = value
+
+    # ---------------------------------
+    @property
+    def rcmd_port(self):
+        """Port number for remote command socket
+        """
+        return self._rcmd_port
+
+    @rcmd_port.setter
+    def rcmd_port(self, value):
+        if not isinstance(value, int) or value < 1:
+            raise ValueError("rcmd_port must be positive integer")
+        self._rcmd_port = value
+
+    # ---------------------------------
+    @property
+    def rcmd_poll_ms(self):
+        """Interval in milliseconds for remote command polling
+        """
+        return self._rcmd_poll_ms
+
+    @rcmd_poll_ms.setter
+    def rcmd_poll_ms(self, value):
+        if not isinstance(value, int):
+            raise ValueError("rcmd_poll_ms must be in integer")
+        if value < 1:
+            raise ValueError("rcmd_poll_ms must be greater than 0")
+        self._rcmd_poll_ms = value
 
     # ---------------------------------
     @property
@@ -884,6 +938,9 @@ Or use "View Log File" on the "File" menu.
         self._loop_delay = 0
         self._loop_save_results = False
         self._loop_save_graphs = False
+        self._rcmd_enabled = False
+        self._rcmd_port = self.get_default_rcmd_port()
+        self._rcmd_poll_ms = DEFAULT_RCMD_POLL_MS
         self._suppress_cfg_file_copy = False
         self._overlay_names = {}
         self._overlay_dir = None
@@ -920,7 +977,25 @@ This could be for one of the following reasons:
     correct one for this IV curve
   - The PV model parameters are not correct
 """
+        self.usb_disconnected_str = """
+ERROR: USB port is not connected to IV Swinger 2
+"""
         self.tcl_tk_version = tk.Tcl().eval("info patchlevel")
+
+    # -------------------------------------------------------------------------
+    def get_default_rcmd_port(self):
+        """Method to get the default remote command port number
+        """
+        if self.main_gui is self:
+            # Default for main GUI is the base default port
+            return BASE_DEFAULT_RCMD_PORT
+
+        # Default for instance GUIs is the base default port plus a
+        # random offset between 1 and 4000 (seeded by the instance name
+        # so it is deterministic)
+        random.seed(self.instance)
+        offset = random.randrange(1, 4000)
+        return BASE_DEFAULT_RCMD_PORT + offset
 
     # -------------------------------------------------------------------------
     def get_adc_pairs_from_csv(self, adc_csv_file):
@@ -931,7 +1006,7 @@ This could be for one of the following reasons:
         return self.ivs2.read_adc_pairs_from_csv_file(adc_csv_file)
 
     # -------------------------------------------------------------------------
-    def set_root_options(self, instance):
+    def set_root_options(self):
         """Method to set options for the root Tk object"""
         # Override tkinter's report_callback_exception method
         self.root.report_callback_exception = self.report_callback_exception
@@ -940,7 +1015,7 @@ This could be for one of the following reasons:
         # No dotted line in menus
         self.root.option_add("*tearOff", False)
         # Add title and titlebar icon (Windows)
-        title_ext = f"  [{instance}]" if instance else ""
+        title_ext = f"  [{self.instance}]" if self.instance is not None else ""
         self.root.title(f"IV Swinger 2{title_ext}")
         if sys.platform == "win32" and os.path.exists(TITLEBAR_ICON):
             self.root.tk.call("wm", "iconbitmap",
@@ -1078,6 +1153,11 @@ This could be for one of the following reasons:
         self.grid_args["img_size_combo"] = {"column": column,
                                             "row": row,
                                             "sticky": (W)}
+        rcmd_port_col = column + 1
+        remaining_cols = total_cols - rcmd_port_col
+        self.grid_args["rcmd_port_label"] = {"column": rcmd_port_col,
+                                             "row": row,
+                                             "columnspan": remaining_cols}
         self.grid_args["version_label"] = {"column": total_cols,
                                            "row": row,
                                            "sticky": (E)}
@@ -1110,6 +1190,7 @@ This could be for one of the following reasons:
                                                   "columnspan": remaining_cols}
         # Create them
         self.create_img_size_combo()
+        self.create_rcmd_port_label()
         self.create_version_label()
         self.create_img_pane()
         self.create_prefs_results_button_box()
@@ -1139,6 +1220,24 @@ This could be for one of the following reasons:
         self.img_size_combo.bind("<Return>", self.update_img_size)
         self.img_size_combo.grid(**self.grid_args["img_size_combo"])
         self.update_idletasks()
+
+    # -------------------------------------------------------------------------
+    def get_rcmd_port_label_text(self):
+        """Method to return the text for the remote command port label
+        """
+        rcmd_port_text = ""
+        if self.rcmd_enabled:
+            rcmd_port_text += (f"Remote Command Port: "
+                               f"{self.rcmd_port}")
+        return rcmd_port_text
+
+    # -------------------------------------------------------------------------
+    def create_rcmd_port_label(self):
+        """Method to create the remote command port label
+        """
+        rcmd_port_text = self.get_rcmd_port_label_text()
+        self.rcmd_port_label = ttk.Label(master=self, text=rcmd_port_text)
+        self.rcmd_port_label.grid(**self.grid_args["rcmd_port_label"])
 
     # -------------------------------------------------------------------------
     def create_version_label(self):
@@ -1960,7 +2059,117 @@ This could be for one of the following reasons:
         self.after(500, self.usb_monitor)
 
     # -------------------------------------------------------------------------
-    def swing_loop(self, loop_mode=False, first_loop=False):
+    def rcmd_monitor(self):
+        """Method that monitors for remote commands from a client and executes
+           them when received. This uses ZMQ (aka ZeroMQ, 0MQ) and is
+           the server in a REQ/REP pattern. The client also must use ZMQ
+           (in any supported programming language.) The Tkinter
+           mainloop() needs to keep running or the GUI will become
+           unresponsive, so we need to use polling instead of a blocking
+           call to receive each message. This method runs every
+           rcmd_poll_ms (default 100) milliseconds. Each time it does,
+           the message queue is checked for entries (with socket.poll).
+           If the queue is empty, nothing is done and the next iteration
+           is scheduled. If the message queue contains a message, the
+           message is processed and the reply is sent before scheduling
+           the next iteration of the monitor.
+        """
+        # First iteration only: create the ZMQ context and REP-type
+        # socket, bind the socket to the designated port (use TCP for
+        # transport), and display the port number at the top of the GUI.
+        if self.zmq_context is None:
+            self.zmq_context = zmq.Context()
+            self.zmq_socket = self.zmq_context.socket(zmq.REP)
+            self.zmq_socket.bind(F"tcp://*:{self.rcmd_port}")
+            self.rcmd_port_label["text"] = self.get_rcmd_port_label_text()
+
+        # Check socket message queue for a client request. The timeout=0
+        # parameter means socket.poll only "polls" once for a message
+        # (returning zmq.POLLIN if one is present and 0 if not.)  The
+        # polling is actually done with the "after" scheduling. If a
+        # message is present, it is logged and processed.
+        if self.zmq_socket.poll(timeout=0) == zmq.POLLIN:
+            message = self.zmq_socket.recv_string()
+            log_msg = f"Received remote command: {message}"
+            self.ivs2.logger.log(log_msg)
+
+            # Process the command (sends reply)
+            self.process_rcmd(message)
+
+        # Schedule next iteration
+        self.rcmd_monitor_id = self.after(self.rcmd_poll_ms,
+                                          self.rcmd_monitor)
+
+    # -------------------------------------------------------------------------
+    def cancel_rcmd_monitor(self):
+        """Method that cancels the remote command monitor polling. It also
+           closes the ZMQ socket, terminates the ZQM context, and clears
+           the port number label at the top of the GUI.
+        """
+        if self.rcmd_monitor_id is not None:
+            self.after_cancel(self.rcmd_monitor_id)
+            self.rcmd_monitor_id = None
+        if self.zmq_context is not None:
+            self.zmq_socket.close()
+            self.zmq_context.term()
+            self.zmq_socket = None
+            self.zmq_context = None
+        # Clear port number at top of GUI
+        self.rcmd_port_label["text"] = self.get_rcmd_port_label_text()
+
+    # -------------------------------------------------------------------------
+    def process_rcmd(self, message):
+        """Method that processes a received remote command. This includes
+           parsing the message, executing the command, and sending the
+           reply.
+        """
+        # Extract the command name (everything before the first
+        # semicolon or the EOM)
+        command = message.split(";")[0]
+
+        # Currently the only supported command is "Swing"
+        if command in ("Swing", "swing"):
+            self.execute_swing_rcmd()
+        else:
+            self.send_rcmd_reply(f"ERROR: unsupported command '{command}'")
+
+    # -------------------------------------------------------------------------
+    def execute_swing_rcmd(self):
+        """Method that executes the "Swing" remote command and sends the reply
+           to the requester
+        """
+        # Execute the command
+        rc = self.swing_loop(remote=True)
+
+        # Construct reply string
+        if rc == RC_SUCCESS:
+            csv = self.ivs2.hdd_csv_data_point_filename
+            (voc_volts, isc_amps) = self.ivs2.get_measured_voc_and_isc(csv)
+            mpp_watts = self.ivs2.mpp_watts
+            mpp_volts = self.ivs2.mpp_volts
+            mpp_amps = self.ivs2.mpp_amps
+            reply = (f"SUCCESS; "
+                     f"Isc = {isc_amps:.6f} A, "
+                     f"Voc = {voc_volts:.6f} V, "
+                     f"MPP = {mpp_watts:.6f} W "
+                     f"({mpp_volts:.6f} V * {mpp_amps:.6f} A);"
+                     f"{self.ivs2.hdd_output_dir}")
+        else:
+            reply = f"ERROR;rc={RC_NAMES[rc]}"
+
+        # Send reply back to requester
+        self.send_rcmd_reply(reply)
+
+    # -------------------------------------------------------------------------
+    def send_rcmd_reply(self, reply):
+        """Method that sends the reply to a remote command
+        """
+        log_msg = f"Sending reply to remote: {reply}"
+        self.ivs2.logger.log(log_msg)
+        self.zmq_socket.send_string(f"{reply}")
+
+    # -------------------------------------------------------------------------
+    def swing_loop(self, loop_mode=False, first_loop=False, remote=False):
         """Method that invokes the IVS2 object method to swing the IV curve,
            and then displays the generated GIF in the image pane. In
            loop mode it ends by scheduling another call of itself after
@@ -1969,6 +2178,7 @@ This could be for one of the following reasons:
            This is essential in order for the GUI not to lock up.
         """
         # pylint: disable=too-many-statements
+        # pylint: disable=too-many-branches
         def show_error_dialog_clean_up_and_return(rc):
             """Local function to show an error dialog and clean up after a
                failure
@@ -2056,6 +2266,12 @@ This could be for one of the following reasons:
             # after displaying the error message on the screen
             self.display_screen_err_msg(rc)
             self.ivs2.clean_up_after_failure(self.ivs2.hdd_output_dir)
+        elif remote:
+            # Similar if invoked as a remote command, except return rc
+            # for all errors
+            self.display_screen_err_msg(rc)
+            self.ivs2.clean_up_after_failure(self.ivs2.hdd_output_dir)
+            return rc
         else:
             # Otherwise return without generating graphs if it failed,
             # displaying reason in a dialog
@@ -2103,9 +2319,11 @@ This could be for one of the following reasons:
     # -------------------------------------------------------------------------
     def display_screen_err_msg(self, rc):
         """Method to display an error message in the image pane. This is used
-           for non-fatal errors that are detected while looping, when
-           the stop-on-error option is not enabled.
+           for non-fatal errors that are detected while looping when
+           the stop-on-error option is not enabled. It is also used for
+           all errors when the swing is initiated by remote command.
         """
+        # pylint: disable=too-many-branches
         dts = IV_Swinger2.extract_date_time_str(self.ivs2.hdd_output_dir)
         xlated = IV_Swinger2.xlate_date_time_str(dts)
         (xlated_date, xlated_time) = xlated
@@ -2117,8 +2335,13 @@ This could be for one of the following reasons:
             screen_msg += self.isc_timeout_str
         elif rc == RC_ZERO_VOC:
             screen_msg += self.zero_voc_str
-        else:
+        elif rc == RC_ZERO_ISC:
             screen_msg += self.zero_isc_str
+        elif rc == RC_USB_DISCONNECTED:
+            screen_msg += self.usb_disconnected_str
+        else:
+            screen_msg += "Return code from swing_curve(): \n"
+            screen_msg += f"  {RC_NAMES[rc]}"
         self.img_pane.display_error_img(screen_msg)
         self.img_pane.splash_img_showing = True  # Hack
         self.update_idletasks()
@@ -2232,7 +2455,7 @@ This could be for one of the following reasons:
         x_offset = (self.root.winfo_screenwidth()//2 -
                     self.ivs2.x_pixels//2)
         y_offset = 5
-        if self.instance:
+        if self.instance is not None:
             # Tile instance GUIs to the right and down
             tile_offset = 50 * (len(self.main_gui.instance_gui) + 1)
             x_offset += tile_offset
@@ -2246,7 +2469,7 @@ This could be for one of the following reasons:
         """
         pixels_to_right = 20
         y_offset = 5
-        if self.instance:
+        if self.instance is not None:
             # Tile instance GUIs to the left and down
             tile_offset = 50 * (len(self.main_gui.instance_gui) + 1)
             pixels_to_right += tile_offset
@@ -2262,7 +2485,7 @@ This could be for one of the following reasons:
         """
         x_offset = 20
         y_offset = 5
-        if self.instance:
+        if self.instance is not None:
             # Tile instance GUIs to the right and down
             tile_offset = 50 * (len(self.main_gui.instance_gui) + 1)
             x_offset += tile_offset
@@ -2304,7 +2527,7 @@ This could be for one of the following reasons:
         num_subs = log_str.count('\n- ')
         if num_subs > 5:
             msg_str = ""
-            if self.instance:
+            if self.instance is not None:
                 msg_str += f"Instance {self.instance}\n\n"
             msg_str += "WARNING: More than 5 changes to config file\n\n"
             msg_str += "--------------------------\n"
@@ -2324,12 +2547,13 @@ This could be for one of the following reasons:
 
         # Add newline to end of log file
         self.ivs2.logger.terminate_log()
+        # Close the instance USB port and remove the instance GUI
+        if self.instance is not None:
+            self.ivs2.close_usb()
+            self.cancel_rcmd_monitor()
+            del self.main_gui.instance_gui[self.instance]
         # Close the app (or instance window)
         self.root.destroy()
-        # Close the instance USB port and remove the instance GUI
-        if self.instance:
-            self.main_gui.instance_gui[self.instance].ivs2.close_usb()
-            del self.main_gui.instance_gui[self.instance]
 
     # -------------------------------------------------------------------------
     def unlock_axes(self):
@@ -2351,7 +2575,7 @@ This could be for one of the following reasons:
             self.after(100, self.attempt_arduino_handshake)
         self.start_on_top()
         self.root.protocol("WM_DELETE_WINDOW", self.close_gui)
-        if not self.instance:
+        if self.instance is None:
             self.root.mainloop()
 
 
@@ -2359,7 +2583,7 @@ This could be for one of the following reasons:
 #
 class Configuration(IV_Swinger2.Configuration):
     """Class that extends the IV_Swinger2 Configuration class to add the
-       looping configuration values
+       looping and remote command configuration values
     """
 
     # Initializer
@@ -2378,6 +2602,10 @@ class Configuration(IV_Swinger2.Configuration):
         # Looping section
         if self.cfg.has_section("Looping"):
             self.apply_looping()
+
+        # Remote command section
+        if self.cfg.has_section("Remote Command"):
+            self.apply_rcmd()
 
     # -------------------------------------------------------------------------
     def apply_looping(self):
@@ -2422,6 +2650,25 @@ class Configuration(IV_Swinger2.Configuration):
             self.gui.loop_save_graphs = self.apply_one(*args)
 
     # -------------------------------------------------------------------------
+    def apply_rcmd(self):
+        """Method to apply the Remote Command section options read from the
+           .cfg file to the associated object properties
+        """
+        section = "Remote Command"
+
+        # Enabled
+        args = (section, "enabled", CFG_BOOLEAN, self.gui.rcmd_enabled)
+        self.gui.rcmd_enabled = self.apply_one(*args)
+
+        # Port
+        args = (section, "port", CFG_INT, self.gui.rcmd_port)
+        self.gui.rcmd_port = self.apply_one(*args)
+
+        # Polling interval (milliseconds)
+        args = (section, "poll ms", CFG_INT, self.gui.rcmd_poll_ms)
+        self.gui.rcmd_poll_ms = self.apply_one(*args)
+
+    # -------------------------------------------------------------------------
     def populate(self):
         """Method that is an extension of the parent class method
         """
@@ -2439,6 +2686,13 @@ class Configuration(IV_Swinger2.Configuration):
         self.cfg_set(section, "save results", self.gui.loop_save_results)
         self.cfg_set(section, "save graphs", self.gui.loop_save_graphs)
 
+        # Add remote command config
+        section = "Remote Command"
+        self.cfg.add_section(section)
+        self.cfg_set(section, "enabled", self.gui.rcmd_enabled)
+        self.cfg_set(section, "port", self.gui.rcmd_port)
+        self.cfg_set(section, "poll ms", self.gui.rcmd_poll_ms)
+
     # -------------------------------------------------------------------------
     def get(self):
         """Method that is an extension of the parent class method
@@ -2446,8 +2700,10 @@ class Configuration(IV_Swinger2.Configuration):
         # Call parent method
         super().get()
 
-        # If config doesn't include looping section, re-populate it
-        if not self.cfg.has_section("Looping"):
+        # If config doesn't include looping or remote command section,
+        # re-populate it
+        if (not self.cfg.has_section("Looping") or
+                not self.cfg.has_section("Remote Command")):
             self.populate()
 
 
@@ -4682,7 +4938,7 @@ and software can be found at:
 
    https://github.com/csatt/IV_Swinger
 
-Copyright (C) 2017-2021  Chris Satterlee
+Copyright (C) 2017-2023  Chris Satterlee
 """
         sketch_ver = self.master.ivs2.arduino_sketch_ver
         sketch_ver_str = ""
@@ -7394,6 +7650,9 @@ class PreferencesDialog(Dialog):
         self.use_est_temp = tk.StringVar()
         self.use_avg_temp = tk.StringVar()
         self.cell_temp_adj = tk.StringVar()
+        self.enable_rcmd = tk.StringVar()
+        self.port_number_str = tk.StringVar()
+        self.poll_ms_str = tk.StringVar()
         self.pv_model_listbox = None
         self.pv_specs = None
         self.selected_pv = "NONE"
@@ -7412,6 +7671,9 @@ class PreferencesDialog(Dialog):
         self.pv_model_vars = None
         self.curr_pv_model_var_vals = None
         self.prev_pv_model_var_vals = None
+        self.rcmd_vars = None
+        self.curr_rcmd_var_vals = None
+        self.prev_rcmd_var_vals = None
         title = f"{APP_NAME} Preferences"
         super().__init__(master=master, title=title,
                          logger=self.master.ivs2.logger)
@@ -7425,14 +7687,17 @@ class PreferencesDialog(Dialog):
         self.looping_tab = ttk.Frame(self.nb)
         self.arduino_tab = ttk.Frame(self.nb)
         self.pv_model_tab = ttk.Frame(self.nb)
+        self.rcmd_tab = ttk.Frame(self.nb)
         self.nb.add(self.plotting_tab, text="Plotting")
         self.nb.add(self.looping_tab, text="Looping")
         self.nb.add(self.arduino_tab, text="Arduino")
         self.nb.add(self.pv_model_tab, text="PV Model")
+        self.nb.add(self.rcmd_tab, text="Remote Command")
         self.populate_plotting_tab()
         self.populate_looping_tab()
         self.populate_arduino_tab()
         self.populate_pv_model_tab()
+        self.populate_rcmd_tab()
         self.nb.pack()
 
     # -------------------------------------------------------------------------
@@ -9279,6 +9544,142 @@ it and then edit the parameter values.
         self.after(100, self.update_pv_test_button_state)
 
     # -------------------------------------------------------------------------
+    def populate_rcmd_tab(self):
+        """Method to add widgets to the Remote Command tab"""
+        # pylint: disable=too-many-locals
+        # pylint: disable=too-many-statements
+        def log_enable_disable_rcmd():
+            """Local function to log user change of enable checkbutton"""
+            checked = (self.enable_rcmd.get() == "Enabled")
+            msg = (f"(Preferences, Remote Command) "
+                   f"{'checked' if checked else 'unchecked'} "
+                   f"Enable Remote Commands button")
+            log_user_action(self.master.ivs2.logger, msg)
+
+        # Add container box for widgets
+        rcmd_widget_box = ttk.Frame(master=self.rcmd_tab,
+                                    padding=20)
+
+        # Add checkbutton to enable remote command polling
+        enable_cb_text = "Enable Remote Commands"
+        enable_cb = ttk.Checkbutton(master=rcmd_widget_box,
+                                    text=enable_cb_text,
+                                    command=log_enable_disable_rcmd,
+                                    variable=self.enable_rcmd,
+                                    onvalue="Enabled",
+                                    offvalue="Disabled")
+        self.enable_rcmd.set("Disabled")
+        if self.master.rcmd_enabled:
+            self.enable_rcmd.set("Enabled")
+
+        # Add label and entry box to specify the port number
+        port_number_label = ttk.Label(master=rcmd_widget_box,
+                                      text="Port number:")
+        port_number_entry = ttk.Entry(master=rcmd_widget_box,
+                                      width=8,
+                                      textvariable=self.port_number_str)
+        port_number = self.master.config.cfg.getint("Remote Command", "port")
+        self.port_number_str.set(port_number)
+
+        # Add label and entry box to specify the polling interval
+        poll_ms_label = ttk.Label(master=rcmd_widget_box,
+                                  text="Polling interval (ms):")
+        poll_ms_entry = ttk.Entry(master=rcmd_widget_box,
+                                  width=8,
+                                  textvariable=self.poll_ms_str)
+        poll_ms = self.master.config.cfg.getint("Remote Command", "poll ms")
+        self.poll_ms_str.set(poll_ms)
+
+        # Add Restore Defaults button in its own container box
+        rcmd_restore_box = ttk.Frame(master=self.rcmd_tab,
+                                     padding=10)
+        rcmd_restore = ttk.Button(rcmd_restore_box,
+                                  text="Restore Defaults",
+                                  command=self.restore_rcmd_defaults)
+
+        # Add Help button in its own container box
+        rcmd_help_box = ttk.Frame(master=self.rcmd_tab, padding=10)
+        rcmd_help = ttk.Button(rcmd_help_box,
+                               text="Help", width=8,
+                               command=self.show_rcmd_help)
+
+        # Layout
+        pady = 8
+        row = 0
+        rcmd_widget_box.grid(column=0, row=0, sticky=W)
+        enable_cb.grid(column=0, row=row, sticky=W)
+        row = 1
+        port_number_label.grid(column=0, row=row, sticky=W, pady=pady)
+        port_number_entry.grid(column=1, row=row, pady=pady)
+        row = 2
+        poll_ms_label.grid(column=0, row=row, sticky=W, pady=pady)
+        poll_ms_entry.grid(column=1, row=row, pady=pady)
+        row = 3
+        rcmd_help_box.grid(column=0, row=row, sticky=W, pady=pady,
+                           columnspan=2)
+        rcmd_help.grid(column=0, row=0, sticky=W)
+        rcmd_restore_box.grid(column=2, row=row, sticky=W, pady=pady,
+                              columnspan=2)
+        rcmd_restore.grid(column=0, row=0, sticky=W)
+
+        self.fill_rcmd_vars_dict()
+        self.capture_curr_rcmd_vars()
+        self.prev_rcmd_var_vals = dict(self.curr_rcmd_var_vals)
+
+    # -------------------------------------------------------------------------
+    def restore_rcmd_defaults(self, event=None):
+        """Method to restore Remote Command tab values to defaults"""
+        # pylint: disable=unused-argument
+        msg = "(Preferences, Remote Command) clicked Restore Defaults button"
+        log_user_action(self.master.ivs2.logger, msg)
+        self.enable_rcmd.set("Disabled")
+        self.port_number_str.set(str(self.master.get_default_rcmd_port()))
+        self.poll_ms_str.set(str(DEFAULT_RCMD_POLL_MS))
+
+    # -------------------------------------------------------------------------
+    def show_rcmd_help(self):
+        """Method to display Remote Command tab help"""
+        msg = "(Preferences, Remote Command) clicked Help button"
+        log_user_action(self.master.ivs2.logger, msg)
+        RcmdHelpDialog(self.master)
+
+    # -------------------------------------------------------------------------
+    def fill_rcmd_vars_dict(self):
+        """Method to fill the rcmd_vars dict with the remote command
+           variables.
+        """
+        self.rcmd_vars = {}
+        name = "Enable Remote Commands"
+        self.rcmd_vars[name] = self.enable_rcmd
+        name = "Port number"
+        self.rcmd_vars[name] = self.port_number_str
+        name = "Polling interval (ms)"
+        self.rcmd_vars[name] = self.poll_ms_str
+
+    # -------------------------------------------------------------------------
+    def capture_curr_rcmd_vars(self):
+        """Method to capture the current values of all of the Remote Command
+           tab variables
+        """
+        self.curr_rcmd_var_vals = {}
+        for name in self.rcmd_vars:
+            self.curr_rcmd_var_vals[name] = self.rcmd_vars[name].get()
+
+    # -------------------------------------------------------------------------
+    def diff_rcmd_vars(self):
+        """Method to compare the current values of all of the Remote Command
+           tab variables with the captured values and log the user action.
+        """
+        self.capture_curr_rcmd_vars()
+        for name in self.rcmd_vars:
+            prev = self.prev_rcmd_var_vals[name]
+            curr = self.curr_rcmd_var_vals[name]
+            if prev != curr:
+                msg = (f"(Preferences, Remote Command) changed {name} "
+                       f"from {prev} to {curr}")
+                log_user_action(self.master.ivs2.logger, msg)
+
+    # -------------------------------------------------------------------------
     def immediate_apply(self, event=None):
         """Method to apply configuration immediately"""
         try:
@@ -9412,9 +9813,6 @@ it and then edit the parameter values.
             if aspect_width > MAX_ASPECT:
                 err_str += (f"\n  Aspect width must be no more than "
                             f"{MAX_ASPECT}")
-        if len(err_str) > len("ERROR:"):
-            tkmsg.showerror(message=err_str)
-            return False
 
         # ------------------------ PV Model --------------------------
         # Call the pv_spec_update_actions() method (which calls the
@@ -9423,7 +9821,20 @@ it and then edit the parameter values.
         if rc != RC_SUCCESS:
             return False
 
+        # ------------------------ Remote Command --------------------------
+        try:
+            port_number = int(self.port_number_str.get())
+            poll_ms = int(self.poll_ms_str.get())
+        except ValueError:
+            err_str += "\n  All fields must be integers"
+        else:
+            if port_number <= 0 or poll_ms <= 0:
+                err_str += "\n  All fields must be positive integers"
+
         # If none of the checks above failed, return True
+        if len(err_str) > len("ERROR:"):
+            tkmsg.showerror(message=err_str)
+            return False
         return True
 
     # -------------------------------------------------------------------------
@@ -9481,8 +9892,10 @@ it and then edit the parameter values.
         # Diffs for user action logging
         self.diff_plotting_vars()
         self.diff_arduino_vars()
+        self.diff_rcmd_vars()
         self.prev_plotting_var_vals = dict(self.curr_plotting_var_vals)
         self.prev_arduino_var_vals = dict(self.curr_arduino_var_vals)
+        self.prev_rcmd_var_vals = dict(self.curr_rcmd_var_vals)
 
         # Don't apply changes if validation fails
         if not self.validate():
@@ -9493,6 +9906,7 @@ it and then edit the parameter values.
         self.looping_apply()
         self.arduino_apply()
         self.pv_model_apply()
+        self.rcmd_apply()
 
     # -------------------------------------------------------------------------
     def plotting_apply(self):
@@ -9750,6 +10164,45 @@ written to Arduino EEPROM.
             for pv_spec_dict in self.pv_specs:
                 add_pv_spec(pv_spec_csv_file,
                             pv_spec_from_dict(pv_spec_dict))
+
+    # -------------------------------------------------------------------------
+    def rcmd_apply(self):
+        """Method to apply remote command config"""
+        section = "Remote Command"
+        if self.master.config.cfg.has_section(section):
+            rcmd_opt_changed = False
+            # Enabled
+            option = "enabled"
+            rcmd_enabled = (self.enable_rcmd.get() == "Enabled")
+            if (rcmd_enabled != self.master.config.cfg.getboolean(section,
+                                                                  option)):
+                self.master.config.cfg_set(section, option, rcmd_enabled)
+                self.master.rcmd_enabled = rcmd_enabled
+                if rcmd_enabled:
+                    # Start the remote command monitor
+                    self.master.rcmd_monitor()
+                else:
+                    # Stop the remote command monitor
+                    self.master.cancel_rcmd_monitor()
+                rcmd_opt_changed = True
+            # Port
+            option = "port"
+            port_number = int(self.port_number_str.get())
+            if port_number != self.master.config.cfg.getint(section, option):
+                self.master.config.cfg_set(section, option, port_number)
+                self.master.rcmd_port = port_number
+                rcmd_opt_changed = True
+            # Poll ms
+            option = "poll ms"
+            poll_ms = int(self.poll_ms_str.get())
+            if poll_ms != self.master.config.cfg.getint(section, option):
+                self.master.config.cfg_set(section, option, poll_ms)
+                self.master.rcmd_poll_ms = poll_ms
+                rcmd_opt_changed = True
+
+            if rcmd_opt_changed:
+                # Save config
+                self.master.save_config()
 
 
 # Plotting properties class
@@ -10298,6 +10751,67 @@ an overlay after it is finalized.
         self.text.insert("end", help_text_4, ("body_tag"))
         self.text.insert("end", help_heading_5, ("heading_tag"))
         self.text.insert("end", help_text_5, ("body_tag"))
+        self.text.pack(fill=BOTH, expand=True)
+
+
+# Remote command help dialog class
+#
+class RcmdHelpDialog(Dialog):
+    """Class that is extended from the generic Dialog class and is used for
+       the Remote Command Help dialog
+    """
+    # Initializer
+    def __init__(self, master=None):
+        title = "Remote Command Help"
+        super().__init__(master=master, title=title,
+                         has_cancel_button=False, return_ok=True,
+                         parent_is_modal=True,
+                         resizable=True,
+                         min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
+                         max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
+
+    # -------------------------------------------------------------------------
+    def body(self, master):
+        """Method to create the dialog body, which is just a Text widget"""
+        help_text_1 = """
+The remote command feature allows external client programs (running on
+the same computer or on a different computer) to send commands to the IV
+Swinger 2 application. A received command is executed and a reply is
+sent back to the requester. This uses the ZeroMQ messaging library,
+which the client program must also use. Please see the IV Swinger 2 User
+Guide for details and examples.
+
+Note that if the "instances" feature is used, each instance is
+configured independently and can receive and execute remote commands
+concurrently with the other instances.
+
+The Remote Command tab in Preferences has three controls:
+
+Enable Remote Commands:
+  When checked, the remote command monitor will start when the OK button
+  is clicked. Like other preferences, this is preserved across runs,
+  i.e. the next time the app (or instance) is run, it will come up
+  monitoring for remote commands.
+
+Port number:
+  This is the TCP port number that will be used for communicating with
+  the client program. The default value should work in most cases, but
+  the user is free to change it. Each instance must use a different port
+  number.
+
+Polling interval (ms):
+  This is how often (in milliseconds) the message queue is checked for
+  incoming commands. The default is 100 ms. A smaller value will
+  decrease latency but will increase CPU load and a larger value will
+  reduce CPU load but will increase latency.
+
+All three controls take effect only when the OK button is clicked.
+"""
+        font = HELP_DIALOG_FONT
+        self.text = ScrolledText(master, height=1, borderwidth=10)
+        self.text.tag_configure("body_tag", font=font)
+        self.text.tag_configure("heading_tag", font=font, underline=True)
+        self.text.insert("end", help_text_1, ("body_tag"))
         self.text.pack(fill=BOTH, expand=True)
 
 
