@@ -10180,6 +10180,7 @@ written to Arduino EEPROM.
         section = "Remote Command"
         if self.master.config.cfg.has_section(section):
             rcmd_opt_changed = False
+            rcmd_enable_opt_changed = False
             # Enabled
             option = "enabled"
             rcmd_enabled = (self.enable_rcmd.get() == "Enabled")
@@ -10187,13 +10188,8 @@ written to Arduino EEPROM.
                                                                   option)):
                 self.master.config.cfg_set(section, option, rcmd_enabled)
                 self.master.rcmd_enabled = rcmd_enabled
-                if rcmd_enabled:
-                    # Start the remote command monitor
-                    self.master.rcmd_monitor()
-                else:
-                    # Stop the remote command monitor
-                    self.master.cancel_rcmd_monitor()
                 rcmd_opt_changed = True
+                rcmd_enable_opt_changed = True
             # Port
             option = "port"
             port_number = int(self.port_number_str.get())
@@ -10210,6 +10206,20 @@ written to Arduino EEPROM.
                 rcmd_opt_changed = True
 
             if rcmd_opt_changed:
+                if rcmd_enabled:
+                    if not rcmd_enable_opt_changed:
+                        # Case: changing port number or polling interval
+                        # when command monitor is already enabled and
+                        # running. Need to stop the remote command
+                        # monitor before re-starting.
+                        self.master.cancel_rcmd_monitor()
+                        # That disables in config, so re-enable
+                        self.master.config.cfg_set(section, "enabled", True)
+                    # Start the remote command monitor
+                    self.master.rcmd_monitor()
+                else:
+                    # Stop the remote command monitor
+                    self.master.cancel_rcmd_monitor()
                 # Save config
                 self.master.save_config()
 
