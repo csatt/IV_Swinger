@@ -53,15 +53,7 @@ NOTE: 3.x.x below should be replaced with the actual Python version you
     - Install Python packages required by the IV Swinger 3 code:
 
       % cd <your GitHub path>/IV_Swinger/python3
-      % pip install Pillow pyserial numpy scipy Send2Trash
-      % pip install matplotlib==3.2.2
-
-      NOTE: The downlevel matplotlib install is needed to work around a
-            problem when pyinstaller is used to build the Mac .app
-            executable. See:
-            https://stackoverflow.com/questions/63503976/nameerror-name-defaultparams-is-not-defined-while-running-the-exe-converted
-            If there are no plans to build with pyinstaller, or if this
-            bug has been fixed, this is not necessary.
+      % pip install Pillow pyserial numpy matplotlib scipy Send2Trash pyzmq
 
     - Test:
 
@@ -96,7 +88,7 @@ NOTE: 3.x.x below should be replaced with the actual Python version you
     - Install Python packages required by the IV Swinger 2 code:
 
       > cd <your GitHub path>\IV_Swinger\python3
-      > pip install Pillow pyserial numpy matplotlib scipy Send2Trash pywin32
+      > pip install Pillow pyserial numpy matplotlib scipy Send2Trash pyzmq pywin32
 
     - Test:
 
