@@ -564,7 +564,7 @@ class GraphicalUserInterface(ttk.Frame):
         self.log_tcl_tk_version()
         self.usb_monitor()
         if self.rcmd_enabled:
-            self.rcmd_monitor()
+            self.rcmd_monitor_id = self.after_idle(self.rcmd_monitor)
 
     # Properties
     # ---------------------------------
@@ -2080,7 +2080,14 @@ ERROR: USB port is not connected to IV Swinger 2
         if self.zmq_context is None:
             self.zmq_context = zmq.Context()
             self.zmq_socket = self.zmq_context.socket(zmq.REP)
-            self.zmq_socket.bind(F"tcp://*:{self.rcmd_port}")
+            try:
+                self.zmq_socket.bind(F"tcp://*:{self.rcmd_port}")
+            except zmq.error.ZMQError as e:
+                self.rcmd_enabled = False
+                self.cancel_rcmd_monitor()
+                err_str = f"ERROR: Remote command monitor ({e})"
+                tkmsg.showerror(message=err_str)
+                return
             self.rcmd_port_label["text"] = self.get_rcmd_port_label_text()
 
         # Check socket message queue for a client request. The timeout=0
@@ -2116,6 +2123,8 @@ ERROR: USB port is not connected to IV Swinger 2
             self.zmq_context = None
         # Clear port number at top of GUI
         self.rcmd_port_label["text"] = self.get_rcmd_port_label_text()
+        # Disable in config
+        self.config.cfg_set("Remote Command", "enabled", False)
 
     # -------------------------------------------------------------------------
     def process_rcmd(self, message):
