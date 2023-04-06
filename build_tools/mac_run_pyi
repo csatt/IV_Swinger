@@ -1,19 +1,13 @@
 #!/bin/bash
 #
-#  Python 2:
-#             % mac_run_pyi python
-#  Python 3:
-#             % mac_run_pyi python3
-if [ "$1" != "python" ] && [ "$1" != "python3" ]; then
-    echo "ERROR: must specify either 'python' or 'python3'"
-    exit -1
-fi
+#             % mac_run_pyi
+#
 pyinstaller --windowed \
             --noconfirm \
             --icon="$GITHUB/IV_Swinger/icons/IV_Swinger2.icns" \
-            --add-data="$GITHUB/IV_Swinger/$1/Splash_Screen.png:." \
-            --add-data="$GITHUB/IV_Swinger/$1/Blank_Screen.png:." \
-            --add-data="$GITHUB/IV_Swinger/$1/version.txt:." \
+            --add-data="$GITHUB/IV_Swinger/python3/Splash_Screen.png:." \
+            --add-data="$GITHUB/IV_Swinger/python3/Blank_Screen.png:." \
+            --add-data="$GITHUB/IV_Swinger/python3/version.txt:." \
             --name "IV Swinger 2" \
-            $GITHUB/IV_Swinger/$1/IV_Swinger2_gui.py
+            $GITHUB/IV_Swinger/python3/IV_Swinger2_gui.py
 $GITHUB/IV_Swinger/build_tools/fix_info_plist.py ./dist/IV\ Swinger\ 2.app/Contents/Info.plist
