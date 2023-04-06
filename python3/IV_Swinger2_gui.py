@@ -561,6 +561,7 @@ class GraphicalUserInterface(ttk.Frame):
         self.create_menu_bar()
         self.create_widgets()
         self.ivs2.log_initial_debug_info()
+        self.log_zmq_version()
         self.log_tcl_tk_version()
         self.usb_monitor()
         if self.rcmd_enabled:
@@ -980,6 +981,7 @@ This could be for one of the following reasons:
         self.usb_disconnected_str = """
 ERROR: USB port is not connected to IV Swinger 2
 """
+        self.zmq_version = zmq.__version__
         self.tcl_tk_version = tk.Tcl().eval("info patchlevel")
 
     # -------------------------------------------------------------------------
@@ -1198,6 +1200,12 @@ ERROR: USB port is not connected to IV Swinger 2
         self.create_axis_ranges_box()
         self.create_plot_power_and_ref_box()
         self.create_looping_controls()
+
+    # -------------------------------------------------------------------------
+    def log_zmq_version(self):
+        """Method to log the ZMQ version
+        """
+        self.ivs2.logger.log(f"PyZMQ version: {self.zmq_version}")
 
     # -------------------------------------------------------------------------
     def log_tcl_tk_version(self):
