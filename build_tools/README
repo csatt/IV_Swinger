@@ -5,12 +5,8 @@ Do NOT use this directory for running these tools. If you do that, then
 the output files might accidently get committed to the repo, and that is
 not what we want.
 
-The instructions below are for building the Python 3 code. Building the
-Python 2 code is very similar but not documented since builds should use
-the Python 3 code moving forward.
-
 --------------------------------------------------------------------------------
-Instructions for Mac build (Python 3):
+Instructions for Mac build:
 
   1) Install pyinstaller:
 
@@ -19,7 +15,6 @@ Instructions for Mac build (Python 3):
   2) Install dmgbuild:
 
        % pip install dmgbuild
-       % pip install biplist
 
   3) Set environment variable $GITHUB to point to the parent directory
      of your clone of the IV_Swinger GitHub repo, e.g.:
@@ -57,9 +52,7 @@ Instructions for Mac build (Python 3):
 
        i) Go into the pyinstaller hooks directory (change the 3.x.x appropriately):
        
-          % cd ~/.pyenv/versions/3.x.x/Python.framework/Versions/3.x/lib/python3.x/site-packages/PyInstaller/hooks
-        or:
-          % cd ~/.pyenv/versions/3.x.x/Library/Frameworks/Python.framework/Versions/3.x/lib/python3.x/site-packages/PyInstaller/hooks
+          % cd ~/.pyenv/versions/3.x.x/Library/Frameworks/Python.framework/Versions/3.x/lib/python3.x/lib/site-packages/PyInstaller/hooks
 
           This assumes you are using pyenv.
 
@@ -78,7 +71,7 @@ Instructions for Mac build (Python 3):
   8) Run pyinstaller script in the build folder:
 
        % cd $HOME/IV_Swinger2_build
-       % $GITHUB/IV_Swinger/build_tools/mac_run_pyi python3
+       % $GITHUB/IV_Swinger/build_tools/mac_run_pyi
 
        NOTE: this generates some warnings and errors. See the section
              "Acceptable Mac errors and warnings" below.
@@ -88,18 +81,22 @@ Instructions for Mac build (Python 3):
        % cd $HOME/IV_Swinger2_build/dist
        % open IV\ Swinger\ 2.app
 
- 10) Build the DMG with dmgbuild:
+ 10) Apply generic code signature:
+ 
+       % codesign --force --deep -s - IV\ Swinger\ 2.app
+
+ 11) Build the DMG with dmgbuild:
 
        % cd $HOME/IV_Swinger2_build
        % $GITHUB/IV_Swinger/build_tools/mac_build_dmg
 
- 11) Test the DMG:
+ 12) Test the DMG:
 
        % open *.dmg
 
        Follow instructions to install
 
- 12) Test the installed app by launching from Applications folder
+ 13) Test the installed app by launching from Applications folder
 
 --------------------------------------------------------------------------------
 Acceptable Mac errors and warnings
@@ -110,10 +107,12 @@ The mac_run_pyi script may generate the following, which are all OK:
 
  - WARNING: Hidden import "pkg_resources.py2_warn" not found!
  - WARNING: Hidden import "pkg_resources.markers" not found!
- - WARNING: library setupapi required via ctypes not found
- - WARNING: library Advapi32 required via ctypes not found
- - WARNING: library user32 required via ctypes not found
-
+ - WARNING: Library Advapi32 required via ctypes not found
+ - WARNING: Library setupapi required via ctypes not found
+ - WARNING: Library Cfgmgr32 required via ctypes not found
+ - WARNING: Library user32 required via ctypes not found
+ - WARNING: Ignoring /System/Library/Frameworks/CoreFoundation.framework/CoreFoundation imported from (...) - only basenames are supported with ctypes imports!
+ - WARNING: Ignoring /System/Library/Frameworks/IOKit.framework/IOKit imported from (...) - only basenames are supported with ctypes imports!
  - .../site-packages/setuptools/distutils_patch.py:25: UserWarning: Distutils was imported before Setuptools. This usage is discouraged and may exhibit undesirable behaviors or errors. Please use Setuptools' objects directly or at least import Setuptools first.
 
 --------------------------------------------------------------------------------
@@ -151,7 +150,7 @@ NOTE: it is assumed that you already have python and pip installed as
   6) Run the run_pyi.bat script in that folder:
 
        cd %HOME%\IV_Swinger2_build
-       %GITHUB%\IV_Swinger\build_tools\run_pyi.bat python3
+       %GITHUB%\IV_Swinger\build_tools\run_pyi.bat
 
        NOTE: this generates some warnings and errors. See the section
              "Acceptable Windows errors and warnings" below.
