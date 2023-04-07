@@ -37,18 +37,7 @@ Instructions for Mac build:
 
        % mkdir $HOME/IV_Swinger2_build
 
-  7) (Possibly) perform pyinstaller workarounds:
-
-     a) This patches a Tcl/Tk bug:
-
-        % sudo sed -i .bak "s#\[msgcat::mc#\[::tk::msgcat::mc#g" /usr/local/opt/tcl-tk/lib/tk8.6/console.tcl
-
-        See: https://github.com/pyinstaller/pyinstaller/issues/3820 and
-        https://github.com/pyinstaller/pyinstaller/issues/5175 At some
-        point this will be fixed in Tcl/Tk and there is a workaround
-        going into the pyinstaller code (probably release 4.1).
-
-  8) Run pyinstaller script in the build folder:
+  7) Run pyinstaller script in the build folder:
 
        % cd $HOME/IV_Swinger2_build
        % $GITHUB/IV_Swinger/build_tools/mac_run_pyi
@@ -56,27 +45,27 @@ Instructions for Mac build:
        NOTE: this generates some warnings and errors. See the section
              "Acceptable Mac errors and warnings" below.
 
-  9) Test the generated executable:
+  8) Test the generated executable:
 
        % cd $HOME/IV_Swinger2_build/dist
        % open IV\ Swinger\ 2.app
 
- 10) Apply generic code signature:
+  9) Apply generic code signature:
  
        % codesign --force --deep -s - IV\ Swinger\ 2.app
 
- 11) Build the DMG with dmgbuild:
+ 10) Build the DMG with dmgbuild:
 
        % cd $HOME/IV_Swinger2_build
        % $GITHUB/IV_Swinger/build_tools/mac_build_dmg
 
- 12) Test the DMG:
+ 11) Test the DMG:
 
        % open *.dmg
 
        Follow instructions to install
 
- 13) Test the installed app by launching from Applications folder
+ 12) Test the installed app by launching from Applications folder
 
 --------------------------------------------------------------------------------
 Acceptable Mac errors and warnings
