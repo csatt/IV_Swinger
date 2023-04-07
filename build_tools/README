@@ -48,26 +48,6 @@ Instructions for Mac build:
         point this will be fixed in Tcl/Tk and there is a workaround
         going into the pyinstaller code (probably release 4.1).
 
-     b) The following prevent a huge spew of pyinstaller warnings:
-
-       i) Go into the pyinstaller hooks directory (change the 3.x.x appropriately):
-       
-          % cd ~/.pyenv/versions/3.x.x/Library/Frameworks/Python.framework/Versions/3.x/lib/python3.x/lib/site-packages/PyInstaller/hooks
-
-          This assumes you are using pyenv.
-
-      ii) Manually edit the file, hook-matplotlib.backends.py
-
-          Change the list of backend names to:
-
-            backend_names = ['pdf']
-
-     iii) Rename the following files (or just remove them):
-      
-          % mv hook-gi.repository.GObject.py hook-gi.repository.GObject.py.bak
-          % mv hook-gi.repository.Gio.py hook-gi.repository.Gio.py.bak 
-       
-
   8) Run pyinstaller script in the build folder:
 
        % cd $HOME/IV_Swinger2_build
