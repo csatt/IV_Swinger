@@ -5634,10 +5634,12 @@ help can be found in the IV Swinger 2 User Guide.
 This global help dialog is intended to give a new user a very coarse overview
 of how to use the app.
 
-There are three main things you can do with the IV Swinger 2 app:
+There are five main things you can do with the IV Swinger 2 app:
   1) Swing IV curves
   2) Deal with previous results
   3) Set preferences
+  4) Run simulations
+  5) Launch additional instance of the GUI
 """
         help_heading_1 = """
 Swinging IV curves"""
@@ -5684,6 +5686,24 @@ Note that when using the Results Wizard, the preferences settings reflect
 those that were in effect for the curve being displayed. This allows the user
 to make incremental changes. However, when the Results Wizard is closed,
 the preferences revert to those that were in effect before it was opened.
+
+The "Remote Command" tab has configuration to allow controlling the app
+from a different program/computer.
+"""
+        help_heading_4 = """
+Running simulations"""
+        help_text_4 = """
+The simulator is used to identify alternate hardware component values
+that produce better results than the standard components when used with
+different size PVs (namely very small ones.) Click on "Run Simulator"
+in the Help menu. When it comes up, click on its Help button.
+"""
+        help_heading_5 = """
+Launching instances"""
+        help_text_5 = """
+The "instances" feature provides the ability to concurrently control
+more than one IV Swinger 2 connected to the same laptop. Select the
+"Instances Help" entry in the "Instances" menu.
 """
         font = HELP_DIALOG_FONT
         self.text = ScrolledText(master, height=1, borderwidth=10)
@@ -5696,6 +5716,10 @@ the preferences revert to those that were in effect before it was opened.
         self.text.insert("end", help_text_2, ("body_tag"))
         self.text.insert("end", help_heading_3, ("heading_tag"))
         self.text.insert("end", help_text_3, ("body_tag"))
+        self.text.insert("end", help_heading_4, ("heading_tag"))
+        self.text.insert("end", help_text_4, ("body_tag"))
+        self.text.insert("end", help_heading_5, ("heading_tag"))
+        self.text.insert("end", help_text_5, ("body_tag"))
         self.text.pack(fill=BOTH, expand=True)
 
 
@@ -5921,7 +5945,7 @@ which uses a USB port that is already in use is launched, it will come
 up with its USB port set to DISCONNECTED.
 
 Each instance has its own configuration (Preferences) that are initially
-the defaults.
+the defaults (not inherited).
 
 The Results Wizard for each instance will default to that instance's runs.
 
