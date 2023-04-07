@@ -207,7 +207,8 @@ if not platform.machine().startswith("armv6"):
     import matplotlib.pyplot as plt
     import matplotlib.font_manager
     from matplotlib import __version__ as matplotlib_version
-
+    from matplotlib import use
+    use("pdf")
 
 #################
 #   Constants   #
