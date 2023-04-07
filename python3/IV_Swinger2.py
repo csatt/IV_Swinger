@@ -196,7 +196,8 @@ V_CAL_B_DEFAULT = 0.0   # Intercept
 I_CAL_DEFAULT = 1.0     # Slope
 I_CAL_B_DEFAULT = 0.0   # Intercept
 SSR_I_CAL_ON_TIME = 3.0               # Arduino sketch: SSR_CAL_USECS
-SSR_I_CAL_MAX_CONTINUOUS_CURR = 6.75  # From CPC1718 datasheet
+# SSR_I_CAL_MAX_CONTINUOUS_CURR = 6.75  # From CPC1718 datasheet
+SSR_I_CAL_MAX_CONTINUOUS_CURR = 4  # Rough calculation for FET
 SECOND_RELAY_CAL_DEFAULT = 1.0
 DYN_BIAS_CAL_DEFAULT = False
 PYRANO_CAL_DEFAULT = 4.3    # X coefficient (slope if A=0): W/m^2/mV
@@ -4164,6 +4165,15 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             # period.  At 10 amps, the cooling period is 3.58
             # seconds. Below 6.75 amps, the cooling period is negative,
             # which means no cooling is needed.
+            #
+            # ** FET UPDATE **
+            # The IRF540 does not explicitly specify a maximum current
+            # without a heatsink. A rough calculation is that it can
+            # handle about 4 A. Since the switch from SSR to FET appears
+            # to be permanent, it isn't worth making a distinction. The
+            # cooling off period will be overly conservative for
+            # SSR-based IVS2s. The value of SSR_I_CAL_MAX_CONTINUOUS_CURR
+            # is now 4. At 10 A, the cooling off period is 15.75 seconds.
             uncal_amps = self.get_adv_current_cal_amps()
             cooling_period = (SSR_I_CAL_ON_TIME *
                               ((uncal_amps ** 2) /
