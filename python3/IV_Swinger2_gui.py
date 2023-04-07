@@ -71,7 +71,7 @@
 #      the looping controls.
 #
 #    ImgSizeCombo(), ResultsWizard(), MenuBar(), Dialog(), GlobalHelpDialog(),
-#    CalibrationHelpDialog(), AdvSsrCurrentCalHelpDialog(),
+#    CalibrationHelpDialog(), AdvSsrFetCurrentCalHelpDialog(),
 #    AdvEmrCurrentCalHelpDialog(), AdvVoltageCalHelpDialog(),
 #    DownlevelArduinoSketchDialog(), AdvCalDialog(), AdvCurrentCalDialog(),
 #    AdvVoltageCalDialog(), ResistorValuesDialog(), BiasBatteryDialog(),
@@ -135,7 +135,7 @@ RC_ZERO_VOC = IV_Swinger2.RC_ZERO_VOC
 RC_ZERO_ISC = IV_Swinger2.RC_ZERO_ISC
 RC_ISC_TIMEOUT = IV_Swinger2.RC_ISC_TIMEOUT
 RC_NO_POINTS = IV_Swinger2.RC_NO_POINTS
-RC_SSR_HOT = IV_Swinger2.RC_SSR_HOT
+RC_SSR_FET_HOT = IV_Swinger2.RC_SSR_FET_HOT
 RC_PV_MODEL_FAILURE = IV_Swinger2.RC_PV_MODEL_FAILURE
 RC_USB_DISCONNECTED = IV_Swinger2.RC_USB_DISCONNECTED
 RC_NAMES = IV_Swinger2.RC_NAMES
@@ -5729,8 +5729,8 @@ calibration is stored on the IV Swinger 2 hardware:
        calibration will apply for any laptop it is used with
 
 Advanced voltage and current calibration provide more accuracy and, for
-SSR-based IV Swinger 2's, may be performed indoors with a DC power supply
-instead of a PV module or cell.
+SSR-based and FET-based IV Swinger 2's, may be performed indoors with a
+DC power supply instead of a PV module or cell.
 
 NOTE: the "Vref (+5V)" calibration must be performed BEFORE current and
       voltage calibration.
@@ -5761,8 +5761,9 @@ Voltage - basic:"""
         current_basic_heading = """
 Current - basic (a bit trickier):"""
         current_basic_help_text = """
-NOTE: if your IV Swinger 2 is SSR-based, the advanced current calibration is
-recommended since it is not only more accurate, but it is easier.
+NOTE: if your IV Swinger 2 is SSR-based or FET-based, the advanced current
+calibration is recommended since it is not only more accurate, but it is
+easier.
 
 This must be done on a very clear day, preferably near noon - otherwise the Isc
 value fluctuates too much. You need one additional piece of equipment: a
@@ -5803,8 +5804,8 @@ opens.
 Current - advanced"""
         current_adv_help_text = """
 There is separate help for advanced current calibration. Select the "Current -
-advanced" menu entry and select the relay type (EMR or SSR). Then click on the
-"Help" button in the dialog that opens.
+advanced" menu entry and select the relay type (EMR or SSR/FET). Then click on
+the "Help" button in the dialog that opens.
 """
         resistors_heading = """
 Resistors:"""
@@ -5934,15 +5935,15 @@ Each instance GUI creates its own log file.
         self.text.pack(fill=BOTH, expand=True)
 
 
-# Advanced SSR current calibration help dialog class
+# Advanced SSR/FET current calibration help dialog class
 #
-class AdvSsrCurrentCalHelpDialog(Dialog):
+class AdvSsrFetCurrentCalHelpDialog(Dialog):
     """Class that is extended from the generic Dialog class and is used for
-       the SSR-only advanced current calibration Help dialog
+       the SSR/FET-only advanced current calibration Help dialog
     """
     # Initializer
     def __init__(self, master=None):
-        title = "Advanced Current Calibration Help (SSR)"
+        title = "Advanced Current Calibration Help (SSR/FET)"
         super().__init__(master=master, title=title,
                          has_cancel_button=False, return_ok=True,
                          parent_is_modal=True,
@@ -5954,10 +5955,11 @@ class AdvSsrCurrentCalHelpDialog(Dialog):
     def body(self, master):
         """Method to create the dialog body, which is just a Text widget"""
         help_text_1 = """
+        
 This current calibration method works on IV Swinger 2 hardware with
-solid-state relays (SSRs) only. It is easier to perform and more
-accurate than the basic current calibration or the advanced current
-calibration for hardware with electromagnetic relays (EMRs).
+solid-state relays (SSRs) or FETs only. It is easier to perform and
+more accurate than the basic current calibration or the advanced
+current calibration for hardware with electromagnetic relays (EMRs).
 
 Connections:
 
@@ -6021,8 +6023,8 @@ Calibration:
  14. Click OK when you are happy with the calibration. Clicking Cancel
      or closing the dialog window discards the calibration.
 
-  NOTE 1: To avoid damage to the SSRs, a short cooling off period is
-     enforced for currents above 6.75 amps.
+  NOTE 1: To avoid damage to the SSRs or FETs, a short cooling off
+     period is enforced for currents above 4 amps.
 
   NOTE 2: Unlike the basic calibration, the advanced calibration does
      not require an IV curve to be swung before the calibration.
@@ -6104,8 +6106,8 @@ Connections:
   in series on the positive side. The switch, when turned on, shorts the
   PV+ to the PV- through the DMM.
 
-  NOTE: Unlike the calibration for the SSR-based designs, using a DC
-        power supply is not possible; it MUST be done with a PV
+  NOTE: Unlike the calibration for the SSR-based and FET-based designs,
+        using a DC power supply is not possible; it MUST be done with a PV
         module/cell
 
 Calibration:
@@ -6397,7 +6399,7 @@ class AdvCalDialog(Dialog):
         self.test_dmm_value = tk.StringVar()
         self.test_cal_value = tk.StringVar()
         self.test_err = tk.StringVar()
-        self.ssr_mode = "Unknown"
+        self.ssr_fet_mode = "Unknown"
         self.x1 = "Unknown"  # Point 1 uncalibrated value
         self.y1 = "Unknown"  # Point 1 DMM value
         self.x2 = "Unknown"  # Point 2 uncalibrated value
@@ -6439,9 +6441,9 @@ class AdvCalDialog(Dialog):
 This current calibration uses two calibrated points to obtain both a
 slope and an intercept for the calibration equation. It also supports
 manual entry of the slope and intercept and it supports testing the
-calibration values before committing them. Both EMR-based and SSR-based
-IVS2s are supported, but an external switch is required for EMR-based
-IVS2s."""
+calibration values before committing them. Both EMR-based and
+SSR/FET-based IVS2s are supported, but an external switch is
+required for EMR-based IVS2s."""
         else:
             desc_text = """
 This voltage calibration uses two calibrated points to obtain both a
@@ -6456,7 +6458,7 @@ calibration values before committing them."""
         relay_type_label = ttk.Label(relay_type_radio_button_box,
                                      text="Relay type (required): ")
         ssr_radio_button = ttk.Radiobutton(relay_type_radio_button_box,
-                                           text="Solid-state (SSR)",
+                                           text="Solid-state (SSR/FET)",
                                            variable=self.relay_type,
                                            command=self.log_radio_ssr,
                                            value="SSR")
@@ -6663,9 +6665,9 @@ calibration values before committing them."""
 
     # ------------------------------------------------------------------------
     def log_radio_ssr(self):
-        """Log selection of SSR relay type"""
+        """Log selection of SSR/FET relay type"""
         log_user_action(self.master.ivs2.logger,
-                        "(AdvCurrentCalDialog) selected relay type SSR")
+                        "(AdvCurrentCalDialog) selected relay type SSR/FET")
 
     # ------------------------------------------------------------------------
     def log_radio_emr(self):
@@ -6683,8 +6685,8 @@ calibration values before committing them."""
         if self.type_is_current():
             if not self.relay_type_is_valid():
                 return RC_FAILURE
-            if self.ssr_mode:
-                AdvSsrCurrentCalHelpDialog(self.master)
+            if self.ssr_fet_mode:
+                AdvSsrFetCurrentCalHelpDialog(self.master)
             else:
                 AdvEmrCurrentCalHelpDialog(self.master)
         else:
@@ -6699,7 +6701,7 @@ calibration values before committing them."""
 
         if relay_type == "Unknown":
             error_msg = """
-ERROR: Please indicate the relay type (SSR/EMR) above"""
+ERROR: Please indicate the relay type (SSR/FET or EMR) above"""
             tkmsg.showerror(message=error_msg)
             return False
 
@@ -6707,14 +6709,14 @@ ERROR: Please indicate the relay type (SSR/EMR) above"""
                 self.master.ivs2.arduino_sketch_supports_ssr_adv_current_cal):
             error_msg = """
 ERROR: The Arduino sketch does not support
-SSR current calibration. You must update it
-to use this feature"""
+SSR/FET current calibration. You must update
+it to use this feature"""
             tkmsg.showerror(message=error_msg)
             return False
 
-        # As a side-effect, set the self.ssr_mode attribute
+        # As a side-effect, set the self.ssr_fet_mode attribute
         # appropriately
-        self.ssr_mode = (relay_type == "SSR")
+        self.ssr_fet_mode = (relay_type == "SSR")
         self.master.ivs2.relay_type = relay_type
 
         return True
@@ -6765,18 +6767,18 @@ ERROR: Hardware returned invalid measured value ("{uncal_value_str}")
         """
         if self.type_is_current() and not self.relay_type_is_valid():
             return RC_FAILURE
-        if self.type_is_current() and self.ssr_mode:
+        if self.type_is_current() and self.ssr_fet_mode:
             rc = self.master.ivs2.request_ssr_adv_current_calibration_val()
-            if rc == RC_SSR_HOT:
+            if rc == RC_SSR_FET_HOT:
                 error_msg = """
-ERROR: SSR needs another moment
+ERROR: SSR/FET needs a little time
 to cool down - try again"""
                 tkmsg.showerror(message=error_msg)
                 return rc
             if rc != RC_SUCCESS:
                 error_msg = f"""
-ERROR: Failed to send advanced SSR current
-calibration request to Arduino
+ERROR: Failed to send advanced SSR/FET
+current calibration request to Arduino
 (rc = {rc})"""
                 tkmsg.showerror(message=error_msg)
                 return rc
@@ -8482,7 +8484,8 @@ this IV Swinger 2 was built with
 a relay that has an active-high
 trigger pin. It should NEVER be
 checked for an IV Swinger 2 that
-uses SSRs or damage could result!
+uses SSRs or FETs or damage could
+result!
 """
             tkmsg.showwarning(message=warning_str)
         else:  # sketch does not support
@@ -10456,8 +10459,8 @@ ADC correction:
     mystery. It is now understood to be due to the +5V supply (from USB)
     drooping when the relay is active. The reduced reference voltage to the ADC
     results in voltage measurements that are too high. Negative overshoot
-    (i.e. undershoot) is also corrected; this can be due to SSR current draw in
-    the SSR version.
+    (i.e. undershoot) is also corrected; this can be due to SSR/FET current
+    draw in the SSR/FET version.
 
 Battery bias:
   The cell version of IV Swinger 2 may require a bias battery to be placed in
@@ -10610,8 +10613,8 @@ Relay is active-high:
   Check ONLY if the IV Swinger 2 was constructed with a (non-standard) relay
   module that has an active-high trigger pin. This value will be saved in the
   Arduino EEPROM so the hardware "remembers" what type of relay it has. NEVER
-  check for an IV Swinger 2 that uses solid-state relays (SSRs); damage could
-  result.
+  check for an IV Swinger 2 that uses solid-state relays (SSRs) or FETs; damage
+  could result.
 """
         font = HELP_DIALOG_FONT
         self.text = ScrolledText(master, height=1, borderwidth=10)

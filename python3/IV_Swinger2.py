@@ -108,7 +108,7 @@ RC_ZERO_VOC = -5
 RC_ZERO_ISC = -6
 RC_ISC_TIMEOUT = -7
 RC_NO_POINTS = -8
-RC_SSR_HOT = -9
+RC_SSR_FET_HOT = -9
 RC_PV_MODEL_FAILURE = -10
 RC_USB_DISCONNECTED = -11
 RC_NAMES = {}
@@ -121,7 +121,7 @@ RC_NAMES[RC_ZERO_VOC] = "RC_ZERO_VOC"
 RC_NAMES[RC_ZERO_ISC] = "RC_ZERO_ISC"
 RC_NAMES[RC_ISC_TIMEOUT] = "RC_ISC_TIMEOUT"
 RC_NAMES[RC_NO_POINTS] = "RC_NO_POINTS"
-RC_NAMES[RC_SSR_HOT] = "RC_SSR_HOT"
+RC_NAMES[RC_SSR_FET_HOT] = "RC_SSR_FET_HOT"
 RC_NAMES[RC_PV_MODEL_FAILURE] = "RC_PV_MODEL_FAILURE"
 RC_NAMES[RC_USB_DISCONNECTED] = "RC_USB_DISCONNECTED"
 CFG_STRING = 0
@@ -4125,7 +4125,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             return RC_FAILURE
         elapsed_since_prev = dt.datetime.now() - self.ssr_cooling_start_time
         if elapsed_since_prev.total_seconds() < self.ssr_cooling_period:
-            return RC_SSR_HOT
+            return RC_SSR_FET_HOT
         rc = self.send_msg_to_arduino("Config: DO_SSR_CURR_CAL ")
         if rc != RC_SUCCESS:
             return rc
