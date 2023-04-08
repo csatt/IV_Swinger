@@ -259,7 +259,7 @@ class CommandLineProcessor():
             parser.add_argument("-r", "--plot_ref", action="store_true",
                                 help="Plot reference with measured IV curve")
             parser.add_argument("-t", "--title", type=str,
-                                help=("Title for plot"))
+                                help="Title for plot")
             parser.add_argument("-s", "--scale", type=float, default=1.0,
                                 help=("Scale everything by specified amount "
                                       "(no scaling = 1.0)"))
@@ -281,7 +281,7 @@ class CommandLineProcessor():
                                 help=("Hardcode Y axis range to specified "
                                       "current"))
             parser.add_argument("-fn", "--font_name", type=str, default=None,
-                                help=("Font name"))
+                                help="Font name")
             parser.add_argument("-fs", "--font_scale", type=float, default=1.0,
                                 help=("Scale fonts by specified amount "
                                       "(no scaling = 1.0)"))
@@ -322,7 +322,7 @@ class CommandLineProcessor():
                                       "options are not supported with "
                                       "gnuplot"))
             parser.add_argument("--interactive", action="store_true",
-                                help=("View output in interactive mode"))
+                                help="View output in interactive mode")
             parser.add_argument("--recalc_isc", action="store_true",
                                 help=("Recalculate Isc using the overridden "
                                       "extrapolate_isc method"))

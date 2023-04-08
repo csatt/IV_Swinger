@@ -3311,9 +3311,7 @@ class IV_Swinger():
            newlines) and is also written to the log file.
         """
         fonts = {f.name for f in matplotlib.font_manager.fontManager.ttflist}
-        font_names_str = ""
-        for font_name in sorted(fonts):
-            font_names_str += f"{font_name}\n"
+        font_names_str = " ".join(sorted(fonts))
         self.logger.log(f"Plotting fonts:\n{font_names_str}")
         return font_names_str
 
@@ -3665,12 +3663,12 @@ class IV_Swinger():
         """
         if self.fancy_labels:
             xytext_offset = 10
-            bbox = dict(boxstyle="round", facecolor="yellow")
-            arrowprops = dict(arrowstyle="->")
+            bbox = {"boxstyle": 'round', "facecolor": 'yellow'}
+            arrowprops = {"arrowstyle": '->'}
         else:
             xytext_offset = 0
-            bbox = dict(boxstyle="square, pad=0",
-                        facecolor="white", edgecolor="white")
+            bbox = {"boxstyle": 'square, pad=0',
+                    "facecolor": 'white', "edgecolor": 'white'}
             arrowprops = None
 
         return (xytext_offset, bbox, arrowprops)
@@ -4257,10 +4255,7 @@ class IV_Swinger():
                 lcd_msg.stop()
 
         if display:
-            usb_drives_str = ""
-            for usb_drive in usb_drives:
-                usb_drives_str += f"{usb_drive} "
-
+            usb_drives_str = " ".join(usb_drives)
             msg_text = [f"Found USB drive(s):\n{usb_drives_str}"]
             self.logger.print_and_log(f"Found USB drive(s): {usb_drives_str}")
             lcd_msg = ScrollingMessage(msg_text, self.lcd, beep=False,

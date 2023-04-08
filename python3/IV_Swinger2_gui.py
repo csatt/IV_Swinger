@@ -2240,7 +2240,7 @@ ERROR: USB port is not connected to IV Swinger 2
                 self.ivs2.clean_up_files(self.ivs2.hdd_output_dir, loop_mode,
                                          self.loop_save_results)
             else:
-                err_str = ("ERROR: Failed to swing curve for bias battery")
+                err_str = "ERROR: Failed to swing curve for bias battery"
                 tkmsg.showerror(message=err_str)
                 return show_error_dialog_clean_up_and_return(rc)
 
@@ -3714,9 +3714,8 @@ class ResultsWizard(tk.Toplevel):
                            f"{os.path.join(self.copy_dest, APP_NAME)}\n")
             else:
                 # If 1-10 found, prompt with the list of names
-                msg_str = "The following destination folder(s) exist(s):\n"
-                for dest_dir in existing_dest_dirs:
-                    msg_str += f"  {dest_dir}\n"
+                msg_str = "The following destination folder(s) exist(s):\n "
+                msg_str += "\n ".join(existing_dest_dirs)
             msg_str += "\nOverwrite all?"
             overwrite = tkmsg.askyesno("Overwrite all?", msg_str,
                                        default=tkmsg.NO)
@@ -3815,7 +3814,7 @@ class ResultsWizard(tk.Toplevel):
                 tkmsg.showerror(message=err_str)
                 return
             else:
-                err_str = ("ERROR: No run selected")
+                err_str = "ERROR: No run selected"
                 tkmsg.showerror(message=err_str)
                 return
         new_title = askstring(master=self.master,
@@ -3866,7 +3865,7 @@ class ResultsWizard(tk.Toplevel):
             if os.path.exists(pdf):
                 IV_Swinger2.sys_view_file(pdf)
                 return
-        err_str = ("ERROR: No PDF to display")
+        err_str = "ERROR: No PDF to display"
         tkmsg.showerror(message=err_str)
 
     # -------------------------------------------------------------------------
@@ -3987,7 +3986,7 @@ class ResultsWizard(tk.Toplevel):
 
         # Check for none selected
         if not self.master.overlay_mode and not self.overlaid_runs:
-            info_str = ("Select at least one run to begin an overlay")
+            info_str = "Select at least one run to begin an overlay"
             tkmsg.showerror(message=info_str)
             return RC_FAILURE
 
@@ -4126,9 +4125,9 @@ class ResultsWizard(tk.Toplevel):
 
         # Layout
         self.overlay_widget_box.grid(column=0, row=1, sticky=(N, S, E, W))
-        self.overlay_widget_label.grid(column=0, row=0, sticky=(W))
-        self.overlay_widget_treeview.grid(column=0, row=1, sticky=(W))
-        self.overlay_widget_cb_box.grid(column=0, row=2, sticky=(W))
+        self.overlay_widget_label.grid(column=0, row=0, sticky=W)
+        self.overlay_widget_treeview.grid(column=0, row=1, sticky=W)
+        self.overlay_widget_cb_box.grid(column=0, row=2, sticky=W)
         self.overlay_widget_buttonbox.grid(column=0, row=3, sticky=(E, W))
         self.overlay_help_button.pack(side=LEFT)
         self.overlay_cancel_button.pack(side=LEFT)
@@ -4146,7 +4145,7 @@ class ResultsWizard(tk.Toplevel):
             """Local function to perform actions when the label all Isc
                checkbutton is changed
             """
-            checked = (self.master.label_all_iscs.get() == onvalue)
+            checked = self.master.label_all_iscs.get() == onvalue
             msg = (f"(Wizard) {'checked' if checked else 'unchecked'} "
                    f"overlay Label all Isc points button")
             log_user_action(self.master.ivs2.logger, msg)
@@ -4155,7 +4154,7 @@ class ResultsWizard(tk.Toplevel):
         def label_all_mpp_acts():
             """Local function to perform actions when the label all MPP
                checkbutton is changed"""
-            checked = (self.master.label_all_mpps.get() == onvalue)
+            checked = self.master.label_all_mpps.get() == onvalue
             msg = (f"(Wizard) {'checked' if checked else 'unchecked'} "
                    f"overlay Label all MPPs button")
             log_user_action(self.master.ivs2.logger, msg)
@@ -4164,7 +4163,7 @@ class ResultsWizard(tk.Toplevel):
         def label_all_voc_acts():
             """Local function to perform actions when the label all Voc
                checkbutton is changed"""
-            checked = (self.master.label_all_vocs.get() == onvalue)
+            checked = self.master.label_all_vocs.get() == onvalue
             msg = (f"(Wizard) {'checked' if checked else 'unchecked'} "
                    f"overlay Label all Voc points button")
             log_user_action(self.master.ivs2.logger, msg)
@@ -4173,7 +4172,7 @@ class ResultsWizard(tk.Toplevel):
         def mpp_watts_only_acts():
             """Local function to perform actions when the MPP watts only
                checkbutton is changed"""
-            checked = (self.master.mpp_watts_only.get() == onvalue)
+            checked = self.master.mpp_watts_only.get() == onvalue
             msg = (f"(Wizard) {'checked' if checked else 'unchecked'} "
                    f"overlay Watts-only MPPs button")
             log_user_action(self.master.ivs2.logger, msg)
@@ -4231,10 +4230,10 @@ class ResultsWizard(tk.Toplevel):
                    "only. Check to label the Voc points of all curves.")
         Tooltip(self.label_all_vocs_cb, text=tt_text, **TOP_TT_KWARGS)
         # Layout
-        self.label_all_iscs_cb.grid(column=0, row=0, sticky=(W))
-        self.label_all_mpps_cb.grid(column=0, row=1, sticky=(W))
-        self.mpp_watts_only_cb.grid(column=1, row=1, sticky=(W))
-        self.label_all_vocs_cb.grid(column=0, row=2, sticky=(W))
+        self.label_all_iscs_cb.grid(column=0, row=0, sticky=W)
+        self.label_all_mpps_cb.grid(column=0, row=1, sticky=W)
+        self.mpp_watts_only_cb.grid(column=1, row=1, sticky=W)
+        self.label_all_vocs_cb.grid(column=0, row=2, sticky=W)
 
     # -------------------------------------------------------------------------
     def create_overlay_treeview(self):
@@ -4898,7 +4897,7 @@ class MenuBar(tk.Menu):
                                          "underscore character."))
                 inst_valid = False
             if instance in self.master.main_gui.instances:
-                tkmsg.showerror(message=("Instance exists. Try again."))
+                tkmsg.showerror(message="Instance exists. Try again.")
                 inst_valid = False
         # Launch the new instance (which will create it)
         self.launch_instance(instance)
@@ -5979,7 +5978,6 @@ class AdvSsrFetCurrentCalHelpDialog(Dialog):
     def body(self, master):
         """Method to create the dialog body, which is just a Text widget"""
         help_text_1 = """
-        
 This current calibration method works on IV Swinger 2 hardware with
 solid-state relays (SSRs) or FETs only. It is easier to perform and
 more accurate than the basic current calibration or the advanced
@@ -6704,7 +6702,7 @@ calibration values before committing them."""
         """Display advanced current/voltage calibration help"""
         dialog_type = ("AdvCurrentCalDialog" if self.type_is_current()
                        else "AdvVoltageCalDialog")
-        msg = (f"({dialog_type}) clicked Help button")
+        msg = f"({dialog_type}) clicked Help button"
         log_user_action(self.master.ivs2.logger, msg)
         if self.type_is_current():
             if not self.relay_type_is_valid():
@@ -6740,7 +6738,7 @@ it to use this feature"""
 
         # As a side-effect, set the self.ssr_fet_mode attribute
         # appropriately
-        self.ssr_fet_mode = (relay_type == "SSR")
+        self.ssr_fet_mode = relay_type == "SSR"
         self.master.ivs2.relay_type = relay_type
 
         return True
@@ -6769,7 +6767,7 @@ it to use this feature"""
                 uncal_value_str = self.master.ivs2.get_adv_voltage_cal_volts()
             try:
                 uncal_value = float(uncal_value_str)
-                self.update_uncal_value(pt_1=(point == 1))
+                self.update_uncal_value(pt_1=point == 1)
                 if uncal_value > 0.0:
                     if point == 1:
                         self.x1 = uncal_value
@@ -7538,7 +7536,7 @@ performed immediately before EVERY curve is swung."""
         """
         # Propagate the dynamic calibration setting to the IVS2 property
         # and config if it has changed
-        dyn_bias_cal = (self.dyn_cal_enable.get() == "On")
+        dyn_bias_cal = self.dyn_cal_enable.get() == "On"
         if (dyn_bias_cal and
                 not self.master.ivs2.arduino_sketch_supports_dynamic_config):
             err_str = ("ERROR: The Arduino sketch does not support dynamic "
@@ -7575,7 +7573,7 @@ performed immediately before EVERY curve is swung."""
            file with the corrected ADC values
         """
         if not self.master.ivs2.arduino_ready:
-            err_str = ("ERROR: The IV Swinger 2 is not connected.")
+            err_str = "ERROR: The IV Swinger 2 is not connected."
             tkmsg.showerror(message=err_str)
             return
         if not self.ready_to_calibrate:
@@ -7628,7 +7626,7 @@ the displayed curve:
                 output_dir = self.master.ivs2.hdd_output_dir
                 self.master.ivs2.clean_up_files(output_dir)
             else:
-                err_str = ("ERROR: Failed to swing curve for bias battery")
+                err_str = "ERROR: Failed to swing curve for bias battery"
                 tkmsg.showerror(message=err_str)
                 self.master.show_error_dialog(rc)
                 # Clean up
@@ -8212,7 +8210,7 @@ class PreferencesDialog(Dialog):
         """Method to add widgets to the Looping tab"""
         def log_restore_looping():
             """Local function to log changes to the restore looping cb"""
-            checked = (self.restore_looping.get() == "Enabled")
+            checked = self.restore_looping.get() == "Enabled"
             msg = (f"(Preferences, Looping) "
                    f"{'checked' if checked else 'unchecked'} "
                    f"Restore looping button")
@@ -8220,7 +8218,7 @@ class PreferencesDialog(Dialog):
 
         def log_stop_on_err():
             """Local function to log changes to the stop on error cb"""
-            checked = (self.loop_stop_on_err.get() == "Enabled")
+            checked = self.loop_stop_on_err.get() == "Enabled"
             msg = (f"(Preferences, Looping) "
                    f"{'checked' if checked else 'unchecked'} "
                    f"Stop on non-fatal error button")
@@ -9012,7 +9010,7 @@ effect. Please upgrade.
         # pylint: disable=too-many-locals
         def log_use_avg_temp():
             """Local function to log changes to the Use avg sensor temp cb"""
-            checked = (self.use_avg_temp.get() == "Enabled")
+            checked = self.use_avg_temp.get() == "Enabled"
             msg = (f"(Preferences, PV Model) "
                    f"{'checked' if checked else 'unchecked'} "
                    f"Use avg sensor temp button")
@@ -9020,7 +9018,7 @@ effect. Please upgrade.
 
         def log_use_est_irrad():
             """Local function to log changes to the Use est irradiance cb"""
-            checked = (self.use_est_irrad.get() == "Enabled")
+            checked = self.use_est_irrad.get() == "Enabled"
             msg = (f"(Preferences, PV Model) "
                    f"{'checked' if checked else 'unchecked'} "
                    f"Use estimated irradiance button")
@@ -9028,7 +9026,7 @@ effect. Please upgrade.
 
         def log_use_est_cell_temp():
             """Local function to log changes to the Use est cell temp cb"""
-            checked = (self.use_est_temp.get() == "Enabled")
+            checked = self.use_est_temp.get() == "Enabled"
             msg = (f"(Preferences, PV Model) "
                    f"{'checked' if checked else 'unchecked'} "
                    f"Use estimated cell temp button")
@@ -9594,7 +9592,7 @@ it and then edit the parameter values.
         # pylint: disable=too-many-statements
         def log_enable_disable_rcmd():
             """Local function to log user change of enable checkbutton"""
-            checked = (self.enable_rcmd.get() == "Enabled")
+            checked = self.enable_rcmd.get() == "Enabled"
             msg = (f"(Preferences, Remote Command) "
                    f"{'checked' if checked else 'unchecked'} "
                    f"Enable Remote Commands button")
@@ -9959,11 +9957,11 @@ it and then edit the parameter values.
         # pylint: disable=too-many-statements
         section = "Plotting"
         # Line type
-        linear = (self.interpolation_type.get() == "Linear")
+        linear = self.interpolation_type.get() == "Linear"
         self.master.config.cfg_set(section, "linear", linear)
         self.master.ivs2.linear = linear
         # Label type
-        fancy_labels = (self.fancy_labels.get() == "Fancy")
+        fancy_labels = self.fancy_labels.get() == "Fancy"
         self.master.config.cfg_set(section, "fancy labels", fancy_labels)
         self.master.ivs2.fancy_labels = fancy_labels
         # Font name
@@ -9983,32 +9981,32 @@ it and then edit the parameter values.
         self.master.config.cfg_set(section, "point scale", point_scale)
         self.master.ivs2.point_scale = point_scale
         # Correct ADC
-        correct_adc = (self.correct_adc.get() == "On")
+        correct_adc = self.correct_adc.get() == "On"
         self.master.config.cfg_set(section, "correct adc", correct_adc)
         self.master.ivs2.correct_adc = correct_adc
         # Fix Isc point
-        fix_isc = (self.fix_isc.get() == "On")
+        fix_isc = self.fix_isc.get() == "On"
         self.master.config.cfg_set(section, "fix isc", fix_isc)
         self.master.ivs2.fix_isc = fix_isc
         # Fix Voc point
-        fix_voc = (self.fix_voc.get() == "On")
+        fix_voc = self.fix_voc.get() == "On"
         self.master.config.cfg_set(section, "fix voc", fix_voc)
         self.master.ivs2.fix_voc = fix_voc
         # Combine =V points
-        comb_dupv_pts = (self.comb_dupv_pts.get() == "On")
+        comb_dupv_pts = self.comb_dupv_pts.get() == "On"
         self.master.config.cfg_set(section, "combine dupv points",
                                    comb_dupv_pts)
         self.master.ivs2.comb_dupv_pts = comb_dupv_pts
         # Reduce noise
-        reduce_noise = (self.reduce_noise.get() == "On")
+        reduce_noise = self.reduce_noise.get() == "On"
         self.master.config.cfg_set(section, "reduce noise", reduce_noise)
         self.master.ivs2.reduce_noise = reduce_noise
         # Fix overshoot
-        fix_overshoot = (self.fix_overshoot.get() == "On")
+        fix_overshoot = self.fix_overshoot.get() == "On"
         self.master.config.cfg_set(section, "fix overshoot", fix_overshoot)
         self.master.ivs2.fix_overshoot = fix_overshoot
         # Battery bias
-        battery_bias = (self.battery_bias.get() == "On")
+        battery_bias = self.battery_bias.get() == "On"
         self.master.config.cfg_set(section, "battery bias", battery_bias)
         self.master.ivs2.battery_bias = battery_bias
         # Series resistance compensation
@@ -10049,14 +10047,14 @@ it and then edit the parameter values.
             looping_opt_changed = False
             # Restore values
             option = "restore values"
-            restore_values = (self.restore_looping.get() == "Enabled")
+            restore_values = self.restore_looping.get() == "Enabled"
             if (restore_values != self.master.config.cfg.getboolean(section,
                                                                     option)):
                 self.master.config.cfg_set(section, option, restore_values)
                 looping_opt_changed = True
             # Stop on error
             option = "stop on error"
-            stop_on_err = (self.loop_stop_on_err.get() == "Enabled")
+            stop_on_err = self.loop_stop_on_err.get() == "Enabled"
             if self.master.config.cfg.has_option(section, option):
                 if (stop_on_err != self.master.config.cfg.getboolean(section,
                                                                      option)):
@@ -10118,7 +10116,7 @@ it and then edit the parameter values.
         # The relay active high flag is different from the others. It is
         # not stored in the config, but is saved in the Arduino EEPROM.
         if self.master.ivs2.arduino_ready:
-            relay_active_high = (self.relay_active_high_str.get() == "Enabled")
+            relay_active_high = self.relay_active_high_str.get() == "Enabled"
             if relay_active_high != self.master.ivs2.relay_active_high:
                 self.master.ivs2.relay_active_high = relay_active_high
                 rc = self.master.ivs2.write_relay_active_high_val_to_eeprom()
@@ -10218,7 +10216,7 @@ written to Arduino EEPROM.
             rcmd_enable_opt_changed = False
             # Enabled
             option = "enabled"
-            rcmd_enabled = (self.enable_rcmd.get() == "Enabled")
+            rcmd_enabled = self.enable_rcmd.get() == "Enabled"
             if (rcmd_enabled != self.master.config.cfg.getboolean(section,
                                                                   option)):
                 self.master.config.cfg_set(section, option, rcmd_enabled)
@@ -10980,7 +10978,7 @@ class PlotPower(ttk.Checkbutton):
     def update_plot_power(self, event=None):
         """Method to update and apply the plot power option"""
         # pylint: disable=unused-argument
-        checked = (self.plot_power.get() == "Plot")
+        checked = self.plot_power.get() == "Plot"
         msg = (f"(Main) {'checked' if checked else 'unchecked'} "
                f"Plot Power button")
         log_user_action(self.mm.ivs2.logger, msg)
@@ -11011,7 +11009,7 @@ class PlotRef(ttk.Checkbutton):
     def update_plot_ref(self, event=None):
         """Method to update and apply the plot ref option"""
         # pylint: disable=unused-argument
-        checked = (self.plot_ref.get() == "Plot")
+        checked = self.plot_ref.get() == "Plot"
         msg = (f"(Main) {'checked' if checked else 'unchecked'} "
                f"Plot Reference button")
         log_user_action(self.mm.ivs2.logger, msg)
@@ -11038,7 +11036,7 @@ class LockAxes(ttk.Checkbutton):
     # -------------------------------------------------------------------------
     def update_axis_lock(self, event=None):
         """Method to update and apply the axis lock"""
-        checked = (self.axes_locked.get() == "Lock")
+        checked = self.axes_locked.get() == "Lock"
         msg = (f"(Main) {'checked' if checked else 'unchecked'} "
                f"Axis Ranges Lock button")
         if event is None:
@@ -11147,7 +11145,7 @@ class LoopRateLimit(ttk.Checkbutton):
         # pylint: disable=unused-argument
         checked_unchecked = ('checked' if self.loop_rate_limit.get() == 'On'
                              else 'unchecked')
-        msg = (f"(Main) {checked_unchecked} Loop Mode Rate Limit button")
+        msg = f"(Main) {checked_unchecked} Loop Mode Rate Limit button"
         log_user_action(self.gui.ivs2.logger, msg)
         if self.loop_rate_limit.get() == "On":
             curr_loop_delay = self.gui.loop_delay
