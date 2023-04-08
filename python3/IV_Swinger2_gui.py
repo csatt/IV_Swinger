@@ -11099,13 +11099,11 @@ class LoopMode(ttk.Checkbutton):
                 # the loop
                 self.gui.ivs2.plot_max_x = None
                 self.gui.ivs2.plot_max_y = None
-            self.lock_axes.state(["disabled"])
         else:
             self.gui.loop_mode.set("Off")
             self.gui.loop_mode_active = False
             self.rate_limit.state(["disabled"])
             self.save_results.state(["disabled"])
-            self.lock_axes.state(["!disabled"])
             if not self.axes_already_locked:
                 self.gui.redisplay_after_axes_unlock = False
                 self.lock_axes.invoke()  # Unlock axes
