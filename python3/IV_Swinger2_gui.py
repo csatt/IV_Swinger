@@ -3759,12 +3759,17 @@ class ResultsWizard(tk.Toplevel):
         """Method to derive the destination directory name from the source
            directory name
         """
+        inst_path = ""
+        overlays = ""
+        src_dir_parts = os.path.normpath(src_dir).split(os.path.sep)
+        if ("inst" in src_dir_parts and
+                src_dir_parts[src_dir_parts.index("inst") - 1] == APP_NAME):
+            inst_name = src_dir_parts[src_dir_parts.index("inst") + 1]
+            inst_path = os.path.join("inst", inst_name)
         if os.path.basename(os.path.dirname(src_dir)) == "overlays":
-            dest_dir = os.path.join(self.copy_dest, APP_NAME,
-                                    "overlays", os.path.basename(src_dir))
-        else:
-            dest_dir = os.path.join(self.copy_dest, APP_NAME,
-                                    os.path.basename(src_dir))
+            overlays = "overlays"
+        dest_dir = os.path.join(self.copy_dest, APP_NAME, inst_path,
+                                overlays, os.path.basename(src_dir))
         return dest_dir
 
     # -------------------------------------------------------------------------
