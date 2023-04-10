@@ -5066,6 +5066,7 @@ Copyright (C) 2017-2023  Chris Satterlee
             self.master.ivs2.close_usb()
             self.master.disable_go_button()
             self.master.config.cfg_set("USB", "port", "DISCONNECTED")
+            #self.master.go_button_status_label["text"] = "Not connected"
             self.master.save_config()
             return
         self.master.attempt_arduino_handshake()
