@@ -3374,6 +3374,9 @@ class ResultsWizard(tk.Toplevel):
         msg = """(Wizard) clicked "Make desktop shortcut" button"""
         log_user_action(self.master.ivs2.logger, msg)
 
+        # Shortcut always is to the main GUI's app_data_dir
+        app_data_path = self.master.main_gui.ivs2.app_data_dir
+
         # Find path to Desktop
         desktop_path = os.path.expanduser(os.path.join("~", "Desktop"))
         if not os.path.exists(desktop_path):
@@ -3393,12 +3396,12 @@ class ResultsWizard(tk.Toplevel):
                 shortcut = ws.CreateShortcut(desktop_shortcut_path)
                 if shortcut.TargetPath:
                     curr_value = shortcut.TargetPath
-                    if curr_value == self.master.ivs2.app_data_dir:
+                    if curr_value == app_data_path:
                         result = "EXISTS_SAME"
                     else:
                         result = "EXISTS_DIFFERENT"
                 else:
-                    shortcut.TargetPath = self.master.ivs2.app_data_dir
+                    shortcut.TargetPath = app_data_path
                     shortcut.Save()
                     result = "CREATED"
             except:  # pylint: disable=bare-except
@@ -3408,7 +3411,7 @@ class ResultsWizard(tk.Toplevel):
             if os.path.exists(desktop_shortcut_path):
                 if os.path.islink(desktop_shortcut_path):
                     curr_value = os.readlink(desktop_shortcut_path)
-                    if curr_value == self.master.ivs2.app_data_dir:
+                    if curr_value == app_data_path:
                         result = "EXISTS_SAME"
                     else:
                         result = "EXISTS_DIFFERENT"
