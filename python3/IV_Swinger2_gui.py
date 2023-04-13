@@ -2172,7 +2172,7 @@ ERROR: USB port is not connected to IV Swinger 2
                      f"({mpp_volts:.6f} V * {mpp_amps:.6f} A);"
                      f"{self.ivs2.hdd_output_dir}")
         else:
-            reply = f"ERROR;rc={RC_NAMES[rc]}"
+            reply = f"ERROR; rc={RC_NAMES[rc]}"
 
         # Send reply back to requester
         self.send_rcmd_reply(reply)
@@ -5069,7 +5069,7 @@ Copyright (C) 2017-2023  Chris Satterlee
             self.master.ivs2.close_usb()
             self.master.disable_go_button()
             self.master.config.cfg_set("USB", "port", "DISCONNECTED")
-            #self.master.go_button_status_label["text"] = "Not connected"
+            self.master.go_button_status_label["text"] = "Not connected"
             self.master.save_config()
             return
         self.master.attempt_arduino_handshake()
