@@ -71,8 +71,8 @@
 #      the looping controls.
 #
 #    ImgSizeCombo(), ResultsWizard(), MenuBar(), Dialog(), GlobalHelpDialog(),
-#    CalibrationHelpDialog(), AdvSsrFetCurrentCalHelpDialog(),
-#    AdvEmrCurrentCalHelpDialog(), AdvVoltageCalHelpDialog(),
+#    CalibrationHelpDialog(), AdvCurrentCalHelpDialog(),
+#    AdvVoltageCalHelpDialog(),
 #    DownlevelArduinoSketchDialog(), AdvCalDialog(), AdvCurrentCalDialog(),
 #    AdvVoltageCalDialog(), ResistorValuesDialog(), BiasBatteryDialog(),
 #    PreferencesDialog(), PlottingProps(), PlottingHelpDialog(), SpiClkCombo(),
@@ -5967,15 +5967,15 @@ Each instance GUI creates its own log file.
         self.text.pack(fill=BOTH, expand=True)
 
 
-# Advanced SSR/FET current calibration help dialog class
+# Advanced current calibration help dialog class
 #
-class AdvSsrFetCurrentCalHelpDialog(Dialog):
+class AdvCurrentCalHelpDialog(Dialog):
     """Class that is extended from the generic Dialog class and is used for
-       the SSR/FET-only advanced current calibration Help dialog
+       the advanced current calibration Help dialog
     """
     # Initializer
     def __init__(self, master=None):
-        title = "Advanced Current Calibration Help (SSR/FET)"
+        title = "Advanced Current Calibration Help"
         super().__init__(master=master, title=title,
                          has_cancel_button=False, return_ok=True,
                          parent_is_modal=True,
@@ -5986,13 +5986,17 @@ class AdvSsrFetCurrentCalHelpDialog(Dialog):
     # -------------------------------------------------------------------------
     def body(self, master):
         """Method to create the dialog body, which is just a Text widget"""
-        help_text_1 = """
-This current calibration method works on IV Swinger 2 hardware with
-solid-state relays (SSRs) or FETs only. It is easier to perform and
-more accurate than the basic current calibration or the advanced
-current calibration for hardware with electromagnetic relays (EMRs).
+        help_text_1 = f"""
+This current calibration method works on all types of IV Swinger 2
+hardware. Its advantage over the basic current calibration is that it
+uses two points instead of just one. This can improve the accuracy of
+the calibration over the complete range.
 
 Connections:
+  0. (**EMR ONLY**)
+     Connect a jumper wire between the red binding post and the exposed
+     leg of the bleed resistor Rb (see the User Guide for suggestions
+     and a photo.) This bypasses the current around the load capacitors.
 
   1. Connect the red digital multimeter (DMM) lead to the "A" DMM input
      and set it to measure DC current
@@ -6064,148 +6068,6 @@ Calibration:
 
   NOTE 3: The Test button feature may be used without performing a new
      calibration.
-
-  NOTE 4: The slope and intercept values may be manually entered to
-     override the calculated values. But you should have a good reason
-     if you do this.
-"""
-        font = HELP_DIALOG_FONT
-        self.text = ScrolledText(master, height=1, borderwidth=10)
-        self.text.tag_configure("body_tag", font=font)
-        self.text.tag_configure("heading_tag", font=font, underline=True)
-        self.text.insert("end", help_text_1, ("body_tag"))
-        self.text.pack(fill=BOTH, expand=True)
-
-
-# Advanced EMR current calibration help dialog class
-#
-class AdvEmrCurrentCalHelpDialog(Dialog):
-    """Class that is extended from the generic Dialog class and is used for
-       the EMR-only advanced current calibration Help dialog
-    """
-    # Initializer
-    def __init__(self, master=None):
-        title = "Advanced Current Calibration Help (EMR)"
-        super().__init__(master=master, title=title,
-                         has_cancel_button=False, return_ok=True,
-                         parent_is_modal=True,
-                         resizable=True,
-                         min_height=HELP_DIALOG_MIN_HEIGHT_PIXELS,
-                         max_height=HELP_DIALOG_MAX_HEIGHT_PIXELS)
-
-    # -------------------------------------------------------------------------
-    def body(self, master):
-        """Method to create the dialog body, which is just a Text widget"""
-        help_text_1 = """
-This current calibration method works on IV Swinger 2 hardware with
-electromechanical relays (EMRs). Its advantage over the basic current
-calibration is that it uses two points instead of just one. This can
-improve the accuracy of the calibration over the complete range.
-
-Required conditions:
-
-  The calibration must be done on a very clear day, preferably near
-  noon.
-
-Additional equipment:
-
-  Standard 15A single-pole light switch with a short wire connected to
-  each screw
-
-  NOTE: This process *WILL* destroy the switch after some number of
-  measurements. An alternative is a knife switch or other switch rated
-  for DC current. Othwerwise, buy in bulk if you plan on calibrating
-  often.
-
-Connections:
-
-  1. Connect the red digital multimeter (DMM) lead to the "A" DMM input
-     and set it to measure DC current
-
-  2. Connect the red DMM probe to the PV+ lead
-
-  3. Connect the black DMM lead to the "COM" DMM input
-
-  4. Connect the black DMM probe to the IV Swinger 2 red binding post
-
-  5. Connect the IV Swinger 2 black binding post to the PV- lead
-
-  6. With the light switch in the OFF position, connect one wire to each
-     binding post
-
-  The PV module/cell is now connected to the IV Swinger 2 with the DMM
-  in series on the positive side. The switch, when turned on, shorts the
-  PV+ to the PV- through the DMM.
-
-  NOTE: Unlike the calibration for the SSR-based and FET-based designs,
-        using a DC power supply is not possible; it MUST be done with a PV
-        module/cell
-
-Calibration:
-
-  1. Prop the PV so that the sun is hitting it at a very oblique angle
-     (shoot for an angle of about 80 degrees off of perpendicular).
-
-  2. Click on the "Get Point 1" button.
-
-  3. Adjust the angle of the PV until the current is approximately 2 A
-     (or 20% of the maximum value you expect to ever measure). If you
-     get an error, try increasing the angle.
-
-  4. Click on the "Get Point 1" button several more times, checking that
-     the value is not changing by more than a few mA. If it is, then try
-     increasing the angle of the PV a bit more or wait for a better day
-     to calibrate.
-
-  5. Flip the light switch ON
-
-  6. Look at the DMM display and enter the DMM measured Point 1 value in
-     the text entry box
-
-  7. Flip the light switch OFF. [If the DMM current does not drop to
-     zero, your switch is fried.]
-
-  8. Repeat steps 1 - 7 for Point 2. Shoot for a current around 8 A (or
-     80% of the maximum value you expect to ever measure). A good
-     starting point is an angle of about 35 degrees off of
-     perpendicular.
-
-  9. Click the "Calibrate" button
-
- 10. Prop the PV at an arbitrary angle to the sun
-
- 11. Click the "Test" button
-
- 12. Flip the light switch ON
-
- 13. Enter the DMM value in the text entry box and hit Enter/Return
-
- 14. Note the Error value (mA and %)
-
- 15. Flip the light switch OFF. [If the DMM current does not drop to
-     zero, your switch is fried.]
-
- 16. Repeat steps 10 - 15 as many times as desired (or until your switch
-     fries, which may happen first). Use different PV angles to test
-     points throughout the desired current range.
-
- 17. If you are unhappy with the calibration, repeat steps 1 - 17.
-
- 18. Click OK when you are happy with the calibration. Clicking Cancel
-     or closing the dialog window discards the calibration.
-
-  NOTE 1: Unlike the basic calibration, the advanced calibration does
-     not require an IV curve to be swung before the calibration.
-     However, it also does not recalibrate or redisplay the most recent
-     curve the way the basic calibration does.
-
-  NOTE 2: The Test button feature may be used without performing a new
-     calibration.
-
-  NOTE 3: The switch will last a lot longer if the PV is shaded whenever
-     it is turned ON or OFF. However, there may be small changes in the
-     irradiance in the time that it takes to do that, affecting the
-     accuracy of the calibration.
 
   NOTE 4: The slope and intercept values may be manually entered to
      override the calculated values. But you should have a good reason
@@ -6473,7 +6335,7 @@ This current calibration uses two calibrated points to obtain both a
 slope and an intercept for the calibration equation. It also supports
 manual entry of the slope and intercept and it supports testing the
 calibration values before committing them. Both EMR-based and
-SSR/FET-based IVS2s are supported, but an external switch is
+SSR/FET-based IVS2s are supported, but an external jumper wire is
 required for EMR-based IVS2s."""
         else:
             desc_text = """
@@ -6714,12 +6576,7 @@ calibration values before committing them."""
         msg = f"({dialog_type}) clicked Help button"
         log_user_action(self.master.ivs2.logger, msg)
         if self.type_is_current():
-            if not self.relay_type_is_valid():
-                return RC_FAILURE
-            if self.ssr_fet_mode:
-                AdvSsrFetCurrentCalHelpDialog(self.master)
-            else:
-                AdvEmrCurrentCalHelpDialog(self.master)
+            AdvCurrentCalHelpDialog(self.master)
         else:
             AdvVoltageCalHelpDialog(self.master)
 
@@ -6798,8 +6655,9 @@ ERROR: Hardware returned invalid measured value ("{uncal_value_str}")
         """
         if self.type_is_current() and not self.relay_type_is_valid():
             return RC_FAILURE
-        if self.type_is_current() and self.ssr_fet_mode:
-            rc = self.master.ivs2.request_ssr_adv_current_calibration_val()
+        if self.type_is_current():
+            ssr_fet_mode = self.ssr_fet_mode
+            rc = self.master.ivs2.req_adv_current_calibration_val(ssr_fet_mode)
             if rc == RC_SSR_FET_HOT:
                 error_msg = """
 ERROR: SSR/FET needs a little time
@@ -6808,8 +6666,8 @@ to cool down - try again"""
                 return rc
             if rc != RC_SUCCESS:
                 error_msg = f"""
-ERROR: Failed to send advanced SSR/FET
-current calibration request to Arduino
+ERROR: Failed to send advanced current
+calibration request to Arduino
 (rc = {rc})"""
                 tkmsg.showerror(message=error_msg)
                 return rc

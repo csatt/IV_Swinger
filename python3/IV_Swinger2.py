@@ -4043,9 +4043,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def request_adv_calibration_vals(self):
         """Method to request an IV curve from the Arduino for the purpose of
            getting the Voc or Isc values for an advanced calibration. This
-           is used for the advanced voltage calibration (EMR or SSR) and
-           for the EMR current calibration.  It is not used for the SSR
-           current calibration.
+           is used for the advanced voltage calibration (EMR or SSR). It
+           previously was used for the EMR current calibration, but that no
+           longer is the case.
         """
         # If the Arduino code isn't ready, fail
         if not self.arduino_ready:
@@ -4115,17 +4115,26 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             return self.adv_cal_adc_val
 
     # -------------------------------------------------------------------------
-    def request_ssr_adv_current_calibration_val(self):
+    def req_adv_current_calibration_val(self, ssr_fet_mode=True):
         """Method to send the Arduino a config message that tells it to
            configure the SSRs to pass current around the load capacitors
            and the bleed resistor (if there is one) for three seconds
            and return the ADC value for the channel measuring current in
            this state. This is used for SSR advanced current calibration.
+
+           It is now used for EMR advanced current calibration too. The
+           Arduino sketch is sent the same command and it goes through
+           the same motions.  However, the bypass around the load
+           capacitors is a jumper wire manually installed by the user.
+           The relay will switch, but that will have no effect.  The
+           only difference is that there is no need to check the elapsed
+           time since there is no SSR or FET to get hot.
         """
         if not self.arduino_sketch_supports_ssr_adv_current_cal:
             return RC_FAILURE
         elapsed_since_prev = dt.datetime.now() - self.ssr_cooling_start_time
-        if elapsed_since_prev.total_seconds() < self.ssr_cooling_period:
+        if (ssr_fet_mode and
+                elapsed_since_prev.total_seconds() < self.ssr_cooling_period):
             return RC_SSR_FET_HOT
         rc = self.send_msg_to_arduino("Config: DO_SSR_CURR_CAL ")
         if rc != RC_SUCCESS:
