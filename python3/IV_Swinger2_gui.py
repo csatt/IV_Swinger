@@ -187,6 +187,7 @@ INFINITE_VAL = IV_Swinger2.INFINITE_VAL
 VERSION_FILE = "version.txt"
 SPLASH_IMG = "Splash_Screen.png"
 BLANK_IMG = "Blank_Screen.png"
+USER_GUIDE_PDF="IV_Swinger2_User_Guide.pdf"
 TITLEBAR_ICON = "IV_Swinger2.ico"  # Windows
 HELP_DIALOG_FONT = "Arial"
 HELP_DIALOG_MIN_HEIGHT_PIXELS = 360
@@ -4934,6 +4935,8 @@ class MenuBar(tk.Menu):
             self.help_menu.add_command(label="IV Swinger 2 Help",
                                        command=self.show_help)
         # Both
+        self.help_menu.add_command(label="User Guide",
+                                   command=self.open_user_guide)
         self.help_menu.add_command(label="Run Simulator",
                                    command=self.run_simulator)
 
@@ -5351,6 +5354,14 @@ will exit.
         msg = """(MenuBar, Help) selected "IV Swinger 2 Help" entry"""
         log_user_action(self.master.ivs2.logger, msg)
         GlobalHelpDialog(self.master)
+
+    # -------------------------------------------------------------------------
+    def open_user_guide(self):
+        """Method to open the IV Swinger 2 User Guide PDF"""
+        msg = """(MenuBar, Help) selected "User Guide" entry"""
+        log_user_action(self.master.ivs2.logger, msg)
+        user_guide = os.path.join(self.master.app_dir, USER_GUIDE_PDF)
+        IV_Swinger2.sys_view_file(user_guide)
 
     # -------------------------------------------------------------------------
     def run_simulator(self):

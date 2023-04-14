@@ -8,6 +8,7 @@ pyinstaller --windowed \
             --add-data="$GITHUB/IV_Swinger/python3/Splash_Screen.png:." \
             --add-data="$GITHUB/IV_Swinger/python3/Blank_Screen.png:." \
             --add-data="$GITHUB/IV_Swinger/python3/version.txt:." \
+            --add-data="$GITHUB/IV_Swinger/docs/IV_Swinger2/IV_Swinger2_User_Guide.pdf:." \
             --name "IV Swinger 2" \
             $GITHUB/IV_Swinger/python3/IV_Swinger2_gui.py
 $GITHUB/IV_Swinger/build_tools/fix_info_plist.py ./dist/IV\ Swinger\ 2.app/Contents/Info.plist
