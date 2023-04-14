@@ -187,7 +187,7 @@ INFINITE_VAL = IV_Swinger2.INFINITE_VAL
 VERSION_FILE = "version.txt"
 SPLASH_IMG = "Splash_Screen.png"
 BLANK_IMG = "Blank_Screen.png"
-USER_GUIDE_PDF="IV_Swinger2_User_Guide.pdf"
+USER_GUIDE_PDF = "IV_Swinger2_User_Guide.pdf"
 TITLEBAR_ICON = "IV_Swinger2.ico"  # Windows
 HELP_DIALOG_FONT = "Arial"
 HELP_DIALOG_MIN_HEIGHT_PIXELS = 360
@@ -2974,7 +2974,10 @@ class ResultsWizard(tk.Toplevel):
             full_path = os.path.join(self.results_dir, subdir)
             if not os.path.isdir(full_path):
                 continue
-            if not os.listdir(full_path):
+            try:
+                if not os.listdir(full_path):
+                    continue
+            except PermissionError:
                 continue
 
             # First handle overlays
@@ -5997,7 +6000,7 @@ class AdvCurrentCalHelpDialog(Dialog):
     # -------------------------------------------------------------------------
     def body(self, master):
         """Method to create the dialog body, which is just a Text widget"""
-        help_text_1 = f"""
+        help_text_1 = """
 This current calibration method works on all types of IV Swinger 2
 hardware. Its advantage over the basic current calibration is that it
 uses two points instead of just one. This can improve the accuracy of
