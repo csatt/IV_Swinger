@@ -6216,21 +6216,16 @@ class DownlevelArduinoSketchDialog(Dialog):
 
     def body(self, master):
         """Method to create the dialog body, which is just a Text widget"""
-        app_version_text = self.master.version
-        url = ("\n          https://raw.githubusercontent.com/"
-               "csatt/IV_Swinger/")
-        url += app_version_text
-        url += ("/Arduino/IV_Swinger2/IV_Swinger2.ino")
-
+        url = (f"https://raw.githubusercontent.com/csatt/IV_Swinger/"
+               f"{self.master.version}/Arduino/IV_Swinger2/IV_Swinger2.ino")
         heading_text = "** ATTENTION **\n\n"
-        text_1 = """
+        text_1 = f"""
 The Arduino software ("sketch") on the IV Swinger 2 hardware that is currently
 connected is not the most current version.
-"""
-        text_2 = (f"\n    Version detected: "
-                  f"{self.master.ivs2.arduino_sketch_ver}")
-        text_3 = f"\n     Current version: {LATEST_SKETCH_VER}\n"
-        text_4 = """
+
+Version detected: {self.master.ivs2.arduino_sketch_ver}
+Current version: {LATEST_SKETCH_VER}
+
 You may continue with the older version, but it is recommended that you update
 at your earliest convenience.
 
@@ -6246,23 +6241,26 @@ Here is the procedure:
 
            Arduino->Preferences->Sketchbook location
 
-      - Use your browser to go to:
-"""
-        text_5 = url
-        text_6 = """
+        In the next step, replace <Sketchbook location> with this path.
 
-      - Use your browser's "Save As" to save IV_Swinger.ino to the Arduino
-        sketchbook folder found above (make sure your browser doesn't add an
-        extension like .txt to the file name)
+      - Copy the following file to a folder named IV_Swinger2 in the
+        Sketchbook location:
 
-      - Go back to the Arduino application and find the IV_Swinger2.ino sketch
-        using:
+{url}
+
+            - If you have “wget”, you can do this with:
+
+% wget -P <Sketchbook location>/IV_Swinger2 {url}
+
+            - Otherwise, use your browser and copy/paste the file
+              contents to a new folder and file:
+
+              <Sketchbook location>/IV_Swinger2/IV_Swinger2.ino
+
+      - Go back to the Arduino application and find the IV_Swinger2.ino
+        sketch using:
 
            File->Open
-
-        The Arduino application will inform you that IV_Swinger2.ino must be in
-        a folder named IV_Swinger2 and it will offer to do that for you. Accept
-        its kind offer.
 
         Click on arrow button or select "Upload" from "Sketch" menu.
 """
@@ -6273,11 +6271,6 @@ Here is the procedure:
         self.text.tag_configure("body_tag", font=font)
         self.text.insert("end", heading_text, ("heading_tag"))
         self.text.insert("end", text_1, ("body_tag"))
-        self.text.insert("end", text_2, ("body_tag"))
-        self.text.insert("end", text_3, ("body_tag"))
-        self.text.insert("end", text_4, ("body_tag"))
-        self.text.insert("end", text_5, ("body_tag"))
-        self.text.insert("end", text_6, ("body_tag"))
         self.text.pack(fill=BOTH, expand=True)
 
 
