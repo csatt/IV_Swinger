@@ -8,7 +8,7 @@ This GitHub repository contains the IV Swinger documentation, software, and open
 
 IV Swinger 2 is here! It is much smaller, cheaper and easier to build, and better than the original in almost every way. Step-by-step construction instructions are included in the repository, and are posted on www.instructables.com:
 
-[![ Instructable](https://www.instructables.com/assets/img/instructables-logo-v2.png)](http://www.instructables.com/id/IV-Swinger-2-a-50-IV-Curve-Tracer/)
+[IV Swinger 2 - a $50 IV Curve Tracer](http://www.instructables.com/id/IV-Swinger-2-a-50-IV-Curve-Tracer/)
 
 All IV Swinger 2 documentation is now available:
 * IV Swinger 2: User Guide
@@ -26,6 +26,6 @@ YouTube demo videos (IV Swinger 2):
 
 [![IV Swinger 2 Demo: Part II](http://img.youtube.com/vi/9iPq5AsuU_U/0.jpg)](http://www.youtube.com/watch?v=9iPq5AsuU_U)
 
-YouTube demo video (IV Swinger):
+YouTube demo video (original IV Swinger):
 
 [![IV Swinger Demo](http://img.youtube.com/vi/xNytkONOcW0/0.jpg)](http://www.youtube.com/watch?v=xNytkONOcW0)
