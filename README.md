@@ -1,12 +1,10 @@
-View this project on [CADLAB.io](https://cadlab.io/project/1505). 
-
 # IV_Swinger
 
 **NOTICE: Please contact me at csatt1@gmail.com if you are interested in building the hardware for people who don't have the time, skills, or tools to do it themselves. I get requests occasionally from such people, but cannot do this myself. There are now PCBs, making the construction much easier!**
 
 The IV Swinger is an IV curve tracer for photovoltaic solar panels. Both the hardware design and the software are open source.
 
-This GitHub repository contains the IV Swinger documentation, software and open source licensing files.
+This GitHub repository contains the IV Swinger documentation, software, and open source licensing files.
 
 IV Swinger 2 is here! It is much smaller, cheaper and easier to build, and better than the original in almost every way. Step-by-step construction instructions are included in the repository, and are posted on www.instructables.com:
 
@@ -15,6 +13,7 @@ IV Swinger 2 is here! It is much smaller, cheaper and easier to build, and bette
 All IV Swinger 2 documentation is now available:
 * IV Swinger 2: User Guide
 * IV Swinger 2: Optional Environmental Sensors
+* IV Swinger 2: Hardware Scaling
 * IV Swinger 2: Design and Theory of Operation
 * IV Swinger 2: Step-by-step Construction (for each variant)
 * Fritzing files
