@@ -71,3 +71,5 @@ good-names=IV_Swinger,
 
 [MESSAGES CONTROL]
 disable=no-name-in-module
+[TYPECHECK]
+generated-members=zmq.__version__
