@@ -121,15 +121,18 @@ SHUNT_MFG_PN_DEFAULT = "13FR005E"
 RB_OHMS_DEFAULT = 47.0
 RB_WATTAGE_DEFAULT = 5.0
 RB_MFG_PN_DEFAULT = "AC05000004709JAC00"
-RELAY_TYPE_DEFAULT = "SSR"
+RELAY_TYPE_DEFAULT = "EMR"
 EMR_MAX_VOLTS_DEFAULT = 60.0  # 2x spec
 SSR_MAX_VOLTS_DEFAULT = 100.0  # Actual from spec
+FET_MAX_VOLTS_DEFAULT = 100.0  # Actual from IRF540NPBF spec
 EMR_MAX_AMPS_DEFAULT = 10.0  # Actual from spec (sort of)
 SSR_MAX_AMPS_DEFAULT = 30.0  # Assume < 70 ms (from spec)
+FET_MAX_AMPS_DEFAULT = 23.0  # Assume case temp 100 C (IRF540NPBF spec)
 DONE_CH1_ADC_DEFAULT = 20  # Hardcoded in Arduino sketch
 WIRE_OHMS_DEFAULT = 0.010  # Guesstimate of SC path wire resistance
 EMR_OHMS_DEFAULT = 0.100  # From Songle spec
 SSR_OHMS_DEFAULT = 0.070  # 2x 34 mohms
+FET_OHMS_DEFAULT = 0.088  # 2x 44 mohms (IRF540NPBF spec)
 US_PER_POINT_DEFAULT = 65.0  # Measured value at 2 MHz SPI clk
 NUM_SYNTH_POINTS_DEFAULT = 100000
 OPT_PCT_HEADROOM_DEFAULT = 30.0
@@ -423,12 +426,15 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
         self._relay_type = RELAY_TYPE_DEFAULT
         self._emr_max_volts = EMR_MAX_VOLTS_DEFAULT
         self._ssr_max_volts = SSR_MAX_VOLTS_DEFAULT
+        self._fet_max_volts = FET_MAX_VOLTS_DEFAULT
         self._emr_max_amps = EMR_MAX_AMPS_DEFAULT
         self._ssr_max_amps = SSR_MAX_AMPS_DEFAULT
+        self._fet_max_amps = FET_MAX_AMPS_DEFAULT
         self._done_ch1_adc = DONE_CH1_ADC_DEFAULT
         self._wire_ohms = WIRE_OHMS_DEFAULT
         self._emr_ohms = EMR_OHMS_DEFAULT
         self._ssr_ohms = SSR_OHMS_DEFAULT
+        self._fet_ohms = FET_OHMS_DEFAULT
         self._us_per_point = US_PER_POINT_DEFAULT
         self._num_synth_points = NUM_SYNTH_POINTS_DEFAULT
         self._opt_pct_headroom = OPT_PCT_HEADROOM_DEFAULT
@@ -617,14 +623,14 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
     # ---------------------------------
     @property
     def relay_type(self):
-        """Relay type used (EMR or SSR)
+        """Relay type used (EMR, SSR, FET)
         """
         return self._relay_type
 
     @relay_type.setter
     def relay_type(self, value):
-        if value not in set(["EMR", "SSR"]):
-            raise ValueError("relay_type must be EMR or SSR")
+        if value not in set(["EMR", "SSR", "FET"]):
+            raise ValueError("relay_type must be EMR, SSR, or FET")
         self._relay_type = value
 
     # ---------------------------------
@@ -651,6 +657,17 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
 
     # ---------------------------------
     @property
+    def fet_max_volts(self):
+        """Max voltage allowed across FET
+        """
+        return self._fet_max_volts
+
+    @fet_max_volts.setter
+    def fet_max_volts(self, value):
+        self._fet_max_volts = value
+
+    # ---------------------------------
+    @property
     def emr_max_amps(self):
         """Max current allowed through EMR
         """
@@ -663,13 +680,24 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
     # ---------------------------------
     @property
     def ssr_max_amps(self):
-        """Max voltage allowed through SSR
+        """Max current allowed through SSR
         """
         return self._ssr_max_amps
 
     @ssr_max_amps.setter
     def ssr_max_amps(self, value):
         self._ssr_max_amps = value
+
+    # ---------------------------------
+    @property
+    def fet_max_amps(self):
+        """Max current allowed through FET
+        """
+        return self._fet_max_amps
+
+    @fet_max_amps.setter
+    def fet_max_amps(self, value):
+        self._fet_max_amps = value
 
     # ---------------------------------
     @property
@@ -716,6 +744,17 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
     @ssr_ohms.setter
     def ssr_ohms(self, value):
         self._ssr_ohms = value
+
+    # ---------------------------------
+    @property
+    def fet_ohms(self):
+        """Estimated on-resistance of the two FETs in the short-circuit path
+        """
+        return self._fet_ohms
+
+    @fet_ohms.setter
+    def fet_ohms(self, value):
+        self._fet_ohms = value
 
     # ---------------------------------
     @property
@@ -834,19 +873,21 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
     # ---------------------------------
     @property
     def relay_ohms(self):
-        """Resistance of "on" relay (EMR or SSR)"""
+        """Resistance of "on" relay (EMR, SSR, or FET)"""
         if self.relay_type == "SSR":
             return self.ssr_ohms
+        if self.relay_type == "FET":
+            return self.fet_ohms
         return self.emr_ohms
 
     # ---------------------------------
     @property
     def load_caps_ohms(self):
         """Equivalent resistance of the parallel load caps. Returns 0 for
-           SSR-based design because short-circuit path does not include
-           load caps.
+           SSR-based and FET-based design because short-circuit path
+           does not include load caps.
         """
-        if self.relay_type == "SSR":
+        if self.relay_type in ('SSR', 'FET'):
             return 0.0
         return self.load_cap_esr / self.num_load_caps
 
@@ -865,17 +906,21 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
     # ---------------------------------
     @property
     def relay_max_volts(self):
-        """Maximum voltage allowed across relay (SSR or EMR)"""
+        """Maximum voltage allowed across relay (SSR, FET, or EMR)"""
         if self.relay_type == "SSR":
             return self.ssr_max_volts
+        if self.relay_type == "FET":
+            return self.fet_max_volts
         return self.emr_max_volts
 
     # ---------------------------------
     @property
     def relay_max_amps(self):
-        """Maximum current allowed through relay (SSR or EMR)"""
+        """Maximum current allowed through relay (SSR, FET, or EMR)"""
         if self.relay_type == "SSR":
             return self.ssr_max_amps
+        if self.relay_type == "FET":
+            return self.fet_max_amps
         return self.emr_max_amps
 
     # ---------------------------------
@@ -1632,6 +1677,7 @@ class SimulatorDialog(tk.Toplevel):
         self.wire_ohms = tk.StringVar()
         self.emr_ohms = tk.StringVar()
         self.ssr_ohms = tk.StringVar()
+        self.fet_ohms = tk.StringVar()
         self.opt_pct_headroom = tk.StringVar()
         self.cap_voltage_derate_pct = tk.StringVar()
         self.max_vdiv_current = tk.StringVar()
@@ -1660,6 +1706,9 @@ class SimulatorDialog(tk.Toplevel):
         # pylint: disable=too-many-locals
         # pylint: disable=too-many-statements
 
+        # Add container box for relay type radio buttons
+        radio_buttons_widget_box = ttk.Frame(master=self.main_controls_tab,
+                                             padding=20)
         # Add container box for widgets
         main_controls_widget_box = ttk.Frame(master=self.main_controls_tab,
                                              padding=20)
@@ -1668,7 +1717,8 @@ class SimulatorDialog(tk.Toplevel):
         # Add relay type widgets
         (relay_type_label,
          emr_rb,
-         ssr_rb) = self.add_relay_type_widgets(master)
+         ssr_rb,
+         fet_rb) = self.add_relay_type_widgets(radio_buttons_widget_box)
 
         # Add Isc widgets
         (isc_amps_label,
@@ -1750,13 +1800,18 @@ class SimulatorDialog(tk.Toplevel):
         simulate_button = self.add_simulate_button(master=master)
 
         # Layout
-        main_controls_widget_box.grid(column=0, row=0, sticky=W, columnspan=2)
+        padx = 10
         pady = 8
         row = 0
+        radio_buttons_widget_box.grid(column=0, row=row, sticky=W)
         relay_type_label.grid(column=0, row=row, sticky=W)
-        emr_rb.grid(column=1, row=row, sticky=W)
-        ssr_rb.grid(column=2, row=row, sticky=W)
+        emr_rb.grid(column=1, row=row, sticky=W, padx=padx)
+        ssr_rb.grid(column=2, row=row, sticky=W, padx=padx)
+        fet_rb.grid(column=3, row=row, sticky=W, padx=padx)
         row += 1
+        main_controls_widget_box.grid(column=0, row=row, sticky=W,
+                                      columnspan=3)
+        row = 0
         isc_amps_label.grid(column=0, row=row, sticky=W, pady=pady)
         isc_amps_entry.grid(column=1, row=row, sticky=W, pady=pady)
         self.isc_amps_slider.grid(column=2, row=row, sticky=W, pady=pady)
@@ -1911,6 +1966,7 @@ class SimulatorDialog(tk.Toplevel):
         self.wire_ohms.set(self.ivs2_sim.wire_ohms)
         self.emr_ohms.set(self.ivs2_sim.emr_ohms)
         self.ssr_ohms.set(self.ivs2_sim.ssr_ohms)
+        self.fet_ohms.set(self.ivs2_sim.fet_ohms)
         self.opt_pct_headroom.set(self.ivs2_sim.opt_pct_headroom)
         self.cap_voltage_derate_pct.set(self.ivs2_sim.cap_voltage_derate_pct)
         self.max_vdiv_current.set(self.ivs2_sim.max_vdiv_current)
@@ -1937,8 +1993,13 @@ class SimulatorDialog(tk.Toplevel):
                                  variable=self.relay_type,
                                  command=self.update_relay_type,
                                  value="SSR")
+        fet_rb = ttk.Radiobutton(master=master,
+                                 text="FET",
+                                 variable=self.relay_type,
+                                 command=self.update_relay_type,
+                                 value="FET")
 
-        return relay_type_label, emr_rb, ssr_rb
+        return relay_type_label, emr_rb, ssr_rb, fet_rb
 
     # -------------------------------------------------------------------------
     def add_isc_widgets(self, master):
@@ -2328,6 +2389,14 @@ class SimulatorDialog(tk.Toplevel):
                                    textvariable=textvar)
         ssr_ohms_entry.bind("<Return>", self.other_entries_actions)
 
+        # Add FET ohms label and entry widgets
+        fet_ohms_label = ttk.Label(master=master, text="FET ohms ")
+        textvar = self.fet_ohms
+        fet_ohms_entry = ttk.Entry(master=master,
+                                   width=8,
+                                   textvariable=textvar)
+        fet_ohms_entry.bind("<Return>", self.other_entries_actions)
+
         # Add optimization percent headroom label and entry widgets
         opt_pct_headroom_label = ttk.Label(master=master,
                                            text="Optimization headroom % ")
@@ -2438,6 +2507,9 @@ class SimulatorDialog(tk.Toplevel):
         ssr_ohms_label.grid(column=0, row=row, sticky=E)
         ssr_ohms_entry.grid(column=1, row=row, sticky=W)
         row += 1
+        fet_ohms_label.grid(column=0, row=row, sticky=E)
+        fet_ohms_entry.grid(column=1, row=row, sticky=W)
+        row += 1
         ttk.Label(other_controls_widget_box, text=" ").grid(column=0, row=row)
         row += 1
         ttk.Separator(other_controls_widget_box).grid(row=row, columnspan=9,
@@ -2494,6 +2566,8 @@ class SimulatorDialog(tk.Toplevel):
         self.ivs2_sim.emr_ohms = widget_get_val
         widget_get_val = float(self.ssr_ohms.get())
         self.ivs2_sim.ssr_ohms = widget_get_val
+        widget_get_val = float(self.fet_ohms.get())
+        self.ivs2_sim.fet_ohms = widget_get_val
         widget_get_val = float(self.opt_pct_headroom.get())
         self.ivs2_sim.opt_pct_headroom = widget_get_val
         widget_get_val = float(self.cap_voltage_derate_pct.get())
@@ -2523,6 +2597,7 @@ class SimulatorDialog(tk.Toplevel):
         self.wire_ohms.set(str(WIRE_OHMS_DEFAULT))
         self.emr_ohms.set(str(EMR_OHMS_DEFAULT))
         self.ssr_ohms.set(str(SSR_OHMS_DEFAULT))
+        self.fet_ohms.set(str(FET_OHMS_DEFAULT))
         self.opt_pct_headroom.set(str(OPT_PCT_HEADROOM_DEFAULT))
         self.cap_voltage_derate_pct.set(str(CAP_VOLTAGE_DERATE_PCT_DEFAULT))
         self.max_vdiv_current.set(str(MAX_VDIV_CURRENT_DEFAULT))
@@ -3164,7 +3239,6 @@ class SimulatorHelpDialog(tk.Toplevel):
         help_text = []
         title_text = "IV Swinger 2 Simulator Help"
         help_text_intro = """
-
 The purpose of the IV Swinger 2 simulator is to determine the suitability of
 the components (resistors, capacitors, relays) for IV curves with a given Isc
 and Voc. The standard components work well for most commercial rooftop PV
