@@ -1920,8 +1920,6 @@ ERROR: USB port is not connected to IV Swinger 2
             else:
                 show_process_adc_values_err_dialog(rc)
             if remove_directory:
-                if self.ivs2.hdd_output_dir == os.getcwd():
-                    os.chdir("..")
                 shutil.rmtree(self.ivs2.hdd_output_dir)
             else:
                 self.ivs2.clean_up_files(self.ivs2.hdd_output_dir,
@@ -4461,8 +4459,6 @@ class ResultsWizard(tk.Toplevel):
             pass
 
         # Remove overlay directory
-        if self.master.overlay_dir == os.getcwd():
-            os.chdir("..")
         self.rm_overlay_dir()
 
     # -------------------------------------------------------------------------
@@ -4514,8 +4510,6 @@ class ResultsWizard(tk.Toplevel):
             dts = os.path.basename(self.master.overlay_dir)
             overlay_pdf = f"overlaid_{dts}.pdf"
             if overlay_pdf not in os.listdir(self.master.overlay_dir):
-                if self.master.overlay_dir == os.getcwd():
-                    os.chdir("..")
                 self.rm_overlay_dir()
                 return True
             # Clean up the directory

@@ -43,6 +43,7 @@
 # IV_Swinger_PV_model.py module.
 #
 import os
+from pathlib import Path
 import IV_Swinger_PV_model
 import IV_Swinger
 
@@ -131,7 +132,7 @@ def main():
         os.remove(f"plt_{basename}")
 
     # Create the PV spec CSV file in the current directory
-    pv_spec_file = os.path.join(f"{os.getcwd()}",
+    pv_spec_file = os.path.join(f"{Path.cwd()}",
                                 "IV_Swinger2_PV_model_pv_spec.csv")
     IV_Swinger_PV_model.create_pv_spec_file(pv_spec_file)
 
@@ -152,7 +153,7 @@ def main():
     # points to a CSV file. Plot the curve and view the PDF.
     pv.run()
     pv.get_data_points(PV_MODEL_CURVE_NUM_POINTS)
-    pv.csv_filename = os.path.join(f"{os.getcwd()}",
+    pv.csv_filename = os.path.join(f"{Path.cwd()}",
                                    "IV_Swinger2_PV_model.csv")
     pv.gen_data_points_csv()
     plot_and_view_modeled_curve(pv)

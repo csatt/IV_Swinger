@@ -5688,8 +5688,6 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if do_cleanup:
             for f in files:
                 self.clean_up_file(f)
-            if run_dir == os.getcwd():
-                os.chdir("..")
             os.rmdir(run_dir)
             msg_str = f"Removed {run_dir}"
             self.logger.log(msg_str)
@@ -5721,8 +5719,6 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 for f in loop_files:
                     self.clean_up_file(f)
                 # Remove the (now empty) directory
-                if run_dir == os.getcwd():
-                    os.chdir("..")
                 os.rmdir(run_dir)
 
             elif not loop_save_graphs:
