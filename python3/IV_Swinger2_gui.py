@@ -86,6 +86,7 @@
 #
 import datetime as dt
 import os
+from pathlib import Path
 import re
 try:
     # Mac/Unix only
@@ -1020,7 +1021,7 @@ ERROR: USB port is not connected to IV Swinger 2
         # Add title and titlebar icon (Windows)
         title_ext = f"  [{self.instance}]" if self.instance is not None else ""
         self.root.title(f"IV Swinger 2{title_ext}")
-        if sys.platform == "win32" and os.path.exists(TITLEBAR_ICON):
+        if sys.platform == "win32" and Path(TITLEBAR_ICON).exists():
             self.root.tk.call("wm", "iconbitmap",
                               self.root._w,  # pylint: disable=protected-access
                               "-default", TITLEBAR_ICON)
@@ -1581,7 +1582,7 @@ ERROR: USB port is not connected to IV Swinger 2
         original_cfg_file = None
         if run_dir is not None and run_dir != config_dir:
             cfg_file = os.path.join(run_dir, f"{APP_NAME}.cfg")
-            if os.path.exists(cfg_file):
+            if Path(cfg_file).exists():
                 # Snapshot current config
                 original_cfg_file = self.config.cfg_filename
                 self.config.get_snapshot()
@@ -1596,7 +1597,7 @@ ERROR: USB port is not connected to IV Swinger 2
         """Method to restore the swapped config from the snapshot.
         """
         if (run_dir is not None and run_dir != config_dir and
-                os.path.exists(cfg_file)):
+                Path(cfg_file).exists()):
             self.config.cfg_filename = original_cfg_file
             self.config.save_snapshot()
 
@@ -1892,7 +1893,7 @@ ERROR: USB port is not connected to IV Swinger 2
             self.results_wiz.plot_overlay_and_display()
         else:
             remove_directory = False
-            if not os.path.exists(self.ivs2.hdd_output_dir):
+            if not Path(self.ivs2.hdd_output_dir).exists():
                 if self.ivs2.adc_pairs is None:
                     # Super obscure case: Generate PV model test curve (which
                     # has no adc_pairs). Delete run from Wizard. Then make
@@ -3064,7 +3065,7 @@ class ResultsWizard(tk.Toplevel):
         title = None
         run_dir = self.get_run_dir(subdir)
         cfg_file = os.path.join(run_dir, f"{APP_NAME}.cfg")
-        if os.path.exists(cfg_file):
+        if Path(cfg_file).exists():
             title = IV_Swinger2.get_saved_title(cfg_file)
         else:
             title = "   * no saved cfg *"
@@ -3183,13 +3184,13 @@ class ResultsWizard(tk.Toplevel):
         overlay_dir = os.path.join(self.results_dir, "overlays", dts)
         gif_leaf_name = f"overlaid_{dts}.gif"
         gif_full_path = os.path.join(overlay_dir, gif_leaf_name)
-        if os.path.exists(gif_full_path):
+        if Path(gif_full_path).exists():
             self.master.display_img(gif_full_path)
         else:
             # Legacy
             gif_leaf_name = "overlaid.gif"
             gif_full_path = os.path.join(overlay_dir, gif_leaf_name)
-            if os.path.exists(gif_full_path):
+            if Path(gif_full_path).exists():
                 self.master.display_img(gif_full_path)
 
     # -------------------------------------------------------------------------
@@ -3256,20 +3257,20 @@ class ResultsWizard(tk.Toplevel):
         gif_file = os.path.join(run_dir, gif_leaf_name)
 
         # Check that data point CSV file exists
-        if not os.path.exists(csv_data_point_file):
+        if not Path(csv_data_point_file).exists():
             # Check for IVS1 CSV file
             ivs1_csv_file = os.path.join(self.results_dir, selection,
                                          f"data_points_{selection}.csv")
-            if os.path.exists(ivs1_csv_file):
+            if Path(ivs1_csv_file).exists():
                 csv_data_point_file = ivs1_csv_file
                 self.master.ivs2.hdd_csv_data_point_filename = ivs1_csv_file
             else:
                 csv_data_point_file = None
         # Check that the ADC CSV file exists
-        if not os.path.exists(adc_csv_file):
+        if not Path(adc_csv_file).exists():
             adc_csv_file = None
         # Check that the GIF file exists
-        if not os.path.exists(gif_file):
+        if not Path(gif_file).exists():
             gif_file = None
 
         return (csv_data_point_file, adc_csv_file, gif_file)
@@ -3281,7 +3282,7 @@ class ResultsWizard(tk.Toplevel):
         """
         self.master.ivs2.hdd_output_dir = run_dir
         self.master.ivs2.plot_title = None
-        if adc_csv_file is not None and os.path.exists(adc_csv_file):
+        if adc_csv_file is not None and Path(adc_csv_file).exists():
             adc_pairs = self.master.get_adc_pairs_from_csv(adc_csv_file)
             self.master.ivs2.adc_pairs = adc_pairs
         else:
@@ -3295,7 +3296,7 @@ class ResultsWizard(tk.Toplevel):
         cfg_file = os.path.join(run_dir, f"{APP_NAME}.cfg")
         if cfg_file == self.master.config.cfg_filename:
             return
-        if os.path.exists(cfg_file):
+        if Path(cfg_file).exists():
             self.master.config.get_old_result(cfg_file)
             self.master.update_plot_power_cb()
             self.master.update_plot_ref_cb()
@@ -3381,7 +3382,7 @@ class ResultsWizard(tk.Toplevel):
 
         # Find path to Desktop
         desktop_path = os.path.expanduser(os.path.join("~", "Desktop"))
-        if not os.path.exists(desktop_path):
+        if not Path(desktop_path).exists():
             err_str = f"ERROR: {desktop_path} does not exist"
             tkmsg.showerror(message=err_str)
 
@@ -3410,7 +3411,7 @@ class ResultsWizard(tk.Toplevel):
                 result = "FAILED"
         else:
             # For Mac or Linux, just create a symlink
-            if os.path.exists(desktop_shortcut_path):
+            if Path(desktop_shortcut_path).exists():
                 if os.path.islink(desktop_shortcut_path):
                     curr_value = os.readlink(desktop_shortcut_path)
                     if curr_value == app_data_path:
@@ -3708,7 +3709,7 @@ class ResultsWizard(tk.Toplevel):
                            f"{os.path.dirname(dest_dir)}")
                 tkmsg.showerror(message=err_str)
                 return False
-            if os.path.exists(dest_dir):
+            if Path(dest_dir).exists():
                 existing_dest_dirs.append(dest_dir)
 
         if existing_dest_dirs:
@@ -3735,7 +3736,7 @@ class ResultsWizard(tk.Toplevel):
         num_copied = {"overlays": 0, "runs": 0}
         for src_dir in src_dirs:
             dest_dir = self.get_dest_dir(src_dir)
-            if os.path.exists(dest_dir):
+            if Path(dest_dir).exists():
                 if overwrite:
                     try:
                         shutil.rmtree(dest_dir)
@@ -3864,7 +3865,7 @@ class ResultsWizard(tk.Toplevel):
         # displayed in the image pane, but with a .pdf suffix
         # replacing the .gif suffix.
         img = self.master.img_file
-        if img is not None and os.path.exists(img):
+        if img is not None and Path(img).exists():
             (basename, _) = os.path.splitext(img)
             pdf = f"{basename}.pdf"
             if self.master.overlay_mode:
@@ -3872,7 +3873,7 @@ class ResultsWizard(tk.Toplevel):
                 # button is pressed, so we have to generate it "on demand" when
                 # the View PDF button is pressed.
                 self.plot_graphs_to_pdf()
-            if os.path.exists(pdf):
+            if Path(pdf).exists():
                 IV_Swinger2.sys_view_file(pdf)
                 return
         err_str = "ERROR: No PDF to display"
@@ -3943,7 +3944,7 @@ class ResultsWizard(tk.Toplevel):
             # losing the calibration values at the time of the run. This
             # is particularly true for the battery bias calibration.
             cfg_file = os.path.join(run_dir, f"{APP_NAME}.cfg")
-            if os.path.exists(cfg_file):
+            if Path(cfg_file).exists():
                 self.master.config.cfg_filename = cfg_file
                 self.master.config.merge_old_with_current_plotting(cfg_file)
 
@@ -3964,7 +3965,7 @@ class ResultsWizard(tk.Toplevel):
             # indicator.
             self.master.img_pane.splash_img_showing = False
             reprocess_adc = (adc_csv_file is not None and
-                             os.path.exists(adc_csv_file))
+                             Path(adc_csv_file).exists())
             self.master.redisplay_img(reprocess_adc=reprocess_adc)
             self.update()
 
@@ -4504,7 +4505,7 @@ class ResultsWizard(tk.Toplevel):
            exist) and False otherwise.
         """
         if self.master.overlay_dir is not None:
-            if not os.path.exists(self.master.overlay_dir):
+            if not Path(self.master.overlay_dir).exists():
                 return True
             # Remove directory if it doesn't contain overlaid PDF
             dts = os.path.basename(self.master.overlay_dir)
@@ -4569,7 +4570,7 @@ class ResultsWizard(tk.Toplevel):
         self.master.overlay_dir = os.path.join(self.results_dir,
                                                "overlays",
                                                date_time_str)
-        if not os.path.exists(self.master.overlay_dir):
+        if not Path(self.master.overlay_dir).exists():
             os.makedirs(self.master.overlay_dir)
 
     # -------------------------------------------------------------------------
@@ -4693,7 +4694,7 @@ class MenuBar(tk.Menu):
         """Method to update the "File" menu to enable/disable entries"""
         kwargs = {"state": "normal"}
         if (self.master.ivs2.hdd_output_dir is None or
-                not os.path.exists(self.master.ivs2.hdd_output_dir)):
+                not Path(self.master.ivs2.hdd_output_dir).exists()):
             kwargs = {"state": "disabled"}
         self.file_menu.entryconfig("View Run Info File", **kwargs)
         self.file_menu.entryconfig("Open Run Folder", **kwargs)
@@ -8442,7 +8443,7 @@ effect. Please upgrade.
         """
         # Read PV specs from file and initialize pv_specs attribute
         pv_spec_file = self.master.ivs2.pv_spec_csv_file
-        if not os.path.exists(pv_spec_file):
+        if not Path(pv_spec_file).exists():
             create_pv_spec_file(pv_spec_file)
         self.pv_specs = []
         for pv_spec_dict in read_pv_specs(pv_spec_file):
@@ -10068,7 +10069,7 @@ written to Arduino EEPROM.
             self.pv_spec_update_actions()
             pv_spec_csv_file = self.master.ivs2.pv_spec_csv_file
             pv_spec_csv_file_bak = self.master.ivs2.pv_spec_csv_file_bak
-            if os.path.exists(pv_spec_csv_file):
+            if Path(pv_spec_csv_file).exists():
                 # Move existing file to backup
                 shutil.move(pv_spec_csv_file, pv_spec_csv_file_bak)
             for pv_spec_dict in self.pv_specs:
@@ -10189,7 +10190,7 @@ class PlottingProps():
            previously captured values to see if any have changed
         """
         if (not self.ivs2.hdd_adc_pairs_csv_filename or
-                not os.path.exists(self.ivs2.hdd_adc_pairs_csv_filename)):
+                not Path(self.ivs2.hdd_adc_pairs_csv_filename).exists()):
             return False
 
         return ((self.prop_vals["correct_adc"] != self.ivs2.correct_adc) or
@@ -10780,7 +10781,7 @@ class ImagePane(ttk.Label):
     def display_splash_img(self):
         """Method to display the splash image"""
         self.img_file = os.path.join(self.master.app_dir, SPLASH_IMG)
-        if not os.path.exists(self.img_file):
+        if not Path(self.img_file).exists():
             err_msg = f"""
 FATAL ERROR: file {self.img_file} does not exist
 

@@ -182,7 +182,7 @@
 #
 import datetime as dt
 import csv
-import os
+from pathlib import Path
 import warnings
 import numpy as np
 from scipy.optimize import root
@@ -648,7 +648,7 @@ def add_pv_spec(pv_spec_csv_file, pv_spec):
     pv_spec_dict = dict(zip(SPEC_FIELDS, pv_spec))
     # Start the (unordered) list of specs with the new one
     pv_specs = [pv_spec_dict]
-    if os.path.exists(pv_spec_csv_file):
+    if Path(pv_spec_csv_file).exists():
         for old_pv_spec_dict in read_pv_specs(pv_spec_csv_file):
             # Add to list unless its name is the same as the one being
             # added

@@ -182,6 +182,7 @@ import datetime as dt
 import glob
 import math
 import os
+from pathlib import Path
 import platform
 import re
 import shutil
@@ -4289,7 +4290,7 @@ class IV_Swinger():
             if include_pdf:  # IVS1
                 sub_dirs.append(os.path.join(base_dir, self.root_dir, "pdf"))
             for sub_dir in sub_dirs:
-                if not os.path.exists(sub_dir):  # IVS1
+                if not Path(sub_dir).exists():  # IVS1
                     try:
                         os.makedirs(sub_dir)
                     except OSError:
@@ -4750,7 +4751,7 @@ class IV_Swinger():
         self.reset_lcd()
 
         # Create logs directory
-        if not os.path.exists(self.logs_dir):
+        if not Path(self.logs_dir).exists():
             os.makedirs(self.logs_dir)
 
         # Print welcome message

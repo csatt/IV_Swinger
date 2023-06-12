@@ -79,6 +79,7 @@ import glob
 import io
 import math
 import os
+from pathlib import Path
 import re
 import shutil
 import subprocess
@@ -593,7 +594,7 @@ def get_run_info_filename(run_dir):
     dts = extract_date_time_str(run_dir)
     sensor_info_filename = os.path.join(run_dir,
                                         f"sensor_info_{dts}.txt")
-    if os.path.exists(sensor_info_filename):
+    if Path(sensor_info_filename).exists():
         # Backward compatibility
         run_info_filename = sensor_info_filename
     else:
@@ -610,7 +611,7 @@ def get_sensor_values_from_file(run_info_filename):
     """
     irrad = None
     temps_dict = {}
-    if os.path.exists(run_info_filename):
+    if Path(run_info_filename).exists():
         with open(run_info_filename, "r", encoding="utf-8") as f:
             temp_format_str = "Temperature at sensor "
             temp_format_str += r"#(\d+) is ([-+]?\d*\.\d+|\d+) "
@@ -696,10 +697,10 @@ class Configuration():
         """Method to save the starting config file. Mostly a debug feature,
            but not dependent on DEBUG_CONFIG.
         """
-        if os.path.exists(self.cfg_filename):
+        if Path(self.cfg_filename).exists():
             shutil.copyfile(self.cfg_filename, self.starting_cfg_filename)
         else:
-            if os.path.exists(self.starting_cfg_filename):
+            if Path(self.starting_cfg_filename).exists():
                 os.remove(self.starting_cfg_filename)
             # Create an empty file
             with open(self.starting_cfg_filename, "a", encoding="utf-8") as f:
@@ -2012,7 +2013,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         # Make sure CSV files exist
         for csv_file in self.csv_files:
             assert_str = f"ERROR: CSV file {csv_file} doesn't exist"
-            assert os.path.exists(csv_file), assert_str
+            assert Path(csv_file).exists(), assert_str
 
         # Process all CSV files
         self.csv_proc = IV_Swinger_plotter.CsvFileProcessor(self.args,
@@ -3740,7 +3741,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def create_run_info_file(self):
         """Method to create the run info file (if it doesn't already exist) and
            populate it with the boilerplate header"""
-        if not os.path.exists(self.run_info_filename):
+        if not Path(self.run_info_filename).exists():
             dts = extract_date_time_str(self.run_info_filename)
             (xlated_date, xlated_time) = xlate_date_time_str(dts)
             run_date_time = (f"# Run date and time: "
@@ -3768,7 +3769,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # -------------------------------------------------------------------------
     def convert_sensor_to_run_info_file(self):
         """Method to convert an obsolete sensor_info file to a run_info file"""
-        if os.path.exists(self.sensor_info_filename):
+        if Path(self.sensor_info_filename).exists():
             # If old named file exists:
             #    - create the run_info file
             #    - append the contents of the sensor_info file
@@ -5530,7 +5531,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            two of the measured temperatures.
         """
         run_info_filename = get_run_info_filename(self.hdd_output_dir)
-        if not os.path.exists(run_info_filename):
+        if not Path(run_info_filename).exists():
             return None, None
 
         # Get pyranometer and temperature sensor values from the
@@ -5665,7 +5666,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         date_time_str = IV_Swinger.DateTimeStr.get_date_time_str()
 
         # Create logs directory
-        if not os.path.exists(self.logs_dir):
+        if not Path(self.logs_dir).exists():
             try:
                 os.makedirs(self.logs_dir)
             except OSError:
@@ -5698,7 +5699,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                        loop_save_graphs=False):
         """Method to remove all temporary files"""
         # Return without doing anything if directory doesn't exist
-        if not os.path.exists(run_dir):
+        if not Path(run_dir).exists():
             return
 
         # Always remove the plt_ file(s)
@@ -5724,7 +5725,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             elif not loop_save_graphs:
                 # Remove GIF only
                 if (self.current_img is not None and
-                        os.path.exists(self.current_img)):
+                        Path(self.current_img).exists()):
                     self.clean_up_file(self.current_img)
 
     # -------------------------------------------------------------------------
@@ -5794,7 +5795,7 @@ def main():
         ivs2.logger.terminate_log()
 
         # Open the PDF
-        if os.path.exists(ivs2.pdf_filename):
+        if Path(ivs2.pdf_filename).exists():
             sys_view_file(ivs2.pdf_filename)
 
         # Clean up files

@@ -92,7 +92,7 @@
 # standalone. The main() function creates a SimulatorDialog object with a
 # basic ttk.Frame object as its parent and runs it.
 #
-import os
+from pathlib import Path
 import re
 from tkinter import ttk
 import tkinter as tk
@@ -1345,7 +1345,7 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
     def display_pdf(self):
         """Method to display the PDF of the simulated curve
         """
-        if os.path.exists(self.pdf_filename):
+        if Path(self.pdf_filename).exists():
             IV_Swinger2.sys_view_file(self.pdf_filename)
 
     # -------------------------------------------------------------------------
