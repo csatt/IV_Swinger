@@ -4292,7 +4292,7 @@ class IV_Swinger():
             for sub_dir in sub_dirs:
                 if not Path(sub_dir).exists():  # IVS1
                     try:
-                        os.makedirs(sub_dir)
+                        Path(sub_dir).mkdir(parents=True)
                     except OSError:
                         msg_text = ["Failed to make\ndirectory:",
                                     f"{sub_dir}"]
@@ -4609,7 +4609,7 @@ class IV_Swinger():
             sd_iv_swinger_dir = sd_iv_swinger_dirs[0]  # only one
             sd_output_dir = os.path.join(sd_iv_swinger_dir,
                                          date_time_str)
-            os.makedirs(sd_output_dir)
+            Path(sd_output_dir).mkdir(parents=True)
 
             # Create the leaf file names
             csv_dp_leaf_name = f"data_points_{date_time_str}.csv"
@@ -4752,7 +4752,7 @@ class IV_Swinger():
 
         # Create logs directory
         if not Path(self.logs_dir).exists():
-            os.makedirs(self.logs_dir)
+            Path(self.logs_dir).mkdir(parents=True)
 
         # Print welcome message
         msg_text = "Welcome to\n     IV Swinger!"

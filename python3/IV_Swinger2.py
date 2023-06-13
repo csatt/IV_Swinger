@@ -4991,7 +4991,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         # Create the HDD output directory
         self.hdd_output_dir = os.path.join(self.root_dir, subdir,
                                            date_time_str)
-        os.makedirs(self.hdd_output_dir)
+        Path(self.hdd_output_dir).mkdir(parents=True)
 
     # -------------------------------------------------------------------------
     def copy_file_to_parent(self, filename):
@@ -5668,7 +5668,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         # Create logs directory
         if not Path(self.logs_dir).exists():
             try:
-                os.makedirs(self.logs_dir)
+                Path(self.logs_dir).mkdir(parents=True)
             except OSError:
                 print(f"ERROR: could not create {self.logs_dir}")
                 return

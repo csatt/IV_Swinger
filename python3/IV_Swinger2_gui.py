@@ -830,7 +830,7 @@ class GraphicalUserInterface(ttk.Frame):
         try:
             app_data_parent = os.path.dirname(app_data_dir)
             dummy_dir = os.path.join(app_data_parent, "DUMMY_DIR")
-            os.makedirs(dummy_dir)
+            Path(dummy_dir).mkdir(parents=True)
             os.rmdir(dummy_dir)
         except (IOError, OSError):
             err_msg = f"""
@@ -1903,7 +1903,7 @@ ERROR: USB port is not connected to IV Swinger 2
                 # Directory may have been removed if looping so
                 # re-create it, but remove it after image is displayed
                 remove_directory = True
-                os.makedirs(self.ivs2.hdd_output_dir)
+                Path(self.ivs2.hdd_output_dir).mkdir(parents=True)
                 reprocess_adc = True
             rc = RC_SUCCESS
             if reprocess_adc:
@@ -4571,7 +4571,7 @@ class ResultsWizard(tk.Toplevel):
                                                "overlays",
                                                date_time_str)
         if not Path(self.master.overlay_dir).exists():
-            os.makedirs(self.master.overlay_dir)
+            Path(self.master.overlay_dir).mkdir(parents=True)
 
     # -------------------------------------------------------------------------
     def plot_overlay(self):
