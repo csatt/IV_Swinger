@@ -4422,7 +4422,7 @@ class IV_Swinger():
                                         self.logger.log(
                                             f"copy: {f} to {usb_file}")
                                         shutil.copy(f, usb_file)
-                    os.remove(filename)
+                    Path(filename).unlink()
                 except (IOError, OSError, shutil.Error) as e:
                     self.logger.print_and_log(f"({e})")
 

@@ -701,7 +701,7 @@ class Configuration():
             shutil.copyfile(self.cfg_filename, self.starting_cfg_filename)
         else:
             if Path(self.starting_cfg_filename).exists():
-                os.remove(self.starting_cfg_filename)
+                Path(self.starting_cfg_filename).unlink()
             # Create an empty file
             with open(self.starting_cfg_filename, "a", encoding="utf-8") as f:
                 f.close()
@@ -3782,7 +3782,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 with open(self.run_info_filename, "a", encoding="utf-8") as f:
                     for line in sensor_lines:
                         f.write(f"{line}\n")
-                os.remove(self.sensor_info_filename)
+                Path(self.sensor_info_filename).unlink()
             except (IOError, OSError) as e:
                 self.logger.print_and_log(f"({e})")
 
@@ -5731,7 +5731,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # -------------------------------------------------------------------------
     def clean_up_file(self, f):
         """Method to remove one file and log its removal"""
-        os.remove(f)
+        Path(f).unlink()
         msg_str = f"Removed {f}"
         self.logger.log(msg_str)
 

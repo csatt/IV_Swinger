@@ -146,6 +146,7 @@
 #
 import argparse
 import os
+from pathlib import Path
 
 import IV_Swinger
 
@@ -596,7 +597,7 @@ class CsvFileProcessor():
         fn_wo_suffix = os.path.splitext(os.path.basename(csv_filename))[0]
         plt_data_point_filename = f"plt_{fn_wo_suffix}"
         if os.path.isfile(plt_data_point_filename):
-            os.remove(plt_data_point_filename)
+            Path(plt_data_point_filename).unlink()
         IV_Swinger.write_plt_data_points_to_file(plt_data_point_filename,
                                                  data_points,
                                                  new_data_set=False)

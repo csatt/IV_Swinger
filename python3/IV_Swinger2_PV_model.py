@@ -129,7 +129,7 @@ def main():
         # View the PDF and clean up
         basename, _ = os.path.splitext(os.path.basename(pv.csv_filename))
         IV_Swinger2.sys_view_file(f"{basename}.pdf")
-        os.remove(f"plt_{basename}")
+        Path(f"plt_{basename}").unlink()
 
     # Create the PV spec CSV file in the current directory
     pv_spec_file = os.path.join(f"{Path.cwd()}",

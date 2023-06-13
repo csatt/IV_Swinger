@@ -843,7 +843,7 @@ permission to create directories (folders) in
             dummy_file = os.path.join(app_data_dir, "DUMMY_FILE")
             with open(dummy_file, "a", encoding="utf-8") as f:
                 f.close()
-            os.remove(dummy_file)
+            Path(dummy_file).unlink()
         except (IOError, OSError):
             err_msg = f"""
 FATAL ERROR: This user does not have
