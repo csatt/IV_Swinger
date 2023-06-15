@@ -9489,8 +9489,7 @@ it and then edit the parameter values.
         port_number_entry = ttk.Entry(master=rcmd_widget_box,
                                       width=8,
                                       textvariable=self.port_number_str)
-        port_number = self.master.config.cfg.getint("Remote Command", "port")
-        self.port_number_str.set(port_number)
+        self.port_number_str.set(self.master.rcmd_port)
 
         # Add label and entry box to specify the polling interval
         poll_ms_label = ttk.Label(master=rcmd_widget_box,
@@ -9498,8 +9497,7 @@ it and then edit the parameter values.
         poll_ms_entry = ttk.Entry(master=rcmd_widget_box,
                                   width=8,
                                   textvariable=self.poll_ms_str)
-        poll_ms = self.master.config.cfg.getint("Remote Command", "poll ms")
-        self.poll_ms_str.set(poll_ms)
+        self.poll_ms_str.set(self.master.rcmd_poll_ms)
 
         # Add Restore Defaults button in its own container box
         rcmd_restore_box = ttk.Frame(master=self.rcmd_tab,
