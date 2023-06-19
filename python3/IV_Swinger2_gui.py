@@ -9479,9 +9479,6 @@ it and then edit the parameter values.
                                     variable=self.enable_rcmd,
                                     onvalue="Enabled",
                                     offvalue="Disabled")
-        self.enable_rcmd.set("Disabled")
-        if self.master.rcmd_enabled:
-            self.enable_rcmd.set("Enabled")
 
         # Add label and entry box to specify the port number
         port_number_label = ttk.Label(master=rcmd_widget_box,
@@ -9489,7 +9486,6 @@ it and then edit the parameter values.
         port_number_entry = ttk.Entry(master=rcmd_widget_box,
                                       width=8,
                                       textvariable=self.port_number_str)
-        self.port_number_str.set(self.master.rcmd_port)
 
         # Add label and entry box to specify the polling interval
         poll_ms_label = ttk.Label(master=rcmd_widget_box,
@@ -9497,7 +9493,19 @@ it and then edit the parameter values.
         poll_ms_entry = ttk.Entry(master=rcmd_widget_box,
                                   width=8,
                                   textvariable=self.poll_ms_str)
-        self.poll_ms_str.set(self.master.rcmd_poll_ms)
+
+        # If the config contains a Remote Command section, set the
+        # widget values from the config values
+        section = "Remote Command"
+        if self.master.config.cfg.has_section(section):
+            enabled = self.master.config.cfg.getboolean(section, "enabled")
+            self.enable_rcmd.set("Disabled")
+            if enabled:
+                self.enable_rcmd.set("Enabled")
+            port_number = self.master.config.cfg.getint(section, "port")
+            self.port_number_str.set(port_number)
+            poll_ms = self.master.config.cfg.getint(section, "poll ms")
+            self.poll_ms_str.set(poll_ms)
 
         # Add Restore Defaults button in its own container box
         rcmd_restore_box = ttk.Frame(master=self.rcmd_tab,
