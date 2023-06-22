@@ -823,20 +823,17 @@ class GraphicalUserInterface(ttk.Frame):
 
     # -------------------------------------------------------------------------
     def check_app_data_dir(self, app_data_dir):
-        """Method to check that directories can be created in the the parent of
-           app_data_dir and that files can be created in app_data_dir.
+        """Method to check that the app_data_dir directory can be created if it
+           doesn't exist, and that files can be created in app_data_dir.
            If not, display an error dialog and exit.
         """
         try:
-            app_data_parent = os.path.dirname(app_data_dir)
-            dummy_dir = os.path.join(app_data_parent, "DUMMY_DIR")
-            Path(dummy_dir).mkdir(parents=True)
-            os.rmdir(dummy_dir)
+            Path(app_data_dir).mkdir(exist_ok=True)
         except (IOError, OSError):
             err_msg = f"""
 FATAL ERROR: This user does not have
 permission to create directories (folders) in
-{app_data_parent}"""
+{Path(app_data_dir).parent}"""
             tkmsg.showerror(message=err_msg)
             sys.exit()
         try:
