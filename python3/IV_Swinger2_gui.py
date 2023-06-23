@@ -517,8 +517,8 @@ class GraphicalUserInterface(ttk.Frame):
         self.check_app_data_dir(self.app_data_dir)
         self.app_dir = get_app_dir()
         if self.instance is not None:
-            self.app_data_dir = os.path.join(self.app_data_dir,
-                                             "inst", self.instance)
+            # Append /inst/<instance> to base app_data_dir
+            self.app_data_dir /= Path("inst") / self.instance
             self.ivs2 = IV_Swinger2.IV_Swinger2(self.app_data_dir, None,
                                                 self.usb_ports_in_use)
             self.ivs2.usb_port = "DISCONNECTED"
@@ -796,13 +796,13 @@ class GraphicalUserInterface(ttk.Frame):
            property does not imply that the instances have an active
            GUI.
         """
-        inst_dir = os.path.join(self.main_gui.app_data_dir, "inst")
-        if not os.path.isdir(inst_dir):
+        inst_dir = self.main_gui.app_data_dir / "inst"
+        if not inst_dir.is_dir():
             return []
         instances = []
-        for instance in [d for d in os.listdir(inst_dir)
-                         if os.path.isdir(os.path.join(inst_dir, d, "logs"))]:
-            instances.append(instance)
+        for inst_path in [d for d in inst_dir.iterdir()
+                          if (inst_dir / d / "logs").is_dir()]:
+            instances.append(inst_path.name)
         return sorted(instances)
 
     # ---------------------------------
@@ -828,19 +828,18 @@ class GraphicalUserInterface(ttk.Frame):
            If not, display an error dialog and exit.
         """
         try:
-            Path(app_data_dir).mkdir(exist_ok=True)
+            app_data_dir.mkdir(exist_ok=True)
         except (IOError, OSError):
             err_msg = f"""
 FATAL ERROR: This user does not have
 permission to create directories (folders) in
-{Path(app_data_dir).parent}"""
+{app_data_dir.parent}"""
             tkmsg.showerror(message=err_msg)
             sys.exit()
         try:
-            dummy_file = os.path.join(app_data_dir, "DUMMY_FILE")
-            with open(dummy_file, "a", encoding="utf-8") as f:
-                f.close()
-            Path(dummy_file).unlink()
+            dummy_file = app_data_dir / "DUMMY_FILE"
+            dummy_file.touch()
+            dummy_file.unlink()
         except (IOError, OSError):
             err_msg = f"""
 FATAL ERROR: This user does not have
@@ -3395,13 +3394,13 @@ class ResultsWizard(tk.Toplevel):
                 ws = win32com.client.Dispatch("wscript.shell")
                 shortcut = ws.CreateShortcut(desktop_shortcut_path)
                 if shortcut.TargetPath:
-                    curr_value = shortcut.TargetPath
+                    curr_value = Path(shortcut.TargetPath)
                     if curr_value == app_data_path:
                         result = "EXISTS_SAME"
                     else:
                         result = "EXISTS_DIFFERENT"
                 else:
-                    shortcut.TargetPath = app_data_path
+                    shortcut.TargetPath = f"{app_data_path}"
                     shortcut.Save()
                     result = "CREATED"
             except:  # pylint: disable=bare-except
@@ -3410,7 +3409,7 @@ class ResultsWizard(tk.Toplevel):
             # For Mac or Linux, just create a symlink
             if Path(desktop_shortcut_path).exists():
                 if os.path.islink(desktop_shortcut_path):
-                    curr_value = os.readlink(desktop_shortcut_path)
+                    curr_value = Path(os.readlink(desktop_shortcut_path))
                     if curr_value == app_data_path:
                         result = "EXISTS_SAME"
                     else:
@@ -3474,7 +3473,7 @@ class ResultsWizard(tk.Toplevel):
 
         # Set the copy destination to the parent of the app data folder
         # (i.e. strip off the IV_Swinger2)
-        self.copy_dest = os.path.dirname(self.master.ivs2.app_data_dir)
+        self.copy_dest = self.master.ivs2.app_data_dir.parent
 
         # Do a "dry run" to check if any of the directories to be
         # copied to already exist. If so, ask user for permission to

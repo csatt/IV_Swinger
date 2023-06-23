@@ -274,13 +274,11 @@ def get_default_app_data_dir():
        data directory
     """
     if sys.platform == "darwin":  # Mac
-        home_dir = os.path.expanduser("~")
-        return os.path.join(home_dir, "Library", "Application Support",
-                            APP_NAME)
+        return Path.home() / "Library" / "Application Support" / APP_NAME
     if sys.platform == "win32":  # Windows
-        return os.path.join(os.environ["APPDATA"], APP_NAME)
+        return Path(os.environ["APPDATA"]) / APP_NAME
     # Linux
-    return os.path.expanduser(os.path.join("~", f".{APP_NAME}"))
+    return Path.home() / f".{APP_NAME}"
 
 
 def close_plots():
@@ -665,13 +663,12 @@ class Configuration():
            configuration options
         """
         if self._cfg_filename is None:
-            self._cfg_filename = os.path.join(self.ivs2.app_data_dir,
-                                              f"{APP_NAME}.cfg")
+            self._cfg_filename = self.ivs2.app_data_dir / f"{APP_NAME}.cfg"
         return self._cfg_filename
 
     @cfg_filename.setter
     def cfg_filename(self, value):
-        if value is not None and not os.path.isabs(value):
+        if value is not None and not Path(value).is_absolute():
             raise ValueError("cfg_filename must be an absolute path")
         self._cfg_filename = value
 
@@ -682,13 +679,13 @@ class Configuration():
            configuration options
         """
         if self._starting_cfg_filename is None:
-            self._starting_cfg_filename = os.path.join(
-                self.ivs2.app_data_dir, f"{APP_NAME}_starting.cfg")
+            self._starting_cfg_filename = (self.ivs2.app_data_dir /
+                                           f"{APP_NAME}_starting.cfg")
         return self._starting_cfg_filename
 
     @starting_cfg_filename.setter
     def starting_cfg_filename(self, value):
-        if value is not None and not os.path.isabs(value):
+        if value is not None and not Path(value).is_absolute():
             raise ValueError("starting_cfg_filename must be an absolute path")
         self._starting_cfg_filename = value
 
@@ -2499,7 +2496,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     @app_data_dir.setter
     def app_data_dir(self, value):
-        if not os.path.isabs(value):
+        if not value.is_absolute():
             raise ValueError("app_data_dir must be an absolute path")
         self._app_data_dir = value
 
@@ -2545,7 +2542,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     @property
     def logs_dir(self):
         """Directory to which log files are written"""
-        logs_dir = os.path.join(self.app_data_dir, "logs")
+        logs_dir = self.app_data_dir / "logs"
         return logs_dir
 
     # ---------------------------------
@@ -2554,7 +2551,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """PV spec CSV file name. This is the file containing the
            specifications for one or more PV modules or cells.
         """
-        pv_spec_csv_file = os.path.join(self.app_data_dir, "pv_spec.csv")
+        pv_spec_csv_file = self.app_data_dir / "pv_spec.csv"
         return pv_spec_csv_file
 
     # ---------------------------------
@@ -2563,8 +2560,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """PV spec CSV backup file name. This is used to copy the
            current pv_spec_csv_file to before modifying it.
         """
-        pv_spec_csv_file_bak = os.path.join(self.app_data_dir,
-                                            "pv_spec_bak.csv")
+        pv_spec_csv_file_bak = self.app_data_dir / "pv_spec_bak.csv"
         return pv_spec_csv_file_bak
 
     # ---------------------------------
@@ -5666,16 +5662,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         date_time_str = IV_Swinger.DateTimeStr.get_date_time_str()
 
         # Create logs directory
-        if not Path(self.logs_dir).exists():
-            try:
-                Path(self.logs_dir).mkdir(parents=True)
-            except OSError:
-                print(f"ERROR: could not create {self.logs_dir}")
-                return
+        self.logs_dir.mkdir(exist_ok=True, parents=True)
 
         # Create the logger
         leaf_name = f"log_{date_time_str}.txt"
-        PrintAndLog.log_file_name = os.path.join(self.logs_dir, leaf_name)
+        PrintAndLog.log_file_name = self.logs_dir / leaf_name
         self.logger = PrintAndLog()
 
     # -------------------------------------------------------------------------
