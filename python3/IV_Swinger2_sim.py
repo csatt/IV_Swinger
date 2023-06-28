@@ -238,6 +238,7 @@ RG_DEFAULT = IV_Swinger2.RG_DEFAULT
 SHUNT_DEFAULT = IV_Swinger2.SHUNT_DEFAULT
 RC_SUCCESS = IV_Swinger2.RC_SUCCESS
 RC_FAILURE = IV_Swinger2.RC_FAILURE
+PRINT_DBG_STR = IV_Swinger2.PRINT_DBG_STR
 
 
 ########################
@@ -1345,7 +1346,7 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
     def display_pdf(self):
         """Method to display the PDF of the simulated curve
         """
-        if Path(self.pdf_filename).exists():
+        if self.pdf_filename.exists():
             IV_Swinger2.sys_view_file(self.pdf_filename)
 
     # -------------------------------------------------------------------------

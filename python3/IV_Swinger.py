@@ -191,6 +191,7 @@ import sys
 import threading
 import time
 import traceback
+from inspect import currentframe, getframeinfo
 import warnings
 import numpy
 
@@ -624,6 +625,17 @@ def sigfigs(number, figs):
     return initial_result_str + "0" * num_added_zeros
 
 
+def print_dbg_str(msg_str):
+    """Global function to use when debugging. The supplied string is
+       printed, preceded by the file name and line number where it is
+       found in the code.
+    """
+    frameinfo = getframeinfo(currentframe().f_back)
+    filename = Path(frameinfo.filename).name
+    linenumber = frameinfo.lineno
+    print(f"{filename}, line {linenumber}: {msg_str}")
+
+
 #################
 #   Classes     #
 #################
@@ -651,7 +663,7 @@ class DateTimeStr():
            other string
         """
         dt_file_re = re.compile(r"(\d{6}_\d{2}_\d{2}_\d{2})")
-        match = dt_file_re.search(input_str)
+        match = dt_file_re.search(str(input_str))
         if match:
             return match.group(1)
         return "No match"
@@ -661,7 +673,7 @@ class DateTimeStr():
         """Method to test if a given string is a date/time string
         """
         dt_file_re = re.compile(r"^(\d{6}_\d{2}_\d{2}_\d{2})$")
-        match = dt_file_re.search(input_str)
+        match = dt_file_re.search(str(input_str))
         if match:
             return True
         return False

@@ -85,7 +85,6 @@ import shutil
 import subprocess
 import sys
 import time
-from inspect import currentframe, getframeinfo
 from PIL import Image
 from PIL import __version__ as pillow_version
 import serial
@@ -144,6 +143,7 @@ VOLTS_INDEX = IV_Swinger.VOLTS_INDEX
 OHMS_INDEX = IV_Swinger.OHMS_INDEX
 WATTS_INDEX = IV_Swinger.WATTS_INDEX
 INFINITE_VAL = IV_Swinger.INFINITE_VAL
+PRINT_DBG_STR = IV_Swinger.print_dbg_str
 
 # From Arduino SPI.h:
 SPI_CLOCK_DIV4 = 0x00
@@ -308,17 +308,6 @@ def sys_view_file(filename):
     else:
         # Linux
         subprocess.call(("xdg-open", filename))
-
-
-def gen_dbg_str(msg_str):
-    """Global function to use when debugging. The supplied string is
-       returned, along with the file name and line number where it is
-       found in the code.
-    """
-    cf = currentframe()
-    fi = getframeinfo(cf)
-    dbg_str = f"DEBUG({fi.filename}, line {cf.f_back.f_lineno}): {msg_str}"
-    return dbg_str
 
 
 def write_csv_data_points_to_file(filename, data_points):
@@ -2514,7 +2503,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     @hdd_output_dir.setter
     def hdd_output_dir(self, value):
-        if value is not None and not os.path.isabs(value):
+        if value is not None and not value.is_absolute():
             raise ValueError("hdd_output_dir must be an absolute path")
         self._hdd_output_dir = value
 
@@ -3312,8 +3301,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def pdf_filename(self):
         """PDF file name"""
         dts = extract_date_time_str(self.hdd_output_dir)
-        pdf_filename = os.path.join(self.hdd_output_dir,
-                                    f"{self.file_prefix}{dts}.pdf")
+        pdf_filename = self.hdd_output_dir / f"{self.file_prefix}{dts}.pdf"
         return pdf_filename
 
     # ---------------------------------
@@ -3323,8 +3311,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            compatibility"""
         if self.hdd_output_dir is not None:
             dts = extract_date_time_str(self.hdd_output_dir)
-            sensor_info_filename = os.path.join(self.hdd_output_dir,
-                                                f"sensor_info_{dts}.txt")
+            sensor_info_filename = (self.hdd_output_dir /
+                                    f"sensor_info_{dts}.txt")
         else:
             sensor_info_filename = None
 
@@ -3336,8 +3324,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """Run information (includes sensor info) file name"""
         if self.hdd_output_dir is not None:
             dts = extract_date_time_str(self.hdd_output_dir)
-            run_info_filename = os.path.join(self.hdd_output_dir,
-                                             f"run_info_{dts}.txt")
+            run_info_filename = self.hdd_output_dir / f"run_info_{dts}.txt"
         else:
             run_info_filename = None
 
@@ -4676,7 +4663,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             if not deflect_begin_found:
                 dist -= 1
         if retry == 0:
-            err_str = (f"{os.path.basename(self.hdd_output_dir)} "
+            err_str = (f"{self.hdd_output_dir.name} "
                        f"find_first_downward_deflection retried too "
                        f"many times")
             self.logger.print_and_log(err_str)
@@ -4946,9 +4933,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def remove_prev_bias_battery_csv(self):
         """Method to remove old bias battery CSV file(s) from the parent
            directory"""
-        glob_pattern = "{}/bias_batt_adc_pairs*.csv"
-        run_dir = os.path.dirname(self.hdd_output_dir)
-        bb_files = glob.glob(glob_pattern.format(run_dir))
+        run_dir = self.hdd_output_dir.parent
+        bb_files = glob.glob(f"{run_dir}/bias_batt_adc_pairs*.csv")
         for f in bb_files:
             self.clean_up_file(f)
 
@@ -4985,16 +4971,15 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """Method to create the HDD output directory"""
 
         # Create the HDD output directory
-        self.hdd_output_dir = os.path.join(self.root_dir, subdir,
-                                           date_time_str)
-        Path(self.hdd_output_dir).mkdir(parents=True)
+        self.hdd_output_dir = self.root_dir / subdir / date_time_str
+        self.hdd_output_dir.mkdir(parents=True)
 
     # -------------------------------------------------------------------------
     def copy_file_to_parent(self, filename):
         """Method to copy a file to the IV_Swinger2 directory (parent of
            output directory)
         """
-        run_dir = os.path.dirname(self.hdd_output_dir)
+        run_dir = self.hdd_output_dir.parent
         try:
             shutil.copy(filename, run_dir)
         except shutil.Error as e:
@@ -5290,12 +5275,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         csv_data_pt_leaf_name = f"{self.file_prefix}{date_time_str}.csv"
 
         # Get the full-path names of the HDD output files
-        unfiltered_adc_csv = os.path.join(csv_dir,
-                                          unfiltered_adc_pairs_csv_leaf_name)
+        unfiltered_adc_csv = csv_dir / unfiltered_adc_pairs_csv_leaf_name
         self.hdd_unfiltered_adc_pairs_csv_filename = unfiltered_adc_csv
-        adc_csv = os.path.join(csv_dir, adc_pairs_csv_leaf_name)
+        adc_csv = csv_dir / adc_pairs_csv_leaf_name
         self.hdd_adc_pairs_csv_filename = adc_csv
-        csv = os.path.join(csv_dir, csv_data_pt_leaf_name)
+        csv = csv_dir / csv_data_pt_leaf_name
         self.hdd_csv_data_point_filename = csv
 
     # -------------------------------------------------------------------------
@@ -5504,8 +5488,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if pv.cell_temp_c is not None and pv.irradiance is not None:
             pv.run()
             pv.get_data_points(PV_MODEL_CURVE_NUM_POINTS)
-            pv.csv_filename = os.path.join(self.hdd_output_dir,
-                                           "IV_Swinger2_PV_model.csv")
+            pv.csv_filename = self.hdd_output_dir / "IV_Swinger2_PV_model.csv"
             pv.gen_data_points_csv()
         else:
             dts = extract_date_time_str(self.hdd_output_dir)
@@ -5786,7 +5769,7 @@ def main():
         ivs2.logger.terminate_log()
 
         # Open the PDF
-        if Path(ivs2.pdf_filename).exists():
+        if ivs2.pdf_filename.exists():
             sys_view_file(ivs2.pdf_filename)
 
         # Clean up files

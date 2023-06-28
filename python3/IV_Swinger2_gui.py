@@ -105,7 +105,6 @@ import tkinter.messagebox as tkmsg
 from tkinter.scrolledtext import ScrolledText
 from tkinter.constants import N, S, E, W, LEFT, RIGHT, HORIZONTAL, Y, BOTH, END
 import traceback
-from inspect import currentframe, getframeinfo
 from configparser import NoOptionError
 import random
 import zmq
@@ -183,6 +182,7 @@ RF_DEFAULT = IV_Swinger2.RF_DEFAULT
 RG_DEFAULT = IV_Swinger2.RG_DEFAULT
 SHUNT_DEFAULT = IV_Swinger2.SHUNT_DEFAULT
 INFINITE_VAL = IV_Swinger2.INFINITE_VAL
+PRINT_DBG_STR = IV_Swinger2.PRINT_DBG_STR
 
 # GUI-specific
 VERSION_FILE = "version.txt"
@@ -248,17 +248,6 @@ def debug_memleak(msg_str):
         date_time_str = IV_Swinger2.get_date_time_str()
         mem_usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         print(f"{date_time_str}: Memory usage ({msg_str}): {mem_usage}")
-
-
-def gen_dbg_str(msg_str):
-    """Global function to use when debugging. The supplied string is
-       returned, along with the file name and line number where it is
-       found in the code.
-    """
-    cf = currentframe()
-    fi = getframeinfo(cf)
-    dbg_str = f"DEBUG({fi.filename}, line {cf.f_back.f_lineno}): {msg_str}"
-    return dbg_str
 
 
 def get_app_dir():
@@ -1889,7 +1878,7 @@ ERROR: USB port is not connected to IV Swinger 2
             self.results_wiz.plot_overlay_and_display()
         else:
             remove_directory = False
-            if not Path(self.ivs2.hdd_output_dir).exists():
+            if not self.ivs2.hdd_output_dir.exists():
                 if self.ivs2.adc_pairs is None:
                     # Super obscure case: Generate PV model test curve (which
                     # has no adc_pairs). Delete run from Wizard. Then make
@@ -1899,7 +1888,7 @@ ERROR: USB port is not connected to IV Swinger 2
                 # Directory may have been removed if looping so
                 # re-create it, but remove it after image is displayed
                 remove_directory = True
-                Path(self.ivs2.hdd_output_dir).mkdir(parents=True)
+                self.ivs2.hdd_output_dir.mkdir(parents=True)
                 reprocess_adc = True
             rc = RC_SUCCESS
             if reprocess_adc:
@@ -3232,8 +3221,8 @@ class ResultsWizard(tk.Toplevel):
         """Method to determine the path to the run directory for the selection
            and check that it is really a directory
         """
-        run_dir = os.path.join(self.results_dir, selection)
-        if not os.path.isdir(run_dir):
+        run_dir = self.results_dir / selection
+        if not run_dir.is_dir():
             err_str = f"ERROR: directory {run_dir} does not exist"
             self.master.ivs2.logger.print_and_log(err_str)
             tkmsg.showerror(message=err_str)
@@ -3324,19 +3313,19 @@ class ResultsWizard(tk.Toplevel):
         options[title_opt] = "Choose Folder"
         new_dir = tkfiledialog.askdirectory(**options)
         if new_dir:
-            self.results_dir = os.path.normpath(new_dir)
+            self.results_dir = Path(new_dir).resolve()
             self.populate_tree()
             if not self.tree.exists("overlays") and not self.dates:
                 # If there are no overlays or runs in the specified folder, but
                 # there is a subfolder named IV_Swinger2 or the parent
                 # directory is named IV_Swinger2, then assume the user meant to
                 # select the subfolder or parent folder respectively
-                ivs2_subdir = os.path.join(self.results_dir, APP_NAME)
-                parent_dir = os.path.dirname(self.results_dir)
-                if os.path.isdir(ivs2_subdir):
+                ivs2_subdir = self.results_dir / APP_NAME
+                parent_dir = self.results_dir.parent
+                if ivs2_subdir.is_dir():
                     self.results_dir = ivs2_subdir
                     self.populate_tree()
-                elif os.path.basename(parent_dir) == APP_NAME:
+                elif parent_dir.name == APP_NAME:
                     self.results_dir = parent_dir
                     self.populate_tree()
             msg = f"(Wizard) changed folder to {self.results_dir}"
@@ -3646,7 +3635,7 @@ class ResultsWizard(tk.Toplevel):
             individual_run = IV_Swinger2.is_date_time_str(selection)
             is_date_group = re.compile(r"^(\d{6})$").search(selection)
             if individual_run:
-                selected_runs.append(os.path.join(self.results_dir, selection))
+                selected_runs.append(self.results_dir / selection)
             elif (include_whole_days and is_date_group and not
                   (IV_Swinger2.is_date_time_str(selections[0]) or
                    IV_Swinger2.is_date_time_str(selections[-1]))):
@@ -3654,7 +3643,7 @@ class ResultsWizard(tk.Toplevel):
                 # individual runs)
                 for child in self.tree.get_children(selection):
                     # Add all the day's runs to the list
-                    selected_runs.append(os.path.join(self.results_dir, child))
+                    selected_runs.append(self.results_dir / child)
 
         # Return list with duplicates removed
         return list(dict.fromkeys(selected_runs))
