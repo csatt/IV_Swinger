@@ -1566,8 +1566,8 @@ ERROR: USB port is not connected to IV Swinger 2
         cfg_file = None
         original_cfg_file = None
         if run_dir is not None and run_dir != config_dir:
-            cfg_file = os.path.join(run_dir, f"{APP_NAME}.cfg")
-            if Path(cfg_file).exists():
+            cfg_file = run_dir / f"{APP_NAME}.cfg"
+            if cfg_file.exists():
                 # Snapshot current config
                 original_cfg_file = self.config.cfg_filename
                 self.config.get_snapshot()
@@ -1582,7 +1582,7 @@ ERROR: USB port is not connected to IV Swinger 2
         """Method to restore the swapped config from the snapshot.
         """
         if (run_dir is not None and run_dir != config_dir and
-                Path(cfg_file).exists()):
+                cfg_file.exists()):
             self.config.cfg_filename = original_cfg_file
             self.config.save_snapshot()
 
@@ -1593,7 +1593,7 @@ ERROR: USB port is not connected to IV Swinger 2
         """
         if self.current_run_displayed or self.results_wiz:
             run_dir = self.ivs2.hdd_output_dir
-            config_dir = os.path.dirname(self.config.cfg_filename)
+            config_dir = self.config.cfg_filename.parent
 
             # Replace config from saved config of displayed image
             cfg_file, original_cfg_file = self.swap_config(run_dir, config_dir)
@@ -1652,7 +1652,7 @@ ERROR: USB port is not connected to IV Swinger 2
 
         if self.current_run_displayed or self.results_wiz:
             run_dir = self.ivs2.hdd_output_dir
-            config_dir = os.path.dirname(self.config.cfg_filename)
+            config_dir = self.config.cfg_filename.parent
 
             # Replace config from saved config of displayed image
             cfg_file, original_cfg_file = self.swap_config(run_dir, config_dir)
@@ -3009,15 +3009,14 @@ class ResultsWizard(tk.Toplevel):
         # Step through them
         for overlay in overlays:
             # Full path
-            overlay_dir = os.path.join(self.results_dir, subdir, overlay)
+            overlay_dir = self.results_dir / subdir / overlay
 
             # Then filter out anything that isn't a directory in the
             # canonical date/time string format - these are the overlays
-            if (IV_Swinger2.is_date_time_str(overlay) and
-                    os.path.isdir(overlay_dir)):
+            if IV_Swinger2.is_date_time_str(overlay) and overlay_dir.is_dir():
 
                 # Skip empty directories
-                if not os.listdir(overlay_dir):
+                if not any(overlay_dir.iterdir()):
                     continue
 
                 # Translate to human readable date and time
@@ -3049,8 +3048,8 @@ class ResultsWizard(tk.Toplevel):
         # Get the title from the saved config
         title = None
         run_dir = self.get_run_dir(subdir)
-        cfg_file = os.path.join(run_dir, f"{APP_NAME}.cfg")
-        if Path(cfg_file).exists():
+        cfg_file = run_dir / f"{APP_NAME}.cfg"
+        if cfg_file.exists():
             title = IV_Swinger2.get_saved_title(cfg_file)
         else:
             title = "   * no saved cfg *"
@@ -3166,16 +3165,16 @@ class ResultsWizard(tk.Toplevel):
         """Method to display an existing overlay and perform related actions
         """
         dts = IV_Swinger2.extract_date_time_str(selection)
-        overlay_dir = os.path.join(self.results_dir, "overlays", dts)
+        overlay_dir = self.results_dir / "overlays" / dts
         gif_leaf_name = f"overlaid_{dts}.gif"
-        gif_full_path = os.path.join(overlay_dir, gif_leaf_name)
-        if Path(gif_full_path).exists():
+        gif_full_path = overlay_dir / gif_leaf_name
+        if gif_full_path.exists():
             self.master.display_img(gif_full_path)
         else:
             # Legacy
             gif_leaf_name = "overlaid.gif"
-            gif_full_path = os.path.join(overlay_dir, gif_leaf_name)
-            if Path(gif_full_path).exists():
+            gif_full_path = overlay_dir / gif_leaf_name
+            if gif_full_path.exists():
                 self.master.display_img(gif_full_path)
 
     # -------------------------------------------------------------------------
@@ -3278,10 +3277,10 @@ class ResultsWizard(tk.Toplevel):
         """Method to read config file, if it exists, and update the config
         """
         self.master.suppress_cfg_file_copy = False
-        cfg_file = os.path.join(run_dir, f"{APP_NAME}.cfg")
+        cfg_file = run_dir / f"{APP_NAME}.cfg"
         if cfg_file == self.master.config.cfg_filename:
             return
-        if Path(cfg_file).exists():
+        if cfg_file.exists():
             self.master.config.get_old_result(cfg_file)
             self.master.update_plot_power_cb()
             self.master.update_plot_ref_cb()
@@ -3928,8 +3927,8 @@ class ResultsWizard(tk.Toplevel):
             # but that is outweighed by the danger of unintentionally
             # losing the calibration values at the time of the run. This
             # is particularly true for the battery bias calibration.
-            cfg_file = os.path.join(run_dir, f"{APP_NAME}.cfg")
-            if Path(cfg_file).exists():
+            cfg_file = run_dir / f"{APP_NAME}.cfg"
+            if cfg_file.exists():
                 self.master.config.cfg_filename = cfg_file
                 self.master.config.merge_old_with_current_plotting(cfg_file)
 
@@ -4552,11 +4551,9 @@ class ResultsWizard(tk.Toplevel):
         date_time_str = IV_Swinger2.get_date_time_str()
 
         # Create overlay directory
-        self.master.overlay_dir = os.path.join(self.results_dir,
-                                               "overlays",
-                                               date_time_str)
-        if not Path(self.master.overlay_dir).exists():
-            Path(self.master.overlay_dir).mkdir(parents=True)
+        self.master.overlay_dir = self.results_dir / "overlays" / date_time_str
+        if not self.master.overlay_dir.exists():
+            self.master.overlay_dir.mkdir(parents=True)
 
     # -------------------------------------------------------------------------
     def plot_overlay(self):

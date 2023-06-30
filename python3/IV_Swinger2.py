@@ -579,14 +579,12 @@ def get_run_info_filename(run_dir):
        directory.
     """
     dts = extract_date_time_str(run_dir)
-    sensor_info_filename = os.path.join(run_dir,
-                                        f"sensor_info_{dts}.txt")
-    if Path(sensor_info_filename).exists():
+    sensor_info_filename = run_dir / f"sensor_info_{dts}.txt"
+    if sensor_info_filename.exists():
         # Backward compatibility
         run_info_filename = sensor_info_filename
     else:
-        run_info_filename = os.path.join(run_dir,
-                                         f"run_info_{dts}.txt")
+        run_info_filename = run_dir / f"run_info_{dts}.txt"
     return run_info_filename
 
 
@@ -598,7 +596,7 @@ def get_sensor_values_from_file(run_info_filename):
     """
     irrad = None
     temps_dict = {}
-    if Path(run_info_filename).exists():
+    if run_info_filename.exists():
         with open(run_info_filename, "r", encoding="utf-8") as f:
             temp_format_str = "Temperature at sensor "
             temp_format_str += r"#(\d+) is ([-+]?\d*\.\d+|\d+) "
@@ -657,7 +655,7 @@ class Configuration():
 
     @cfg_filename.setter
     def cfg_filename(self, value):
-        if value is not None and not Path(value).is_absolute():
+        if value is not None and not value.is_absolute():
             raise ValueError("cfg_filename must be an absolute path")
         self._cfg_filename = value
 
@@ -674,7 +672,7 @@ class Configuration():
 
     @starting_cfg_filename.setter
     def starting_cfg_filename(self, value):
-        if value is not None and not Path(value).is_absolute():
+        if value is not None and not value.is_absolute():
             raise ValueError("starting_cfg_filename must be an absolute path")
         self._starting_cfg_filename = value
 
@@ -683,11 +681,11 @@ class Configuration():
         """Method to save the starting config file. Mostly a debug feature,
            but not dependent on DEBUG_CONFIG.
         """
-        if Path(self.cfg_filename).exists():
+        if self.cfg_filename.exists():
             shutil.copyfile(self.cfg_filename, self.starting_cfg_filename)
         else:
-            if Path(self.starting_cfg_filename).exists():
-                Path(self.starting_cfg_filename).unlink()
+            if self.starting_cfg_filename.exists():
+                self.starting_cfg_filename.unlink()
             # Create an empty file
             with open(self.starting_cfg_filename, "a", encoding="utf-8") as f:
                 f.close()
@@ -1328,7 +1326,7 @@ class Configuration():
 
         # Copy the file to the specified directory (if any, and if it is
         # actually a directory)
-        if copy_dir is not None and os.path.isdir(copy_dir):
+        if copy_dir is not None and copy_dir.is_dir():
             self.copy_file(copy_dir)
 
     # -------------------------------------------------------------------------
@@ -1353,7 +1351,7 @@ class Configuration():
     def copy_file(self, dest_dir):
         """Method to copy the current .cfg file to the specified directory
         """
-        if os.path.dirname(self.cfg_filename) == dest_dir:
+        if self.cfg_filename.parent == dest_dir:
             # Return without doing anything if the property is already
             # pointing to the specified directory
             return
@@ -1915,7 +1913,6 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
     # -------------------------------------------------------------------------
     def plot_graphs_to_gif(self, ivs, csvp):
         """Method to plot the graphs to a GIF"""
-
         # Pyplot cannot generate GIFs on Windows, so we generate a PNG
         # and then convert it to GIF with PIL (regardless of platform).
         #
@@ -1930,11 +1927,10 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         ivs.plot_dpi = default_dpi * (self.x_pixels/default_x_pixels)
         ivs.plot_graphs(self.args, csvp)
         png_file = ivs.plt_img_filename
-        (filename, _) = os.path.splitext(png_file)
-        gif_file = f"{filename}.gif"
+        gif_file = f"{Path(png_file).stem}.gif"
         im = Image.open(png_file)
         im.save(gif_file)
-        self.current_img = gif_file
+        self.current_img = Path(gif_file)
 
     # -------------------------------------------------------------------------
     def add_sensor_info_to_curve_names(self):
@@ -1943,7 +1939,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         """
         curve_num = 0
         for csv_dir in self.csv_dirs:
-            run_info_filename = get_run_info_filename(csv_dir)
+            run_info_filename = get_run_info_filename(Path(csv_dir))
             info_added = False
             try:
                 (irrad,
@@ -3724,7 +3720,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     def create_run_info_file(self):
         """Method to create the run info file (if it doesn't already exist) and
            populate it with the boilerplate header"""
-        if not Path(self.run_info_filename).exists():
+        if not self.run_info_filename.exists():
             dts = extract_date_time_str(self.run_info_filename)
             (xlated_date, xlated_time) = xlate_date_time_str(dts)
             run_date_time = (f"# Run date and time: "
@@ -3752,7 +3748,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # -------------------------------------------------------------------------
     def convert_sensor_to_run_info_file(self):
         """Method to convert an obsolete sensor_info file to a run_info file"""
-        if Path(self.sensor_info_filename).exists():
+        if self.sensor_info_filename.exists():
             # If old named file exists:
             #    - create the run_info file
             #    - append the contents of the sensor_info file
@@ -5510,7 +5506,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            two of the measured temperatures.
         """
         run_info_filename = get_run_info_filename(self.hdd_output_dir)
-        if not Path(run_info_filename).exists():
+        if not run_info_filename.exists():
             return None, None
 
         # Get pyranometer and temperature sensor values from the
@@ -5673,7 +5669,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                        loop_save_graphs=False):
         """Method to remove all temporary files"""
         # Return without doing anything if directory doesn't exist
-        if not Path(run_dir).exists():
+        if not run_dir.exists():
             return
 
         # Always remove the plt_ file(s)
@@ -5699,7 +5695,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             elif not loop_save_graphs:
                 # Remove GIF only
                 if (self.current_img is not None and
-                        Path(self.current_img).exists()):
+                        self.current_img.exists()):
                     self.clean_up_file(self.current_img)
 
     # -------------------------------------------------------------------------
