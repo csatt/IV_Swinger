@@ -9492,11 +9492,14 @@ it and then edit the parameter values.
                                   textvariable=self.poll_ms_str)
 
         # If the config contains a Remote Command section, set the
-        # widget values from the config values
+        # widget values from the config values. Otherwise, uncheck the
+        # enable checkbox and put dummy values in the other fields.
         section = "Remote Command"
+        self.enable_rcmd.set("Disabled")
+        self.port_number_str.set(1234)
+        self.poll_ms_str.set(1234)
         if self.master.config.cfg.has_section(section):
             enabled = self.master.config.cfg.getboolean(section, "enabled")
-            self.enable_rcmd.set("Disabled")
             if enabled:
                 self.enable_rcmd.set("Enabled")
             port_number = self.master.config.cfg.getint(section, "port")
