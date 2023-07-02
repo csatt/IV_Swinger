@@ -1995,7 +1995,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         # Make sure CSV files exist
         for csv_file in self.csv_files:
             assert_str = f"ERROR: CSV file {csv_file} doesn't exist"
-            assert Path(csv_file).exists(), assert_str
+            assert csv_file.exists(), assert_str
 
         # Process all CSV files
         self.csv_proc = IV_Swinger_plotter.CsvFileProcessor(self.args,
@@ -5653,13 +5653,12 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """Method to remove the run directory after a failed run if it does not
            contain both the ADC CSV file and the data points CSV file.
         """
-        files = glob.glob(f"{run_dir}/*")
-        do_cleanup = (self.hdd_adc_pairs_csv_filename not in files or
-                      self.hdd_csv_data_point_filename not in files)
-        if do_cleanup:
-            for f in files:
+        adc_csv = run_dir / self.hdd_adc_pairs_csv_filename
+        dpt_csv = run_dir / self.hdd_csv_data_point_filename
+        if not (adc_csv.exists() and dpt_csv.exists()):
+            for f in run_dir.iterdir():
                 self.clean_up_file(f)
-            os.rmdir(run_dir)
+            run_dir.rmdir()
             msg_str = f"Removed {run_dir}"
             self.logger.log(msg_str)
 
@@ -5673,24 +5672,21 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             return
 
         # Always remove the plt_ file(s)
-        plt_files = glob.glob(f"{run_dir}/plt_*")
-        for f in plt_files:
+        for f in run_dir.glob("plt_*"):
             self.clean_up_file(f)
 
         # Always remove the PNG file(s)
-        png_files = glob.glob(f"{run_dir}/*.png")
-        for f in png_files:
+        for f in run_dir.glob("*.png"):
             self.clean_up_file(f)
 
         # Selectively remove other files in loop mode
         if loop_mode:
             if not loop_save_results:
                 # Remove all files in loop directory
-                loop_files = glob.glob(f"{run_dir}/*")
-                for f in loop_files:
+                for f in run_dir.iterdir():
                     self.clean_up_file(f)
                 # Remove the (now empty) directory
-                os.rmdir(run_dir)
+                run_dir.rmdir()
 
             elif not loop_save_graphs:
                 # Remove GIF only
@@ -5701,7 +5697,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
     # -------------------------------------------------------------------------
     def clean_up_file(self, f):
         """Method to remove one file and log its removal"""
-        Path(f).unlink()
+        f.unlink()
         msg_str = f"Removed {f}"
         self.logger.log(msg_str)
 

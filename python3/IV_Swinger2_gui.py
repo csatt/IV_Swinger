@@ -2948,18 +2948,16 @@ class ResultsWizard(tk.Toplevel):
         self.delete_all()
         self.dates = []
 
-        # Get a list of all of the subdirectories (and files) in the
-        # results directory - newest first
-        subdirs = sorted(os.listdir(self.results_dir), reverse=True)
+        # Get a list of all of the subdirectories in the results
+        # directory - newest first
+        subdirs = sorted([d.name for d in self.results_dir.iterdir()
+                          if d.is_dir()], reverse=True)
 
         # Step through each one
         for subdir in subdirs:
-            # Skip files and empty directories
-            full_path = os.path.join(self.results_dir, subdir)
-            if not os.path.isdir(full_path):
-                continue
+            # Skip empty directories and directories without permission
             try:
-                if not os.listdir(full_path):
+                if not any((self.results_dir / subdir).iterdir()):
                     continue
             except PermissionError:
                 continue
@@ -3003,20 +3001,18 @@ class ResultsWizard(tk.Toplevel):
             self.tree.insert("", 0, subdir, text="Overlays")
 
         # Get a list of the overlay subdirectories, newest first
-        overlays = sorted(os.listdir(os.path.join(self.results_dir, subdir)),
-                          reverse=True)
+        overlays_dir = self.results_dir / subdir
+        overlays = sorted([d.name for d in overlays_dir.iterdir()
+                           if d.is_dir()], reverse=True)
 
         # Step through them
         for overlay in overlays:
-            # Full path
-            overlay_dir = self.results_dir / subdir / overlay
-
-            # Then filter out anything that isn't a directory in the
-            # canonical date/time string format - these are the overlays
-            if IV_Swinger2.is_date_time_str(overlay) and overlay_dir.is_dir():
+            # Then filter out any directory not in the canonical
+            # date/time string format - these are the overlays
+            if IV_Swinger2.is_date_time_str(overlay):
 
                 # Skip empty directories
-                if not any(overlay_dir.iterdir()):
+                if not any((overlays_dir / overlay).iterdir()):
                     continue
 
                 # Translate to human readable date and time
@@ -3238,23 +3234,23 @@ class ResultsWizard(tk.Toplevel):
         csv_data_point_file = self.master.ivs2.hdd_csv_data_point_filename
         adc_csv_file = self.master.ivs2.hdd_adc_pairs_csv_filename
         gif_leaf_name = f"{self.master.ivs2.file_prefix}{selection}.gif"
-        gif_file = os.path.join(run_dir, gif_leaf_name)
+        gif_file = run_dir / gif_leaf_name
 
         # Check that data point CSV file exists
-        if not Path(csv_data_point_file).exists():
+        if not csv_data_point_file.exists():
             # Check for IVS1 CSV file
-            ivs1_csv_file = os.path.join(self.results_dir, selection,
-                                         f"data_points_{selection}.csv")
-            if Path(ivs1_csv_file).exists():
+            ivs1_csv_file = (self.results_dir / selection /
+                             f"data_points_{selection}.csv")
+            if ivs1_csv_file.exists():
                 csv_data_point_file = ivs1_csv_file
                 self.master.ivs2.hdd_csv_data_point_filename = ivs1_csv_file
             else:
                 csv_data_point_file = None
         # Check that the ADC CSV file exists
-        if not Path(adc_csv_file).exists():
+        if not adc_csv_file.exists():
             adc_csv_file = None
         # Check that the GIF file exists
-        if not Path(gif_file).exists():
+        if not gif_file.exists():
             gif_file = None
 
         return (csv_data_point_file, adc_csv_file, gif_file)
@@ -3266,7 +3262,7 @@ class ResultsWizard(tk.Toplevel):
         """
         self.master.ivs2.hdd_output_dir = run_dir
         self.master.ivs2.plot_title = None
-        if adc_csv_file is not None and Path(adc_csv_file).exists():
+        if adc_csv_file is not None and adc_csv_file.exists():
             adc_pairs = self.master.get_adc_pairs_from_csv(adc_csv_file)
             self.master.ivs2.adc_pairs = adc_pairs
         else:
@@ -3365,19 +3361,19 @@ class ResultsWizard(tk.Toplevel):
         app_data_path = self.master.main_gui.ivs2.app_data_dir
 
         # Find path to Desktop
-        desktop_path = os.path.expanduser(os.path.join("~", "Desktop"))
-        if not Path(desktop_path).exists():
+        desktop_path = Path().home() / "Desktop"
+        if not desktop_path.exists():
             err_str = f"ERROR: {desktop_path} does not exist"
             tkmsg.showerror(message=err_str)
 
         # Define shortcut name
-        desktop_shortcut_path = os.path.join(desktop_path, "IV_Swinger2")
+        desktop_shortcut_path = desktop_path / "IV_Swinger2"
 
         result = None
 
         if sys.platform == "win32":
             # For Windows, use win32com
-            desktop_shortcut_path += ".lnk"
+            desktop_shortcut_path = f"{desktop_shortcut_path}.lnk"
             try:
                 ws = win32com.client.Dispatch("wscript.shell")
                 shortcut = ws.CreateShortcut(desktop_shortcut_path)
@@ -3395,17 +3391,17 @@ class ResultsWizard(tk.Toplevel):
                 result = "FAILED"
         else:
             # For Mac or Linux, just create a symlink
-            if Path(desktop_shortcut_path).exists():
-                if os.path.islink(desktop_shortcut_path):
-                    curr_value = Path(os.readlink(desktop_shortcut_path))
+            if desktop_shortcut_path.exists():
+                if desktop_shortcut_path.is_symlink():
+                    curr_value = desktop_shortcut_path.resolve()
                     if curr_value == app_data_path:
                         result = "EXISTS_SAME"
                     else:
                         result = "EXISTS_DIFFERENT"
             else:
                 try:
-                    os.symlink(self.master.ivs2.app_data_dir,
-                               desktop_shortcut_path)
+                    target = self.master.ivs2.app_data_dir
+                    desktop_shortcut_path.symlink_to(target)
                     result = "CREATED"
                 except:  # pylint: disable=bare-except
                     result = "FAILED"
@@ -4489,12 +4485,11 @@ class ResultsWizard(tk.Toplevel):
            exist) and False otherwise.
         """
         if self.master.overlay_dir is not None:
-            if not Path(self.master.overlay_dir).exists():
+            if not self.master.overlay_dir.exists():
                 return True
             # Remove directory if it doesn't contain overlaid PDF
-            dts = os.path.basename(self.master.overlay_dir)
-            overlay_pdf = f"overlaid_{dts}.pdf"
-            if overlay_pdf not in os.listdir(self.master.overlay_dir):
+            dts = self.master.overlay_dir.name
+            if not (self.master.overlay_dir / f"overlaid_{dts}.pdf").exists():
                 self.rm_overlay_dir()
                 return True
             # Clean up the directory
