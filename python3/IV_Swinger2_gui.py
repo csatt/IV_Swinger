@@ -258,8 +258,8 @@ def get_app_dir():
        executable (e.g. built with pyinstaller).
     """
     if getattr(sys, "frozen", False):
-        return os.path.abspath(os.path.dirname(sys.executable))
-    return os.path.abspath(os.path.dirname(__file__))
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
 
 
 def handle_early_exception():
@@ -876,7 +876,7 @@ Or use "View Log File" on the "File" menu.
            contained in it, and set the object's "version" attribute to
            that value
         """
-        version_file = os.path.join(self.app_dir, VERSION_FILE)
+        version_file = self.app_dir / VERSION_FILE
         try:
             with open(version_file, "r", encoding="utf-8") as f:
                 lines = f.read().splitlines()
@@ -3946,7 +3946,7 @@ class ResultsWizard(tk.Toplevel):
             # indicator.
             self.master.img_pane.splash_img_showing = False
             reprocess_adc = (adc_csv_file is not None and
-                             Path(adc_csv_file).exists())
+                             adc_csv_file.exists())
             self.master.redisplay_img(reprocess_adc=reprocess_adc)
             self.update()
 
@@ -4671,7 +4671,7 @@ class MenuBar(tk.Menu):
         """Method to update the "File" menu to enable/disable entries"""
         kwargs = {"state": "normal"}
         if (self.master.ivs2.hdd_output_dir is None or
-                not Path(self.master.ivs2.hdd_output_dir).exists()):
+                not self.master.ivs2.hdd_output_dir.exists()):
             kwargs = {"state": "disabled"}
         self.file_menu.entryconfig("View Run Info File", **kwargs)
         self.file_menu.entryconfig("Open Run Folder", **kwargs)
@@ -5335,7 +5335,7 @@ will exit.
         """Method to open the IV Swinger 2 User Guide PDF"""
         msg = """(MenuBar, Help) selected "User Guide" entry"""
         log_user_action(self.master.ivs2.logger, msg)
-        user_guide = os.path.join(self.master.app_dir, USER_GUIDE_PDF)
+        user_guide = self.master.app_dir / USER_GUIDE_PDF
         IV_Swinger2.sys_view_file(user_guide)
 
     # -------------------------------------------------------------------------
@@ -8420,7 +8420,7 @@ effect. Please upgrade.
         """
         # Read PV specs from file and initialize pv_specs attribute
         pv_spec_file = self.master.ivs2.pv_spec_csv_file
-        if not Path(pv_spec_file).exists():
+        if not pv_spec_file.exists():
             create_pv_spec_file(pv_spec_file)
         self.pv_specs = []
         for pv_spec_dict in read_pv_specs(pv_spec_file):
@@ -10055,7 +10055,7 @@ written to Arduino EEPROM.
             self.pv_spec_update_actions()
             pv_spec_csv_file = self.master.ivs2.pv_spec_csv_file
             pv_spec_csv_file_bak = self.master.ivs2.pv_spec_csv_file_bak
-            if Path(pv_spec_csv_file).exists():
+            if pv_spec_csv_file.exists():
                 # Move existing file to backup
                 shutil.move(pv_spec_csv_file, pv_spec_csv_file_bak)
             for pv_spec_dict in self.pv_specs:
@@ -10176,7 +10176,7 @@ class PlottingProps():
            previously captured values to see if any have changed
         """
         if (not self.ivs2.hdd_adc_pairs_csv_filename or
-                not Path(self.ivs2.hdd_adc_pairs_csv_filename).exists()):
+                not self.ivs2.hdd_adc_pairs_csv_filename.exists()):
             return False
 
         return ((self.prop_vals["correct_adc"] != self.ivs2.correct_adc) or
@@ -10766,8 +10766,8 @@ class ImagePane(ttk.Label):
     # -------------------------------------------------------------------------
     def display_splash_img(self):
         """Method to display the splash image"""
-        self.img_file = os.path.join(self.master.app_dir, SPLASH_IMG)
-        if not Path(self.img_file).exists():
+        self.img_file = self.master.app_dir / SPLASH_IMG
+        if not self.img_file.exists():
             err_msg = f"""
 FATAL ERROR: file {self.img_file} does not exist
 
@@ -10786,7 +10786,7 @@ be used for the install.
     # -------------------------------------------------------------------------
     def display_error_img(self, text="ERROR"):
         """Method to display an error message image on the screen"""
-        self.img_file = os.path.join(self.master.app_dir, BLANK_IMG)
+        self.img_file = self.master.app_dir / BLANK_IMG
         self["foreground"] = "red"
         self.font.configure(slant="italic")
         self.display_img(text=text)
