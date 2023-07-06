@@ -110,6 +110,7 @@ import random
 import zmq
 from send2trash import send2trash
 from PIL import Image, ImageTk
+from icecream import ic
 from Tooltip import Tooltip
 import IV_Swinger2
 import IV_Swinger2_sim
@@ -235,6 +236,7 @@ BATTERY_BIAS_DEFAULT = "Off"
 
 # Debug constants
 DEBUG_MEMLEAK = False
+ic.configureOutput(includeContext=True)
 
 
 ########################
@@ -3441,7 +3443,7 @@ class ResultsWizard(tk.Toplevel):
             import_runs = []
             for date in self.dates:
                 for run in self.tree.get_children(date):
-                    run_path = os.path.join(self.results_dir, run)
+                    run_path = self.results_dir / run
                     import_runs.append(run_path)
 
             # Get the list of overlays to import
@@ -3449,8 +3451,7 @@ class ResultsWizard(tk.Toplevel):
             if self.tree.exists("overlays"):
                 for overlay in self.tree.get_children("overlays"):
                     dts = IV_Swinger2.extract_date_time_str(overlay)
-                    overlay_path = os.path.join(self.results_dir,
-                                                "overlays", dts)
+                    overlay_path = self.results_dir / "overlays" / dts
                     import_overlays.append(overlay_path)
 
         all_import = import_runs + import_overlays
@@ -3512,12 +3513,12 @@ class ResultsWizard(tk.Toplevel):
         copy_dest = tkfiledialog.askdirectory(**options)
         if not copy_dest:  # Cancel
             return RC_FAILURE
-        self.copy_dest = os.path.normpath(copy_dest)
+        self.copy_dest = Path(copy_dest).resolve()
 
         # If leaf directory is named IV_Swinger2, assume the user meant
         # to choose its parent directory
-        if os.path.basename(self.copy_dest) == APP_NAME:
-            self.copy_dest = os.path.dirname(self.copy_dest)
+        if self.copy_dest.name == APP_NAME:
+            self.copy_dest = self.copy_dest.parent
 
         # Check that it is writeable
         if not os.access(self.copy_dest, os.W_OK | os.X_OK):
@@ -3562,7 +3563,7 @@ class ResultsWizard(tk.Toplevel):
                     send2trash(selected)
                 except OSError:
                     err_str = f"WARNING: Couldn't send {selected} to trash"
-                    tkmsg.showerror(message=err_msg)
+                    tkmsg.showerror(message=err_str)
                     self.master.ivs2.logger.print_and_log(err_str)
 
             # Delete them from the treeview
@@ -3648,6 +3649,12 @@ class ResultsWizard(tk.Toplevel):
         """Method to get all of the selected overlays and return them in a list
         """
         selected_overlays = []
+        all_overlays_selected = False
+
+        def add_selected_overlay(overlay):
+            nonlocal selected_overlays
+            dts = IV_Swinger2.extract_date_time_str(overlay)
+            selected_overlays.append(self.results_dir / "overlays" / dts)
 
         # Get the selection(s)
         selections = self.tree.selection()
@@ -3660,15 +3667,11 @@ class ResultsWizard(tk.Toplevel):
                     not selections[-1].startswith("overlay_")):
                 for child in self.tree.get_children(selection):
                     # Add all the overlays to the list
-                    dts = IV_Swinger2.extract_date_time_str(child)
-                    selected_overlays.append(os.path.join(self.results_dir,
-                                                          "overlays", dts))
+                    all_overlays_selected = True
+                    add_selected_overlay(child)
             # Add individual overlay
-            if selection.startswith("overlay_"):
-                dts = IV_Swinger2.extract_date_time_str(selection)
-                selected_overlays.append(os.path.join(self.results_dir,
-                                                      "overlays", dts))
-
+            if not all_overlays_selected and selection.startswith("overlay_"):
+                add_selected_overlay(selection)
         return selected_overlays
 
     # -------------------------------------------------------------------------
@@ -3686,18 +3689,17 @@ class ResultsWizard(tk.Toplevel):
             dest_dir = self.get_dest_dir(src_dir)
             if dest_dir == src_dir:
                 err_str = (f"ERROR: source and destination are the same: "
-                           f"{os.path.dirname(dest_dir)}")
+                           f"{dest_dir.parent}")
                 tkmsg.showerror(message=err_str)
                 return False
-            if Path(dest_dir).exists():
-                existing_dest_dirs.append(dest_dir)
+            if dest_dir.exists():
+                existing_dest_dirs.append(str(dest_dir))
 
         if existing_dest_dirs:
             if len(existing_dest_dirs) > 10:
                 # If more than 10 found, just prompt with the count found
                 msg_str = (f"{len(existing_dest_dirs)} folders to be copied "
-                           f"exist in "
-                           f"{os.path.join(self.copy_dest, APP_NAME)}\n")
+                           f"exist in {self.copy_dest / APP_NAME}\n")
             else:
                 # If 1-10 found, prompt with the list of names
                 msg_str = "The following destination folder(s) exist(s):\n "
@@ -3716,7 +3718,7 @@ class ResultsWizard(tk.Toplevel):
         num_copied = {"overlays": 0, "runs": 0}
         for src_dir in src_dirs:
             dest_dir = self.get_dest_dir(src_dir)
-            if Path(dest_dir).exists():
+            if dest_dir.exists():
                 if overwrite:
                     try:
                         shutil.rmtree(dest_dir)
@@ -3728,7 +3730,7 @@ class ResultsWizard(tk.Toplevel):
                     continue  # pragma: no cover (coverage bug?)
             try:
                 shutil.copytree(src_dir, dest_dir)
-                if os.path.basename(os.path.dirname(src_dir)) == "overlays":
+                if src_dir.parent.name == "overlays":
                     num_copied["overlays"] += 1
                 else:
                     num_copied["runs"] += 1
@@ -3747,15 +3749,15 @@ class ResultsWizard(tk.Toplevel):
         """
         inst_path = ""
         overlays = ""
-        src_dir_parts = os.path.normpath(src_dir).split(os.path.sep)
+        src_dir_parts = src_dir.resolve().parts
         if ("inst" in src_dir_parts and
                 src_dir_parts[src_dir_parts.index("inst") - 1] == APP_NAME):
-            inst_name = src_dir_parts[src_dir_parts.index("inst") + 1]
-            inst_path = os.path.join("inst", inst_name)
-        if os.path.basename(os.path.dirname(src_dir)) == "overlays":
+            inst_path = (Path("inst") /
+                         src_dir_parts[src_dir_parts.index("inst") + 1])
+        if src_dir.parent.name == "overlays":
             overlays = "overlays"
-        dest_dir = os.path.join(self.copy_dest, APP_NAME, inst_path,
-                                overlays, os.path.basename(src_dir))
+        dest_dir = (self.copy_dest / APP_NAME / inst_path / overlays /
+                    src_dir.name)
         return dest_dir
 
     # -------------------------------------------------------------------------
@@ -3765,7 +3767,7 @@ class ResultsWizard(tk.Toplevel):
         """
         msg_str = (f"Copied:\n   {num_copied['overlays']} overlays\n"
                    f"   {num_copied['runs']} runs\n"
-                   f"to {os.path.join(self.copy_dest, APP_NAME)}\n")
+                   f"to {self.copy_dest / APP_NAME}\n")
         tkmsg.showinfo(message=msg_str)
 
     # -------------------------------------------------------------------------
@@ -3845,15 +3847,14 @@ class ResultsWizard(tk.Toplevel):
         # displayed in the image pane, but with a .pdf suffix
         # replacing the .gif suffix.
         img = self.master.img_file
-        if img is not None and Path(img).exists():
-            (basename, _) = os.path.splitext(img)
-            pdf = f"{basename}.pdf"
+        if img is not None and img.exists():
+            pdf = img.with_suffix(".pdf")
             if self.master.overlay_mode:
                 # In overlay mode, the PDF is only generated when the Finished
                 # button is pressed, so we have to generate it "on demand" when
                 # the View PDF button is pressed.
                 self.plot_graphs_to_pdf()
-            if Path(pdf).exists():
+            if pdf.exists():
                 IV_Swinger2.sys_view_file(pdf)
                 return
         err_str = "ERROR: No PDF to display"
@@ -4505,12 +4506,11 @@ class ResultsWizard(tk.Toplevel):
         for csv_dir in selected_runs:
             dts = IV_Swinger2.extract_date_time_str(csv_dir)
             csv_files_found = 0
-            for filename in os.listdir(csv_dir):
-                if (filename.endswith(f"{dts}.csv") and
-                        "adc_pairs" not in filename):
-                    csv_file_full_path = os.path.join(csv_dir, filename)
-                    self.selected_csv_files.append(csv_file_full_path)
-                    csv_files_found += 1
+            for filename in [f for f in csv_dir.iterdir()
+                             if f.match(f"*{dts}.csv") and
+                             not f.match("*adc_pairs*")]:
+                self.selected_csv_files.append(filename)
+                csv_files_found += 1
             if not csv_files_found:
                 err_str = f"ERROR: no data point CSV file found in {csv_dir}"
                 tkmsg.showerror(message=err_str)
