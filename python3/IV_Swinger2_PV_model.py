@@ -42,7 +42,6 @@
 # This module adds IV Swinger 2 specific features to the
 # IV_Swinger_PV_model.py module.
 #
-import os
 from pathlib import Path
 import IV_Swinger_PV_model
 import IV_Swinger
@@ -120,20 +119,18 @@ def main():
         ivp.title = pv.title_string
         ivp.csv_files = [pv.csv_filename]
         ivp.curve_names = [pv.parms_string_w_newlines]
-        ivp.plot_dir = os.path.dirname(pv.csv_filename)
+        ivp.plot_dir = pv.csv_filename.parent
         ivp.linear = False
         ivp.point_scale = 0.0  # Change to 1.0 to see the points
         ivp.generate_gif = False
         ivp.run()
 
         # View the PDF and clean up
-        basename, _ = os.path.splitext(os.path.basename(pv.csv_filename))
-        IV_Swinger2.sys_view_file(f"{basename}.pdf")
-        Path(f"plt_{basename}").unlink()
+        IV_Swinger2.sys_view_file(pv.csv_filename.with_suffix(".pdf"))
+        Path(f"plt_{pv.csv_filename.stem}").unlink()
 
     # Create the PV spec CSV file in the current directory
-    pv_spec_file = os.path.join(f"{Path.cwd()}",
-                                "IV_Swinger2_PV_model_pv_spec.csv")
+    pv_spec_file = Path.cwd() / "IV_Swinger2_PV_model_pv_spec.csv"
     IV_Swinger_PV_model.create_pv_spec_file(pv_spec_file)
 
     # Create a PV model object
@@ -153,8 +150,7 @@ def main():
     # points to a CSV file. Plot the curve and view the PDF.
     pv.run()
     pv.get_data_points(PV_MODEL_CURVE_NUM_POINTS)
-    pv.csv_filename = os.path.join(f"{Path.cwd()}",
-                                   "IV_Swinger2_PV_model.csv")
+    pv.csv_filename = Path.cwd() / "IV_Swinger2_PV_model.csv"
     pv.gen_data_points_csv()
     plot_and_view_modeled_curve(pv)
 

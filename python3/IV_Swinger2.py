@@ -87,7 +87,6 @@ import sys
 import time
 from PIL import Image
 from PIL import __version__ as pillow_version
-from icecream import ic
 import serial
 import serial.tools.list_ports
 import IV_Swinger
