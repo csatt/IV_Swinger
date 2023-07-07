@@ -87,6 +87,7 @@ import sys
 import time
 from PIL import Image
 from PIL import __version__ as pillow_version
+from icecream import ic
 import serial
 import serial.tools.list_ports
 import IV_Swinger
@@ -1866,7 +1867,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         """List of CSV file directories"""
         csv_dirs = []
         for csv_file in self.csv_files:
-            csv_dirs.append(os.path.dirname(csv_file))
+            csv_dirs.append(csv_file.parent)
         return csv_dirs
 
     # -------------------------------------------------------------------------
@@ -1874,7 +1875,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         """Method to set argparse args to default values"""
 
         self.args.name = self.curve_names
-        self.args.overlay_name = f"overlaid_{os.path.basename(self.plot_dir)}"
+        self.args.overlay_name = f"overlaid_{self.plot_dir.name}"
         self.args.title = self.title
         self.args.fancy_labels = self.fancy_labels
         self.args.interactive = False
@@ -4903,8 +4904,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                        f"files in {run_dir}")
             self.logger.print_and_log(err_str)
         elif bb_file_count == 0:
-            batt_dir = os.path.join(os.path.dirname(run_dir),
-                                    BATTERY_FOLDER_NAME)
+            batt_dir = run_dir.parent / BATTERY_FOLDER_NAME
             bb_files = glob.glob(glob_pattern.format(batt_dir))
             for f in bb_files:
                 bias_battery_csv = f

@@ -858,7 +858,7 @@ permission to create files in
 An internal error has occurred.  Please send
 the log file to csatt1@gmail.com.
 
-Log file: {os.path.normpath(self.ivs2.logger.log_file_name)}
+Log file: {self.ivs2.logger.log_file_name.resolve()}
 
 Or use "View Log File" on the "File" menu.
 """
@@ -3901,7 +3901,7 @@ class ResultsWizard(tk.Toplevel):
 
         # Loop through runs, regenerating/redisplaying
         for run_dir in selected_runs:
-            selection = os.path.basename(run_dir)
+            selection = run_dir.name
 
             # Get names of CSV files
             (csv_data_point_file,
@@ -4309,7 +4309,7 @@ class ResultsWizard(tk.Toplevel):
         self.overlay_widget_treeview.delete(*curr_items)
         # Add item for each selected run
         for run_dir in run_dirs:
-            dts = os.path.basename(run_dir)
+            dts = run_dir.name
             date_time = date_at_time_from_dts(dts)
             if dts in self.master.overlay_names:
                 name = self.master.overlay_names[dts]
@@ -4957,24 +4957,25 @@ Copyright (C) 2017-2023  Chris Satterlee
         """
         msg = """(MenuBar, File) selected "View Log File" entry"""
         log_user_action(self.master.ivs2.logger, msg)
-        (log_dir,
-         log_file) = os.path.split(self.master.ivs2.logger.log_file_name)
+        log_dir = self.master.ivs2.logger.log_file_name.parent
+        log_file_str = self.master.ivs2.logger.log_file_name.name
         options = {}
         options["defaultextension"] = ".txt"
         (initial_dir,
-         initial_file) = self.get_initial_log_file_name(log_dir, log_file)
+         initial_file) = self.get_initial_log_file_name(log_dir, log_file_str)
         options["initialdir"] = initial_dir
         options["initialfile"] = initial_file
         options["parent"] = self.master
         title_opt = ("message" if self.master.win_sys == "aqua"  # Mac
                      else "title")
         options[title_opt] = "Choose Log File"
-        log_file = tkfiledialog.askopenfilename(**options)
-        if log_file:
+        log_file_str = tkfiledialog.askopenfilename(**options)
+        if log_file_str:
+            log_file_path = Path(log_file_str).resolve()
             msg = (f"(MenuBar, File, View Log File) selected log file "
-                   f"{os.path.normpath(log_file)}")
+                   f"{log_file_path}")
             log_user_action(self.master.ivs2.logger, msg)
-            IV_Swinger2.sys_view_file(os.path.normpath(log_file))
+            IV_Swinger2.sys_view_file(log_file_path)
 
     # -------------------------------------------------------------------------
     def get_initial_log_file_name(self, log_dir, current_log):
@@ -4990,13 +4991,12 @@ Copyright (C) 2017-2023  Chris Satterlee
                 self.master.results_wiz.run_dir is not None):
             run_dir = self.master.results_wiz.run_dir
             run_dir_dts = IV_Swinger2.extract_date_time_str(run_dir)
-            run_dir_logs = os.path.join(os.path.dirname(run_dir), "logs")
-            search_dir = (run_dir_logs if os.path.isdir(run_dir_logs)
-                          else log_dir)
+            run_dir_logs = run_dir.parent / "logs"
+            search_dir = run_dir_logs if run_dir_logs.is_dir() else log_dir
             # Search list of log files, sorted newest to oldest
-            for log_file in sorted(os.listdir(search_dir), reverse=True):
-                if (log_file.startswith("log_") and
-                        log_file.endswith(".txt")):
+            for log_file in sorted([d.name for d in search_dir.iterdir()],
+                                   reverse=True):
+                if Path(log_file).match("log_*.txt"):
                     log_dts = IV_Swinger2.extract_date_time_str(log_file)
                     if (IV_Swinger2.is_date_time_str(log_dts) and
                             log_dts <= run_dir_dts):  # older than or equal to
