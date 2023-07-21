@@ -1,5 +1,6 @@
-This directory contains the Python 3 source code for IV Swinger 1 and IV
-Swinger 2.
+This directory contains the Python 3 source code for IV Swinger
+
+NOTE: The code supporting IV Swinger 1 has been removed (see Issue #213).
 
 
 Installing Python 3 and required packages
