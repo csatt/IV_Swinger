@@ -1455,8 +1455,9 @@ class IV_Swinger():
         if len(data_point_filenames) > 1 and not self.plot_ref:
             run_str = f"{len(data_point_filenames)} Runs"
         else:
-            run_str = (data_point_filenames[0] if not self.plot_ref else
-                       data_point_filenames[1])
+            filename = (data_point_filenames[0] if not self.plot_ref else
+                        data_point_filenames[1])
+            run_str = f"{filename}"
             date_time_str = DateTimeStr.extract_date_time_str(run_str)
             if date_time_str == "No match":
                 run_str += " Run"
@@ -1700,9 +1701,6 @@ class IV_Swinger():
             if not curve_num and self.point_scale:
                 self.get_measured_points_kwargs()
                 self.add_measured_points_label()
-
-            if curve_num:
-                self.output_line += ", "
 
             # Plot interpolated curve first, so it is "under" the
             # measured points

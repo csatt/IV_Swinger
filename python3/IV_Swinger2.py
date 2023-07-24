@@ -1887,8 +1887,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         self.args.plot_power = self.plot_power
         self.args.plot_ref = self.plot_ref
         self.args.recalc_isc = False
-        self.args.use_gnuplot = False
-        self.args.gif = False
+        self.args.plot_dir = self.plot_dir
         self.args.png = False
         self.args.scale = 1.0
         self.args.font_name = self.font_name
@@ -1927,7 +1926,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         ivs.plot_dpi = default_dpi * (self.x_pixels/default_x_pixels)
         ivs.plot_graphs(self.args, csvp)
         png_file = ivs.plt_img_filename
-        gif_file = f"{Path(png_file).stem}.gif"
+        gif_file = png_file.with_suffix(".gif")
         im = Image.open(png_file)
         im.save(gif_file)
         self.current_img = Path(gif_file)
@@ -1981,9 +1980,6 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         # argparse.Namespace() object and populate it.
         self.args = argparse.Namespace()
         self.set_default_args()
-
-        # Change to plot directory so files will be created there
-        os.chdir(self.plot_dir)
 
         # Create IV Swinger object (as extended in IV_Swinger_plotter)
         self.ivsp_ivse = IV_Swinger_plotter.IV_Swinger_extended()
