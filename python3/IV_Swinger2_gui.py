@@ -274,18 +274,16 @@ def handle_early_exception():
     if not getattr(sys, "frozen", False):
         print(err_msg)
         return
-    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
-        err_msg += "\n"
-        err_msg += f"""
+    tmp_file = Path(tempfile.NamedTemporaryFile(delete=False).name)
+    err_msg += f"""
 -----------------------------------------------------------
 Please copy/paste the above and send it to csatt1@gmail.com
 
 Alternately, you may attach this file:
-{tmp_file.name}
+{tmp_file}
 """
-        with open(tmp_file.name, "a", encoding="utf-8") as f:
-            f.write(err_msg)
-            IV_Swinger2.sys_view_file(tmp_file.name)
+    tmp_file.write_text(err_msg, encoding="utf-8")
+    IV_Swinger2.sys_view_file(tmp_file)
 
 
 def pdf_permission_denied(e):
@@ -878,24 +876,23 @@ Or use "View Log File" on the "File" menu.
         """
         version_file = self.app_dir / VERSION_FILE
         try:
-            with open(version_file, "r", encoding="utf-8") as f:
-                lines = f.read().splitlines()
-                if len(lines) != 1:
-                    err_str = f"ERROR: {VERSION_FILE} has {len(lines)} lines"
-                    self.ivs2.logger.print_and_log(err_str)
-                    return
-                version = lines[0]
-                if not version or version[0] != "v":
-                    err_str = (f"ERROR: {VERSION_FILE} has invalid version: "
-                               f"{version}")
-                    self.ivs2.logger.print_and_log(err_str)
-                    return
-                self.version = version
-                log_msg = f"Application version: {version}"
-                self.ivs2.logger.log(log_msg)
+            lines = version_file.read_text(encoding="utf-8").splitlines()
         except IOError:
-            err_str = f"ERROR: {VERSION_FILE} doesn't exist"
+            err_str = f"ERROR: {version_file} cannot be read"
             self.ivs2.logger.print_and_log(err_str)
+            return
+        if len(lines) != 1:
+            err_str = f"ERROR: {version_file} has {len(lines)} lines"
+            self.ivs2.logger.print_and_log(err_str)
+            return
+        version = lines[0]
+        if not version or version[0] != "v":
+            err_str = f"ERROR: {version_file} has invalid version: {version}"
+            self.ivs2.logger.print_and_log(err_str)
+            return
+        self.version = version
+        log_msg = f"Application version: {version}"
+        self.ivs2.logger.log(log_msg)
 
     # -------------------------------------------------------------------------
     def init_instance_vars(self):

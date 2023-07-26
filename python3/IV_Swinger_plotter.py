@@ -348,35 +348,33 @@ class CsvParser():
            and resistance values from each line and builds a data_points
            list with each data point being a (I, V, R, P) tuple.
         """
+        csv = self.csv_filename
         if not self._data_points:
             try:
-                with open(self.csv_filename, "r", encoding="utf-8") as f:
-                    for ii, line in enumerate(f.read().splitlines()):
-                        if ii == 0:
-                            expected_first_line = "Volts, Amps, Watts, Ohms"
-                            if line != expected_first_line:
-                                err_str = (f"ERROR: first line of CSV is not "
-                                           f"{expected_first_line}")
-                                PrintAndOrLog.print_and_log_msg(self.logger,
-                                                                err_str)
-                                return []
-                        else:
-                            vipr_list = list(map(float, line.split(",")))
-                            if len(vipr_list) != 4:
-                                err_str = (f"ERROR: CSV line {ii + 1} is not "
-                                           f"in expected V,I,P,R format")
-                                PrintAndOrLog.print_and_log_msg(self.logger,
-                                                                err_str)
-                                return []
-                            # Swap V <-> I and P <-> R
-                            ivrp_tuple = (vipr_list[1], vipr_list[0],
-                                          vipr_list[3], vipr_list[2])
-                            self._data_points.append(ivrp_tuple)
+                csv_lines = csv.read_text(encoding="utf-8").splitlines()
             except IOError:
                 PrintAndOrLog.print_and_log_msg(self.logger,
-                                                f"Cannot open "
-                                                f"{self.csv_filename}")
+                                                f"Cannot read {csv}")
                 return []
+            for ii, line in enumerate(csv_lines):
+                if ii == 0:
+                    expected_first_line = "Volts, Amps, Watts, Ohms"
+                    if line != expected_first_line:
+                        err_str = (f"ERROR: first line of {csv} is not "
+                                   f"{expected_first_line}")
+                        PrintAndOrLog.print_and_log_msg(self.logger, err_str)
+                        return []
+                else:
+                    vipr_list = list(map(float, line.split(",")))
+                    if len(vipr_list) != 4:
+                        err_str = (f"ERROR: {csv} line {ii + 1} is not "
+                                   f"in expected V,I,P,R format")
+                        PrintAndOrLog.print_and_log_msg(self.logger, err_str)
+                        return []
+                    # Swap V <-> I and P <-> R
+                    ivrp_tuple = (vipr_list[1], vipr_list[0],
+                                  vipr_list[3], vipr_list[2])
+                    self._data_points.append(ivrp_tuple)
 
         return self._data_points
 

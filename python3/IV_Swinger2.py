@@ -596,25 +596,24 @@ def get_sensor_values_from_file(run_info_filename):
     """
     irrad = None
     temps_dict = {}
+    temp_format_str = "Temperature at sensor "
+    temp_format_str += r"#(\d+) is ([-+]?\d*\.\d+|\d+) "
+    temp_format_str += "degrees Celsius"
+    temp_re = re.compile(temp_format_str)
+    irrad_format_str = r"Irradiance: (\d+) W/m\^2"
+    irrad_re = re.compile(irrad_format_str)
     if run_info_filename.exists():
-        with open(run_info_filename, "r", encoding="utf-8") as f:
-            temp_format_str = "Temperature at sensor "
-            temp_format_str += r"#(\d+) is ([-+]?\d*\.\d+|\d+) "
-            temp_format_str += "degrees Celsius"
-            temp_re = re.compile(temp_format_str)
-            irrad_format_str = r"Irradiance: (\d+) W/m\^2"
-            irrad_re = re.compile(irrad_format_str)
-            for line in f.read().splitlines():
-                # Irradiance
-                match = irrad_re.search(line)
-                if match:
-                    irrad = int(match.group(1))
-                # Temperature
-                match = temp_re.search(line)
-                if match:
-                    sensor_num = float(match.group(1))
-                    temp = float(match.group(2))
-                    temps_dict[sensor_num] = temp
+        for line in run_info_filename.read_text(encoding="utf-8").splitlines():
+            # Irradiance
+            match = irrad_re.search(line)
+            if match:
+                irrad = int(match.group(1))
+            # Temperature
+            match = temp_re.search(line)
+            if match:
+                sensor_num = float(match.group(1))
+                temp = float(match.group(2))
+                temps_dict[sensor_num] = temp
 
     return irrad, temps_dict
 
@@ -687,8 +686,7 @@ class Configuration():
             if self.starting_cfg_filename.exists():
                 self.starting_cfg_filename.unlink()
             # Create an empty file
-            with open(self.starting_cfg_filename, "a", encoding="utf-8") as f:
-                f.close()
+            self.starting_cfg_filename.touch()
 
     # -------------------------------------------------------------------------
     def log_cfg_diffs(self):
@@ -696,9 +694,9 @@ class Configuration():
            and the current config file. The diff is also returned to the
            caller.
         """
-        with open(self.starting_cfg_filename, encoding="utf-8") as f:
+        with self.starting_cfg_filename.open(encoding="utf-8") as f:
             starting_lines = f.readlines()
-        with open(self.cfg_filename, encoding="utf-8") as f:
+        with self.cfg_filename.open(encoding="utf-8") as f:
             current_lines = f.readlines()
         diff = difflib.ndiff(starting_lines, current_lines)
         heading_str = "Config file diffs\n                 -----------------\n"
@@ -1311,7 +1309,7 @@ class Configuration():
             self.cfg_dump()
         # Attempt to open the file for writing
         try:
-            with open(self.cfg_filename, "w", encoding="utf-8") as cfg_fp:
+            with self.cfg_filename.open("w", encoding="utf-8") as cfg_fp:
                 # Write config to file
                 self.cfg.write(cfg_fp)
         except IOError:
@@ -1340,7 +1338,7 @@ class Configuration():
             self.ivs2.logger.print_and_log(dbg_str)
         # Attempt to open the file for writing
         try:
-            with open(self.cfg_filename, "w", encoding="utf-8") as cfg_fp:
+            with self.cfg_filename.open("w", encoding="utf-8") as cfg_fp:
                 self.cfg_snapshot.write(cfg_fp)
         except IOError:
             # Failed to open file for writing
@@ -1505,7 +1503,7 @@ class PrintAndLog(IV_Swinger.PrintAndLog):
 
     def terminate_log(self):
         """Add newline to end of log file"""
-        with open(self.log_file_name, "a", encoding="utf-8") as f:
+        with self.log_file_name.open("a", encoding="utf-8") as f:
             f.write("\n")
 
 
@@ -3730,14 +3728,14 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 #     type, tilt angle, notes on shading, notes on sky conditions, etc.
 #
 """
+            run_info = "#\n"
+            run_info += f"{run_date_time}"
+            run_info += f"{boilerplate}"
+            if self._ds18b20_rom_codes:
+                for msg in self._ds18b20_rom_codes:
+                    run_info += f"{msg}"
             try:
-                with open(self.run_info_filename, "w", encoding="utf-8") as f:
-                    f.write("#\n")
-                    f.write(f"{run_date_time}")
-                    f.write(f"{boilerplate}")
-                    if self._ds18b20_rom_codes:
-                        for msg in self._ds18b20_rom_codes:
-                            f.write(f"{msg}")
+                self.run_info_filename.write_text(run_info, encoding="utf-8")
             except (IOError, OSError) as e:
                 self.logger.print_and_log(f"({e})")
 
@@ -3751,10 +3749,9 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             #    - remove the sensor_info file
             self.create_run_info_file()
             try:
-                with open(self.sensor_info_filename, "r",
-                          encoding="utf-8") as f:
+                with self.sensor_info_filename.open(encoding="utf-8") as f:
                     sensor_lines = f.read().splitlines()
-                with open(self.run_info_filename, "a", encoding="utf-8") as f:
+                with self.run_info_filename.open("a", encoding="utf-8") as f:
                     for line in sensor_lines:
                         f.write(f"{line}\n")
                 Path(self.sensor_info_filename).unlink()
@@ -3772,7 +3769,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         else:
             info_str = msg
         try:
-            with open(self.run_info_filename, "a", encoding="utf-8") as f:
+            with self.run_info_filename.open("a", encoding="utf-8") as f:
                 f.write(f"{info_str}")
         except (IOError, OSError) as e:
             self.logger.print_and_log(f"({e})")
@@ -3916,7 +3913,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         irrad_re = re.compile(r"Irradiance: (\d+) W/m\^2")
         ext_irrad_re = re.compile(r"(\d+) @ (\S+) deg C")
         try:
-            with open(self.run_info_filename, "r", encoding="utf-8") as f:
+            with self.run_info_filename.open(encoding="utf-8") as f:
                 for line in f.read().splitlines():
                     match = irrad_re.search(line)
                     if match:
@@ -3937,7 +3934,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                         self.irradiance = round_new_irradiance
                     else:
                         new_lines.append(line)
-            with open(self.run_info_filename, "w", encoding="utf-8") as f:
+            with self.run_info_filename.open("w", encoding="utf-8") as f:
                 for line in new_lines:
                     f.write(f"{line}\n")
         except (IOError, OSError) as e:
@@ -4985,13 +4982,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            algorithm improvements. It is the only history of the raw
            readings.
         """
-        with open(filename, "w", encoding="utf-8") as f:
-            # Write headings
-            f.write("CH0 (voltage), CH1 (current)\n")
-            # Write ADC pairs
-            for adc_pair in adc_pairs:
-                csv_str = f"{adc_pair[0]},{adc_pair[1]}\n"
-                f.write(csv_str)
+        file_contents = "CH0 (voltage), CH1 (current)\n"  # Headings
+        for adc_pair in adc_pairs:
+            file_contents += f"{adc_pair[0]},{adc_pair[1]}\n"
+        filename.write_text(file_contents, encoding="utf-8")
 
         self.logger.log(f"Raw ADC values written to {filename}")
 
@@ -5002,27 +4996,27 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """
         adc_pairs = []
         try:
-            with open(filename, "r", encoding="utf-8") as f:
-                for ii, line in enumerate(f.read().splitlines()):
-                    if ii == 0:
-                        expected_first_line = "CH0 (voltage), CH1 (current)"
-                        if line != expected_first_line:
-                            err_str = (f"ERROR: first line of ADC CSV is not "
-                                       f"{expected_first_line}")
-                            self.logger.print_and_log(err_str)
-                            return []
-                    else:
-                        adc_pair = list(map(float, line.split(",")))
-                        if len(adc_pair) != 2:
-                            err_str = (f"ERROR: CSV line {ii + 1} is not in "
-                                       f"expected CH0, CH1 format")
-                            self.logger.print_and_log(err_str)
-                            return []
-                        adc_tuple = (adc_pair[0], adc_pair[1])
-                        adc_pairs.append(adc_tuple)
+            csv_lines = filename.read_text(encoding="utf-8").splitlines()
         except IOError:
-            self.logger.print_and_log(f"ERROR: Cannot open {filename}")
+            self.logger.print_and_log(f"ERROR: Cannot read {filename}")
             return []
+        for ii, line in enumerate(csv_lines):
+            if ii == 0:
+                expected_first_line = "CH0 (voltage), CH1 (current)"
+                if line != expected_first_line:
+                    err_str = (f"ERROR: first line of {filename} is not "
+                               f"{expected_first_line}")
+                    self.logger.print_and_log(err_str)
+                    return []
+            else:
+                adc_pair = list(map(float, line.split(",")))
+                if len(adc_pair) != 2:
+                    err_str = (f"ERROR: {filename} line {ii + 1} is not in "
+                               f"expected CH0, CH1 format")
+                    self.logger.print_and_log(err_str)
+                    return []
+                adc_tuple = (adc_pair[0], adc_pair[1])
+                adc_pairs.append(adc_tuple)
 
         return adc_pairs
 

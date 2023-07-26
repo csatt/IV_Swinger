@@ -94,30 +94,18 @@ WATTS_INDEX = 3
 ########################
 #   Global functions   #
 ########################
-def write_csv_data_to_file(open_filehandle, volts,
-                           amps, watts, ohms):
-    """Global function to write the current voltage, current, watts, and
-       ohms values to an output file which the caller has opened and has
-       passed the filehandle.
-    """
-    output_line = f"{volts:.6f},{amps:.6f},{watts:.6f},{ohms:.6f}\n"
-    open_filehandle.write(output_line)
-
-
 def write_csv_data_points_to_file(filename, data_points):
     """Global function to write each of the CSV data points to the output
        file.
     """
-    with open(filename, "w", encoding="utf-8") as f:
-        # Write headings
-        f.write("Volts, Amps, Watts, Ohms\n")
-        # Write data points
-        for data_point in data_points:
-            write_csv_data_to_file(f,
-                                   data_point[VOLTS_INDEX],
-                                   data_point[AMPS_INDEX],
-                                   data_point[WATTS_INDEX],
-                                   data_point[OHMS_INDEX])
+    file_contents = "Volts, Amps, Watts, Ohms\n"  # Headings
+    for data_point in data_points:
+        volts = data_point[VOLTS_INDEX]
+        amps = data_point[AMPS_INDEX]
+        watts = data_point[WATTS_INDEX]
+        ohms = data_point[OHMS_INDEX]
+        file_contents += f"{volts:.6f},{amps:.6f},{watts:.6f},{ohms:.6f}\n"
+    filename.write_text(file_contents, encoding="utf-8")
 
 
 def write_plt_data_to_file(open_filehandle, volts, amps,
@@ -142,7 +130,7 @@ def write_plt_data_points_to_file(filename, data_points,
     """Global function to write/append each of the plotter data points to
        the output file.
     """
-    with open(filename, "a", encoding="utf-8") as f:
+    with filename.open("a", encoding="utf-8") as f:
         # Add new data set delimiter
         if new_data_set:
             write_plt_data_to_file(f, 0, 0, 0, new_data_set=True)
@@ -176,7 +164,7 @@ def pyplot_annotate_point(label_str, x, y, xtext, ytext, fontsize,
                  arrowprops=arrowprops)
 
 
-def read_measured_and_interp_points(f):
+def read_measured_and_interp_points(df):
     """Global function to read the measured points and interpolated points
        from the data point file
     """
@@ -187,7 +175,7 @@ def read_measured_and_interp_points(f):
     interp_volts = []
     interp_amps = []
     interp_watts = []
-    for line in f.read().splitlines():
+    for line in df.read_text(encoding="utf-8").splitlines():
         if line:
             volts, amps, watts = line.split()
             if first_data_set:
@@ -335,7 +323,7 @@ class PrintAndLog():
         """Print to the log file only"""
         # Print to log file with timestamp
         date_time_str = DateTimeStr.get_date_time_str()
-        with open(self.log_file_name, "a", encoding="utf-8") as f:
+        with self.log_file_name.open("a", encoding="utf-8") as f:
             f.write(f"\n{date_time_str}: {print_str}")
 
     def print_and_log(self, print_str):
@@ -1688,14 +1676,13 @@ class IV_Swinger():
            pyplot to plot the measured and interpolated curves
         """
         for curve_num, df in enumerate(data_point_filenames):
-            with open(df, "r", encoding="utf-8") as f:
-                # Read points from the file
-                (measured_volts,
-                 measured_amps,
-                 _,
-                 interp_volts,
-                 interp_amps,
-                 interp_watts) = read_measured_and_interp_points(f)
+            # Read points from the file
+            (measured_volts,
+             measured_amps,
+             _,
+             interp_volts,
+             interp_amps,
+             interp_watts) = read_measured_and_interp_points(df)
 
             # Put measured points label at top of legend
             if not curve_num and self.point_scale:
