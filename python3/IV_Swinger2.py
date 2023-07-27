@@ -75,7 +75,6 @@ import argparse
 import configparser
 import datetime as dt
 import difflib
-import glob
 import io
 import math
 import os
@@ -681,7 +680,7 @@ class Configuration():
            but not dependent on DEBUG_CONFIG.
         """
         if self.cfg_filename.exists():
-            shutil.copyfile(self.cfg_filename, self.starting_cfg_filename)
+            shutil.copy(self.cfg_filename, self.starting_cfg_filename)
         else:
             if self.starting_cfg_filename.exists():
                 self.starting_cfg_filename.unlink()
@@ -1349,9 +1348,9 @@ class Configuration():
     def copy_file(self, dest_dir):
         """Method to copy the current .cfg file to the specified directory
         """
-        if self.cfg_filename.parent == dest_dir:
+        if self.cfg_filename.parent.resolve() == dest_dir.resolve():
             # Return without doing anything if the property is already
-            # pointing to the specified directory
+            # pointing to the specified directory.
             return
         if DEBUG_CONFIG:
             dbg_str = (f"copy_file: Copying config from "
@@ -4881,15 +4880,12 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """Method to find the bias battery CSV file
         """
         bias_battery_csv = None
-        glob_pattern = "{}/bias_batt_adc_pairs*.csv"
         # Find the bias battery CSV file. If one exists in the run
         # directory, use that.  Otherwise, copy the one from the Battery
         # directory to the run directory and then use it.
         run_dir = self.hdd_output_dir
-        bb_files = glob.glob(glob_pattern.format(run_dir))
         bb_file_count = 0
-        for f in bb_files:
-            bias_battery_csv = f
+        for bias_battery_csv in run_dir.glob("bias_batt_adc_pairs*.csv"):
             bb_file_count += 1
         if bb_file_count > 1:
             err_str = (f"ERROR: There are multiple bias_batt_adc_pairs*.csv "
@@ -4897,9 +4893,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             self.logger.print_and_log(err_str)
         elif bb_file_count == 0:
             batt_dir = run_dir.parent / BATTERY_FOLDER_NAME
-            bb_files = glob.glob(glob_pattern.format(batt_dir))
-            for f in bb_files:
-                bias_battery_csv = f
+            for bias_battery_csv in batt_dir.glob("bias_batt_adc_pairs*.csv"):
                 bb_file_count += 1
             if bb_file_count > 1:
                 err_str = (f"ERROR: There are multiple "
@@ -4922,9 +4916,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         """Method to remove old bias battery CSV file(s) from the parent
            directory"""
         run_dir = self.hdd_output_dir.parent
-        bb_files = glob.glob(f"{run_dir}/bias_batt_adc_pairs*.csv")
-        for f in bb_files:
-            self.clean_up_file(f)
+        for bias_battery_csv in run_dir.glob("bias_batt_adc_pairs*.csv"):
+            self.clean_up_file(bias_battery_csv)
 
     # -------------------------------------------------------------------------
     def log_meter_debug_info(self):
@@ -5684,10 +5677,10 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                     self.clean_up_file(self.current_img)
 
     # -------------------------------------------------------------------------
-    def clean_up_file(self, f):
+    def clean_up_file(self, filename):
         """Method to remove one file and log its removal"""
-        f.unlink()
-        msg_str = f"Removed {f}"
+        filename.unlink()
+        msg_str = f"Removed {filename}"
         self.logger.log(msg_str)
 
     # -------------------------------------------------------------------------

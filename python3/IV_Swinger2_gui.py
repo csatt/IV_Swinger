@@ -85,7 +85,6 @@
 #      PreferencesDialog() are more complex dialogs.
 #
 import datetime as dt
-import os
 from pathlib import Path
 import re
 try:
@@ -1564,7 +1563,7 @@ ERROR: USB port is not connected to IV Swinger 2
         """
         cfg_file = None
         original_cfg_file = None
-        if run_dir is not None and run_dir != config_dir:
+        if run_dir is not None and run_dir.resolve() != config_dir.resolve():
             cfg_file = run_dir / f"{APP_NAME}.cfg"
             if cfg_file.exists():
                 # Snapshot current config
@@ -1580,8 +1579,8 @@ ERROR: USB port is not connected to IV Swinger 2
                        cfg_file, original_cfg_file):
         """Method to restore the swapped config from the snapshot.
         """
-        if (run_dir is not None and run_dir != config_dir and
-                cfg_file.exists()):
+        if (run_dir is not None and run_dir.resolve() != config_dir.resolve()
+                and cfg_file.exists()):
             self.config.cfg_filename = original_cfg_file
             self.config.save_snapshot()
 
@@ -3518,7 +3517,10 @@ class ResultsWizard(tk.Toplevel):
             self.copy_dest = self.copy_dest.parent
 
         # Check that it is writeable
-        if not os.access(self.copy_dest, os.W_OK | os.X_OK):
+        try:
+            (self.copy_dest / "DUMMY_FILE").touch()
+            (self.copy_dest / "DUMMY_FILE").unlink()
+        except PermissionError:
             err_str = f"ERROR: {self.copy_dest} is not writeable"
             tkmsg.showerror(message=err_str)
             return RC_FAILURE
@@ -3684,9 +3686,9 @@ class ResultsWizard(tk.Toplevel):
         # existing directories in destination
         for src_dir in selected_src_dirs:
             dest_dir = self.get_dest_dir(src_dir)
-            if dest_dir == src_dir:
+            if dest_dir.resolve() == src_dir.resolve():
                 err_str = (f"ERROR: source and destination are the same: "
-                           f"{dest_dir.parent}")
+                           f"{dest_dir.parent.resolve()}")
                 tkmsg.showerror(message=err_str)
                 return False
             if dest_dir.exists():

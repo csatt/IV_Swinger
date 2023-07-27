@@ -278,7 +278,7 @@ class DateTimeStr():
     @staticmethod
     def extract_date_time_str(input_str):
         """Method to parse the date/time string from a leaf file name or
-           other string
+           other string (or pathlib Path)
         """
         dt_file_re = re.compile(r"(\d{6}_\d{2}_\d{2}_\d{2})")
         match = dt_file_re.search(str(input_str))
@@ -288,7 +288,8 @@ class DateTimeStr():
 
     @staticmethod
     def is_date_time_str(input_str):
-        """Method to test if a given string is a date/time string
+        """Method to test if a given string (or pathlib Path) is a date/time
+           string
         """
         dt_file_re = re.compile(r"^(\d{6}_\d{2}_\d{2}_\d{2})$")
         match = dt_file_re.search(str(input_str))
