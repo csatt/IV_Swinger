@@ -445,10 +445,8 @@ class Interpolator():
             self._spline_interpolated_curve = []
 
             # Generate list of [V, I] pairs
-            vi_points_list = []
-            for point in self.given_points:
-                vi_points_list.append([point[VOLTS_INDEX],
-                                       point[AMPS_INDEX]])
+            vi_points_list = [([point[VOLTS_INDEX], point[AMPS_INDEX]])
+                              for point in self.given_points] or []
 
             # Call the interpolation method and put the results in a
             # temporary list

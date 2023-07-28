@@ -1846,9 +1846,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
     @property
     def csv_dirs(self):
         """List of CSV file directories"""
-        csv_dirs = []
-        for csv_file in self.csv_files:
-            csv_dirs.append(csv_file.parent)
+        csv_dirs = [csv_file.parent for csv_file in self.csv_files]
         return csv_dirs
 
     # -------------------------------------------------------------------------
@@ -1922,7 +1920,8 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         for csv_dir in self.csv_dirs:
             run_info_filename = get_run_info_filename(Path(csv_dir))
             info_added = False
-            (irrad, temps_dict) = get_sensor_values_from_file(run_info_filename)
+            (irrad,
+             temps_dict) = get_sensor_values_from_file(run_info_filename)
             if self.plot_ref and curve_num == 0:
                 irrad = None
                 temps_dict = {}
@@ -5459,9 +5458,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
         # Convert the temperature sensor value(s) to cell temperature
         if temps_dict:
-            temps = []
-            for sensor_num in sorted(temps_dict):
-                temps.append(temps_dict[sensor_num])
+            temps = [temps_dict[sensor_num]
+                     for sensor_num in sorted(temps_dict)]
             if self.use_avg_sensor_temp:
                 temp = sum(temps) / float(len(temps))
             else:

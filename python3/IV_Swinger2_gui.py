@@ -791,10 +791,9 @@ class GraphicalUserInterface(ttk.Frame):
         inst_dir = self.main_gui.app_data_dir / "inst"
         if not inst_dir.is_dir():
             return []
-        instances = []
-        for inst_path in [d for d in inst_dir.iterdir()
-                          if (inst_dir / d / "logs").is_dir()]:
-            instances.append(inst_path.name)
+        instances = [inst_path.name for inst_path in
+                     [d for d in inst_dir.iterdir()
+                      if (inst_dir / d / "logs").is_dir()]]
         return sorted(instances)
 
     # ---------------------------------
@@ -803,14 +802,11 @@ class GraphicalUserInterface(ttk.Frame):
         """List of USB ports that are in use by the main GUI and all instance
            GUIs.
         """
-        usb_ports = []
-        usb_ports_in_use = []
-        usb_ports.append(self.main_gui.ivs2.usb_port)
+        usb_ports = [self.main_gui.ivs2.usb_port]
         for _, gui in self.main_gui.instance_gui.items():
             usb_ports.append(gui.ivs2.usb_port)
-        for usb_port in usb_ports:
-            if usb_port not in [None, "DISCONNECTED"]:
-                usb_ports_in_use.append(usb_port)
+        usb_ports_in_use = [usb_port for usb_port in usb_ports
+                            if usb_port not in [None, "DISCONNECTED"]]
         return usb_ports_in_use
 
     # -------------------------------------------------------------------------
@@ -2513,9 +2509,7 @@ ERROR: USB port is not connected to IV Swinger 2
         # pylint: disable=too-many-branches
         if self.main_gui is self:
             # First close and remove instance GUIs
-            instance_guis = []
-            for _, gui in self.instance_gui.items():
-                instance_guis.append(gui)
+            instance_guis = [gui for _, gui in self.instance_gui.items()]
             if instance_guis:
                 msg_str = "This will close ALL instances too\n\n"
                 msg_str += "--------------------------\n"
@@ -3451,14 +3445,11 @@ class ResultsWizard(tk.Toplevel):
         # Import everything if nothing is selected
         if not import_runs and not import_overlays:
             # Get the list of runs to import from the current tree
-            import_runs = []
-            for date in self.dates:
-                for run in self.tree.get_children(date):
-                    run_path = self.results_dir / run
-                    import_runs.append(run_path)
+            import_runs = [self.results_dir / run
+                           for date in self.dates
+                               for run in self.tree.get_children(date)]
 
             # Get the list of overlays to import
-            import_overlays = []
             if self.tree.exists("overlays"):
                 for overlay in self.tree.get_children("overlays"):
                     dts = IV_Swinger2.extract_date_time_str(overlay)
@@ -4039,14 +4030,13 @@ class ResultsWizard(tk.Toplevel):
         else:
             # Revisions
             prev_runs = self.overlay_widget_treeview.get_children()  # dts only
-            common_runs = []
-            added_runs = []
 
             # Find runs that are in both the previous set (in the
             # overlay treeview) and in the current selection and put
             # them in a list in the same order they appear in the
             # treeview list (which may have been reordered by the
             # user).
+            common_runs = []
             for prev_run_dts in prev_runs:
                 for run in self.overlaid_runs:
                     run_dts = IV_Swinger2.extract_date_time_str(run)
@@ -4055,13 +4045,9 @@ class ResultsWizard(tk.Toplevel):
                         break
 
             # Find additional runs in the current selection and put
-            # them in a separate list
-            for run in self.overlaid_runs:
-                if run not in common_runs:
-                    added_runs.append(run)
-
-            # Sort the additional runs oldest-to-newest
-            added_runs.sort()
+            # them in a separate list, sorted oldest-to-newest
+            added_runs = sorted([run for run in self.overlaid_runs
+                                 if run not in common_runs])
 
             # Concatenate the two lists and overwrite the list of runs
             # to be overlaid
@@ -8436,9 +8422,7 @@ effect. Please upgrade.
         pv_spec_file = self.master.ivs2.pv_spec_csv_file
         if not pv_spec_file.exists():
             create_pv_spec_file(pv_spec_file)
-        self.pv_specs = []
-        for pv_spec_dict in read_pv_specs(pv_spec_file):
-            self.pv_specs.append(pv_spec_dict)
+        self.pv_specs = list(read_pv_specs(pv_spec_file))
 
     # -------------------------------------------------------------------------
     def populate_pv_model_tab(self):
@@ -9181,10 +9165,8 @@ it and then edit the parameter values.
         # attribute and from the listbox
         else:
             # Remove the pv_spec from pv_specs
-            updated_pv_specs = []
-            for pv_spec_dict in self.pv_specs:
-                if pv_spec_dict["PV Name"] != self.selected_pv:
-                    updated_pv_specs.append(pv_spec_dict)
+            updated_pv_specs = [pv_spec_dict for pv_spec_dict in self.pv_specs
+                                if pv_spec_dict["PV Name"] != self.selected_pv]
             self.pv_specs = updated_pv_specs
 
             # Remove entry from listbox
