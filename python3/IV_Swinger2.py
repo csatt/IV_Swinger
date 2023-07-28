@@ -1307,15 +1307,9 @@ class Configuration():
             self.ivs2.logger.print_and_log(dbg_str)
             self.cfg_dump()
         # Attempt to open the file for writing
-        try:
-            with self.cfg_filename.open("w", encoding="utf-8") as cfg_fp:
-                # Write config to file
-                self.cfg.write(cfg_fp)
-        except IOError:
-            # Failed to open file for writing
-            err_str = "Couldn't open config file for writing"
-            self.ivs2.logger.print_and_log(err_str)
-            return
+        with self.cfg_filename.open("w", encoding="utf-8") as cfg_fp:
+            # Write config to file
+            self.cfg.write(cfg_fp)
 
         # Write meter debug values to log file since they may have
         # changed
@@ -1336,13 +1330,8 @@ class Configuration():
                        f"config to {self.cfg_filename}")
             self.ivs2.logger.print_and_log(dbg_str)
         # Attempt to open the file for writing
-        try:
-            with self.cfg_filename.open("w", encoding="utf-8") as cfg_fp:
-                self.cfg_snapshot.write(cfg_fp)
-        except IOError:
-            # Failed to open file for writing
-            err_str = "Couldn't open config file for writing"
-            self.ivs2.logger.print_and_log(err_str)
+        with self.cfg_filename.open("w", encoding="utf-8") as cfg_fp:
+            self.cfg_snapshot.write(cfg_fp)
 
     # -------------------------------------------------------------------------
     def copy_file(self, dest_dir):
@@ -1356,11 +1345,7 @@ class Configuration():
             dbg_str = (f"copy_file: Copying config from "
                        f"{self.cfg_filename} to {dest_dir}")
             self.ivs2.logger.print_and_log(dbg_str)
-        try:
-            shutil.copy(self.cfg_filename, dest_dir)
-        except shutil.Error as e:
-            err_str = f"Couldn't copy config file to {dest_dir} ({e})"
-            self.ivs2.logger.print_and_log(err_str)
+        shutil.copy(self.cfg_filename, dest_dir)
 
     # -------------------------------------------------------------------------
     def populate(self):
@@ -1937,11 +1922,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         for csv_dir in self.csv_dirs:
             run_info_filename = get_run_info_filename(Path(csv_dir))
             info_added = False
-            try:
-                (irrad,
-                 temps_dict) = get_sensor_values_from_file(run_info_filename)
-            except (IOError, OSError) as e:
-                self.logger.print_and_log(f"({e})")
+            (irrad, temps_dict) = get_sensor_values_from_file(run_info_filename)
             if self.plot_ref and curve_num == 0:
                 irrad = None
                 temps_dict = {}
@@ -3733,10 +3714,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             if self._ds18b20_rom_codes:
                 for msg in self._ds18b20_rom_codes:
                     run_info += f"{msg}"
-            try:
-                self.run_info_filename.write_text(run_info, encoding="utf-8")
-            except (IOError, OSError) as e:
-                self.logger.print_and_log(f"({e})")
+            self.run_info_filename.write_text(run_info, encoding="utf-8")
 
     # -------------------------------------------------------------------------
     def convert_sensor_to_run_info_file(self):
@@ -3747,15 +3725,12 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             #    - append the contents of the sensor_info file
             #    - remove the sensor_info file
             self.create_run_info_file()
-            try:
-                with self.sensor_info_filename.open(encoding="utf-8") as f:
-                    sensor_lines = f.read().splitlines()
-                with self.run_info_filename.open("a", encoding="utf-8") as f:
-                    for line in sensor_lines:
-                        f.write(f"{line}\n")
-                Path(self.sensor_info_filename).unlink()
-            except (IOError, OSError) as e:
-                self.logger.print_and_log(f"({e})")
+            with self.sensor_info_filename.open(encoding="utf-8") as f:
+                sensor_lines = f.read().splitlines()
+            with self.run_info_filename.open("a", encoding="utf-8") as f:
+                for line in sensor_lines:
+                    f.write(f"{line}\n")
+            Path(self.sensor_info_filename).unlink()
 
     # -------------------------------------------------------------------------
     def write_sensor_info_to_file(self, msg):
@@ -3767,11 +3742,8 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
             info_str = self.translate_ads1115_msg_to_irradiance(msg)
         else:
             info_str = msg
-        try:
-            with self.run_info_filename.open("a", encoding="utf-8") as f:
-                f.write(f"{info_str}")
-        except (IOError, OSError) as e:
-            self.logger.print_and_log(f"({e})")
+        with self.run_info_filename.open("a", encoding="utf-8") as f:
+            f.write(f"{info_str}")
 
     # -------------------------------------------------------------------------
     def translate_ads1115_msg_to_photodiode_temp_scaling(self, msg):
@@ -3911,33 +3883,30 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         new_lines = []
         irrad_re = re.compile(r"Irradiance: (\d+) W/m\^2")
         ext_irrad_re = re.compile(r"(\d+) @ (\S+) deg C")
-        try:
-            with self.run_info_filename.open(encoding="utf-8") as f:
-                for line in f.read().splitlines():
-                    match = irrad_re.search(line)
-                    if match:
-                        ext_match = ext_irrad_re.search(line)
-                        if ext_match:
-                            old_irradiance = int(match.group(1))
-                            ratio = new_irradiance / old_irradiance
-                            old_uncomp_irrad = int(ext_match.group(1))
-                            temp = float(ext_match.group(2))
-                            new_uncomp_irrad = int(round(old_uncomp_irrad *
-                                                         ratio))
-                            ext_str = f" ({new_uncomp_irrad} @ {temp} deg C)"
-                        else:
-                            ext_str = ""
-                        round_new_irradiance = int(round(new_irradiance))
-                        new_lines.append(f"Irradiance: {round_new_irradiance} "
-                                         f"W/m^2{ext_str}")
-                        self.irradiance = round_new_irradiance
+        with self.run_info_filename.open(encoding="utf-8") as f:
+            for line in f.read().splitlines():
+                match = irrad_re.search(line)
+                if match:
+                    ext_match = ext_irrad_re.search(line)
+                    if ext_match:
+                        old_irradiance = int(match.group(1))
+                        ratio = new_irradiance / old_irradiance
+                        old_uncomp_irrad = int(ext_match.group(1))
+                        temp = float(ext_match.group(2))
+                        new_uncomp_irrad = int(round(old_uncomp_irrad *
+                                                     ratio))
+                        ext_str = f" ({new_uncomp_irrad} @ {temp} deg C)"
                     else:
-                        new_lines.append(line)
-            with self.run_info_filename.open("w", encoding="utf-8") as f:
-                for line in new_lines:
-                    f.write(f"{line}\n")
-        except (IOError, OSError) as e:
-            self.logger.print_and_log(f"({e})")
+                        ext_str = ""
+                    round_new_irradiance = int(round(new_irradiance))
+                    new_lines.append(f"Irradiance: {round_new_irradiance} "
+                                     f"W/m^2{ext_str}")
+                    self.irradiance = round_new_irradiance
+                else:
+                    new_lines.append(line)
+        with self.run_info_filename.open("w", encoding="utf-8") as f:
+            for line in new_lines:
+                f.write(f"{line}\n")
 
     # -------------------------------------------------------------------------
     def log_msg_from_arduino(self, msg):
@@ -4961,11 +4930,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            output directory)
         """
         run_dir = self.hdd_output_dir.parent
-        try:
-            shutil.copy(filename, run_dir)
-        except shutil.Error as e:
-            err_str = f"Couldn't copy {filename} to {run_dir} ({e})"
-            self.logger.print_and_log(err_str)
+        shutil.copy(filename, run_dir)
 
     # -------------------------------------------------------------------------
     def write_adc_pairs_to_csv_file(self, filename, adc_pairs):
@@ -4988,11 +4953,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
            of ADC pairs
         """
         adc_pairs = []
-        try:
-            csv_lines = filename.read_text(encoding="utf-8").splitlines()
-        except IOError:
-            self.logger.print_and_log(f"ERROR: Cannot read {filename}")
-            return []
+        csv_lines = filename.read_text(encoding="utf-8").splitlines()
         for ii, line in enumerate(csv_lines):
             if ii == 0:
                 expected_first_line = "CH0 (voltage), CH1 (current)"

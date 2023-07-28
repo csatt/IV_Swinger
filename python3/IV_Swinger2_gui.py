@@ -273,7 +273,8 @@ def handle_early_exception():
     if not getattr(sys, "frozen", False):
         print(err_msg)
         return
-    tmp_file = Path(tempfile.NamedTemporaryFile(delete=False).name)
+    with tempfile.NamedTemporaryFile(delete=False) as f:
+        tmp_file = Path(f.name)
     err_msg += f"""
 -----------------------------------------------------------
 Please copy/paste the above and send it to csatt1@gmail.com
@@ -332,9 +333,10 @@ def retry_if_pdf_permission_denied(func, *args):
        file if they have it open in a viewer. Then the function is
        called again.
     """
+    rc = RC_FAILURE
     try:
         rc = func(*args)
-    except IOError as e:
+    except PermissionError as e:
         if pdf_permission_denied(e):
             err_str = (f"({e})\n\nPDF could not be written. If you have it "
                        f"open in a viewer, close it BEFORE clicking OK.")
@@ -347,6 +349,8 @@ def retry_if_pdf_permission_denied(func, *args):
                     err_str = (f"({ee})\n\nPDF still could not be written. "
                                f"It will not be updated.")
                     tkmsg.showerror(message=err_str)
+        else:
+            tkmsg.showerror(message=e)
     return rc
 
 
@@ -817,7 +821,7 @@ class GraphicalUserInterface(ttk.Frame):
         """
         try:
             app_data_dir.mkdir(exist_ok=True)
-        except (IOError, OSError):
+        except PermissionError:
             err_msg = f"""
 FATAL ERROR: This user does not have
 permission to create directories (folders) in
@@ -825,10 +829,9 @@ permission to create directories (folders) in
             tkmsg.showerror(message=err_msg)
             sys.exit()
         try:
-            dummy_file = app_data_dir / "DUMMY_FILE"
-            dummy_file.touch()
-            dummy_file.unlink()
-        except (IOError, OSError):
+            (app_data_dir / "DUMMY_FILE").touch()
+            (app_data_dir / "DUMMY_FILE").unlink()
+        except PermissionError:
             err_msg = f"""
 FATAL ERROR: This user does not have
 permission to create files in
@@ -876,7 +879,7 @@ Or use "View Log File" on the "File" menu.
         version_file = self.app_dir / VERSION_FILE
         try:
             lines = version_file.read_text(encoding="utf-8").splitlines()
-        except IOError:
+        except OSError:
             err_str = f"ERROR: {version_file} cannot be read"
             self.ivs2.logger.print_and_log(err_str)
             return
@@ -1582,7 +1585,7 @@ ERROR: USB port is not connected to IV Swinger 2
         if (run_dir is not None and run_dir.resolve() != config_dir.resolve()
                 and cfg_file.exists()):
             self.config.cfg_filename = original_cfg_file
-            self.config.save_snapshot()
+            self.save_snapshot()
 
     # -------------------------------------------------------------------------
     def handle_plot_power_or_ref_event(self, button="power", plot=True):
@@ -1936,7 +1939,19 @@ ERROR: USB port is not connected to IV Swinger 2
                 (not self.looping or self.loop_save_results)):
             copy_dir = self.ivs2.hdd_output_dir
 
-        self.config.save(copy_dir=copy_dir)
+        try:
+            self.config.save(copy_dir=copy_dir)
+        except OSError as e:
+            tkmsg.showerror(message=e)
+
+    # -------------------------------------------------------------------------
+    def save_snapshot(self):
+        """Wrapper around save_snapshot() method of the Configuration class.
+        """
+        try:
+            self.config.save_snapshot()
+        except OSError as e:
+            tkmsg.showerror(message=e)
 
     # -------------------------------------------------------------------------
     def show_preferences(self, event=None):
@@ -3721,7 +3736,7 @@ class ResultsWizard(tk.Toplevel):
                 if overwrite:
                     try:
                         shutil.rmtree(dest_dir)
-                    except (IOError, OSError, shutil.Error) as e:
+                    except (OSError, shutil.Error) as e:
                         err_str = f"ERROR: removing {dest_dir} ({e})"
                         tkmsg.showerror(message=err_str)
                         continue
@@ -3734,7 +3749,7 @@ class ResultsWizard(tk.Toplevel):
                 else:
                     num_copied["runs"] += 1
                 self.master.ivs2.logger.log(f"Copied {src_dir} to {dest_dir}")
-            except (IOError, OSError, shutil.Error) as e:
+            except (OSError, shutil.Error) as e:
                 err_str = (f"ERROR: error copying {src_dir} to "
                            f"{dest_dir}\n({e})")
                 tkmsg.showerror(message=err_str)
@@ -7214,7 +7229,7 @@ class ResistorValuesDialog(Dialog):
            values to properties and the config
         """
         # Restore config
-        self.master.config.save_snapshot()
+        self.master.save_snapshot()
         self.master.config.get()
 
         # Restore properties
@@ -9739,7 +9754,7 @@ it and then edit the parameter values.
            values to properties and the config
         """
         # Restore config
-        self.master.config.save_snapshot()
+        self.master.save_snapshot()
         self.master.config.get()
 
         # Restore properties

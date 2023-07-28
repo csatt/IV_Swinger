@@ -350,12 +350,7 @@ class CsvParser():
         """
         csv = self.csv_filename
         if not self._data_points:
-            try:
-                csv_lines = csv.read_text(encoding="utf-8").splitlines()
-            except IOError:
-                PrintAndOrLog.print_and_log_msg(self.logger,
-                                                f"Cannot read {csv}")
-                return []
+            csv_lines = csv.read_text(encoding="utf-8").splitlines()
             for ii, line in enumerate(csv_lines):
                 if ii == 0:
                     expected_first_line = "Volts, Amps, Watts, Ohms"

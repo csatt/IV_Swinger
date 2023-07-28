@@ -92,7 +92,6 @@
 # standalone. The main() function creates a SimulatorDialog object with a
 # basic ttk.Frame object as its parent and runs it.
 #
-from pathlib import Path
 import re
 from tkinter import ttk
 import tkinter as tk
