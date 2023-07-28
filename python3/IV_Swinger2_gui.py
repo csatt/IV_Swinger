@@ -3195,7 +3195,7 @@ class ResultsWizard(tk.Toplevel):
             self.master.display_img(gif_file)
 
         # Need at least one of the CSV files to proceed
-        if csv_data_point_file is None and adc_csv_file is None:
+        if csv_data_point_file is adc_csv_file is None:
             return
 
         # Prepare IVS2 object for regeneration of plot with modified
@@ -3907,7 +3907,7 @@ class ResultsWizard(tk.Toplevel):
             # Get names of CSV files
             (csv_data_point_file,
              adc_csv_file, _) = self.get_csv_and_gif_names(run_dir, selection)
-            if csv_data_point_file is None and adc_csv_file is None:
+            if csv_data_point_file is adc_csv_file is None:
                 continue
 
             # Prepare IVS2 object for regeneration of plot with modified
@@ -9658,7 +9658,7 @@ it and then edit the parameter values.
                 err_str += "\n  Line scale value must be zero or positive"
             if point_scale < 0.0:
                 err_str += "\n  Point scale value must be zero or positive"
-            if line_scale == 0.0 and point_scale == 0.0:
+            if line_scale == point_scale == 0.0:
                 err_str += "\n  Line and Point scale cannot both be zero"
         try:
             float(self.series_res_comp_milliohms_str.get())
