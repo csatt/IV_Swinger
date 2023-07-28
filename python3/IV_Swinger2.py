@@ -498,7 +498,7 @@ def noise_reduction(adc_pairs, starting_rot_thresh=5.0,
     """
     # pylint: disable=too-many-branches
     # pylint: disable=too-many-locals
-    adc_pairs_nr = adc_pairs[:]
+    adc_pairs_nr = adc_pairs.copy()
     num_points = len(adc_pairs)
     rot_thresh = starting_rot_thresh
     for _ in range(max_iterations):
@@ -4401,7 +4401,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if comb_dupv_pts:
             adc_pairs_corrected = combine_dup_voltages(adc_pairs)
         else:
-            adc_pairs_corrected = adc_pairs[:]
+            adc_pairs_corrected = adc_pairs.copy()
 
         # Fix Voc
         if fix_voc:
@@ -4466,7 +4466,7 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
                 ch1_adc_wo_overshoot = adc_pair[1]
                 adc_pairs_wo_overshoot.append((ch0_adc_wo_overshoot,
                                                ch1_adc_wo_overshoot))
-            adc_pairs_corrected = adc_pairs_wo_overshoot[:]
+            adc_pairs_corrected = adc_pairs_wo_overshoot.copy()
 
         return adc_pairs_corrected
 
