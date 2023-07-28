@@ -5299,8 +5299,6 @@ will exit.
         if inval_eeprom:
             self.master.ivs2.invalidate_arduino_eeprom()
             self.master.close_gui()
-        else:
-            return
 
     # -------------------------------------------------------------------------
     def show_calibration_help(self):
