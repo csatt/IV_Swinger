@@ -391,7 +391,7 @@ def calc_v_adj(adc_pairs):
 
     # Now look at the four preceding points
     v_intercepts = []
-    for adc_pair_index in [-6, -5, -4, -3]:
+    for adc_pair_index in (-6, -5, -4, -3):
         if len(adc_pairs) + adc_pair_index < 0:
             continue
         # If the point's ADC CH1 (current) value is more than 20% of

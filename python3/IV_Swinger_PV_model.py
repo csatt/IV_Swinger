@@ -536,8 +536,8 @@ def find_parms(voc_isc_vmp_imp, il_guess, i0_guesses, a_guess, rs_guesses,
     # pylint: disable=too-many-nested-blocks
     voc, isc, vmp, imp = voc_isc_vmp_imp
     best_max_abs_err = 999999999
-    for ignore_eq4 in [False, True]:
-        for use_eq5 in [True, False]:
+    for ignore_eq4 in (False, True):
+        for use_eq5 in (True, False):
             for rsh_guess in rsh_guesses:
                 for i0_guess in i0_guesses:
                     for rs_guess in rs_guesses:
@@ -669,11 +669,11 @@ def check_pv_spec(pv_spec):
     assert_lead = "ERROR: "
     # Voc, Isc, Vmp, Imp, and Isc temp coeff must all be positive
     # floating point or integer values
-    for field in [SPEC_FIELDS.index("Voc"),
+    for field in (SPEC_FIELDS.index("Voc"),
                   SPEC_FIELDS.index("Isc"),
                   SPEC_FIELDS.index("Vmp"),
                   SPEC_FIELDS.index("Imp"),
-                  SPEC_FIELDS.index("Isc temp coeff")]:
+                  SPEC_FIELDS.index("Isc temp coeff")):
         assert isinstance(pv_spec[field], (int, float)), \
             (f"{assert_lead} Invalid {SPEC_FIELDS[field]} value "
              f"({pv_spec[field]}). Must be floating point or integer.")
@@ -683,8 +683,8 @@ def check_pv_spec(pv_spec):
 
     # Cells and NOCT must be positive floating point or integer values
     # OR and empty string
-    for field in [SPEC_FIELDS.index("Cells"),
-                  SPEC_FIELDS.index("NOCT")]:
+    for field in (SPEC_FIELDS.index("Cells"),
+                  SPEC_FIELDS.index("NOCT")):
         if pv_spec[field] != "":
             assert isinstance(pv_spec[field], (int, float)), \
                 (f"{assert_lead} Invalid {SPEC_FIELDS[field]} value "
@@ -696,8 +696,8 @@ def check_pv_spec(pv_spec):
 
     # Voc and MPP temp coeff must be negative floating point or integer
     # values
-    for field in [SPEC_FIELDS.index("Voc temp coeff"),
-                  SPEC_FIELDS.index("MPP temp coeff")]:
+    for field in (SPEC_FIELDS.index("Voc temp coeff"),
+                  SPEC_FIELDS.index("MPP temp coeff")):
         assert isinstance(pv_spec[field], (int, float)), \
             (f"{assert_lead} Invalid {SPEC_FIELDS[field]} value "
              f"({pv_spec[field]}). Must be floating point or integer.")
@@ -707,19 +707,19 @@ def check_pv_spec(pv_spec):
 
     # Voc temp coeff units must be "%" or "mV"
     field = SPEC_FIELDS.index("Voc temp coeff units")
-    assert pv_spec[field] in ["%", "mV"], \
+    assert pv_spec[field] in ("%", "mV"), \
         (f"{assert_lead} Invalid {SPEC_FIELDS[field]} "
          f"value ({pv_spec[field]}). Must be % or mV.")
 
     # Isc temp coeff units must be "%" or "mA"
     field = SPEC_FIELDS.index("Isc temp coeff units")
-    assert pv_spec[field] in ["%", "mA"], \
+    assert pv_spec[field] in ("%", "mA"), \
         (f"{assert_lead} Invalid {SPEC_FIELDS[field]} value "
          f"({pv_spec[field]}). Must be % or mA.")
 
     # MPP temp coeff units must be "%"
     field = SPEC_FIELDS.index("MPP temp coeff units")
-    assert pv_spec[field] in ["%"], \
+    assert pv_spec[field] in ("%"), \
         (f"{assert_lead} Invalid {SPEC_FIELDS[field]} value "
          f"({pv_spec[field]}). Must be %.")
 

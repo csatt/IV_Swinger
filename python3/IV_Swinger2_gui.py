@@ -806,7 +806,7 @@ class GraphicalUserInterface(ttk.Frame):
         for _, gui in self.main_gui.instance_gui.items():
             usb_ports.append(gui.ivs2.usb_port)
         usb_ports_in_use = [usb_port for usb_port in usb_ports
-                            if usb_port not in [None, "DISCONNECTED"]]
+                            if usb_port not in (None, "DISCONNECTED")]
         return usb_ports_in_use
 
     # -------------------------------------------------------------------------
@@ -3447,7 +3447,7 @@ class ResultsWizard(tk.Toplevel):
             # Get the list of runs to import from the current tree
             import_runs = [self.results_dir / run
                            for date in self.dates
-                               for run in self.tree.get_children(date)]
+                           for run in self.tree.get_children(date)]
 
             # Get the list of overlays to import
             if self.tree.exists("overlays"):
