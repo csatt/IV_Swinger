@@ -503,7 +503,7 @@ class GraphicalUserInterface(ttk.Frame):
         super().__init__(self.root)
         self.win_sys = self.root.tk.call("tk", "windowingsystem")
         self.memory_monitor()
-        self.app_data_dir = app_data_dir if app_data_dir else \
+        self.app_data_dir = app_data_dir or \
             IV_Swinger2.get_default_app_data_dir()
         self.check_app_data_dir(self.app_data_dir)
         self.app_dir = get_app_dir()
