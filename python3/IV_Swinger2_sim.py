@@ -453,6 +453,7 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
         self.results_text = ""
         # Create an empty Configuration object
         self.config = IV_Swinger2.Configuration(ivs2=self)
+        self.config.get()
         # Capture a snapshot of the current config
         self.config.get_snapshot()
         # Set the image dimension property from the snapshot
