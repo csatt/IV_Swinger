@@ -3364,7 +3364,7 @@ class ResultsWizard(tk.Toplevel):
         app_data_path = self.master.main_gui.ivs2.app_data_dir
 
         # Find path to Desktop
-        desktop_path = Path().home() / "Desktop"
+        desktop_path = Path.home() / "Desktop"
         if not desktop_path.exists():
             err_str = f"ERROR: {desktop_path} does not exist"
             tkmsg.showerror(message=err_str)
