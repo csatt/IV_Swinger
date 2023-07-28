@@ -85,14 +85,13 @@
 #      PreferencesDialog() are more complex dialogs.
 #
 import datetime as dt
+from contextlib import suppress
 from pathlib import Path
 import re
-try:
-    # Mac/Unix only
-    import resource  # pylint: disable=import-error
-except ImportError:
-    # Used only for memory leak debug, so just skip import on Windows
-    pass
+with suppress(ImportError):
+    # Mac/Unix only; used only for memory leak debug, so just skip
+    # import on Windows
+    import resource
 import shutil
 import sys
 import tempfile
@@ -1655,15 +1654,12 @@ ERROR: USB port is not connected to IV Swinger 2
             cfg_file, original_cfg_file = self.swap_config(run_dir, config_dir)
 
         # Update IVS2 properties and the config options
-        try:
+        with suppress(ValueError):  # Silently reject invalid values
             self.ivs2.plot_max_x = float(self.v_range.get())
             self.ivs2.plot_max_y = float(self.i_range.get())
             self.config.cfg_set("Plotting", "plot max x", self.ivs2.plot_max_x)
             self.config.cfg_set("Plotting", "plot max y", self.ivs2.plot_max_y)
             event.widget.tk_focusNext().focus()  # move focus out
-        except ValueError:
-            # Silently reject invalid values
-            pass
         self.update_axis_ranges()
         self.update_idletasks()
 
@@ -3394,7 +3390,7 @@ class ResultsWizard(tk.Toplevel):
                     shortcut.TargetPath = f"{app_data_path}"
                     shortcut.Save()
                     result = "CREATED"
-            except:  # pylint: disable=bare-except
+            except BaseException:  # pylint: disable=broad-exception-caught
                 result = "FAILED"
         else:
             # For Mac or Linux, just create a symlink
@@ -3410,7 +3406,7 @@ class ResultsWizard(tk.Toplevel):
                     target = self.master.ivs2.app_data_dir
                     desktop_shortcut_path.symlink_to(target)
                     result = "CREATED"
-                except:  # pylint: disable=bare-except
+                except BaseException:  # pylint: disable=broad-exception-caught
                     result = "FAILED"
 
         if result == "CREATED":
@@ -4327,12 +4323,9 @@ class ResultsWizard(tk.Toplevel):
         """
         tv = event.widget
         moveto = tv.index(tv.identify_row(event.y))
-        try:
+        with suppress(IndexError):  # Spurious error - ignore
             tv.move(tv.selection()[0], "", moveto)
             self.overlays_reordered = True
-        except IndexError:
-            # Spurious error - ignore
-            pass
 
     # -------------------------------------------------------------------------
     def update_overlay_order(self, event=None):
@@ -9575,10 +9568,8 @@ it and then edit the parameter values.
     # -------------------------------------------------------------------------
     def immediate_apply(self, event=None):
         """Method to apply configuration immediately"""
-        try:
+        with suppress(BaseException):
             event.widget.tk_focusNext().focus()  # move focus out
-        except:  # pylint: disable=bare-except
-            pass
         self.update_idletasks()
         self.apply()
 
@@ -11111,7 +11102,7 @@ def main():
         gui.run()
     except SystemExit:
         gui.close_gui()
-    except:  # pylint: disable=bare-except
+    except BaseException:  # pylint: disable=broad-exception-caught
         handle_early_exception()
 
 
