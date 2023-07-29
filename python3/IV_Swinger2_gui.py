@@ -6746,7 +6746,7 @@ for the DMM measured Point 2 value"""
         log_user_action(self.master.ivs2.logger, msg)
 
         # Check that both points have been measured by the hardware
-        if self.x1 == "Unknown" or self.x2 == "Unknown":
+        if "Unknown" in (self.x1, self.x2):
             error_msg = """
 ERROR: Cannot calibrate until both
 point 1 and point 2 have been measured"""
