@@ -7961,18 +7961,18 @@ class PreferencesDialog(Dialog):
         # pylint: disable=unused-argument
         msg = "(Preferences, Plotting) clicked Restore Defaults button"
         log_user_action(self.master.ivs2.logger, msg)
-        self.fancy_labels.set(str(FANCY_LABELS_DEFAULT))
-        self.interpolation_type.set(str(INTERPOLATION_TYPE_DEFAULT))
-        self.font_name.set(str(FONT_NAME_DEFAULT))
-        self.font_scale.set(str(FONT_SCALE_DEFAULT))
-        self.line_scale.set(str(LINE_SCALE_DEFAULT))
-        self.point_scale.set(str(POINT_SCALE_DEFAULT))
-        self.correct_adc.set(str(CORRECT_ADC_DEFAULT))
-        self.fix_isc.set(str(FIX_ISC_DEFAULT))
-        self.fix_voc.set(str(FIX_VOC_DEFAULT))
-        self.comb_dupv_pts.set(str(COMB_DUPV_PTS_DEFAULT))
-        self.reduce_noise.set(str(REDUCE_NOISE_DEFAULT))
-        self.fix_overshoot.set(str(FIX_OVERSHOOT_DEFAULT))
+        self.fancy_labels.set(FANCY_LABELS_DEFAULT)
+        self.interpolation_type.set(INTERPOLATION_TYPE_DEFAULT)
+        self.font_name.set(FONT_NAME_DEFAULT)
+        self.font_scale.set(FONT_SCALE_DEFAULT)
+        self.line_scale.set(LINE_SCALE_DEFAULT)
+        self.point_scale.set(POINT_SCALE_DEFAULT)
+        self.correct_adc.set(CORRECT_ADC_DEFAULT)
+        self.fix_isc.set(FIX_ISC_DEFAULT)
+        self.fix_voc.set(FIX_VOC_DEFAULT)
+        self.comb_dupv_pts.set(COMB_DUPV_PTS_DEFAULT)
+        self.reduce_noise.set(REDUCE_NOISE_DEFAULT)
+        self.fix_overshoot.set(FIX_OVERSHOOT_DEFAULT)
         # NOTE: battery_bias is not restored since that is usually not
         # what the user would expect.
         if self.master.config.cfg.getboolean("Plotting", "battery bias"):
