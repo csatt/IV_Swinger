@@ -48,12 +48,11 @@
 #
 #
 import datetime as dt
+from contextlib import suppress
 import math
-from pathlib import Path
 import platform
 import re
 import sys
-from inspect import currentframe, getframeinfo
 import warnings
 import numpy as np
 
@@ -62,6 +61,8 @@ import matplotlib.font_manager
 from matplotlib import __version__ as matplotlib_version
 from matplotlib import use
 use("pdf")
+with suppress(ImportError):
+    from icecream import ic
 
 #################
 #   Constants   #
@@ -89,6 +90,13 @@ AMPS_INDEX = 0
 VOLTS_INDEX = 1
 OHMS_INDEX = 2
 WATTS_INDEX = 3
+
+
+#############
+#   Debug   #
+#############
+with suppress(NameError):
+    ic.configureOutput(includeContext=True)
 
 
 ########################
@@ -242,17 +250,6 @@ def sigfigs(number, figs):
             return integer_part
         num_added_zeros = figs - len(integer_part) - len(decimal_part)
     return initial_result_str + "0" * num_added_zeros
-
-
-def print_dbg_str(msg_str):
-    """Global function to use when debugging. The supplied string is
-       printed, preceded by the file name and line number where it is
-       found in the code.
-    """
-    frameinfo = getframeinfo(currentframe().f_back)
-    filename = Path(frameinfo.filename).name
-    linenumber = frameinfo.lineno
-    print(f"{filename}, line {linenumber}: {msg_str}")
 
 
 #################

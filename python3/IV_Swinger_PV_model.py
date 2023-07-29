@@ -180,6 +180,7 @@
 # Voc and Isc are provided and the temperature and/or irradiance are
 # derived.
 #
+from contextlib import suppress
 import datetime as dt
 import csv
 from pathlib import Path
@@ -187,6 +188,8 @@ import warnings
 import numpy as np
 from scipy.optimize import root
 from scipy import __version__ as scipy_version
+with suppress(ImportError):
+    from icecream import ic
 
 #################
 #   Constants   #
@@ -212,6 +215,13 @@ SPEC_FIELDS = ["PV Name", "Voc", "Isc", "Vmp", "Imp", "Cells",
                "MPP temp coeff", "MPP temp coeff units",
                "NOCT"]
 SCIPY_VERSION = scipy_version  # for flake8
+
+
+#############
+#   Debug   #
+#############
+with suppress(NameError):
+    ic.configureOutput(includeContext=True)
 
 
 ########################

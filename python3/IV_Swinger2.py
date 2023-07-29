@@ -73,6 +73,7 @@
 #
 import argparse
 import configparser
+from contextlib import suppress
 import datetime as dt
 import difflib
 import io
@@ -86,6 +87,8 @@ import sys
 import time
 from PIL import Image
 from PIL import __version__ as pillow_version
+with suppress(ImportError):
+    from icecream import ic
 import serial
 import serial.tools.list_ports
 import IV_Swinger
@@ -142,7 +145,6 @@ VOLTS_INDEX = IV_Swinger.VOLTS_INDEX
 OHMS_INDEX = IV_Swinger.OHMS_INDEX
 WATTS_INDEX = IV_Swinger.WATTS_INDEX
 INFINITE_VAL = IV_Swinger.INFINITE_VAL
-PRINT_DBG_STR = IV_Swinger.print_dbg_str
 
 # From Arduino SPI.h:
 SPI_CLOCK_DIV4 = 0x00
@@ -231,6 +233,13 @@ EEPROM_VALID_VALUE = "123456.7890"
 EEPROM_VALID_COUNT = 13  # increment if any added (starts at addr 8)
 # Debug constants
 DEBUG_CONFIG = False
+
+
+#############
+#   Debug   #
+#############
+with suppress(NameError):
+    ic.configureOutput(includeContext=True)
 
 
 ########################

@@ -135,9 +135,19 @@
 # --plot_dir option is specified.
 #
 import argparse
+from contextlib import suppress
 from pathlib import Path
+with suppress(ImportError):
+    from icecream import ic
 
 import IV_Swinger
+
+
+#############
+#   Debug   #
+#############
+with suppress(NameError):
+    ic.configureOutput(includeContext=True)
 
 
 ########################

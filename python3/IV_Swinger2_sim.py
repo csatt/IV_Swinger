@@ -92,6 +92,7 @@
 # standalone. The main() function creates a SimulatorDialog object with a
 # basic ttk.Frame object as its parent and runs it.
 #
+from contextlib import suppress
 import re
 from tkinter import ttk
 import tkinter as tk
@@ -99,6 +100,8 @@ import tkinter.messagebox as tkmsg
 from tkinter.scrolledtext import ScrolledText
 from tkinter.constants import E, W, BOTH, CENTER
 import numpy as np
+with suppress(ImportError):
+    from icecream import ic
 import IV_Swinger2
 
 #################
@@ -237,7 +240,13 @@ RG_DEFAULT = IV_Swinger2.RG_DEFAULT
 SHUNT_DEFAULT = IV_Swinger2.SHUNT_DEFAULT
 RC_SUCCESS = IV_Swinger2.RC_SUCCESS
 RC_FAILURE = IV_Swinger2.RC_FAILURE
-PRINT_DBG_STR = IV_Swinger2.PRINT_DBG_STR
+
+
+#############
+#   Debug   #
+#############
+with suppress(NameError):
+    ic.configureOutput(includeContext=True)
 
 
 ########################

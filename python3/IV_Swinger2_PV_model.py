@@ -42,7 +42,10 @@
 # This module adds IV Swinger 2 specific features to the
 # IV_Swinger_PV_model.py module.
 #
+from contextlib import suppress
 from pathlib import Path
+with suppress(ImportError):
+    from icecream import ic
 import IV_Swinger_PV_model
 import IV_Swinger
 
@@ -51,6 +54,13 @@ import IV_Swinger
 #################
 PV_MODEL_CURVE_NUM_POINTS = 100
 NOC_IRRAD = IV_Swinger_PV_model.NOC_IRRAD
+
+
+#############
+#   Debug   #
+#############
+with suppress(NameError):
+    ic.configureOutput(includeContext=True)
 
 
 #################

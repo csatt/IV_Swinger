@@ -108,7 +108,8 @@ import random
 import zmq
 from send2trash import send2trash
 from PIL import Image, ImageTk
-from icecream import ic
+with suppress(ImportError):
+    from icecream import ic
 from Tooltip import Tooltip
 import IV_Swinger2
 import IV_Swinger2_sim
@@ -181,7 +182,6 @@ RF_DEFAULT = IV_Swinger2.RF_DEFAULT
 RG_DEFAULT = IV_Swinger2.RG_DEFAULT
 SHUNT_DEFAULT = IV_Swinger2.SHUNT_DEFAULT
 INFINITE_VAL = IV_Swinger2.INFINITE_VAL
-PRINT_DBG_STR = IV_Swinger2.PRINT_DBG_STR
 
 # GUI-specific
 VERSION_FILE = "version.txt"
@@ -234,7 +234,13 @@ BATTERY_BIAS_DEFAULT = "Off"
 
 # Debug constants
 DEBUG_MEMLEAK = False
-ic.configureOutput(includeContext=True)
+
+
+#############
+#   Debug   #
+#############
+with suppress(NameError):
+    ic.configureOutput(includeContext=True)
 
 
 ########################
