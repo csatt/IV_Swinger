@@ -9167,7 +9167,7 @@ it and then edit the parameter values.
             # entry was the last one, in which case select the previous
             # entry.
             last_index = self.pv_model_listbox.size() - 1
-            index = curr_index if curr_index <= last_index else last_index
+            index = min(curr_index, last_index)
             self.pv_model_listbox.selection_clear(0, END)
             self.pv_model_listbox.selection_set(index)
             self.pv_model_listbox.activate(index)

@@ -231,7 +231,7 @@ def test_i_given_v_and_parms(amps, volts, il_i0_a_rs_rsh):
        return value sufficiently close to zero.
     """
     il, i0, a, rs, rsh = il_i0_a_rs_rsh
-    exp_term = (volts + amps*rs)/a if (volts + amps*rs)/a < 100 else 100
+    exp_term = min((volts + amps*rs)/a, 100)
     return il - i0 * np.expm1(exp_term) - (volts + amps*rs)/rsh - amps
 
 
@@ -254,7 +254,7 @@ def test_voc(voc, il_i0_a_rsh):
        sufficiently close to zero.
     """
     il, i0, a, rsh = il_i0_a_rsh
-    voc_exp_term = voc/a if voc/a < 100 else 100  # prevent overflow
+    voc_exp_term = min(voc/a, 100)  # prevent overflow
     return il - i0 * np.expm1(voc_exp_term) - voc/rsh
 
 
@@ -275,7 +275,7 @@ def test_isc(isc, il_i0_a_rs_rsh):
        produce a return value sufficiently close to zero.
     """
     il, i0, a, rs, rsh = il_i0_a_rs_rsh
-    isc_exp_term = isc*rs/a if isc*rs/a < 100 else 100  # prevent overflow
+    isc_exp_term = min(isc*rs/a, 100)  # prevent overflow
     return il - i0 * np.expm1(isc_exp_term) - isc*rs/rsh - isc
 
 
@@ -307,7 +307,7 @@ def test_eq4(vmp_imp, i0_a_rs_rsh):
     """
     vmp, imp = vmp_imp
     i0, a, rs, rsh = i0_a_rs_rsh
-    mpp_exp_term = (vmp + imp*rs)/a if (vmp + imp*rs)/a < 100 else 100
+    mpp_exp_term = min((vmp + imp*rs)/a, 100)
     eq4_result = (imp - vmp * (i0 * rsh * np.exp(mpp_exp_term) + a) /
                   (rsh * (i0 * rs * np.exp(mpp_exp_term) + a) + (rs * a)))
     return eq4_result
@@ -331,7 +331,7 @@ def test_eq5(rsh, i0_a_rs_isc):
        should be the negative reciprocal of Rsh.
     """
     i0, a, rs, isc = i0_a_rs_isc
-    mpp_exp_term = (isc*rs)/a if (isc*rs)/a < 100 else 100
+    mpp_exp_term = min((isc*rs)/a, 100)
     eq5_result = (1/rsh - (i0 * rsh * np.exp(mpp_exp_term) + a) /
                   (rsh * (i0 * rs * np.exp(mpp_exp_term) + a) + (rs*a)))
     return eq5_result
@@ -579,9 +579,7 @@ def find_parms(voc_isc_vmp_imp, il_guess, i0_guesses, a_guess, rs_guesses,
                         # Find worst error in results
                         worst_abs_err = 0
                         for res in results:
-                            worst_abs_err = (abs(res)
-                                             if abs(res) > worst_abs_err
-                                             else worst_abs_err)
+                            worst_abs_err = max(abs(res), worst_abs_err)
 
                         # If that's the best so far, update best_parms
                         # and best_results
