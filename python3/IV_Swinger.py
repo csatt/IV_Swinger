@@ -83,7 +83,24 @@ PLOT_COLORS = ["#0000ff",
 DEFAULT_MARKER_POINTSIZE = 6.0
 DEFAULT_LINEWIDTH = 2.5
 POWER_LINEWIDTH_MULT = 1.25
-DEFAULT_FONT = "Arial Unicode MS"
+
+MAX_I_RATIO_DEFAULT = 1.3
+MAX_V_RATIO_DEFAULT = 1.2
+PLOT_DPI_DEFAULT = 100
+PLOT_X_INCHES_DEFAULT = 11.0
+PLOT_X_PIXELS_DEFAULT = PLOT_DPI_DEFAULT * PLOT_X_INCHES_DEFAULT
+PLOT_Y_INCHES_DEFAULT = 8.5
+PLOT_X_SCALE = 1.0
+PLOT_Y_SCALE = 1.0
+FONT_NAME_DEFAULT = "Arial Unicode MS"
+TITLE_FONTSIZE_DEFAULT = 14
+AXISLABEL_FONTSIZE_DEFAULT = 11
+TICKLABEL_FONTSIZE_DEFAULT = 9
+POINT_LABEL_FONTSIZE_DEFAULT = 11
+LEGEND_FONTSIZE_DEFAULT = 9
+FONT_SCALE_DEFAULT = 1.0
+POINT_SCALE_DEFAULT = 1.0
+LINE_SCALE_DEFAULT = 1.0
 
 # Data point list
 AMPS_INDEX = 0
@@ -707,33 +724,33 @@ class IV_Swinger():
         self._use_spline_interpolation = True
         self._plot_power = False
         self._plot_ref = False
-        self._max_i_ratio = 1.3
-        self._max_v_ratio = 1.2
-        self._plot_dpi = 100
+        self._max_i_ratio = MAX_I_RATIO_DEFAULT
+        self._max_v_ratio = MAX_V_RATIO_DEFAULT
+        self._plot_dpi = PLOT_DPI_DEFAULT
         self._plot_max_x = None
         self._plot_max_y = None
-        self._plot_x_inches = 11.0
-        self._plot_y_inches = 8.5
-        self._plot_x_scale = 1.0
-        self._plot_y_scale = 1.0
+        self._plot_x_inches = PLOT_X_INCHES_DEFAULT
+        self._plot_y_inches = PLOT_Y_INCHES_DEFAULT
+        self._plot_x_scale = PLOT_X_SCALE
+        self._plot_y_scale = PLOT_Y_SCALE
         self._plot_title = None
         self._names = None
         self._label_all_iscs = False
         self._label_all_vocs = False
         self._label_all_mpps = False
         self._mpp_watts_only = False
-        self._fancy_labels = False
-        self._font_name = DEFAULT_FONT
-        self._title_fontsize = 14
-        self._axislabel_fontsize = 11
-        self._ticklabel_fontsize = 9
-        self._isclabel_fontsize = 11
-        self._voclabel_fontsize = 11
-        self._mpplabel_fontsize = 11
-        self._legend_fontsize = 9
-        self._font_scale = 1.0
-        self._point_scale = 1.0
-        self._line_scale = 1.0
+        self._fancy_labels = True
+        self._font_name = FONT_NAME_DEFAULT
+        self._title_fontsize = TITLE_FONTSIZE_DEFAULT
+        self._axislabel_fontsize = AXISLABEL_FONTSIZE_DEFAULT
+        self._ticklabel_fontsize = TICKLABEL_FONTSIZE_DEFAULT
+        self._isclabel_fontsize = POINT_LABEL_FONTSIZE_DEFAULT
+        self._voclabel_fontsize = POINT_LABEL_FONTSIZE_DEFAULT
+        self._mpplabel_fontsize = POINT_LABEL_FONTSIZE_DEFAULT
+        self._legend_fontsize = LEGEND_FONTSIZE_DEFAULT
+        self._font_scale = FONT_SCALE_DEFAULT
+        self._point_scale = POINT_SCALE_DEFAULT
+        self._line_scale = LINE_SCALE_DEFAULT
         self._v_sat = None
         self._i_sat = None
         self._ax1 = None
@@ -1341,7 +1358,7 @@ class IV_Swinger():
                 self.logger.print_and_log(f"Couldn't create {img_filename} "
                                           f"with font {self.font_name}; using "
                                           f"default font")
-                self.font_name = DEFAULT_FONT
+                self.font_name = FONT_NAME_DEFAULT
                 self.plot_with_pyplot(data_point_filenames, img_filename,
                                       isc_amps, voc_volts, mpp_amps, mpp_volts)
 

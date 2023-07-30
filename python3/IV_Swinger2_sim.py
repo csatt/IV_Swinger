@@ -240,6 +240,7 @@ RG_DEFAULT = IV_Swinger2.RG_DEFAULT
 SHUNT_DEFAULT = IV_Swinger2.SHUNT_DEFAULT
 RC_SUCCESS = IV_Swinger2.RC_SUCCESS
 RC_FAILURE = IV_Swinger2.RC_FAILURE
+PLOT_X_PIXELS_DEFAULT = IV_Swinger2.PLOT_X_PIXELS_DEFAULT
 
 
 #############
@@ -462,11 +463,7 @@ class IV_Swinger2_sim(IV_Swinger2.IV_Swinger2):
         self.results_text = ""
         # Create an empty Configuration object
         self.config = IV_Swinger2.Configuration(ivs2=self)
-        self.config.get()
-        # Capture a snapshot of the current config
-        self.config.get_snapshot()
-        # Set the image dimension property from the snapshot
-        self.x_pixels = self.config.cfg_snapshot.getint("General", "x pixels")
+        self.x_pixels = PLOT_X_PIXELS_DEFAULT
 
     # ---------------------------------
     @property

@@ -155,10 +155,12 @@ SPI_CLOCK_DIV2 = 0x04
 SPI_CLOCK_DIV8 = 0x05
 SPI_CLOCK_DIV32 = 0x06
 # Default plotting config
-FONT_NAME_DEFAULT = "Arial Unicode MS"
-FONT_SCALE_DEFAULT = 1.0
-LINE_SCALE_DEFAULT = 1.0
-POINT_SCALE_DEFAULT = 1.0
+FONT_NAME_DEFAULT = IV_Swinger.FONT_NAME_DEFAULT
+FONT_SCALE_DEFAULT = IV_Swinger.FONT_SCALE_DEFAULT
+LINE_SCALE_DEFAULT = IV_Swinger.LINE_SCALE_DEFAULT
+POINT_SCALE_DEFAULT = IV_Swinger.POINT_SCALE_DEFAULT
+PLOT_DPI_DEFAULT = IV_Swinger.PLOT_DPI_DEFAULT
+PLOT_X_PIXELS_DEFAULT = IV_Swinger.PLOT_X_PIXELS_DEFAULT
 SERIES_RES_COMP_DEFAULT = 0.0
 BIAS_SERIES_RES_COMP_DEFAULT = 0.0
 # Default Arduino config
@@ -1910,9 +1912,7 @@ class IV_Swinger2_plotter(IV_Swinger_plotter.IV_Swinger_plotter):
         # combobox in the GUI.
         self.args.png = True
         IV_Swinger_plotter.set_ivs_properties(self.args, ivs)
-        default_dpi = 100.0
-        default_x_pixels = 1100.0
-        ivs.plot_dpi = default_dpi * (self.x_pixels/default_x_pixels)
+        ivs.plot_dpi = PLOT_DPI_DEFAULT * (self.x_pixels/PLOT_X_PIXELS_DEFAULT)
         ivs.plot_graphs(self.args, csvp)
         png_file = ivs.plt_img_filename
         gif_file = png_file.with_suffix(".gif")
@@ -2082,19 +2082,11 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         self._photodiode_deg_c = None
         self._scaled_photodiode_millivolts = 0.0
         self._relay_active_high = RELAY_ACTIVE_HIGH_DEFAULT
-        self._plot_title = None
         self._current_img = None
         self._x_pixels = 770  # Default GIF width (770x595)
         self._plot_lock_axis_ranges = False
         self._generate_pdf = True
-        self._fancy_labels = True
         self._linear = True
-        self._plot_power = False
-        self._plot_ref = False
-        self._font_name = FONT_NAME_DEFAULT
-        self._font_scale = FONT_SCALE_DEFAULT
-        self._line_scale = LINE_SCALE_DEFAULT
-        self._point_scale = POINT_SCALE_DEFAULT
         self._correct_adc = True
         self._fix_isc = True
         self._fix_voc = True
@@ -2575,17 +2567,6 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     # ---------------------------------
     @property
-    def plot_title(self):
-        """Title for the plot
-        """
-        return self._plot_title
-
-    @plot_title.setter
-    def plot_title(self, value):
-        self._plot_title = value
-
-    # ---------------------------------
-    @property
     def current_img(self):
         """File name of the current GIF
         """
@@ -2634,19 +2615,6 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
 
     # ---------------------------------
     @property
-    def fancy_labels(self):
-        """Value of the fancy labels flag
-        """
-        return self._fancy_labels
-
-    @fancy_labels.setter
-    def fancy_labels(self, value):
-        if value not in set([True, False]):
-            raise ValueError("fancy_labels must be boolean")
-        self._fancy_labels = value
-
-    # ---------------------------------
-    @property
     def linear(self):
         """Value of the linear flag
         """
@@ -2657,76 +2625,6 @@ class IV_Swinger2(IV_Swinger.IV_Swinger):
         if value not in set([True, False]):
             raise ValueError("linear must be boolean")
         self._linear = value
-
-    # ---------------------------------
-    @property
-    def plot_power(self):
-        """Value of the plot power flag
-        """
-        return self._plot_power
-
-    @plot_power.setter
-    def plot_power(self, value):
-        if value not in set([True, False]):
-            raise ValueError("plot_power must be boolean")
-        self._plot_power = value
-
-    # ---------------------------------
-    @property
-    def plot_ref(self):
-        """Value of the plot ref flag
-        """
-        return self._plot_ref
-
-    @plot_ref.setter
-    def plot_ref(self, value):
-        if value not in set([True, False]):
-            raise ValueError("plot_ref must be boolean")
-        self._plot_ref = value
-
-    # ---------------------------------
-    @property
-    def font_name(self):
-        """Value of the font name
-        """
-        return self._font_name
-
-    @font_name.setter
-    def font_name(self, value):
-        self._font_name = value
-
-    # ---------------------------------
-    @property
-    def font_scale(self):
-        """Value of the font scale
-        """
-        return self._font_scale
-
-    @font_scale.setter
-    def font_scale(self, value):
-        self._font_scale = value
-
-    # ---------------------------------
-    @property
-    def line_scale(self):
-        """Value of the line scale
-        """
-        return self._line_scale
-
-    @line_scale.setter
-    def line_scale(self, value):
-        self._line_scale = value
-
-    # ---------------------------------
-    @property
-    def point_scale(self):
-        """Value of the point scale
-        """
-        return self._point_scale
-
-    @point_scale.setter
-    def point_scale(self, value):
-        self._point_scale = value
 
     # ---------------------------------
     @property
