@@ -3463,6 +3463,10 @@ class ResultsWizard(tk.Toplevel):
         # Set the copy destination to the parent of the app data folder
         # (i.e. strip off the IV_Swinger2)
         self.copy_dest = self.master.ivs2.app_data_dir.parent
+        # Unless the destination is an instance, in which case set the
+        # copy destination to the app data folder itself
+        if self.copy_dest.name == "inst":
+            self.copy_dest = self.master.ivs2.app_data_dir
 
         # Do a "dry run" to check if any of the directories to be
         # copied to already exist. If so, ask user for permission to
@@ -3765,6 +3769,10 @@ class ResultsWizard(tk.Toplevel):
             overlays = "overlays"
         dest_dir = (self.copy_dest / APP_NAME / inst_path / overlays /
                     src_dir.name)
+        # If destination is an instance, don't add the app name or
+        # instance path
+        if self.copy_dest.parent.name == "inst":
+            dest_dir = self.copy_dest / overlays / src_dir.name
         return dest_dir
 
     # -------------------------------------------------------------------------
@@ -3772,9 +3780,12 @@ class ResultsWizard(tk.Toplevel):
         """Method to display a message dialog with a count of how many runs
            were copied
         """
+        dest_dir = self.copy_dest / APP_NAME
+        if self.copy_dest.parent.name == "inst":
+            dest_dir = self.copy_dest
         msg_str = (f"Copied:\n   {num_copied['overlays']} overlays\n"
                    f"   {num_copied['runs']} runs\n"
-                   f"to {self.copy_dest / APP_NAME}\n")
+                   f"to {dest_dir}\n")
         tkmsg.showinfo(message=msg_str)
 
     # -------------------------------------------------------------------------
