@@ -1259,7 +1259,7 @@ class IV_Swinger():
            newlines) and is also written to the log file.
         """
         fonts = {f.name for f in matplotlib.font_manager.fontManager.ttflist}
-        font_names_str = " ".join(sorted(fonts))
+        font_names_str = ", ".join(sorted(fonts))
         self.logger.log(f"Plotting fonts:\n{font_names_str}")
         return font_names_str
 
